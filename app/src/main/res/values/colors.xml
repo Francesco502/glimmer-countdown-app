@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 启动页 & 图标背景色：深海蓝黑，与主题 RetroDarkBackground 一致 -->
+    <color name="splash_bg">#141622</color>
+</resources>

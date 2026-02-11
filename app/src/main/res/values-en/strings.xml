@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Glimmer</string>
+
+    <!-- Home -->
+    <string name="home_empty_title">No countdowns yet</string>
+    <string name="home_empty_subtitle">Tap + below to add your first</string>
+    <string name="fab_add_event">Add event</string>
+    <string name="fab_add_anniversary">Add anniversary</string>
+    <string name="days_left">days</string>
+    <string name="days_left_label">left</string>
+    <string name="days_past_label">ago</string>
+
+    <!-- Filter & Sort -->
+    <string name="filter_all">All</string>
+    <string name="filter_upcoming">Upcoming</string>
+    <string name="filter_past">Past</string>
+    <string name="sort_by_days">By days left</string>
+    <string name="sort_by_date">By target date</string>
+    <string name="sort_by_created">By created</string>
+    <string name="sort_menu">Sort</string>
+
+    <!-- Repeat -->
+    <string name="repeat_none">None</string>
+    <string name="repeat_yearly">Yearly</string>
+    <string name="repeat_half_yearly">Half-yearly</string>
+    <string name="repeat_monthly">Monthly</string>
+    <string name="field_repeat">Repeat</string>
+
+    <!-- Remind -->
+    <string name="field_remind">Remind</string>
+    <string name="remind_same_day">Same day</string>
+    <string name="remind_1_day">1 day before</string>
+    <string name="remind_3_days">3 days before</string>
+    <string name="remind_7_days">7 days before</string>
+    <string name="reminder_time">Reminder time</string>
+    <string name="reminder_time_0">0:00</string>
+    <string name="reminder_time_6">6:00</string>
+    <string name="reminder_time_8">8:00</string>
+    <string name="reminder_time_9">9:00</string>
+    <string name="reminder_time_12">12:00</string>
+    <string name="reminder_time_18">18:00</string>
+
+    <!-- Category preset -->
+    <string name="category_birthday">Birthday</string>
+    <string name="category_anniversary">Anniversary</string>
+    <string name="category_exam">Exam</string>
+    <string name="category_holiday">Holiday</string>
+    <string name="category_other">Other</string>
+    <string name="category_custom">Custom</string>
+
+    <!-- Search -->
+    <string name="search_hint">Search title, category, note</string>
+
+    <!-- Export / Import -->
+    <string name="export_import">Export / Import</string>
+    <string name="export_events">Export events</string>
+    <string name="import_events">Import events</string>
+    <string name="import_hint">Paste JSON or import from file</string>
+    <string name="import_from_file">Choose file</string>
+    <string name="export_success">Exported</string>
+    <string name="export_csv">Export CSV</string>
+    <string name="export_plain_text">Share as plain text</string>
+    <string name="import_success">Imported %d item(s)</string>
+    <string name="import_error">Import failed</string>
+
+    <!-- Event entry / Edit -->
+    <string name="title_new_event">New event</string>
+    <string name="title_edit_event">Edit event</string>
+    <string name="field_title">Title</string>
+    <string name="field_category">Category (e.g. Birthday, Anniversary)</string>
+    <string name="field_date">Date</string>
+    <string name="field_note">Note</string>
+    <string name="field_card_color">Card color</string>
+    <string name="button_save_event">Save</string>
+    <string name="date_picker_ok">OK</string>
+    <string name="date_picker_cancel">Cancel</string>
+    <string name="select_date">Select date</string>
+
+    <!-- Detail -->
+    <string name="detail_title">Event detail</string>
+    <string name="detail_category">Category</string>
+    <string name="detail_target_date">Target date</string>
+    <string name="detail_note">Note</string>
+    <string name="detail_note_empty">None</string>
+    <string name="button_edit">Edit</string>
+    <string name="button_delete">Delete</string>
+    <string name="button_share">Share</string>
+    <string name="delete_confirm_title">Delete event</string>
+    <string name="delete_confirm_message">Delete \"%1$s\"?</string>
+    <string name="delete_confirm_ok">Delete</string>
+    <string name="delete_confirm_cancel">Cancel</string>
+    <string name="deleted_snackbar">Deleted</string>
+    <string name="undo">Undo</string>
+
+    <!-- Share -->
+    <string name="share_text_countdown">%1$s in %2$d days</string>
+    <string name="share_text_past">%1$s was %2$d days ago</string>
+    <string name="share_chooser_title">Share countdown</string>
+    <string name="nav_back">Back</string>
+
+    <!-- Content descriptions -->
+    <string name="cd_add_event">Add event</string>
+    <string name="cd_select_date">Select date</string>
+    <string name="cd_event_card">Event card</string>
+    <string name="cd_edit">Edit</string>
+    <string name="cd_delete">Delete</string>
+    <string name="cd_share">Share</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="theme_title">Theme</string>
+    <string name="theme_follow_system">Follow system</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="hours_remaining">%1$d hours</string>
+    <string name="settings_show_hours">Show hours</string>
+    <string name="settings_show_hours_summary">Show remaining hours on cards (within the day)</string>
+    <string name="language_title">Language</string>
+    <string name="language_zh">中文</string>
+    <string name="language_en">English</string>
+
+    <!-- Widget tags -->
+    <string name="widget_tag_past">Past</string>
+    <string name="widget_tag_soon">Soon</string>
+
+    <!-- Reminder notifications -->
+    <string name="notification_channel_name">Countdown reminders</string>
+    <string name="notification_today">Today!</string>
+    <string name="notification_days_left">%1$d day(s) left</string>
+    <string name="notification_title_prefix">Countdown reminder</string>
+</resources>

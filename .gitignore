@@ -1,0 +1,29 @@
+# 签名与密钥（切勿提交）
+keystore.properties
+*.keystore
+*.jks
+
+# 本地配置
+local.properties
+
+# Build
+build/
+app/build/
+.gradle/
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/settings.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 堆转储等
+*.hprof
+
+# 内部/临时规划（不提交）
+.trae/

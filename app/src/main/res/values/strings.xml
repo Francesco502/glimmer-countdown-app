@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">拾光</string>
+
+    <!-- Home -->
+    <string name="home_empty_title">还没有任何倒计时</string>
+    <string name="home_empty_subtitle">点击下方 + 添加第一个</string>
+    <string name="fab_add_event">添加事件</string>
+    <string name="fab_add_anniversary">添加纪念日</string>
+    <string name="days_left">天</string>
+    <string name="days_left_label">剩余</string>
+    <string name="days_past_label">已过</string>
+
+    <!-- Filter & Sort -->
+    <string name="filter_all">全部</string>
+    <string name="filter_upcoming">即将到来</string>
+    <string name="filter_past">已过期</string>
+    <string name="sort_by_days">按剩余天数</string>
+    <string name="sort_by_date">按目标日期</string>
+    <string name="sort_by_created">按创建时间</string>
+    <string name="sort_menu">排序</string>
+
+    <!-- Repeat -->
+    <string name="repeat_none">无重复</string>
+    <string name="repeat_yearly">每年</string>
+    <string name="repeat_half_yearly">每半年</string>
+    <string name="repeat_monthly">每月</string>
+    <string name="field_repeat">重复</string>
+
+    <!-- Remind -->
+    <string name="field_remind">提醒</string>
+    <string name="remind_same_day">当天</string>
+    <string name="remind_1_day">提前 1 天</string>
+    <string name="remind_3_days">提前 3 天</string>
+    <string name="remind_7_days">提前 7 天</string>
+    <string name="reminder_time">提醒时间</string>
+    <string name="reminder_time_0">0:00</string>
+    <string name="reminder_time_6">6:00</string>
+    <string name="reminder_time_8">8:00</string>
+    <string name="reminder_time_9">9:00</string>
+    <string name="reminder_time_12">12:00</string>
+    <string name="reminder_time_18">18:00</string>
+
+    <!-- Category preset -->
+    <string name="category_birthday">生日</string>
+    <string name="category_anniversary">纪念日</string>
+    <string name="category_exam">考试</string>
+    <string name="category_holiday">节日</string>
+    <string name="category_other">其他</string>
+    <string name="category_custom">自定义</string>
+
+    <!-- Search -->
+    <string name="search_hint">搜索标题、分类、备注</string>
+
+    <!-- Export / Import -->
+    <string name="export_import">导出 / 导入</string>
+    <string name="export_events">导出事件</string>
+    <string name="import_events">导入事件</string>
+    <string name="import_hint">粘贴 JSON 或从文件导入</string>
+    <string name="import_from_file">从文件选择</string>
+    <string name="export_success">已导出</string>
+    <string name="export_csv">导出 CSV</string>
+    <string name="export_plain_text">分享为纯文本</string>
+    <string name="import_success">已导入 %d 条</string>
+    <string name="import_error">导入失败</string>
+
+    <!-- Event entry / Edit -->
+    <string name="title_new_event">新建事件</string>
+    <string name="title_edit_event">编辑事件</string>
+    <string name="field_title">标题</string>
+    <string name="field_category">分类（如生日、纪念日）</string>
+    <string name="field_date">日期</string>
+    <string name="field_note">备注</string>
+    <string name="field_card_color">卡片颜色</string>
+    <string name="button_save_event">保存</string>
+    <string name="date_picker_ok">确定</string>
+    <string name="date_picker_cancel">取消</string>
+    <string name="select_date">选择日期</string>
+
+    <!-- Detail -->
+    <string name="detail_title">事件详情</string>
+    <string name="detail_category">分类</string>
+    <string name="detail_target_date">目标日期</string>
+    <string name="detail_note">备注</string>
+    <string name="detail_note_empty">无</string>
+    <string name="button_edit">编辑</string>
+    <string name="button_delete">删除</string>
+    <string name="button_share">分享</string>
+    <string name="delete_confirm_title">删除事件</string>
+    <string name="delete_confirm_message">确定要删除「%1$s」吗？</string>
+    <string name="delete_confirm_ok">删除</string>
+    <string name="delete_confirm_cancel">取消</string>
+    <string name="deleted_snackbar">已删除</string>
+    <string name="undo">撤销</string>
+
+    <!-- Share -->
+    <string name="share_text_countdown">距离 %1$s 还有 %2$d 天</string>
+    <string name="share_text_past">%1$s 已过 %2$d 天</string>
+    <string name="share_chooser_title">分享倒计时</string>
+    <string name="nav_back">返回</string>
+
+    <!-- Content descriptions -->
+    <string name="cd_add_event">添加事件</string>
+    <string name="cd_select_date">选择日期</string>
+    <string name="cd_event_card">事件卡片</string>
+    <string name="cd_edit">编辑</string>
+    <string name="cd_delete">删除</string>
+    <string name="cd_share">分享</string>
+
+    <!-- Settings -->
+    <string name="settings_title">设置</string>
+    <string name="theme_title">主题</string>
+    <string name="theme_follow_system">跟随系统</string>
+    <string name="theme_light">浅色</string>
+    <string name="theme_dark">深色</string>
+    <string name="hours_remaining">%1$d 小时</string>
+    <string name="settings_show_hours">显示小时</string>
+    <string name="settings_show_hours_summary">在卡片上显示剩余小时数（当天内）</string>
+    <string name="language_title">语言</string>
+    <string name="language_zh">中文</string>
+    <string name="language_en">English</string>
+
+    <!-- Widget tags -->
+    <string name="widget_tag_past">已过</string>
+    <string name="widget_tag_soon">临近</string>
+
+    <!-- Reminder notifications -->
+    <string name="notification_channel_name">倒计时提醒</string>
+    <string name="notification_today">就是今天！</string>
+    <string name="notification_days_left">还有 %1$d 天</string>
+    <string name="notification_title_prefix">倒计时提醒</string>
+</resources>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  拾光 启动页 V6 — 仅深色底 + 居中 logo，无白圈无装饰
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 全屏深海蓝黑底 -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#141622" />
+        </shape>
+    </item>
+
+    <!-- 居中 logo（图标本身已是深底+沙漏，无浅色框） -->
+    <item
+        android:width="88dp"
+        android:height="88dp"
+        android:gravity="center"
+        android:drawable="@drawable/ic_launcher" />
+
+</layer-list>

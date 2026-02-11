@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  拾光 Icon V7 — 「拾光·原点」
+  极致简约：深海蓝黑底 + 纯净奶油沙漏 + 砖红核心圆点
+  无刻度、无边框、无杂饰，强调几何美感与留白
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 1. 底色：深海蓝黑 #141622 (RetroDarkBackground) -->
+    <path
+        android:fillColor="#141622"
+        android:pathData="M0,0h108v108H0z" />
+
+    <!-- 2. 上沙漏：奶油杏色 #FDF4DE (RetroDarkSurface) -->
+    <!-- 梯形：上宽下窄，代表流逝 -->
+    <path
+        android:fillColor="#FDF4DE"
+        android:pathData="M32,28 L76,28 L62,50 L46,50 Z" />
+
+    <!-- 3. 下沙漏：奶油杏色 #FDF4DE (RetroDarkSurface) -->
+    <!-- 梯形：上窄下宽，代表积累 -->
+    <path
+        android:fillColor="#FDF4DE"
+        android:pathData="M46,58 L62,58 L76,80 L32,80 Z" />
+
+    <!-- 4. 核心：砖红原点 #D65C5C (RetroDarkPrimary) -->
+    <!-- 象征被拾起的时光/当下，居中悬浮 -->
+    <path
+        android:fillColor="#D65C5C"
+        android:pathData="M54,54 m-6,0 a6,6 0 1,1 12,0 a6,6 0 1,1 -12,0" />
+
+</vector>

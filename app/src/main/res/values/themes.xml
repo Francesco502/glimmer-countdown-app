@@ -1,0 +1,6 @@
+<resources>
+    <style name="Theme.TimeAPK" parent="android:Theme.Material.Light.NoActionBar">
+        <!-- 启动时显示的画面：深色背景 + 居中图标，与港式复古深色主题一致 -->
+        <item name="android:windowBackground">@drawable/splash_background</item>
+    </style>
+</resources>
