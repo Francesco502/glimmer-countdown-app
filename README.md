@@ -1,4 +1,7 @@
-# 拾光 (TimeAPK)
+# 拾光 (Glimmer)
+
+> "Captured light in the deep ocean of time."
+> "在时间的深海里，拾起一缕微光。"
 
 一款基于 **Jetpack Compose** 与 **Material 3** 的 Android 倒计时 / 纪念日应用，支持多语言（中/英）、主题切换、桌面小部件与提醒通知。
 
