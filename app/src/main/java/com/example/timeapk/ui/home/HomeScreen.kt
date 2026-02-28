@@ -423,8 +423,8 @@ fun EventCard(
     )
 
     // Song Aesthetics: "Juanben" (Silk Scroll) Texture
-    // Slightly reduce transparency again to make cards darker and more solid.
-    val juanbenTint = if (isPast) 0.35f else 0.55f
+    // Adjusted transparency to accommodate the lighter, elegant base colors.
+    val juanbenTint = if (isPast) 0.5f else 0.85f
     val cardContainerColor = baseCardColor.copy(alpha = juanbenTint)
     
     // Content color: "Jiao Mo" (Burnt Ink) - Darker, richer text to contrast with the deeper background

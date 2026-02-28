@@ -15,13 +15,16 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.graphicsLayer
@@ -41,17 +44,16 @@ import java.time.Instant
 import java.time.ZoneId
 
 private val PRESET_COLORS = listOf(
-    // 宋代工笔画风格配色：
-    "#B5495B", // 胭脂 (Rouge)
-    "#4A746A", // 石绿 (Mineral Green)
-    "#869D9D", // 蟹壳青 (Crab Shell Green)
-    "#D4C4B5", // 泥金 (Gold Paste)
-    "#8C4B47", // 赭石 (Ocher)
-    "#E0D6C8", // 浅金 (Pale Gold)
-    "#5D7A76", // 黛绿 (Dark Green)
-    "#2B2B2B", // 墨色 (Ink)
-    "#993C3C43", // 传统的深灰 (LabelSecondary)
-    "#1C1C1E"  // 传统的深黑 (SurfaceDark)
+    // 宋代淡雅绢本设色风格：
+    "#E6C8B5", // 秋香/缃色 (淡黄)
+    "#E2D1D1", // 退红 (淡粉红)
+    "#D0D6CD", // 雨过天青 (浅青)
+    "#D4D0C5", // 绢色/米灰 (本色)
+    "#C8CDB4", // 蟹壳青/草木 (灰绿)
+    "#C0C4C9", // 月白 (蓝灰)
+    "#D5C2C9", // 藕荷 (粉紫)
+    "#A5A7A6", // 淡墨 (浅灰)
+    "#B09A97"  // 檀色 (紫棕)
 )
 // CATEGORY_DEFAULT_COLOR map removed as explicit category selection is gone
 
@@ -254,6 +256,20 @@ fun EventInputForm(
         focusedBorderColor = MaterialTheme.colorScheme.primary,
         unfocusedBorderColor = MaterialTheme.colorScheme.outline
     )
+    
+    var showCustomColorDialog by remember { mutableStateOf(false) }
+    
+    if (showCustomColorDialog) {
+        CustomColorDialog(
+            initialColor = eventDetails.colorHex,
+            onColorSelected = { 
+                onValueChange(eventDetails.copy(colorHex = it))
+                showCustomColorDialog = false
+            },
+            onDismiss = { showCustomColorDialog = false }
+        )
+    }
+
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
         // 标题输入：直角，透明底，强调边框（文字色由下方 LocalContentColor 提供）
         OutlinedTextField(
@@ -430,18 +446,41 @@ fun EventInputForm(
         ) {
             PRESET_COLORS.forEach { hex ->
                 val color = try { Color(android.graphics.Color.parseColor(hex)) } catch (_: Exception) { Color.Gray }
-                val selected = eventDetails.colorHex == hex
+                val selected = eventDetails.colorHex?.uppercase() == hex.uppercase()
                 ColorChip(
                     color = color,
                     selected = selected,
                     onClick = { onValueChange(eventDetails.copy(colorHex = hex)) }
                 )
             }
+            
+            // Custom color display (if selected color is not in presets)
+            val isCustomSelected = eventDetails.colorHex != null && !PRESET_COLORS.any { it.equals(eventDetails.colorHex, ignoreCase = true) }
+            if (isCustomSelected) {
+                val hex = eventDetails.colorHex!!
+                val color = try { Color(android.graphics.Color.parseColor(hex)) } catch (_: Exception) { Color.Gray }
+                ColorChip(
+                    color = color,
+                    selected = true,
+                    onClick = { showCustomColorDialog = true }
+                )
+            }
+
+            // Custom color button
+            ColorChip(
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                selected = false,
+                onClick = { showCustomColorDialog = true },
+                icon = Icons.Default.Palette
+            )
+
+            // No color selected
             val noColorSelected = eventDetails.colorHex == null
             ColorChip(
                 color = MaterialTheme.colorScheme.surface,
                 selected = noColorSelected,
-                onClick = { onValueChange(eventDetails.copy(colorHex = null)) }
+                onClick = { onValueChange(eventDetails.copy(colorHex = null)) },
+                icon = Icons.Default.Clear
             )
         }
     }
@@ -451,7 +490,8 @@ fun EventInputForm(
 private fun ColorChip(
     color: Color,
     selected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -467,8 +507,74 @@ private fun ColorChip(
             .background(color, RoundedCornerShape(4.dp))
             .then(
                 if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp))
-                else Modifier
+                else Modifier.border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
             )
-            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
+            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        if (icon != null) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = if (color.luminance() > 0.5f) Color.Black.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.8f)
+            )
+        }
+    }
+}
+
+@Composable
+fun CustomColorDialog(
+    initialColor: String?,
+    onColorSelected: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var hexCode by remember { mutableStateOf(initialColor?.removePrefix("#") ?: "FFFFFF") }
+    var isError by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(hexCode) {
+        isError = try {
+            if (hexCode.length == 6 || hexCode.length == 8) {
+                android.graphics.Color.parseColor("#$hexCode")
+                false
+            } else true
+        } catch (e: Exception) {
+            true
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.custom_colors_title)) },
+        text = {
+            OutlinedTextField(
+                value = hexCode,
+                onValueChange = { hexCode = it.take(8).uppercase() },
+                prefix = { Text("#") },
+                isError = isError,
+                singleLine = true,
+                label = { Text(stringResource(R.string.custom_color_hex_hint)) }
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val fullHex = "#$hexCode"
+                    try {
+                        android.graphics.Color.parseColor(fullHex)
+                        onColorSelected(fullHex)
+                    } catch (e: Exception) {
+                    }
+                },
+                enabled = !isError
+            ) {
+                Text(stringResource(R.string.date_picker_ok))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.date_picker_cancel))
+            }
+        }
     )
 }
