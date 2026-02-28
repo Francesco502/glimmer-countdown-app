@@ -3,7 +3,7 @@
 > "Captured light in the deep ocean of time."
 > "在时间的深海里，拾起一缕微光。"
 
-一款基于 **Jetpack Compose** 与 **Material 3** 的 Android 倒计时 / 纪念日应用，支持多语言（中/英）、主题切换、桌面小部件与提醒通知。
+**v2.0** · 一款基于 **Jetpack Compose** 与 **Material 3** 的 Android 倒计时 / 纪念日应用，支持多语言（中/英）、主题切换、桌面小部件、应用内检查更新与提醒通知。
 
 ## 技术栈
 
@@ -21,15 +21,15 @@
 
 - **Android Studio**  Ladybug (2024.2.1) 或更高（推荐）
 - **JDK** 17
-- **minSdk** 26 · **targetSdk** 34
+- **minSdk** 26 · **targetSdk** 35
 
 ## 快速开始
 
 ### 克隆与打开
 
 ```bash
-git clone https://github.com/<你的用户名>/TimeAPK.git
-cd TimeAPK
+git clone https://github.com/Francesco502/glimmer-countdown-app.git
+cd glimmer-countdown-app
 ```
 
 用 Android Studio 打开项目根目录即可。
@@ -66,7 +66,7 @@ cd TimeAPK
    ```bash
    ./gradlew assembleDirectRelease
    ```
-   产出路径：`app/build/outputs/apk/direct/release/`
+   产出路径：`app/build/outputs/apk/direct/release/glimmer-countdown-2-0.apk`（版本号随 gradle.properties 中 VERSION_NAME 变化）
 
 更多发布与更新说明见 **[docs/release_and_update_guide.md](docs/release_and_update_guide.md)**。  
 上传 GitHub 与打包发布完整步骤见 **[docs/GITHUB_AND_RELEASE.md](docs/GITHUB_AND_RELEASE.md)**。
@@ -79,7 +79,7 @@ app/src/main/
 │   ├── data/           # Room、Repository
 │   ├── ui/              # Compose 界面与 ViewModel
 │   ├── notifications/   # 提醒调度
-│   ├── update/          # 更新检查接口（预留）
+│   ├── update/          # 应用内检查更新（GitHub Release）
 │   ├── widget/          # 桌面小部件
 │   ├── MainActivity.kt
 │   ├── TimeApplication.kt
@@ -93,11 +93,7 @@ app/src/main/
 |------|------|
 | [release_and_update_guide.md](docs/release_and_update_guide.md) | 发布 APK、签名、版本与更新渠道说明 |
 | [GITHUB_AND_RELEASE.md](docs/GITHUB_AND_RELEASE.md) | 上传 GitHub 与打包发布操作步骤 |
-| [design_plan_hk_retro.md](docs/design_plan_hk_retro.md) | 港式复古 UI 设计规范 |
-| [canvas_design_philosophy.md](docs/canvas_design_philosophy.md) | Harbor Glow 视觉哲学 |
-| [icon_assets.md](docs/icon_assets.md) | 图标规范与 AI 生图 Prompt |
-| [interaction_design_changelog.md](docs/interaction_design_changelog.md) | 交互与动效说明 |
-| [优化建议.md](docs/优化建议.md) | 功能与体验优化规划 |
+| [RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md) | 发布前检查清单 |
 
 ## 许可证
 

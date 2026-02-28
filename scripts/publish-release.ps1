@@ -6,7 +6,7 @@ $owner = "Francesco502"
 $repo = "glimmer-countdown-app"
 $tag = $null
 $releaseName = $null
-$releaseNotes = "Glimmer countdown app release."
+$releaseNotes = "拾光 (Glimmer) 倒计时 / 纪念日应用。支持多语言、主题切换、桌面小组件、应用内检查更新。"
 $rootDir = Split-Path $PSScriptRoot -Parent
 # APK 文件名与 build.gradle.kts 一致：glimmer-countdown-2-0.apk（或 gradle.properties 中的 VERSION_NAME）
 $versionName = "2.0"
