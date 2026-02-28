@@ -6,14 +6,23 @@ $owner = "Francesco502"
 $repo = "glimmer-countdown-app"
 $tag = $null
 $releaseName = $null
-$releaseNotes = "拾光 (Glimmer) 倒计时 / 纪念日应用。支持多语言、主题切换、桌面小组件、应用内检查更新。"
 $rootDir = Split-Path $PSScriptRoot -Parent
-# APK 文件名与 build.gradle.kts 一致：glimmer-countdown-2-0.apk（或 gradle.properties 中的 VERSION_NAME）
-$versionName = "2.0"
 $gradleProps = Join-Path $rootDir "gradle.properties"
+$versionName = "2.0"
 if (Test-Path $gradleProps) {
     $line = Get-Content $gradleProps | Where-Object { $_ -match "^\s*VERSION_NAME\s*=\s*(.+)$" } | Select-Object -First 1
     if ($line -match "VERSION_NAME\s*=\s*(.+)") { $versionName = $Matches[1].Trim() }
+}
+
+# 从 CHANGELOG.md 读取对应版本的更新说明，用于 GitHub Release body（将显示在应用内「更新说明」中）
+$releaseNotes = "拾光 (Glimmer) 倒计时 / 纪念日应用。"
+$changelogPath = Join-Path $rootDir "CHANGELOG.md"
+if (Test-Path $changelogPath) {
+    $content = Get-Content $changelogPath -Raw -Encoding UTF8
+    $escapedVer = [regex]::Escape($versionName)
+    if ($content -match "(?ms)^##\s+\[$escapedVer\][^\r\n]*\r?\n(.*?)(?=\r?\n##\s+\[|\z)") {
+        $releaseNotes = $Matches[1].Trim()
+    }
 }
 $apkName = "glimmer-countdown-" + ($versionName -replace "\.", "-") + ".apk"
 $apkPath = Join-Path $rootDir "app/build/outputs/apk/direct/release/$apkName"

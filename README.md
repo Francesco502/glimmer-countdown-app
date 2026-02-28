@@ -91,6 +91,7 @@ app/src/main/
 
 | 文档 | 说明 |
 |------|------|
+| [CHANGELOG.md](CHANGELOG.md) | 版本更新日志（含 v1.0 → v2.0 等） |
 | [release_and_update_guide.md](docs/release_and_update_guide.md) | 发布 APK、签名、版本与更新渠道说明 |
 | [GITHUB_AND_RELEASE.md](docs/GITHUB_AND_RELEASE.md) | 上传 GitHub 与打包发布操作步骤 |
 | [RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md) | 发布前检查清单 |
