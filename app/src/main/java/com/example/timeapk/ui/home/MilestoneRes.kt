@@ -1,5 +1,6 @@
 package com.example.timeapk.ui.home
 
+import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.example.timeapk.R
@@ -19,5 +20,12 @@ fun getMilestoneLabelRes(value: Long): Int? = when (value) {
 fun milestoneLabel(value: Long): String {
     val resId = getMilestoneLabelRes(value)
     return if (resId != null) stringResource(resId)
-    else stringResource(R.string.milestone_days_format, value.toInt())
+    else stringResource(R.string.milestone_days_format, value)
+}
+
+/** 非 Composable 场景下获取节点描述（如 Worker、后台调度）. */
+fun getMilestoneLabel(context: Context, value: Long): String {
+    val resId = getMilestoneLabelRes(value)
+    return if (resId != null) context.getString(resId)
+    else context.getString(R.string.milestone_days_format, value)
 }

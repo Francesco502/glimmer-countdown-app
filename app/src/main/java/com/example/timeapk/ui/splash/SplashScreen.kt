@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -52,42 +53,38 @@ fun SplashScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
-        contentAlignment = Alignment.Center
+            .background(MaterialTheme.colorScheme.background)
     ) {
         Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier.alpha(alpha.value)
+            modifier = Modifier
+                .fillMaxSize()
+                .alpha(alpha.value),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Spacer(modifier = Modifier.weight(1f))
             Image(
                 painter = painterResource(id = R.drawable.ic_launcher_foreground),
                 contentDescription = null,
-                modifier = Modifier.size(120.dp)
+                modifier = Modifier.size(260.dp)
             )
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
+            Spacer(modifier = Modifier.weight(1f))
             Text(
-                text = "在时间的深海里，拾起一缕微光。",
+                text = stringResource(R.string.splash_tagline),
                 style = MaterialTheme.typography.titleMedium.copy(
                     letterSpacing = 2.sp,
-                    lineHeight = 28.sp,
-                    fontFamily = androidx.compose.ui.text.font.FontFamily.Serif
+                    lineHeight = 28.sp
                 ),
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f)
             )
-            
             Spacer(modifier = Modifier.height(8.dp))
-            
             Text(
-                text = "Captured light in the deep ocean of time.",
+                text = stringResource(R.string.splash_subtitle),
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    letterSpacing = 1.sp,
-                    fontFamily = androidx.compose.ui.text.font.FontFamily.Serif
+                    letterSpacing = 1.sp
                 ),
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
             )
+            Spacer(modifier = Modifier.height(48.dp))
         }
     }
 }

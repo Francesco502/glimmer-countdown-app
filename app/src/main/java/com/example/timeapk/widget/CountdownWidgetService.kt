@@ -12,6 +12,7 @@ import com.example.timeapk.TimeApplication
 import com.example.timeapk.ui.home.EventUiState
 import com.example.timeapk.ui.home.toEventUiState
 import com.example.timeapk.ui.utils.formatDays
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import androidx.core.content.ContextCompat
 
@@ -45,8 +46,9 @@ class CountdownRemoteViewsFactory(
         try {
             val app = context.applicationContext as TimeApplication
             val list = runBlocking {
+                val milestones = app.userPrefs.customMilestonesFlow.first()
                 app.repository.getAllEventsSnapshot()
-                    .map { it.toEventUiState() }
+                    .map { it.toEventUiState(milestones) }
                     .sortedWith(
                         compareBy<EventUiState> { it.isPast }.thenBy { it.daysRemaining }
                     )
@@ -72,9 +74,6 @@ class CountdownRemoteViewsFactory(
         val textColor = ContextCompat.getColor(context, textColorRes)
         val tagColorRes = if (isDark) R.color.widget_tag_dark else R.color.widget_tag_light
         val tagColor = ContextCompat.getColor(context, tagColorRes)
-        val bgDrawableRes = if (isDark) R.drawable.widget_item_bg_dark else R.drawable.widget_item_bg_light
-
-        views.setInt(R.id.widget_item_root, "setBackgroundResource", bgDrawableRes)
 
         val tagText = when {
             state.isPast -> context.getString(R.string.widget_tag_past)

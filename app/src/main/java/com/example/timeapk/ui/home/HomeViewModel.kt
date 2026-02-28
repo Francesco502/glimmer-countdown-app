@@ -6,7 +6,9 @@ import androidx.lifecycle.viewModelScope
 import com.example.timeapk.data.DEFAULT_MILESTONE_DAYS
 import com.example.timeapk.data.Event
 import com.example.timeapk.data.UserPreferencesRepository
+import com.example.timeapk.notifications.cancelMilestoneReminders
 import com.example.timeapk.notifications.cancelReminder
+import com.example.timeapk.notifications.rescheduleMilestoneReminders
 import com.example.timeapk.notifications.scheduleReminder
 import com.example.timeapk.widget.WidgetUpdater
 import com.example.timeapk.data.REPEAT_HALF_YEARLY
@@ -14,6 +16,8 @@ import com.example.timeapk.data.REPEAT_MONTHLY
 import com.example.timeapk.data.REPEAT_NONE
 import com.example.timeapk.data.REPEAT_YEARLY
 import com.example.timeapk.data.EventRepository
+import com.example.timeapk.ui.utils.eventDateToLocalDate
+import com.example.timeapk.ui.utils.safeWithYear
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -26,10 +30,9 @@ import java.time.temporal.ChronoUnit
 
 fun Event.toEventUiState(milestones: List<Long> = DEFAULT_MILESTONE_DAYS): EventUiState {
     val today = LocalDate.now()
-    val targetDate = Instant.ofEpochMilli(date).atZone(ZoneId.systemDefault()).toLocalDate()
+    val targetDate = eventDateToLocalDate(date)
     val hasStarted = !targetDate.isAfter(today)
     var nextTargetDate = targetDate
-    // 上次发生日：用于计算重复类型事件「已经过去多少天」
     var prevTargetDate: LocalDate? = null
 
     when (repeatType) {
@@ -46,20 +49,23 @@ fun Event.toEventUiState(milestones: List<Long> = DEFAULT_MILESTONE_DAYS): Event
             }
         }
         REPEAT_HALF_YEARLY -> {
-            var next = targetDate
-            while (next.isBefore(today)) {
-                next = next.plusMonths(6)
+            if (hasStarted) {
+                val monthsBetween = ChronoUnit.MONTHS.between(targetDate, today)
+                val periods = ((monthsBetween / 6) + 1) * 6
+                var next = targetDate.plusMonths(periods)
+                if (next.isBefore(today)) next = next.plusMonths(6)
+                nextTargetDate = next
+                prevTargetDate = next.minusMonths(6)
             }
-            nextTargetDate = next
-            prevTargetDate = if (next != targetDate) next.minusMonths(6) else null
         }
         REPEAT_MONTHLY -> {
-            var next = targetDate
-            while (next.isBefore(today)) {
-                next = next.plusMonths(1)
+            if (hasStarted) {
+                val monthsBetween = ChronoUnit.MONTHS.between(targetDate, today)
+                var next = targetDate.plusMonths(monthsBetween + 1)
+                if (next.isBefore(today)) next = next.plusMonths(1)
+                nextTargetDate = next
+                prevTargetDate = next.minusMonths(1)
             }
-            nextTargetDate = next
-            prevTargetDate = if (next != targetDate) next.minusMonths(1) else null
         }
         else -> { /* REPEAT_NONE: prevTargetDate remains null */ }
     }
@@ -70,26 +76,27 @@ fun Event.toEventUiState(milestones: List<Long> = DEFAULT_MILESTONE_DAYS): Event
     val daysRemainingAbs = kotlin.math.abs(daysDiff)
     val daysElapsed = if (isPast) daysRemainingAbs else 0L
     val daysLeft = if (isPast) 0L else daysRemainingAbs
-    // 重复事件未到时：daysPassed = 距上次发生已过天数；一次性事件已过时 = daysRemainingAbs；否则 = 0
     val daysPassed = when {
         isPast -> daysRemainingAbs
         repeatType == REPEAT_YEARLY && hasStarted -> maxOf(0L, ChronoUnit.DAYS.between(targetDate, today))
         prevTargetDate != null -> maxOf(0L, ChronoUnit.DAYS.between(prevTargetDate, today))
         else -> 0L
     }
-    // 仅在距离目标小于 24 小时时显示"小时"，避免远期事件显示 23 小时的错误
     val totalHours = ChronoUnit.HOURS.between(Instant.now(), nextTargetInstant)
     val hoursRemaining = if (!isPast && totalHours in 0..23) {
         totalHours
     } else {
         0L
     }
-    val (nextMilestoneDays, nextMilestoneValue) = computeNextMilestone(
-        milestones = milestones,
-        isPast = isPast,
-        daysRemainingAbs = daysRemainingAbs,
-        daysElapsed = daysElapsed
-    )
+    val milestoneCurrent = when {
+        repeatType == REPEAT_YEARLY && hasStarted -> daysPassed
+        isPast -> daysElapsed
+        else -> daysPassed
+    }
+    val (nextMilestoneDays, nextMilestoneValue) = when {
+        repeatType == REPEAT_NONE && !isPast -> computeNextCountdownMilestone(milestones, daysRemainingAbs)
+        else -> computeNextMilestone(milestones, milestoneCurrent)
+    }
     return EventUiState(
         event = this,
         daysRemaining = daysRemainingAbs,
@@ -103,31 +110,22 @@ fun Event.toEventUiState(milestones: List<Long> = DEFAULT_MILESTONE_DAYS): Event
     )
 }
 
-/**
- * 安全地将日期更换年份，处理闰日（如 2000-02-29）在非闰年时自动回退到 02-28。
- */
-private fun safeWithYear(date: LocalDate, year: Int): LocalDate? {
-    return try {
-        date.withYear(year)
-    } catch (_: Exception) {
-        try { LocalDate.of(year, date.monthValue, 28) } catch (_: Exception) { null }
-    }
-}
-
-private fun computeNextMilestone(
-    milestones: List<Long>,
-    isPast: Boolean,
-    daysRemainingAbs: Long,
-    daysElapsed: Long
-): Pair<Long?, Long?> {
+/** @param current 当前基准天数：自开始日起天数（始终递增，里程碑才有意义） */
+private fun computeNextMilestone(milestones: List<Long>, current: Long): Pair<Long?, Long?> {
     val list = milestones.filter { it > 0 }.distinct().sorted()
     if (list.isEmpty()) return null to null
-    // 若已经开始（包括进行中的纪念日/生日），以已过天数为基准；否则以剩余天数为基准
-    val current = if (daysElapsed > 0) daysElapsed else daysRemainingAbs
     val next = list.firstOrNull { it > current }
     if (next == null) return null to null
     val daysUntilMilestone = next - current
     return daysUntilMilestone to next
+}
+
+/** 未来非重复事件：按剩余天数倒计时节点，取「下一个将到达」的节点（剩余天数 ≤ 当前剩余的天数中最大者） */
+private fun computeNextCountdownMilestone(milestones: List<Long>, daysRemaining: Long): Pair<Long?, Long?> {
+    val list = milestones.filter { it > 0 }.distinct().sorted()
+    if (list.isEmpty()) return null to null
+    val next = list.filter { it <= daysRemaining }.maxOrNull() ?: return null to null
+    return (daysRemaining - next) to next
 }
 
 data class EventUiState(
@@ -148,26 +146,30 @@ class HomeViewModel(
     private val userPrefs: UserPreferencesRepository
 ) : AndroidViewModel(application) {
     companion object {
-        /** 列表分页：最多展示的未来事件数量 */
         private const val MAX_UPCOMING_ITEMS = 100
-
-        /** 列表分页：最多展示的最近已过事件数量 */
         private const val MAX_PAST_ITEMS = 50
     }
 
     fun deleteEvent(event: Event) {
         viewModelScope.launch {
             cancelReminder(application, event.id)
+            cancelMilestoneReminders(application, event.id)
             repository.deleteEvent(event)
+            rescheduleMilestoneReminders(application)
             WidgetUpdater.refreshCountdownWidgets(application)
         }
     }
 
     fun restoreEvent(event: Event) {
         viewModelScope.launch {
-            repository.insertEvent(event)
-            scheduleReminder(application, event)
-            WidgetUpdater.refreshCountdownWidgets(application)
+            try {
+                repository.insertEvent(event)
+                scheduleReminder(application, event)
+                rescheduleMilestoneReminders(application)
+                WidgetUpdater.refreshCountdownWidgets(application)
+            } catch (_: Exception) {
+                // 主键冲突或其它异常时静默忽略，避免崩溃
+            }
         }
     }
 

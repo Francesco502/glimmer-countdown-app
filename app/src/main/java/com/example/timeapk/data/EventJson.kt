@@ -79,9 +79,8 @@ fun List<Event>.toCsvString(): String {
 
 fun List<Event>.toPlainTextListString(daysLeftLabel: String, daysPastLabel: String, daysUnit: String): String {
     val today = java.time.LocalDate.now()
-    val zone = java.time.ZoneId.systemDefault()
     return this.sortedBy { it.date }.map { e ->
-        val targetDate = java.time.Instant.ofEpochMilli(e.date).atZone(zone).toLocalDate()
+        val targetDate = com.example.timeapk.ui.utils.eventDateToLocalDate(e.date)
         val hasStarted = !targetDate.isAfter(today)
         var nextTargetDate = targetDate
 

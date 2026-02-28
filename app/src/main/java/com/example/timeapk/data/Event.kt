@@ -3,6 +3,11 @@ package com.example.timeapk.data
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
+/** 事件分类：生日 / 纪念日 / 其他 */
+const val CATEGORY_BIRTHDAY = "birthday"
+const val CATEGORY_ANNIVERSARY = "anniversary"
+const val CATEGORY_OTHER = "other"
+
 /** 重复类型：无 / 每年 / 每半年 / 每月 */
 const val REPEAT_NONE = "none"
 const val REPEAT_YEARLY = "yearly"

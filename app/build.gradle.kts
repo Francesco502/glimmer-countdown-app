@@ -27,8 +27,8 @@ android {
         applicationId = "com.example.timeapk"
         minSdk = 26
         targetSdk = 35
-        versionCode = versionCodeOverride ?: 3
-        versionName = versionNameOverride ?: "2.1"
+        versionCode = versionCodeOverride ?: 4
+        versionName = versionNameOverride ?: "3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -91,7 +91,7 @@ android {
 }
 
 // Release APK 输出名：glimmer-countdown-1-0.apk（版本号中 . 改为 -）
-val versionNameForApk = versionNameOverride ?: "2.1"
+val versionNameForApk = versionNameOverride ?: "3.0"
 val apkBaseName = "glimmer-countdown-${versionNameForApk.replace(".", "-")}"
 tasks.register("renameDirectReleaseApk") {
     dependsOn("packageDirectRelease")
@@ -137,6 +137,9 @@ dependencies {
 
     // 检查更新：拉取 GitHub Release 信息
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    // 农历、干支（详情页「缘起｜已历｜静候」展示）
+    implementation("cn.6tail:lunar:1.7.4")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")

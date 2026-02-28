@@ -16,26 +16,26 @@
         android:textSize="10sp"
         android:maxLines="1"
         android:visibility="gone"
-        android:textColor="@color/widget_tag_light" />
+        android:textColor="?android:attr/textColorSecondary" />
 
     <TextView
         android:id="@+id/widget_item_title"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:textSize="12sp"
+        android:textSize="14sp"
         android:maxLines="1"
         android:ellipsize="end"
-        android:textColor="@android:color/black" />
+        android:textColor="?android:attr/textColorPrimary" />
 
     <TextView
         android:id="@+id/widget_item_value"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="4dp"
-        android:textSize="12sp"
+        android:layout_marginStart="8dp"
+        android:textSize="16sp"
         android:maxLines="1"
         android:ellipsize="end"
-        android:textColor="@android:color/black" />
+        android:textColor="?android:attr/textColorPrimary" />
 
 </LinearLayout>

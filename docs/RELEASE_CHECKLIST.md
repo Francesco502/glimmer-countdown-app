@@ -1,7 +1,7 @@
 # 发布前检查清单
 
 **检查日期**：2025-02-28  
-**版本**：2.1 (versionCode 3)
+**版本**：3.0 (versionCode 4)
 
 ---
 
@@ -31,12 +31,12 @@
 
 | 项目 | 值 |
 |------|-----|
-| versionCode | 3 |
-| versionName | 2.1 |
+| versionCode | 4 |
+| versionName | 3.0 |
 | minSdk | 26 |
 | targetSdk | 35 |
 | 渠道 | direct / play (`applicationIdSuffix=".play"`) |
-| APK 输出 | `app/build/outputs/apk/direct/release/glimmer-countdown-2-1.apk` |
+| APK 输出 | `app/build/outputs/apk/direct/release/glimmer-countdown-3-0.apk` |
 
 ---
 

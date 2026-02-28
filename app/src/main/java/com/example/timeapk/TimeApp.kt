@@ -27,6 +27,7 @@ import com.example.timeapk.ui.settings.SettingsScreen
 import com.example.timeapk.ui.home.HomeScreen
 import com.example.timeapk.ui.home.toEventUiState
 import com.example.timeapk.ui.splash.SplashScreen
+import com.example.timeapk.data.DEFAULT_MILESTONE_DAYS
 import androidx.lifecycle.viewmodel.compose.viewModel
 
 object Routes {
@@ -119,10 +120,10 @@ fun TimeApp(
         ) { backStackEntry ->
             val eventId = backStackEntry.arguments?.getInt("eventId") ?: 0
             val context = LocalContext.current
-            val repository = (context.applicationContext as TimeApplication).repository
-            // 使用 Flow 观察：编辑返回后自动刷新数据
-            val event by repository.getEventFlow(eventId).collectAsState(initial = null)
-            val eventState = event?.toEventUiState()
+            val app = context.applicationContext as TimeApplication
+            val event by app.repository.getEventFlow(eventId).collectAsState(initial = null)
+            val milestones by app.userPrefs.customMilestonesFlow.collectAsState(initial = DEFAULT_MILESTONE_DAYS)
+            val eventState = event?.toEventUiState(milestones)
             val homeViewModel: com.example.timeapk.ui.home.HomeViewModel = viewModel(factory = AppViewModelProvider.Factory)
 
             DetailScreen(

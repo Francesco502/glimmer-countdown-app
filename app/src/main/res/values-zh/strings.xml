@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">拾光</string>
-    <string name="home_empty_title">还没有任何倒计时</string>
+    <string name="home_empty_title">空空如也，待录佳期</string>
     <string name="home_empty_subtitle">点击下方 + 添加第一个</string>
     <string name="fab_add_event">添加事件</string>
     <string name="fab_add_anniversary">添加纪念日</string>
@@ -10,13 +10,24 @@
     <string name="widget_tag_past">已经</string>
     <string name="widget_tag_soon">临近</string>
     <string name="days_left_label">剩余</string>
-    <string name="days_today_label">就是今天</string>
+    <string name="days_until_label">还有</string>
+    <string name="days_today_label">正当此时</string>
     
     <!-- Notification -->
     <string name="notification_channel_name">倒计时提醒</string>
-    <string name="notification_today">就是今天！</string>
+    <string name="notification_today">正当此时！</string>
     <string name="notification_days_left">还有 %1$d 天</string>
     <string name="notification_title_prefix">倒计时提醒</string>
+    <string name="milestone_notification_title_prefix">节点提醒</string>
+    <string name="milestone_notification_content">距离 %1$s 还有 %2$d 天</string>
+
+    <string name="settings_milestone_remind_title">节点临近提醒</string>
+    <string name="settings_milestone_remind_summary">在临近重大时间节点时发送通知</string>
+    <string name="settings_milestone_remind_days_title">提前天数</string>
+    <string name="settings_milestone_remind_days_1">提前 1 天</string>
+    <string name="settings_milestone_remind_days_3">提前 3 天</string>
+    <string name="settings_milestone_remind_days_7">提前 7 天</string>
+    <string name="settings_milestone_remind_days_14">提前 14 天</string>
     
     <!-- Lunar -->
     <string name="lunar_calendar">农历</string>
@@ -52,6 +63,17 @@
     <string name="home_density_detailed_summary">显示日期、已经/剩余、节点等</string>
     <string name="repeat_none">无重复</string>
     <string name="repeat_yearly">每年</string>
+    <string name="detail_repeat_origin">缘起</string>
+    <string name="detail_repeat_elapsed">已历</string>
+    <string name="detail_repeat_next">静候</string>
+    <string name="detail_birthday_lunar">农历</string>
+    <string name="detail_birthday_age">岁数</string>
+    <string name="detail_birthday_zodiac">属相</string>
+    <string name="detail_birthday_bazi">八字</string>
+    <string name="detail_birthday_wuxing">五行</string>
+    <string name="detail_birthday_constellation">星座</string>
+    <string name="detail_birthday_age_format">%d 岁</string>
+    <string name="detail_birthday_age_format_ymd">%1$d岁%2$d月%3$d日</string>
     <string name="repeat_half_yearly">每半年</string>
     <string name="repeat_monthly">每月</string>
     <string name="field_repeat">重复</string>
@@ -110,7 +132,7 @@
     <string name="deleted_snackbar">已删除</string>
     <string name="undo">撤销</string>
     <string name="share_text_countdown">距离 %1$s 还有 %2$d 天</string>
-    <string name="share_text_today">%1$s — 就是今天！</string>
+    <string name="share_text_today">%1$s — 正当此时！</string>
     <string name="share_text_past">%1$s 已经 %2$d 天</string>
     <string name="share_chooser_title">分享倒计时</string>
     <string name="nav_back">返回</string>
@@ -124,6 +146,8 @@
     <string name="cd_edit">编辑</string>
     <string name="cd_delete">删除</string>
     <string name="cd_share">分享</string>
+    <string name="cd_reminder_on">已设置提醒</string>
+    <string name="cd_reminder_off">未设置提醒</string>
     <string name="settings_title">设置</string>
     <string name="theme_title">主题</string>
     <string name="theme_follow_system">跟随系统</string>
@@ -144,10 +168,10 @@
     <string name="settings_show_hours">显示小时</string>
     <string name="settings_show_hours_summary">在卡片上显示剩余小时数（当天内）</string>
     <string name="settings_show_milestone">显示重大节点</string>
-    <string name="settings_show_milestone_summary">显示距离 100 天、一周年、520 天等节点的天数</string>
+    <string name="settings_show_milestone_summary">显示距离重大时间节点的天数</string>
     <string name="settings_custom_milestones_title">自定义重大节点</string>
     <string name="settings_custom_milestones_restore">恢复默认</string>
-    <string name="settings_custom_milestones_add_hint">添加天数，如 200</string>
+    <string name="settings_custom_milestones_add_hint">添加天数，如 200 或 1500</string>
     <string name="settings_custom_milestones_add">添加</string>
     <string name="font_title">字体</string>
     <string name="font_default">默认</string>
@@ -170,4 +194,41 @@
     <string name="update_downloading">正在下载…</string>
     <string name="update_download_failed">下载失败</string>
     <string name="update_open_browser">在浏览器中打开</string>
+
+    <!-- Splash -->
+    <string name="splash_tagline">白驹过隙，拾光留痕</string>
+    <string name="splash_subtitle">Time flies, casting shadows.</string>
+
+    <!-- Toggle -->
+    <string name="toggle_on">开</string>
+    <string name="toggle_off">关</string>
+
+    <!-- Validation -->
+    <string name="field_title_required">请输入标题</string>
+    <string name="event_load_error">事件不存在或已删除</string>
+
+    <!-- Weekday -->
+    <string name="weekday_mon">周一</string>
+    <string name="weekday_tue">周二</string>
+    <string name="weekday_wed">周三</string>
+    <string name="weekday_thu">周四</string>
+    <string name="weekday_fri">周五</string>
+    <string name="weekday_sat">周六</string>
+    <string name="weekday_sun">周日</string>
+    <string name="date_weekday_format">%1$s · 逢%2$s</string>
+    <string name="elapsed_days_format">忽度 %1$s 日</string>
+
+    <!-- Constellation -->
+    <string name="constellation_aquarius">水瓶座</string>
+    <string name="constellation_pisces">双鱼座</string>
+    <string name="constellation_aries">白羊座</string>
+    <string name="constellation_taurus">金牛座</string>
+    <string name="constellation_gemini">双子座</string>
+    <string name="constellation_cancer">巨蟹座</string>
+    <string name="constellation_leo">狮子座</string>
+    <string name="constellation_virgo">处女座</string>
+    <string name="constellation_libra">天秤座</string>
+    <string name="constellation_scorpio">天蝎座</string>
+    <string name="constellation_sagittarius">射手座</string>
+    <string name="constellation_capricorn">摩羯座</string>
 </resources>

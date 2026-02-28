@@ -1,9 +1,9 @@
 # 拾光 (Glimmer)
 
-> "Captured light in the deep ocean of time."
-> "在时间的深海里，拾起一缕微光。"
+> 白驹过隙，拾光留痕。  
+> *Time flies, casting shadows.*
 
-**v2.0** · 一款基于 **Jetpack Compose** 与 **Material 3** 的 Android 倒计时 / 纪念日应用，支持多语言（中/英）、主题切换、桌面小部件、应用内检查更新与提醒通知。
+**v3.0** · 一款基于 **Jetpack Compose** 与 **Material 3** 的 Android 倒计时 / 纪念日应用，支持多语言（中/英）、主题切换、桌面小部件、应用内检查更新与提醒通知。
 
 ## 技术栈
 
@@ -66,7 +66,7 @@ cd glimmer-countdown-app
    ```bash
    ./gradlew assembleDirectRelease
    ```
-   产出路径：`app/build/outputs/apk/direct/release/glimmer-countdown-2-0.apk`（版本号随 gradle.properties 中 VERSION_NAME 变化）
+   产出路径：`app/build/outputs/apk/direct/release/glimmer-countdown-3-0.apk`（版本号随 gradle.properties 中 VERSION_NAME 变化）
 
 更多发布与更新说明见 **[docs/release_and_update_guide.md](docs/release_and_update_guide.md)**。  
 上传 GitHub 与打包发布完整步骤见 **[docs/GITHUB_AND_RELEASE.md](docs/GITHUB_AND_RELEASE.md)**。
@@ -91,7 +91,7 @@ app/src/main/
 
 | 文档 | 说明 |
 |------|------|
-| [CHANGELOG.md](CHANGELOG.md) | 版本更新日志（含 v1.0 → v2.0 等） |
+| [CHANGELOG.md](CHANGELOG.md) | 版本更新日志（含 v1.0 → v3.0 等） |
 | [release_and_update_guide.md](docs/release_and_update_guide.md) | 发布 APK、签名、版本与更新渠道说明 |
 | [GITHUB_AND_RELEASE.md](docs/GITHUB_AND_RELEASE.md) | 上传 GitHub 与打包发布操作步骤 |
 | [RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md) | 发布前检查清单 |

@@ -30,33 +30,34 @@ class GitHubReleaseUpdateChecker(
                 .url(latestReleaseUrl)
                 .get()
                 .build()
-            val response = client.newCall(request).execute()
-            if (!response.isSuccessful || response.body == null) {
-                return@withContext CheckUpdateResult(hasUpdate = false)
-            }
-            val json = JSONObject(response.body!!.string())
-            val tagName = json.optString("tag_name", "").trim().removePrefix("v")
-            val body = json.optString("body", "").trim()
-            val assets = json.optJSONArray("assets") ?: return@withContext CheckUpdateResult(hasUpdate = false)
-            var downloadUrl: String? = null
-            for (i in 0 until assets.length()) {
-                val asset = assets.getJSONObject(i)
-                val name = asset.optString("name", "")
-                if (name.endsWith(".apk", ignoreCase = true)) {
-                    downloadUrl = asset.optString("browser_download_url", "").takeIf { it.isNotBlank() }
-                    break
+            client.newCall(request).execute().use { resp ->
+                if (!resp.isSuccessful || resp.body == null) {
+                    return@withContext CheckUpdateResult(hasUpdate = false)
                 }
+                val json = JSONObject(resp.body!!.string())
+                val tagName = json.optString("tag_name", "").trim().removePrefix("v")
+                val body = json.optString("body", "").trim()
+                val assets = json.optJSONArray("assets") ?: return@withContext CheckUpdateResult(hasUpdate = false)
+                var downloadUrl: String? = null
+                for (i in 0 until assets.length()) {
+                    val asset = assets.getJSONObject(i)
+                    val name = asset.optString("name", "")
+                    if (name.endsWith(".apk", ignoreCase = true)) {
+                        downloadUrl = asset.optString("browser_download_url", "").takeIf { it.isNotBlank() }
+                        break
+                    }
+                }
+                val currentVersion = BuildConfig.VERSION_NAME ?: "0"
+                if (downloadUrl.isNullOrBlank() || !isVersionNewer(tagName, currentVersion)) {
+                    return@withContext CheckUpdateResult(hasUpdate = false)
+                }
+                CheckUpdateResult(
+                    hasUpdate = true,
+                    versionName = tagName,
+                    downloadUrl = downloadUrl,
+                    releaseNotes = body.ifBlank { null }
+                )
             }
-            val currentVersion = BuildConfig.VERSION_NAME ?: "0"
-            if (downloadUrl.isNullOrBlank() || !isVersionNewer(tagName, currentVersion)) {
-                return@withContext CheckUpdateResult(hasUpdate = false)
-            }
-            CheckUpdateResult(
-                hasUpdate = true,
-                versionName = tagName,
-                downloadUrl = downloadUrl,
-                releaseNotes = body.ifBlank { null }
-            )
         } catch (_: Exception) {
             CheckUpdateResult(hasUpdate = false)
         }

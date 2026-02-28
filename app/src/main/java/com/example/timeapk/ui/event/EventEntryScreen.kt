@@ -29,31 +29,37 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.timeapk.R
 import com.example.timeapk.TimeApplication
+import com.example.timeapk.data.CATEGORY_ANNIVERSARY
+import com.example.timeapk.data.CATEGORY_BIRTHDAY
+import com.example.timeapk.data.CATEGORY_OTHER
 import com.example.timeapk.data.REPEAT_HALF_YEARLY
 import com.example.timeapk.data.REPEAT_MONTHLY
 import com.example.timeapk.data.REPEAT_NONE
 import com.example.timeapk.data.REPEAT_YEARLY
 import com.example.timeapk.ui.AppViewModelProvider
 import com.example.timeapk.ui.theme.AnimationSpecs
+import com.example.timeapk.ui.utils.eventDateToLocalDate
 import com.example.timeapk.ui.utils.getDisplayDateFormatter
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
 
 private val PRESET_COLORS = listOf(
-    // 宋代淡雅绢本设色风格：
-    "#E6C8B5", // 秋香/缃色 (淡黄)
-    "#E2D1D1", // 退红 (淡粉红)
-    "#D0D6CD", // 雨过天青 (浅青)
-    "#D4D0C5", // 绢色/米灰 (本色)
-    "#C8CDB4", // 蟹壳青/草木 (灰绿)
-    "#C0C4C9", // 月白 (蓝灰)
-    "#D5C2C9", // 藕荷 (粉紫)
-    "#A5A7A6", // 淡墨 (浅灰)
-    "#B09A97"  // 檀色 (紫棕)
+    // 宋代美学颜色：用户指定默认色 + 补充色
+    "#4A4933", // 沉香
+    "#457080", // 景泰蓝
+    "#5F856B", // 汁绿
+    "#AF4E31", // 丹罽
+    "#AC8F62", // 秋香
+    "#86351C", // 栗壳
+    "#5B8E79", // 蟹壳青
+    "#3A4550", // 铁灰
+    "#785B64"  // 绛紫
 )
 // CATEGORY_DEFAULT_COLOR map removed as explicit category selection is gone
 
@@ -68,17 +74,25 @@ fun EventEntryScreen(
     val context = LocalContext.current
     val eventUiState by viewModel.eventUiState.collectAsState()
     val coroutineScope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(eventId) {
         if (eventId != null && eventId != 0) {
             viewModel.loadEvent(eventId)
-        } else {
-            // Initial category logic removed
+        }
+    }
+    LaunchedEffect(eventUiState.loadError) {
+        if (eventUiState.loadError) {
+            snackbarHostState.showSnackbar(context.getString(R.string.event_load_error))
+            delay(1200)
+            navigateBack()
         }
     }
 
+    var isSaving by remember { mutableStateOf(false) }
     val isEditing = eventId != null && eventId != 0
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background, // 与首页背景一致
+        containerColor = MaterialTheme.colorScheme.background,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
@@ -108,10 +122,13 @@ fun EventEntryScreen(
         EventEntryBody(
             eventUiState = eventUiState,
             onEventValueChange = viewModel::updateUiState,
+            isSaving = isSaving,
             onSaveClick = {
+                if (isSaving) return@EventEntryBody
+                isSaving = true
                 coroutineScope.launch {
-                    viewModel.saveEvent()
-                    navigateBack()
+                    val ok = viewModel.saveEvent()
+                    if (ok) navigateBack() else isSaving = false
                 }
             },
             modifier = modifier.padding(innerPadding)
@@ -125,6 +142,7 @@ fun EventEntryBody(
     eventUiState: EventEntryUiState,
     onEventValueChange: (EventDetails) -> Unit,
     onSaveClick: () -> Unit,
+    isSaving: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -155,29 +173,25 @@ fun EventEntryBody(
             }
         }
         
-        // 底部保存按钮：方形，强调色，按压缩放反馈
-        val saveInteractionSource = remember { MutableInteractionSource() }
-        val savePressed by saveInteractionSource.collectIsPressedAsState()
-        val saveScale by animateFloatAsState(
-            if (savePressed) 0.98f else 1f,
-            animationSpec = AnimationSpecs.springButton,
-            label = "saveScale"
-        )
-        Button(
-            onClick = onSaveClick,
-            enabled = eventUiState.isEntryValid,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp)
-                .graphicsLayer { scaleX = saveScale; scaleY = saveScale },
-            interactionSource = saveInteractionSource,
-            shape = RoundedCornerShape(4.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            )
+        // 底部保存按钮：废弃实心色块，改为纯文字/印章风格
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End
         ) {
-            Text(stringResource(R.string.button_save_event))
+            TextButton(
+                onClick = onSaveClick,
+                enabled = eventUiState.isEntryValid && !isSaving,
+                modifier = Modifier.padding(top = 16.dp),
+                shape = RoundedCornerShape(2.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.button_save_event),
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        letterSpacing = 2.sp
+                    ),
+                    color = if (eventUiState.isEntryValid) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                )
+            }
         }
     }
 }
@@ -249,12 +263,15 @@ fun EventInputForm(
         }
     }
 
-    val textFieldColors = OutlinedTextFieldDefaults.colors(
+    val textFieldColors = TextFieldDefaults.colors(
         focusedContainerColor = Color.Transparent,
         unfocusedContainerColor = Color.Transparent,
         disabledContainerColor = Color.Transparent,
-        focusedBorderColor = MaterialTheme.colorScheme.primary,
-        unfocusedBorderColor = MaterialTheme.colorScheme.outline
+        focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+        unfocusedIndicatorColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+        disabledIndicatorColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+        focusedLabelColor = MaterialTheme.colorScheme.primary,
+        unfocusedLabelColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
     )
     
     var showCustomColorDialog by remember { mutableStateOf(false) }
@@ -270,46 +287,85 @@ fun EventInputForm(
         )
     }
 
+    val titleTouched = remember { mutableStateOf(false) }
+    val showTitleError = titleTouched.value && eventDetails.title.isBlank()
+
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        // 标题输入：直角，透明底，强调边框（文字色由下方 LocalContentColor 提供）
-        OutlinedTextField(
+        TextField(
             value = eventDetails.title,
-            onValueChange = { onValueChange(eventDetails.copy(title = it)) },
-            label = { Text(stringResource(R.string.field_title), color = MaterialTheme.colorScheme.onBackground) },
+            onValueChange = {
+                titleTouched.value = true
+                onValueChange(eventDetails.copy(title = it))
+            },
+            label = { Text(stringResource(R.string.field_title)) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            shape = RoundedCornerShape(4.dp),
+            isError = showTitleError,
+            supportingText = if (showTitleError) {
+                { Text(stringResource(R.string.field_title_required)) }
+            } else null,
+            shape = RoundedCornerShape(0.dp),
             colors = textFieldColors
         )
+
+        // 分类：生日 / 纪念日 / 其他
+        Text(
+            text = stringResource(R.string.field_category),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        val categoryChipColors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = MaterialTheme.colorScheme.primary,
+            selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+            containerColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f),
+            labelColor = MaterialTheme.colorScheme.onBackground
+        )
+        val currentCategory = eventDetails.category.takeIf { it in listOf(CATEGORY_BIRTHDAY, CATEGORY_ANNIVERSARY, CATEGORY_OTHER) } ?: CATEGORY_OTHER
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            listOf(
+                stringResource(R.string.category_birthday) to CATEGORY_BIRTHDAY,
+                stringResource(R.string.category_anniversary) to CATEGORY_ANNIVERSARY,
+                stringResource(R.string.category_other) to CATEGORY_OTHER
+            ).forEach { (label, value) ->
+                FilterChip(
+                    selected = currentCategory == value,
+                    onClick = { onValueChange(eventDetails.copy(category = value)) },
+                    label = { Text(label) },
+                    shape = RoundedCornerShape(4.dp),
+                    colors = categoryChipColors
+                )
+            }
+        }
         
         // 备注输入
-        OutlinedTextField(
+        TextField(
             value = eventDetails.note,
             onValueChange = { onValueChange(eventDetails.copy(note = it)) },
-            label = { Text(stringResource(R.string.field_note), color = MaterialTheme.colorScheme.onBackground) },
+            label = { Text(stringResource(R.string.field_note)) },
             modifier = Modifier.fillMaxWidth(),
             minLines = 2,
             maxLines = 4,
-            shape = RoundedCornerShape(4.dp),
+            shape = RoundedCornerShape(0.dp),
             colors = textFieldColors
         )
 
         // 日期选择（与设置中日期格式一致）
-        val dateString = Instant.ofEpochMilli(eventDetails.date)
-            .atZone(ZoneId.systemDefault())
-            .toLocalDate()
+        val dateString = eventDateToLocalDate(eventDetails.date)
             .format(dateFormatter)
 
         // 整个日期输入框可点击打开日期选择器，去掉右侧图标
         // 使用上层透明点击层，避免 TextField 自身消费点击事件
         Box(modifier = Modifier.fillMaxWidth()) {
-            OutlinedTextField(
+            TextField(
                 value = dateString,
                 onValueChange = { },
-                label = { Text(stringResource(R.string.field_date), color = MaterialTheme.colorScheme.onBackground) },
+                label = { Text(stringResource(R.string.field_date)) },
                 modifier = Modifier.fillMaxWidth(),
                 readOnly = true,
-                shape = RoundedCornerShape(4.dp),
+                shape = RoundedCornerShape(0.dp),
                 colors = textFieldColors
             )
             Box(

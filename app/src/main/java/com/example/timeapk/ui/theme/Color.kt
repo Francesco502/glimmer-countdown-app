@@ -69,20 +69,20 @@ val RetroLightTextOnSurface = Color(0xFFFEFFFF)  // 卡片上的文字：纯白 
 
 // 宋代工笔画 (Song Dynasty Gongbi) 色板
 // Light Mode: 宣纸、绢本、石色、水色
-val SongLightBackground = Color(0xFFF9F7F2)      // 宣纸 (Rice Paper) - 更纯净的暖白，提升通透感
-val SongLightSurface = Color(0xFFFFFFFF)         // 留白 (White Space) - 纯白卡片，通过微弱的边框或阴影区分
-val SongLightPrimary = Color(0xFF8E354A)         // 胭脂 (Rouge) - 沉稳的深红，不刺眼
-val SongLightSecondary = Color(0xFF576E6A)       // 石绿 (Mineral Green) - 雅致的绿
-val SongLightTertiary = Color(0xFF7A7A7A)        // 淡墨 (Pale Ink) - 中性灰
-val SongLightTextOnBG = Color(0xFF1F1F1F)        // 焦墨 (Charcoal Ink) - 极深灰黑，保证阅读清晰度
+val SongLightBackground = Color(0xFFF5F3ED)      // 宣纸加深一点，拉开与白色的对比
+val SongLightSurface = Color(0xFFFFFFFF)         // 留白 (White Space)
+val SongLightPrimary = Color(0xFFAF4E31)         // 丹罽
+val SongLightSecondary = Color(0xFF457080)       // 景泰蓝
+val SongLightTertiary = Color(0xFFAC8F62)        // 秋香
+val SongLightTextOnBG = Color(0xFF1F1F1F)        // 焦墨 (Charcoal Ink)
 val SongLightTextOnSurface = Color(0xFF1F1F1F)   // 焦墨
 
 // Dark Mode: 沉墨、金箔、矿物色
-val SongDarkBackground = Color(0xFF101012)       // 漆黑 (Lacquer Black) - 更有深度的黑
+val SongDarkBackground = Color(0xFF0A0A0C)       // 漆黑加深，拉开与卡片的对比
 val SongDarkSurface = Color(0xFF1C1C1E)          // 墨锭 (Ink Stick)
-val SongDarkPrimary = Color(0xFFC7B398)          // 泥金 (Gold Paste) - 降低饱和度，更显高级
-val SongDarkSecondary = Color(0xFF6B8E85)        // 黛绿 (Dark Green)
-val SongDarkTertiary = Color(0xFF8C4B47)         // 赭石 (Ocher)
+val SongDarkPrimary = Color(0xFFAC8F62)          // 秋香
+val SongDarkSecondary = Color(0xFF5B8E79)        // 蟹壳青
+val SongDarkTertiary = Color(0xFF86351C)         // 栗壳
 val SongDarkTextOnBG = Color(0xFFD9D9D9)         // 银灰 (Silver Grey) - 柔和的白
 val SongDarkTextOnSurface = Color(0xFFEBEBEB)    // 霜白 (Frost White)
 

@@ -4,6 +4,21 @@
 
 ---
 
+## [3.0] - 2025-02-28
+
+### 重要修复与发布就绪
+
+- **版本**：versionCode 4，versionName 3.0；ProGuard 规则补全（Room Entity/Dao、WorkManager、OkHttp、农历库等），Release 构建可安全发布
+- **日期时区**：统一事件日期解析为 UTC，任意时区下日期显示正确；提醒调度（ReminderScheduler / MilestoneReminderScheduler）同步修正
+- **通知**：普通提醒与里程碑提醒均使用应用图标 `ic_notification_small`，状态栏显示一致
+- **编辑页**：保存按钮防重复点击；`saveEvent()` 异常捕获并返回失败状态，避免崩溃且失败时保留在编辑页
+- **小组件**：深浅模式切换时自动刷新；列表项默认文字颜色使用主题属性，深色模式下无黑底黑字；删除未使用 PendingIntent；`widgetCategory="home_screen"`
+- **详情页**：`isToday` / `isShowUntil` 与首页逻辑统一；已历文学化文案（`formatElapsedLiterary`）支持英文
+- **首页**：`EventCard` / `EventListItem` 的「今天」判断统一为 `daysRemaining == 0 && !isPast`；移除 `EventListItem` 未用参数
+- **其他**：OkHttp Response 使用 `use{}` 管理；`RECEIVE_BOOT_COMPLETED` 权限；GitHub README Slogan 更新为启动页「白驹过隙，拾光留痕」
+
+---
+
 ## [2.1] - 2025-02-28
 
 ### 改进

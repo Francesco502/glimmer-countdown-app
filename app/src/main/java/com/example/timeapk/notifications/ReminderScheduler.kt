@@ -6,7 +6,8 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.example.timeapk.data.Event
-import java.util.Calendar
+import com.example.timeapk.ui.utils.eventDateToLocalDate
+import java.time.ZoneId
 import java.util.concurrent.TimeUnit
 
 private const val REMIND_TAG_PREFIX = "remind_"
@@ -17,14 +18,13 @@ fun scheduleReminder(context: Context, event: Event) {
     if (!event.remindEnabled) {
         return
     }
-    val remindDayMillis = event.date - event.remindDaysBefore * 24L * 60 * 60 * 1000
-    val cal = Calendar.getInstance()
-    cal.timeInMillis = remindDayMillis
-    cal.set(Calendar.HOUR_OF_DAY, event.reminderTimeMinutesOfDay / 60)
-    cal.set(Calendar.MINUTE, event.reminderTimeMinutesOfDay % 60)
-    cal.set(Calendar.SECOND, 0)
-    cal.set(Calendar.MILLISECOND, 0)
-    val remindAtMillis = cal.timeInMillis
+    val eventLocalDate = eventDateToLocalDate(event.date)
+    val remindDate = eventLocalDate.minusDays(event.remindDaysBefore.toLong())
+    val remindZdt = remindDate.atTime(
+        event.reminderTimeMinutesOfDay / 60,
+        event.reminderTimeMinutesOfDay % 60
+    ).atZone(ZoneId.systemDefault())
+    val remindAtMillis = remindZdt.toInstant().toEpochMilli()
     val delayMillis = remindAtMillis - System.currentTimeMillis()
     // 若提醒时间已过，直接放弃本次调度，避免立刻弹出过期通知
     if (delayMillis <= 0) {

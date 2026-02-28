@@ -137,11 +137,11 @@ keyPassword=你的密钥密码
 ### 步骤
 
 1. 打开仓库：`https://github.com/Francesco502/glimmer-countdown-app` → **Releases** → **Create a new release**。
-2. **Choose a tag**：新建标签，**必须与当前版本号一致**，例如当前 `VERSION_NAME=2.0` 则填 **`v2.0`**（带前缀 `v`）。选 “Create new tag” 后发布。
-3. **Release title**：如 `v2.0`。
+2. **Choose a tag**：新建标签，**必须与当前版本号一致**，例如当前 `VERSION_NAME=3.0` 则填 **`v3.0`**（带前缀 `v`）。选 “Create new tag” 后发布。
+3. **Release title**：如 `v3.0`。
 4. **Describe**：写更新说明（会显示在应用内更新弹窗的「更新说明」中）。可使用 **[CHANGELOG.md](../CHANGELOG.md)** 中对应版本的条目；或使用 `.\scripts\publish-release.ps1` 自动发布时，脚本会从 CHANGELOG 读取。
 5. **Attach binaries**：将本地构建好的 APK 拖拽上传。  
-   - 路径示例：`app\build\outputs\apk\direct\release\glimmer-countdown-2-0.apk`（随 VERSION_NAME 变化）  
+   - 路径示例：`app\build\outputs\apk\direct\release\glimmer-countdown-3-0.apk`（随 VERSION_NAME 变化）  
    - 附件名需为 **.apk 结尾**，应用只会识别带 `.apk` 的附件作为下载链接。
 6. 点击 **Publish release**。
 

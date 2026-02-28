@@ -8,6 +8,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -28,6 +29,7 @@ import com.example.timeapk.BuildConfig
 import com.example.timeapk.R
 import com.example.timeapk.TimeApplication
 import com.example.timeapk.data.*
+import com.example.timeapk.notifications.rescheduleMilestoneReminders
 import com.example.timeapk.notifications.scheduleReminder
 import com.example.timeapk.widget.WidgetUpdater
 import com.example.timeapk.update.CheckUpdateResult
@@ -37,9 +39,30 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.example.timeapk.ui.utils.findActivity
 
+@Composable
+fun ClassicalToggle(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Text(
+        text = if (checked) stringResource(R.string.toggle_on) else stringResource(R.string.toggle_off),
+        style = MaterialTheme.typography.bodyLarge,
+        color = if (checked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+        modifier = Modifier
+            .clickable(
+                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                indication = null
+            ) { onCheckedChange(!checked) }
+            .border(
+                width = 0.5.dp,
+                color = if (checked) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
+                shape = RoundedCornerShape(2.dp)
+            )
+            .padding(horizontal = 12.dp, vertical = 4.dp)
+    )
+}
+
 private val PRESET_COLOR_HEX = listOf(
-    // 宋代工笔画 (默认)
-    "#B5495B", "#4A746A", "#869D9D", "#D4C4B5", "#8C4B47",
+    // 宋代工笔画 (默认) - 统一为更契合宋式美学且能良好适应深浅模式的色彩
+    "#8E354A", "#576E6A", "#C7B398", "#5A7B86", "#8C4B47",
+    "#4B5054", "#7A6C77", "#B17A7D", "#8C9C9A", "#B09A97",
     // 港式复古
     "#D65C5C", "#3F6987", "#FDF4DE", "#141622", "#355D82",
     // 基础黑白灰
@@ -233,12 +256,10 @@ fun AppearanceSettingsContent(
                         onClick = {
                             if (isValidHex) {
                                 setter(customHexInput)
-                                colorPickerKey = null
-                            } else {
-                                colorPickerKey = null
                             }
+                            colorPickerKey = null
                         },
-                        enabled = customHexInput.isEmpty() || isValidHex
+                        enabled = isValidHex
                     ) {
                         Text(stringResource(android.R.string.ok))
                     }
@@ -302,6 +323,8 @@ fun DisplaySettingsContent(
     val showHours by prefs.showHoursFlow.collectAsState(initial = true)
     val homeDensityMode by prefs.homeDensityModeFlow.collectAsState(initial = 1)
     val showMilestone by prefs.showMilestoneFlow.collectAsState(initial = true)
+    val milestoneRemindEnabled by prefs.milestoneRemindEnabledFlow.collectAsState(initial = false)
+    val milestoneRemindDaysAhead by prefs.milestoneRemindDaysAheadFlow.collectAsState(initial = 7)
     val customMilestones by prefs.customMilestonesFlow.collectAsState(initial = DEFAULT_MILESTONE_DAYS)
     val dateFormatMode by prefs.dateFormatModeFlow.collectAsState(initial = 0)
     var newMilestoneInput by remember { mutableStateOf("") }
@@ -325,7 +348,7 @@ fun DisplaySettingsContent(
                     .clickable {
                         scope.launch {
                             prefs.setLanguageMode(value)
-                            activity?.recreate()
+                            withContext(Dispatchers.Main) { activity?.recreate() }
                         }
                     }
                     .padding(vertical = 12.dp),
@@ -336,7 +359,7 @@ fun DisplaySettingsContent(
                     onClick = {
                         scope.launch {
                             prefs.setLanguageMode(value)
-                            activity?.recreate()
+                            withContext(Dispatchers.Main) { activity?.recreate() }
                         }
                     }
                 )
@@ -369,7 +392,7 @@ fun DisplaySettingsContent(
                 modifier = Modifier.weight(1f),
                 color = MaterialTheme.colorScheme.onSurface
             )
-            Switch(
+            ClassicalToggle(
                 checked = showHours,
                 onCheckedChange = { scope.launch { prefs.setShowHours(it) } }
             )
@@ -445,10 +468,70 @@ fun DisplaySettingsContent(
                 modifier = Modifier.weight(1f),
                 color = MaterialTheme.colorScheme.onSurface
             )
-            Switch(
+            ClassicalToggle(
                 checked = showMilestone,
                 onCheckedChange = { scope.launch { prefs.setShowMilestone(it) } }
             )
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.settings_milestone_remind_title),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = stringResource(R.string.settings_milestone_remind_summary),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            ClassicalToggle(
+                checked = milestoneRemindEnabled,
+                onCheckedChange = {
+                    scope.launch {
+                        prefs.setMilestoneRemindEnabled(it)
+                        rescheduleMilestoneReminders(app)
+                    }
+                }
+            )
+        }
+        if (milestoneRemindEnabled) {
+            Text(
+                text = stringResource(R.string.settings_milestone_remind_days_title),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf(1 to R.string.settings_milestone_remind_days_1,
+                    3 to R.string.settings_milestone_remind_days_3,
+                    7 to R.string.settings_milestone_remind_days_7,
+                    14 to R.string.settings_milestone_remind_days_14).forEach { (days, resId) ->
+                    FilterChip(
+                        selected = milestoneRemindDaysAhead == days,
+                        onClick = {
+                            scope.launch {
+                                prefs.setMilestoneRemindDaysAhead(days)
+                                rescheduleMilestoneReminders(app)
+                            }
+                        },
+                        label = { Text(stringResource(resId)) },
+                        shape = RoundedCornerShape(4.dp)
+                    )
+                }
+            }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
 
@@ -476,6 +559,7 @@ fun DisplaySettingsContent(
                         scope.launch {
                             prefs.setCustomMilestones(customMilestones + v)
                             newMilestoneInput = ""
+                            rescheduleMilestoneReminders(app)
                         }
                     }
                 }
@@ -486,7 +570,8 @@ fun DisplaySettingsContent(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 8.dp),
+                .padding(top = 8.dp)
+                .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -507,6 +592,7 @@ fun DisplaySettingsContent(
                         onClick = {
                             scope.launch {
                                 prefs.setCustomMilestones(customMilestones.filter { it != days })
+                                rescheduleMilestoneReminders(app)
                             }
                         },
                         modifier = Modifier.size(24.dp)
@@ -522,7 +608,12 @@ fun DisplaySettingsContent(
             }
         }
         OutlinedButton(
-            onClick = { scope.launch { prefs.setCustomMilestones(DEFAULT_MILESTONE_DAYS) } },
+            onClick = {
+                scope.launch {
+                    prefs.setCustomMilestones(DEFAULT_MILESTONE_DAYS)
+                    rescheduleMilestoneReminders(app)
+                }
+            },
             modifier = Modifier.padding(top = 8.dp)
         ) {
             Text(stringResource(R.string.settings_custom_milestones_restore))
@@ -641,7 +732,7 @@ fun DataSettingsContent(
                         shape = RoundedCornerShape(4.dp)
                     )
                     OutlinedButton(
-                        onClick = { importFromFileLauncher.launch("*/*") },
+                        onClick = { importFromFileLauncher.launch("text/*") },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(4.dp)
                     ) {

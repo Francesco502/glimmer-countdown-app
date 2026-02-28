@@ -4,15 +4,21 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.timeapk.data.Event
+import com.example.timeapk.notifications.rescheduleMilestoneReminders
 import com.example.timeapk.notifications.scheduleReminder
 import com.example.timeapk.widget.WidgetUpdater
+import com.example.timeapk.data.CATEGORY_ANNIVERSARY
+import com.example.timeapk.data.CATEGORY_BIRTHDAY
+import com.example.timeapk.data.CATEGORY_OTHER
 import com.example.timeapk.data.REPEAT_NONE
 import com.example.timeapk.data.EventRepository
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class EventEntryViewModel(
     private val application: Application,
@@ -29,29 +35,41 @@ class EventEntryViewModel(
 
     fun loadEvent(id: Int) {
         viewModelScope.launch {
-            repository.getEvent(id)?.let { event ->
-                _eventUiState.value = EventEntryUiState(
-                    eventDetails = event.toEventDetails(),
-                    isEntryValid = validateInput(event.toEventDetails())
-                )
+            val event = repository.getEvent(id)
+            if (event != null) {
+                _eventUiState.update {
+                    it.copy(
+                        eventDetails = event.toEventDetails(),
+                        isEntryValid = validateInput(event.toEventDetails()),
+                        loadError = false
+                    )
+                }
+            } else {
+                _eventUiState.update { it.copy(loadError = true) }
             }
         }
     }
 
-    suspend fun saveEvent() {
+    suspend fun saveEvent(): Boolean {
         val details = _eventUiState.value.eventDetails
-        if (!validateInput(details)) return
-        val event = details.toEvent()
-        if (event.id != 0) {
-            repository.updateEvent(event)
-            scheduleReminder(application, event)
-        } else {
-            // insertEvent 返回 Room 自动生成的真实 ID
-            // 必须用真实 ID 调度提醒，否则 tag="remind_0" 导致所有新建事件共用同一提醒
-            val generatedId = repository.insertEvent(event)
-            scheduleReminder(application, event.copy(id = generatedId.toInt()))
+        if (!validateInput(details)) return false
+        return try {
+            withContext(NonCancellable) {
+                val event = details.toEvent()
+                if (event.id != 0) {
+                    repository.updateEvent(event)
+                    scheduleReminder(application, event)
+                } else {
+                    val generatedId = repository.insertEvent(event)
+                    scheduleReminder(application, event.copy(id = generatedId.toInt()))
+                }
+                rescheduleMilestoneReminders(application)
+                WidgetUpdater.refreshCountdownWidgets(application)
+            }
+            true
+        } catch (_: Exception) {
+            false
         }
-        WidgetUpdater.refreshCountdownWidgets(application)
     }
 
     private fun validateInput(uiState: EventDetails = _eventUiState.value.eventDetails): Boolean {
@@ -61,14 +79,15 @@ class EventEntryViewModel(
 
 data class EventEntryUiState(
     val eventDetails: EventDetails = EventDetails(),
-    val isEntryValid: Boolean = false
+    val isEntryValid: Boolean = false,
+    val loadError: Boolean = false
 )
 
 data class EventDetails(
     val id: Int = 0,
     val title: String = "",
     val date: Long = System.currentTimeMillis(),
-    val category: String = "",
+    val category: String = CATEGORY_OTHER,
     val note: String = "",
     val colorHex: String? = null,
     val repeatType: String = REPEAT_NONE,
@@ -83,7 +102,7 @@ fun EventDetails.toEvent(): Event = Event(
     id = id,
     title = title,
     date = date,
-    category = category,
+    category = category.takeIf { it in listOf(CATEGORY_BIRTHDAY, CATEGORY_ANNIVERSARY, CATEGORY_OTHER) } ?: CATEGORY_OTHER,
     note = note,
     colorHex = colorHex,
     repeatType = repeatType,

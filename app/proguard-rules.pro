@@ -1,11 +1,36 @@
 # TimeAPK ProGuard 规则（release 开启 isMinifyEnabled 时生效）
-# 保留 Room、Compose、序列化等所需类，避免 release 运行异常
 
+# ─── Kotlin / 通用 ───
+-keepattributes *Annotation*
+-keepattributes Signature
+-keepattributes InnerClasses,EnclosingMethod
+
+# ─── Room ───
 -keep class * extends androidx.room.RoomDatabase
+-keep @androidx.room.Entity class * { *; }
+-keep @androidx.room.Dao interface * { *; }
 -dontwarn androidx.room.paging.**
 
+# ─── Compose ───
 -keep class androidx.compose.** { *; }
 
-# 若使用 Gson/其他序列化，按需添加 keep 规则
-# -keepattributes Signature
-# -keepattributes *Annotation*
+# ─── WorkManager ───
+-keep class * extends androidx.work.Worker { *; }
+-keep class * extends androidx.work.CoroutineWorker { *; }
+-keep class * extends androidx.work.ListenableWorker { *; }
+
+# ─── OkHttp / OkIO ───
+-dontwarn okhttp3.**
+-dontwarn okio.**
+-keep class okhttp3.** { *; }
+-keep class okio.** { *; }
+
+# ─── 农历 cn.6tail:lunar（详情页通过反射调用） ───
+-keep class cn.6tail.lunar.** { *; }
+
+# ─── DataStore ───
+-keep class androidx.datastore.** { *; }
+
+# ─── 应用自身 data 类（JSON 导入导出用到字段名） ───
+-keep class com.example.timeapk.data.Event { *; }
+-keep class com.example.timeapk.data.EventJson** { *; }

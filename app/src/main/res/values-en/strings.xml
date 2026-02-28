@@ -9,6 +9,7 @@
     <string name="fab_add_anniversary">Add anniversary</string>
     <string name="days_left">days</string>
     <string name="days_left_label">left</string>
+    <string name="days_until_label">until</string>
     <string name="days_today_label">Today</string>
     <string name="days_past_label">elapsed</string>
     <string name="days_elapsed_format">has been %d days</string>
@@ -45,6 +46,17 @@
     <!-- Repeat -->
     <string name="repeat_none">None</string>
     <string name="repeat_yearly">Yearly</string>
+    <string name="detail_repeat_origin">Origin</string>
+    <string name="detail_repeat_elapsed">Elapsed</string>
+    <string name="detail_repeat_next">Next</string>
+    <string name="detail_birthday_lunar">Lunar</string>
+    <string name="detail_birthday_age">Age</string>
+    <string name="detail_birthday_zodiac">Zodiac</string>
+    <string name="detail_birthday_bazi">Bazi</string>
+    <string name="detail_birthday_wuxing">Five elements</string>
+    <string name="detail_birthday_constellation">Constellation</string>
+    <string name="detail_birthday_age_format">%d years old</string>
+    <string name="detail_birthday_age_format_ymd">%1$d y %2$d mo %3$d d</string>
     <string name="repeat_half_yearly">Half-yearly</string>
     <string name="repeat_monthly">Monthly</string>
     <string name="field_repeat">Repeat</string>
@@ -133,6 +145,8 @@
     <string name="cd_edit">Edit</string>
     <string name="cd_delete">Delete</string>
     <string name="cd_share">Share</string>
+    <string name="cd_reminder_on">Reminder on</string>
+    <string name="cd_reminder_off">Reminder off</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
@@ -164,10 +178,10 @@
     <string name="settings_show_hours">Show hours</string>
     <string name="settings_show_hours_summary">Show remaining hours on cards (within the day)</string>
     <string name="settings_show_milestone">Show milestones</string>
-    <string name="settings_show_milestone_summary">Show days until 100 days, 1 year, 520 days, etc.</string>
+    <string name="settings_show_milestone_summary">Show days until major time milestones</string>
     <string name="settings_custom_milestones_title">Custom milestones</string>
     <string name="settings_custom_milestones_restore">Restore default</string>
-    <string name="settings_custom_milestones_add_hint">Add days, e.g. 200</string>
+    <string name="settings_custom_milestones_add_hint">Add days, e.g. 200 or 1500</string>
     <string name="settings_custom_milestones_add">Add</string>
     <string name="font_title">Font</string>
     <string name="font_default">Default</string>
@@ -189,6 +203,16 @@
     <string name="notification_today">Today!</string>
     <string name="notification_days_left">%1$d day(s) left</string>
     <string name="notification_title_prefix">Countdown reminder</string>
+    <string name="milestone_notification_title_prefix">Milestone reminder</string>
+    <string name="milestone_notification_content">%2$d days until %1$s</string>
+
+    <string name="settings_milestone_remind_title">Milestone reminder</string>
+    <string name="settings_milestone_remind_summary">Notify when approaching a major time milestone</string>
+    <string name="settings_milestone_remind_days_title">Days ahead</string>
+    <string name="settings_milestone_remind_days_1">1 day before</string>
+    <string name="settings_milestone_remind_days_3">3 days before</string>
+    <string name="settings_milestone_remind_days_7">7 days before</string>
+    <string name="settings_milestone_remind_days_14">14 days before</string>
 
     <string name="lunar_calendar">Lunar</string>
     <string name="lunar_date_prefix">Lunar</string>
@@ -196,5 +220,42 @@
 
     <!-- Card short strings -->
     <string name="hours_remaining_short">%d hours</string>
-    <string name="milestone_in_days_short">%1$dth · %2$dd</string>
+    <string name="milestone_in_days_short">%1$d ann. · %2$d d</string>
+
+    <!-- Splash -->
+    <string name="splash_tagline">Time flies, casting shadows</string>
+    <string name="splash_subtitle">Collect every moment</string>
+
+    <!-- Toggle -->
+    <string name="toggle_on">On</string>
+    <string name="toggle_off">Off</string>
+
+    <!-- Validation -->
+    <string name="field_title_required">Title is required</string>
+    <string name="event_load_error">Event not found or deleted</string>
+
+    <!-- Weekday -->
+    <string name="weekday_mon">Mon</string>
+    <string name="weekday_tue">Tue</string>
+    <string name="weekday_wed">Wed</string>
+    <string name="weekday_thu">Thu</string>
+    <string name="weekday_fri">Fri</string>
+    <string name="weekday_sat">Sat</string>
+    <string name="weekday_sun">Sun</string>
+    <string name="date_weekday_format">%1$s · %2$s</string>
+    <string name="elapsed_days_format">%1$s days elapsed</string>
+
+    <!-- Constellation -->
+    <string name="constellation_aquarius">Aquarius</string>
+    <string name="constellation_pisces">Pisces</string>
+    <string name="constellation_aries">Aries</string>
+    <string name="constellation_taurus">Taurus</string>
+    <string name="constellation_gemini">Gemini</string>
+    <string name="constellation_cancer">Cancer</string>
+    <string name="constellation_leo">Leo</string>
+    <string name="constellation_virgo">Virgo</string>
+    <string name="constellation_libra">Libra</string>
+    <string name="constellation_scorpio">Scorpio</string>
+    <string name="constellation_sagittarius">Sagittarius</string>
+    <string name="constellation_capricorn">Capricorn</string>
 </resources>

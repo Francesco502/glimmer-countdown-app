@@ -51,20 +51,31 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleOwner
+import com.example.timeapk.data.REPEAT_NONE
+import com.example.timeapk.ui.utils.findActivity
 import com.example.timeapk.data.REPEAT_YEARLY
 import com.example.timeapk.ui.utils.formatDays
 import com.example.timeapk.ui.utils.formatBetweenAsYMD
 import com.example.timeapk.ui.utils.formatDaysSmart
 import com.example.timeapk.ui.utils.getDisplayDateFormatter
 import com.example.timeapk.ui.utils.parseEventColorOrFallback
+import com.example.timeapk.ui.utils.eventDateToLocalDate
 import java.time.format.DateTimeFormatter
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 import com.example.timeapk.R
 import com.example.timeapk.TimeApplication
 import com.example.timeapk.data.Event
 import com.example.timeapk.ui.theme.AnimationSpecs
+
+import androidx.compose.foundation.LocalOverscrollConfiguration
+import androidx.compose.foundation.OverscrollConfiguration
+import androidx.compose.runtime.CompositionLocalProvider
 
 enum class FilterType { All, Upcoming, Past }
 enum class SortType { ByDays, ByDate, ByCreated }
@@ -89,6 +100,20 @@ fun HomeScreen(
     val homeUiState by viewModel.homeUiState.collectAsState()
     val context = LocalContext.current
     val prefs = (context.applicationContext as TimeApplication).userPrefs
+    var today by remember { mutableStateOf(LocalDate.now()) }
+    val activity = context.findActivity()
+    val lifecycle = (activity as? LifecycleOwner)?.lifecycle
+    DisposableEffect(lifecycle) {
+        if (lifecycle != null) {
+            val observer = LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_START) today = LocalDate.now()
+            }
+            lifecycle.addObserver(observer)
+            onDispose { lifecycle.removeObserver(observer) }
+        } else {
+            onDispose { }
+        }
+    }
     val scope = rememberCoroutineScope()
     val savedFilter by prefs.filterTypeFlow.collectAsState(initial = 0)
     val savedSort by prefs.sortTypeFlow.collectAsState(initial = 0)
@@ -98,6 +123,8 @@ fun HomeScreen(
     val dateFormatMode by prefs.dateFormatModeFlow.collectAsState(initial = 0)
     val dateFormatter = remember(dateFormatMode) { getDisplayDateFormatter(dateFormatMode) }
     val hasSeenSwipeHint by prefs.hasSeenSwipeHintFlow.collectAsState(initial = false)
+    val dateDeltaDisplayMode by prefs.dateDeltaDisplayModeFlow.collectAsState(initial = 0)
+    val perEventDateDeltaModes by prefs.perEventDateDeltaDisplayModesFlow.collectAsState(initial = emptyMap())
     val savedHomeDisplayMode by prefs.homeDisplayModeFlow.collectAsState(initial = 0)
     var homeDisplayMode by remember(savedHomeDisplayMode) { mutableStateOf(savedHomeDisplayMode) }
     var filterType by remember(savedFilter) { mutableStateOf(FilterType.entries.getOrNull(savedFilter) ?: FilterType.All) }
@@ -149,7 +176,8 @@ fun HomeScreen(
                         text = stringResource(R.string.app_name),
                         style = MaterialTheme.typography.displayLarge.copy(
                             fontSize = 22.sp,
-                            lineHeight = 28.sp
+                            lineHeight = 28.sp,
+                            fontStyle = androidx.compose.ui.text.font.FontStyle.Normal
                         )
                     )
                 },
@@ -187,6 +215,7 @@ fun HomeScreen(
                 )
             )
         },
+        floatingActionButtonPosition = FabPosition.Center,
         floatingActionButton = {
             val isEmpty = displayedList.isEmpty()
             val fabScale by animateFloatAsState(
@@ -194,19 +223,24 @@ fun HomeScreen(
                 animationSpec = AnimationSpecs.springButton,
                 label = "fabScale"
             )
-            FloatingActionButton(
+            Surface(
                 onClick = navigateToItemEntry,
                 modifier = Modifier
-                    .shadow(4.dp, shape = RoundedCornerShape(4.dp), clip = false)
+                    .size(48.dp)
                     .graphicsLayer { scaleX = fabScale; scaleY = fabScale },
-                shape = RoundedCornerShape(4.dp),
-                containerColor = MaterialTheme.colorScheme.tertiary,
-                contentColor = MaterialTheme.colorScheme.onTertiary
+                shape = androidx.compose.foundation.shape.CircleShape,
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)),
+                shadowElevation = 2.dp
             ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = stringResource(R.string.cd_add_event)
-                )
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = stringResource(R.string.cd_add_event),
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
         }
     ) { innerPadding ->
@@ -291,10 +325,11 @@ fun HomeScreen(
                 if (isEmpty) {
                     EmptyState(modifier = Modifier.fillMaxSize())
                 } else {
-                    LazyColumn(
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(if (homeDisplayMode == 0) 12.dp else 6.dp)
-                    ) {
+                    CompositionLocalProvider(LocalOverscrollConfiguration provides null) {
+                        LazyColumn(
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(if (homeDisplayMode == 0) 12.dp else 6.dp)
+                        ) {
                         items(displayedList, key = { it.event.id }) { eventState ->
                             val dismissState = rememberSwipeToDismissBoxState(
                             confirmValueChange = { value ->
@@ -342,9 +377,17 @@ fun HomeScreen(
                         ) {
                             val showDetail = homeDensityMode == 1
                             if (homeDisplayMode == 0) {
+                                val cardDisplayMode = perEventDateDeltaModes[eventState.event.id] ?: dateDeltaDisplayMode
                                 EventCard(
                                     eventState = eventState,
+                                    today = today,
                                     dateFormatter = dateFormatter,
+                                    dateDeltaDisplayMode = cardDisplayMode,
+                                    onToggleDateDeltaDisplayMode = {
+                                        scope.launch {
+                                            prefs.setDateDeltaDisplayModeForEvent(eventState.event.id, if (cardDisplayMode == 0) 1 else 0)
+                                        }
+                                    },
                                     onClick = { navigateToDetail(eventState.event.id) },
                                     onLongClick = { navigateToEdit(eventState.event.id) },
                                     showHours = showHours,
@@ -352,17 +395,23 @@ fun HomeScreen(
                                     showDetail = showDetail
                                 )
                             } else {
+                                val itemDisplayMode = perEventDateDeltaModes[eventState.event.id] ?: dateDeltaDisplayMode
                                 EventListItem(
                                     eventState = eventState,
+                                    today = today,
                                     dateFormatter = dateFormatter,
+                                    dateDeltaDisplayMode = itemDisplayMode,
+                                    onToggleDateDeltaDisplayMode = {
+                                        scope.launch {
+                                            prefs.setDateDeltaDisplayModeForEvent(eventState.event.id, if (itemDisplayMode == 0) 1 else 0)
+                                        }
+                                    },
                                     onClick = { navigateToDetail(eventState.event.id) },
-                                    onLongClick = { navigateToEdit(eventState.event.id) },
-                                    showHours = false,
-                                    showMilestone = false,
-                                    showDetail = true
+                                    onLongClick = { navigateToEdit(eventState.event.id) }
                                 )
                             }
                         }
+                    }
                     }
                 }
             }
@@ -401,7 +450,10 @@ private fun EmptyState(modifier: Modifier = Modifier) {
 @Composable
 fun EventCard(
     eventState: EventUiState,
+    today: LocalDate,
     dateFormatter: DateTimeFormatter,
+    dateDeltaDisplayMode: Int,
+    onToggleDateDeltaDisplayMode: () -> Unit,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     showHours: Boolean = true,
@@ -409,114 +461,104 @@ fun EventCard(
     showDetail: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        if (isPressed) 0.98f else 1f,
-        animationSpec = AnimationSpecs.springButton,
-        label = "cardScale"
-    )
     val isPast = eventState.isPast
     val baseCardColor = parseEventColorOrFallback(
         hex = eventState.event.colorHex,
         fallback = MaterialTheme.colorScheme.primary
     )
 
-    // Song Aesthetics: "Juanben" (Silk Scroll) Texture
-    // Adjusted transparency to accommodate the lighter, elegant base colors.
-    val juanbenTint = if (isPast) 0.5f else 0.85f
+    // 交互动画：在缩放的基础上增加轻微的透明度反馈
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.98f else 1f,
+        animationSpec = androidx.compose.animation.core.spring(
+            dampingRatio = androidx.compose.animation.core.Spring.DampingRatioLowBouncy,
+            stiffness = androidx.compose.animation.core.Spring.StiffnessLow
+        ),
+        label = "cardScale"
+    )
+    val cardAlpha by animateFloatAsState(
+        targetValue = if (isPressed) 0.92f else 1f,
+        animationSpec = androidx.compose.animation.core.tween(150),
+        label = "cardAlpha"
+    )
+
+    // 原始首页卡片：使用事件色大面积铺色（降低透明度，加深颜色实感）
+    val juanbenTint = if (isPast) 0.85f else 1.0f // 过期颜色微降，保持整体色彩浓郁
     val cardContainerColor = baseCardColor.copy(alpha = juanbenTint)
-    
-    // Content color: "Jiao Mo" (Burnt Ink) - Darker, richer text to contrast with the deeper background
-    val cardContentColor = MaterialTheme.colorScheme.onSurface
+
+    // 内容文字颜色：绝对清晰的高对比度宋式用色
+    val isLight = cardContainerColor.luminance() > 0.45f
+    val cardContentColor = if (isLight) {
+        // 浅色底：用极深的焦墨色，带一点点原色倾向
+        lerp(Color(0xFF141618), baseCardColor, 0.1f)
+    } else {
+        // 深色底：用带暖调的宣纸霜白，防刺眼且极其清晰
+        lerp(Color(0xFFF9F7F2), baseCardColor, 0.05f)
+    }
 
     val view = androidx.compose.ui.platform.LocalView.current
-    val today = remember { LocalDate.now() }
 
-    // 缓存日期计算
     val targetLocalDate = remember(eventState.event.date) {
-        Instant.ofEpochMilli(eventState.event.date)
-            .atZone(ZoneId.systemDefault())
-            .toLocalDate()
+        eventDateToLocalDate(eventState.event.date)
     }
 
-    // Logic Migration: Use repeatType instead of category
+    val isRepeating = eventState.event.repeatType != REPEAT_NONE
     val isYearly = eventState.event.repeatType == REPEAT_YEARLY
-    
-    // Age Mode: Shows "X years Y months" for any yearly event that has started
-    val isAgeMode = remember(isPast, isYearly, targetLocalDate, today) {
-        !isPast && isYearly && !targetLocalDate.isAfter(today)
-    }
-    
-    // Milestones: Show for all yearly events (as requested by user to cover Anniversaries)
-    // "Only Anniversary triggers milestones" -> We treat all Yearly events as Anniversaries for milestone purposes
     val isAnniversary = isYearly
 
-    // Display Mode Logic: 0 = Remaining, 1 = Elapsed(Days), 2 = Elapsed(YMD)
-    // Default: AgeMode -> YMD(2), Past -> Days(1), Future -> Remaining(0)
-    val initialMode = remember(eventState.event.id, isAgeMode, isPast) {
-        if (isAgeMode) 2 else if (isPast) 1 else 0
-    }
-    var displayMode by remember(eventState.event.id, isAgeMode, isPast) { mutableIntStateOf(initialMode) }
-    
-    // Cycle through modes: 
-    // If AgeMode: 0 -> 2 -> 1 -> 0
-    // If Past: 1 -> 0 -> 1 (or 1 -> 2 -> 0 -> 1 if we want YMD for past events too)
-    // If Future: 0 -> 1 -> 0
-    fun cycleMode() {
-        displayMode = when (displayMode) {
-            0 -> if (isAgeMode) 2 else 1
-            1 -> 0
-            2 -> 1
-            else -> 0
-        }
-    }
-
-    // Days Display Logic with Units
-    // We separate the number and the unit for styling if needed, or keep them together string
-    // Requirement: Always show units (Days, Years/Months/Days)
-    val isToday = eventState.daysRemaining == 0L
+    val isToday = eventState.daysRemaining == 0L && !eventState.isPast
     val todayLabel = stringResource(R.string.days_today_label)
-    val mainDisplayPair = if (isToday) {
-        todayLabel to ""
-    } else when (displayMode) {
-        2 -> {
-            formatBetweenAsYMD(targetLocalDate, today) to ""
-        }
-        1 -> {
-            formatDays(eventState.daysPassed) to stringResource(R.string.days_unit)
-        }
-        else -> {
-            formatDays(eventState.daysRemaining) to stringResource(R.string.days_unit)
-        }
+    val isShowUntil = isRepeating || !isPast
+    val labelText = when {
+        isToday -> ""
+        isAnniversary -> stringResource(R.string.days_past_label)
+        isShowUntil -> stringResource(R.string.days_until_label)
+        else -> stringResource(R.string.days_past_label)
     }
-    
-    val displayContent = mainDisplayPair.first
-    val displayUnit = mainDisplayPair.second
+    var dayCount = if (!isRepeating && isPast) eventState.daysElapsed else eventState.daysRemaining
+    // 修正：状态为 0 但目标日期并非今天时，按本地日期重算，修复多卡片误显示 0 天
+    if (dayCount == 0L && !isToday) {
+        dayCount = if (targetLocalDate.isBefore(today)) ChronoUnit.DAYS.between(targetLocalDate, today)
+        else ChronoUnit.DAYS.between(today, targetLocalDate)
+    }
+    val displayContent: String
+    val displayUnit: String
+    if (isToday) {
+        displayContent = todayLabel
+        displayUnit = ""
+    } else if (isAnniversary) {
+        // 纪念日首页：显示“已经 XX 天”（自缘起日至今的累计天数，用 daysPassed）
+        displayContent = formatDaysSmart(eventState.daysPassed, false)
+        displayUnit = stringResource(R.string.days_unit)
+    } else if (dateDeltaDisplayMode == 0) {
+        displayContent = formatDaysSmart(dayCount, false)
+        displayUnit = stringResource(R.string.days_unit)
+    } else {
+        val start = if (!isRepeating && isPast) today.minusDays(dayCount) else today
+        val end = if (!isRepeating && isPast) today else today.plusDays(dayCount)
+        displayContent = formatBetweenAsYMD(start, end)
+        displayUnit = ""
+    }
 
     val cardDescription = buildString {
         append(eventState.event.title)
         append(", ")
-        // Add accessibility description based on current mode
-        if (isToday) {
-            append(todayLabel)
-        } else when (displayMode) {
-            2, 1 -> {
-                append(stringResource(R.string.days_past_label)).append(" ")
-                append(displayContent).append(displayUnit)
-            }
-            else -> {
-                append(stringResource(R.string.days_left_label)).append(" ").append(displayContent).append(displayUnit)
-            }
-        }
+        if (isToday) append(todayLabel)
+        else append(labelText).append(" ").append(displayContent).append(displayUnit)
     }
 
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .height(100.dp) // 固定高度，确保极度一致的韵律感
+            .heightIn(min = 110.dp)
             .semantics(mergeDescendants = true) { contentDescription = cardDescription }
-            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .graphicsLayer { 
+                scaleX = scale
+                scaleY = scale
+                alpha = cardAlpha
+            }
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = {
@@ -530,7 +572,7 @@ fun EventCard(
         colors = CardDefaults.cardColors(containerColor = cardContainerColor),
         border = BorderStroke(
             width = 0.5.dp, // 极细淡墨边框
-            color = MaterialTheme.colorScheme.outline
+            color = baseCardColor.copy(alpha = if (isPast) 0.3f else 0.8f)
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -538,28 +580,28 @@ fun EventCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .fillMaxHeight()
-                .padding(horizontal = 24.dp, vertical = 16.dp), // 增加留白，更显疏朗
+                .padding(24.dp), // 增加留白，更显疏朗
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Left color indicator dot - Removed to let the whole card color speak
             // Instead, we use the whole card background as the indicator
             
-            // Main content: title, category, date
+            // 标题
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.SpaceBetween, // 垂直两端对齐
                 horizontalAlignment = Alignment.Start
             ) {
-                // Title row
+                // Title row（略增字号以便阅读）
                 Text(
                     text = eventState.event.title,
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Normal, // 去掉粗体，回归宋式瘦硬
                         letterSpacing = 0.5.sp,
-                        lineHeight = 28.sp
+                        lineHeight = 24.sp,
+                        fontSize = 18.sp
                     ),
-                    // "Nong Mo" (Thick Ink): High opacity for strong contrast against the silk background
-                    color = cardContentColor.copy(alpha = if (isPast) 0.6f else 0.95f),
+                    color = cardContentColor.copy(alpha = if (isPast) 0.8f else 1.0f),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -567,8 +609,8 @@ fun EventCard(
                 // Date: "Dan Mo" (Pale Ink)
                 Text(
                     text = targetLocalDate.format(dateFormatter),
-                    style = MaterialTheme.typography.bodyMedium, // labelMedium -> bodyMedium (larger)
-                    color = cardContentColor.copy(alpha = 0.65f) // Slightly increased alpha for better readability
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 14.sp),
+                    color = cardContentColor.copy(alpha = 0.8f)
                 )
             }
 
@@ -581,50 +623,47 @@ fun EventCard(
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
-                        onClick = { cycleMode() }
+                        onClick = onToggleDateDeltaDisplayMode
                     ),
                 horizontalAlignment = Alignment.End,
                 verticalArrangement = Arrangement.Center
             ) {
-                // Days number with unit
+                // Days number with unit（使用卡片高对比度内容色，确保在深色铺色下依然绝对清晰）
+                val timeColor = if (isPast) cardContentColor.copy(alpha = 0.85f) else cardContentColor
                 Row(
                     verticalAlignment = Alignment.Bottom,
                     horizontalArrangement = Arrangement.End
                 ) {
                     Text(
                         text = displayContent,
-                        style = MaterialTheme.typography.displaySmall.copy( // 统一使用大字号 displaySmall
-                            fontSize = 28.sp, // 统一设定为 28sp，兼顾长短文本
-                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        style = MaterialTheme.typography.displaySmall.copy(
+                            fontSize = 24.sp,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Normal,
                             letterSpacing = (-0.5).sp
                         ),
-                        color = if (isPast) cardContentColor.copy(alpha = 0.6f) else baseCardColor,
+                        color = timeColor,
                         maxLines = 1,
-                        overflow = TextOverflow.Visible // 允许溢出，但通常固定高度下不会
+                        overflow = TextOverflow.Ellipsis
                     )
                     
                     if (displayUnit.isNotEmpty()) {
                         Spacer(modifier = Modifier.width(2.dp))
                         Text(
                             text = displayUnit,
-                            style = MaterialTheme.typography.titleSmall, // 单位统一使用小号标题字
-                            color = if (isPast) cardContentColor.copy(alpha = 0.5f) else baseCardColor.copy(alpha = 0.7f),
-                            modifier = Modifier.padding(bottom = 6.dp) // 统一基线对齐
+                            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+                            color = timeColor.copy(alpha = 1.0f),
+                            modifier = Modifier.padding(bottom = 4.dp)
                         )
                     }
                 }
 
                 Spacer(modifier = Modifier.height(2.dp))
 
-                // Label
+                // Label（剩余/已经）
                 Text(
-                    text = if (isToday) ""
-                        else when (displayMode) {
-                            2, 1 -> stringResource(R.string.days_past_label)
-                            else -> stringResource(R.string.days_left_label)
-                        },
-                    style = MaterialTheme.typography.labelSmall,
-                    color = cardContentColor.copy(alpha = 0.5f),
+                    text = labelText,
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                    color = timeColor.copy(alpha = 0.85f),
                     letterSpacing = 2.sp
                 )
             }
@@ -636,64 +675,61 @@ fun EventCard(
 @Composable
 private fun EventListItem(
     eventState: EventUiState,
+    today: LocalDate,
     dateFormatter: DateTimeFormatter,
+    dateDeltaDisplayMode: Int,
+    onToggleDateDeltaDisplayMode: () -> Unit,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
-    showHours: Boolean = true,
-    showMilestone: Boolean = true,
-    showDetail: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        if (isPressed) 0.99f else 1f,
-        animationSpec = AnimationSpecs.springButton,
+        targetValue = if (isPressed) 0.98f else 1f,
+        animationSpec = androidx.compose.animation.core.spring(
+            dampingRatio = androidx.compose.animation.core.Spring.DampingRatioLowBouncy,
+            stiffness = androidx.compose.animation.core.Spring.StiffnessLow
+        ),
         label = "listItemScale"
+    )
+    val itemAlpha by animateFloatAsState(
+        targetValue = if (isPressed) 0.92f else 1f,
+        animationSpec = androidx.compose.animation.core.tween(150),
+        label = "listItemAlpha"
     )
     val isPast = eventState.isPast
     val listView = androidx.compose.ui.platform.LocalView.current
-    val today = LocalDate.now()
-    // 缓存日期计算
     val targetLocalDate = remember(eventState.event.date) {
-        Instant.ofEpochMilli(eventState.event.date)
-            .atZone(ZoneId.systemDefault())
-            .toLocalDate()
+        eventDateToLocalDate(eventState.event.date)
     }
 
-    // Logic Migration: Use repeatType instead of category
+    val isRepeating = eventState.event.repeatType != REPEAT_NONE
     val isYearly = eventState.event.repeatType == REPEAT_YEARLY
-    
-    // Age Mode: Shows "X years Y months" for any yearly event that has started
-    val isAgeMode = remember(isPast, isYearly, targetLocalDate, today) {
-        !isPast && isYearly && !targetLocalDate.isAfter(today)
-    }
-    
-    // Milestones: Show for all yearly events (as requested by user to cover Anniversaries)
-    // "Only Anniversary triggers milestones" -> We treat all Yearly events as Anniversaries for milestone purposes
     val isAnniversary = isYearly
-
-    // Display Mode Logic: 0 = Remaining, 1 = Elapsed(Days), 2 = Elapsed(YMD)
-    val initialMode = remember(eventState.event.id, isAgeMode, isPast) {
-        if (isAgeMode) 2 else if (isPast) 1 else 0
-    }
-    var displayMode by remember(eventState.event.id, isAgeMode, isPast) { mutableIntStateOf(initialMode) }
-
-    fun cycleMode() {
-        displayMode = when (displayMode) {
-            0 -> if (isAgeMode) 2 else 1
-            1 -> 0
-            2 -> 1
-            else -> 0
-        }
-    }
-
-    val isToday = eventState.daysRemaining == 0L
+    val isToday = eventState.daysRemaining == 0L && !eventState.isPast
     val todayLabel = stringResource(R.string.days_today_label)
-    val daysDisplay = if (isToday) todayLabel else when (displayMode) {
-        2 -> formatBetweenAsYMD(targetLocalDate, today)
-        1 -> formatDays(eventState.daysPassed)
-        else -> formatDays(eventState.daysRemaining)
+    val isShowUntil = isRepeating || !isPast
+    val labelText = when {
+        isToday -> ""
+        isAnniversary -> stringResource(R.string.days_past_label)
+        isShowUntil -> stringResource(R.string.days_until_label)
+        else -> stringResource(R.string.days_past_label)
+    }
+    var dayCount = if (!isRepeating && isPast) eventState.daysElapsed else eventState.daysRemaining
+    if (dayCount == 0L && !isToday) {
+        dayCount = if (targetLocalDate.isBefore(today)) ChronoUnit.DAYS.between(targetLocalDate, today)
+        else ChronoUnit.DAYS.between(today, targetLocalDate)
+    }
+    val daysDisplay = if (isToday) {
+        todayLabel
+    } else if (isAnniversary || dateDeltaDisplayMode == 0) {
+        val dc = if (isAnniversary) eventState.daysPassed else dayCount
+        formatDaysSmart(dc, false) + stringResource(R.string.days_unit)
+    } else {
+        val start = if (!isRepeating && isPast) today.minusDays(dayCount) else today
+        val end = if (!isRepeating && isPast) today else today.plusDays(dayCount)
+        formatBetweenAsYMD(start, end)
     }
 
     val itemContentColor = MaterialTheme.colorScheme.onSurface
@@ -704,25 +740,20 @@ private fun EventListItem(
     val itemDescription = buildString {
         append(eventState.event.title)
         append(", ")
-        if (isToday) {
-            append(todayLabel)
-        } else when (displayMode) {
-            2, 1 -> {
-                append(stringResource(R.string.days_past_label)).append(" ")
-                append(daysDisplay)
-            }
-            else -> {
-                append(stringResource(R.string.days_left_label)).append(" ").append(daysDisplay)
-            }
-        }
+        if (isToday) append(todayLabel)
+        else append(labelText).append(" ").append(daysDisplay)
     }
 
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .height(64.dp) // 固定高度，保持列表整齐
+            .heightIn(min = 68.dp)
             .semantics(mergeDescendants = true) { contentDescription = itemDescription }
-            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .graphicsLayer { 
+                scaleX = scale
+                scaleY = scale
+                alpha = itemAlpha
+            }
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = {
@@ -738,23 +769,12 @@ private fun EventListItem(
             )
             .border(
                 width = 0.5.dp, // 极细边框
-                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                color = eventColor.copy(alpha = if (isPast) 0.3f else 0.8f),
                 shape = RoundedCornerShape(2.dp)
             )
-            .padding(horizontal = 16.dp, vertical = 0.dp), // 垂直方向由 Row 的 Arrangement 控制
+            .padding(horizontal = 24.dp, vertical = 0.dp), // 垂直方向由 Row 的 Arrangement 控制
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Color dot
-        Box(
-            modifier = Modifier
-                .size(6.dp)
-                .background(
-                    eventColor.copy(alpha = if (isPast) 0.5f else 0.9f),
-                    androidx.compose.foundation.shape.CircleShape
-                )
-        )
-        Spacer(modifier = Modifier.width(16.dp))
-
         // Title and category
         Column(
             modifier = Modifier.weight(1f),
@@ -763,20 +783,18 @@ private fun EventListItem(
             Text(
                 text = eventState.event.title,
                 style = MaterialTheme.typography.bodyLarge.copy(
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.Normal,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
                     letterSpacing = 0.5.sp
                 ),
-                color = itemContentColor.copy(alpha = if (isPast) 0.6f else 0.9f),
+                color = itemContentColor.copy(alpha = if (isPast) 0.85f else 1.0f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            if (showDetail) {
-                Text(
-                    text = targetLocalDate.format(dateFormatter),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = itemContentColor.copy(alpha = 0.4f)
-                )
-            }
+            Text(
+                text = targetLocalDate.format(dateFormatter),
+                style = MaterialTheme.typography.bodySmall,
+                color = itemContentColor.copy(alpha = 0.7f)
+            )
         }
 
         // Days display
@@ -786,27 +804,29 @@ private fun EventListItem(
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
-                    onClick = { cycleMode() }
+                    onClick = onToggleDateDeltaDisplayMode
                 ),
             horizontalAlignment = Alignment.End,
             verticalArrangement = Arrangement.Center
         ) {
+            val isLightSurface = MaterialTheme.colorScheme.surface.luminance() > 0.5f
+            val displayColor = if (isLightSurface) {
+                lerp(eventColor, Color.Black, 0.4f) // 在浅色模式下加深主题色以确保显示清晰
+            } else {
+                lerp(eventColor, Color.White, 0.4f) // 在深色模式下提亮主题色
+            }
             Text(
                 text = daysDisplay,
                 style = if (daysDisplay.length > 5)
-                    MaterialTheme.typography.titleMedium
+                    MaterialTheme.typography.titleMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
                 else
-                    MaterialTheme.typography.titleLarge,
-                color = if (isPast) itemContentColor.copy(alpha = 0.4f) else eventColor
+                    MaterialTheme.typography.titleLarge.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
+                color = if (isPast) displayColor.copy(alpha = 0.85f) else displayColor
             )
             Text(
-                text = if (isToday) ""
-                    else when (displayMode) {
-                        2, 1 -> stringResource(R.string.days_past_label)
-                        else -> stringResource(R.string.days_left_label)
-                    },
+                text = labelText,
                 style = MaterialTheme.typography.labelSmall,
-                color = itemContentColor.copy(alpha = 0.4f),
+                color = itemContentColor.copy(alpha = 0.7f),
                 letterSpacing = 1.sp
             )
         }
