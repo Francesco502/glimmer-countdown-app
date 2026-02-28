@@ -26,9 +26,11 @@ import com.example.timeapk.ui.home.EventUiState
 import com.example.timeapk.ui.settings.SettingsScreen
 import com.example.timeapk.ui.home.HomeScreen
 import com.example.timeapk.ui.home.toEventUiState
+import com.example.timeapk.ui.splash.SplashScreen
 import androidx.lifecycle.viewmodel.compose.viewModel
 
 object Routes {
+    const val Splash = "Splash"
     const val Home = "Home"
     const val Add = "Add"
     const val Edit = "Edit/{eventId}"
@@ -54,9 +56,10 @@ fun TimeApp(
             onOpenEventIdConsumed()
         }
     }
+    val startDestination = remember { if (initialOpenEventId != null) Routes.Home else Routes.Splash }
     NavHost(
         navController = navController,
-        startDestination = Routes.Home,
+        startDestination = startDestination,
         enterTransition = {
             fadeIn(animationSpec = AnimationSpecs.mediumTween()) +
                 slideInVertically(animationSpec = AnimationSpecs.mediumTweenIntOffset()) { it / 4 }
@@ -74,6 +77,15 @@ fun TimeApp(
                 slideOutVertically(animationSpec = AnimationSpecs.mediumTweenIntOffset()) { -it / 4 }
         }
     ) {
+        composable(Routes.Splash) {
+            SplashScreen(
+                onSplashFinished = {
+                    navController.navigate(Routes.Home) {
+                        popUpTo(Routes.Splash) { inclusive = true }
+                    }
+                }
+            )
+        }
         composable(Routes.Home) {
             HomeScreen(
                 navigateToItemEntry = { navController.navigate(Routes.Add) },
