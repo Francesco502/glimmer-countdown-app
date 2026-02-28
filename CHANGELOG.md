@@ -8,14 +8,10 @@
 
 ### 重要修复与发布就绪
 
-- **版本**：versionCode 4，versionName 3.0；ProGuard 规则补全（Room Entity/Dao、WorkManager、OkHttp、农历库等），Release 构建可安全发布
-- **日期时区**：统一事件日期解析为 UTC，任意时区下日期显示正确；提醒调度（ReminderScheduler / MilestoneReminderScheduler）同步修正
-- **通知**：普通提醒与里程碑提醒均使用应用图标 `ic_notification_small`，状态栏显示一致
-- **编辑页**：保存按钮防重复点击；`saveEvent()` 异常捕获并返回失败状态，避免崩溃且失败时保留在编辑页
-- **小组件**：深浅模式切换时自动刷新；列表项默认文字颜色使用主题属性，深色模式下无黑底黑字；删除未使用 PendingIntent；`widgetCategory="home_screen"`
-- **详情页**：`isToday` / `isShowUntil` 与首页逻辑统一；已历文学化文案（`formatElapsedLiterary`）支持英文
-- **首页**：`EventCard` / `EventListItem` 的「今天」判断统一为 `daysRemaining == 0 && !isPast`；移除 `EventListItem` 未用参数
-- **其他**：OkHttp Response 使用 `use{}` 管理；`RECEIVE_BOOT_COMPLETED` 权限；GitHub README Slogan 更新为启动页「白驹过隙，拾光留痕」
+- **宋代美学重构**：默认卡片色重新调整为具有东方古典韵味的颜色（沉香、景泰蓝、汁绿、丹罽、秋香、栗壳、蟹壳青、铁灰、绛紫），提升饱和度使界面更清透。
+- **色彩对比度增强**：详情页卡片底色根据所选主题色自动进行色彩融合，并增加卡片阴影，浅色模式像染色宣纸，深色模式像有底色的墨锭，彻底解决背景死白刺眼或死黑无法区分的问题。
+- **命理历法升级**：彻底弃用“纳音五行”，重构为最正统、主流的“子平八字法（正五行+地支藏干）”，现在会直接显示日主本命（如“属木 (缺水)”或“属火 (五行俱全)”），展示更准确。
+- **视觉优化**：适当调大详情页“缘起｜已历｜静候”的字号并加深颜色透明度；启动页移除不需要的元素，将主图（Logo）尺寸扩大为240dp以强化品牌感。
 
 ---
 
