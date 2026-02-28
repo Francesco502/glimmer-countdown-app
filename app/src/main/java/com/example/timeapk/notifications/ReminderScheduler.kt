@@ -25,8 +25,11 @@ fun scheduleReminder(context: Context, event: Event) {
     cal.set(Calendar.SECOND, 0)
     cal.set(Calendar.MILLISECOND, 0)
     val remindAtMillis = cal.timeInMillis
-    var delayMillis = remindAtMillis - System.currentTimeMillis()
-    if (delayMillis < 0) delayMillis = 0
+    val delayMillis = remindAtMillis - System.currentTimeMillis()
+    // 若提醒时间已过，直接放弃本次调度，避免立刻弹出过期通知
+    if (delayMillis <= 0) {
+        return
+    }
     val data: Data = workDataOf(
         ReminderWorker.KEY_TITLE to event.title,
         ReminderWorker.KEY_EVENT_ID to event.id,

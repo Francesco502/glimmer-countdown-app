@@ -35,22 +35,25 @@ import com.example.timeapk.data.REPEAT_NONE
 import com.example.timeapk.data.REPEAT_YEARLY
 import com.example.timeapk.ui.AppViewModelProvider
 import com.example.timeapk.ui.theme.AnimationSpecs
+import com.example.timeapk.ui.utils.getDisplayDateFormatter
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
 private val PRESET_COLORS = listOf(
-    "#2196F3", "#E91E63", "#9C27B0", "#673AB7", "#3F51B5",
-    "#00BCD4", "#009688", "#4CAF50", "#FF9800", "#795548"
+    // 宋代工笔画风格配色：
+    "#B5495B", // 胭脂 (Rouge)
+    "#4A746A", // 石绿 (Mineral Green)
+    "#869D9D", // 蟹壳青 (Crab Shell Green)
+    "#D4C4B5", // 泥金 (Gold Paste)
+    "#8C4B47", // 赭石 (Ocher)
+    "#E0D6C8", // 浅金 (Pale Gold)
+    "#5D7A76", // 黛绿 (Dark Green)
+    "#2B2B2B", // 墨色 (Ink)
+    "#993C3C43", // 传统的深灰 (LabelSecondary)
+    "#1C1C1E"  // 传统的深黑 (SurfaceDark)
 )
-private val CATEGORY_DEFAULT_COLOR = mapOf(
-    "生日" to "#E91E63",
-    "纪念日" to "#9C27B0",
-    "考试" to "#2196F3",
-    "节日" to "#4CAF50",
-    "其他" to "#795548"
-)
+// CATEGORY_DEFAULT_COLOR map removed as explicit category selection is gone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,15 +66,11 @@ fun EventEntryScreen(
     val context = LocalContext.current
     val eventUiState by viewModel.eventUiState.collectAsState()
     val coroutineScope = rememberCoroutineScope()
-
     LaunchedEffect(eventId) {
         if (eventId != null && eventId != 0) {
             viewModel.loadEvent(eventId)
         } else {
-            (context.applicationContext as? TimeApplication)?.initialCategoryForAdd?.let { category ->
-                viewModel.updateUiState(eventUiState.eventDetails.copy(category = category, colorHex = CATEGORY_DEFAULT_COLOR[category]))
-                (context.applicationContext as? TimeApplication)?.initialCategoryForAdd = null
-            }
+            // Initial category logic removed
         }
     }
 
@@ -188,6 +187,9 @@ fun EventInputForm(
     onValueChange: (EventDetails) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val dateFormatMode by (context.applicationContext as TimeApplication).userPrefs.dateFormatModeFlow.collectAsState(initial = 0)
+    val dateFormatter = remember(dateFormatMode) { getDisplayDateFormatter(dateFormatMode) }
     var showDatePicker by remember { mutableStateOf(false) }
     val datePickerState = rememberDatePickerState(
         initialSelectedDateMillis = eventDetails.date
@@ -264,56 +266,6 @@ fun EventInputForm(
             colors = textFieldColors
         )
         
-        // 类别选择（与背景同色，不用主色块）
-        Text(
-            text = stringResource(R.string.field_category),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            listOf(
-                stringResource(R.string.category_birthday) to "生日",
-                stringResource(R.string.category_anniversary) to "纪念日",
-                stringResource(R.string.category_exam) to "考试",
-                stringResource(R.string.category_holiday) to "节日",
-                stringResource(R.string.category_other) to "其他"
-            ).forEach { (label, value) ->
-                FilterChip(
-                    selected = eventDetails.category == value,
-                    onClick = {
-                        val defaultColor = CATEGORY_DEFAULT_COLOR[value]
-                        onValueChange(eventDetails.copy(category = value, colorHex = defaultColor ?: eventDetails.colorHex))
-                    },
-                    label = { Text(label) },
-                    shape = RoundedCornerShape(4.dp),
-                    modifier = Modifier.heightIn(min = 40.dp),
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primary,
-                        selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-                        containerColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f),
-                        labelColor = MaterialTheme.colorScheme.onBackground
-                    )
-                )
-            }
-        }
-        
-        // 自定义类别输入
-        OutlinedTextField(
-            value = eventDetails.category,
-            onValueChange = { onValueChange(eventDetails.copy(category = it)) },
-            label = { Text(stringResource(R.string.category_custom), color = MaterialTheme.colorScheme.onBackground) },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            shape = RoundedCornerShape(4.dp),
-            colors = textFieldColors
-        )
-        
         // 备注输入
         OutlinedTextField(
             value = eventDetails.note,
@@ -326,12 +278,11 @@ fun EventInputForm(
             colors = textFieldColors
         )
 
-        // 日期选择
-        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+        // 日期选择（与设置中日期格式一致）
         val dateString = Instant.ofEpochMilli(eventDetails.date)
             .atZone(ZoneId.systemDefault())
             .toLocalDate()
-            .format(formatter)
+            .format(dateFormatter)
 
         // 整个日期输入框可点击打开日期选择器，去掉右侧图标
         // 使用上层透明点击层，避免 TextField 自身消费点击事件

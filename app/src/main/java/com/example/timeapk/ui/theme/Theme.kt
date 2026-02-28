@@ -10,66 +10,67 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
-import androidx.compose.ui.graphics.Color
-import com.example.timeapk.ui.theme.RetroDarkAccent
-import com.example.timeapk.ui.theme.RetroDarkBackground
-import com.example.timeapk.ui.theme.RetroDarkPrimary
-import com.example.timeapk.ui.theme.RetroDarkSecondary
-import com.example.timeapk.ui.theme.RetroDarkSurface
-import com.example.timeapk.ui.theme.RetroDarkTextOnBG
-import com.example.timeapk.ui.theme.RetroDarkTextOnSurface
-import com.example.timeapk.ui.theme.RetroLightAccent
-import com.example.timeapk.ui.theme.RetroLightBackground
-import com.example.timeapk.ui.theme.RetroLightPrimary
-import com.example.timeapk.ui.theme.RetroLightSecondary
-import com.example.timeapk.ui.theme.RetroLightSurface
-import com.example.timeapk.ui.theme.RetroLightTextOnBG
-import com.example.timeapk.ui.theme.RetroLightTextOnSurface
+import com.example.timeapk.ui.utils.findActivity
 
-// 港式复古 (Hong Kong Retro) 主题配置 V4
-// 核心修复：primary ≠ surfaceVariant → primary 统一为砖红交互色
+// 宋代工笔画 (Song Dynasty Gongbi) 主题配置 V5
+// 默认主题切换为：宋代工笔画风格 (宣纸/沉墨)
 private val DarkColorScheme = darkColorScheme(
-    primary = RetroDarkPrimary,                  // #D65C5C 砖红 (交互色：按钮、链接、选中态)
-    secondary = RetroDarkSecondary,              // #3F6987 钢蓝
-    tertiary = RetroDarkAccent,                  // #FDF4DE 奶油 (FAB，与卡片呼应)
-    background = RetroDarkBackground,            // #141622 深海蓝黑
-    surface = RetroDarkBackground,               // 全局表面保持深色，避免大面积亮瞎眼
-    surfaceVariant = RetroDarkSurface,           // #FDF4DE 奶油色卡片
-    onPrimary = Color.White,                     // 白字在砖红上 (高对比)
+    primary = SongDarkPrimary,                   // 泥金
+    secondary = SongDarkSecondary,               // 黛绿
+    tertiary = SongDarkTertiary,                 // 赭石
+    background = SongDarkBackground,             // 漆黑
+    surface = SongDarkSurface,                   // 墨锭 (卡片背景)
+    surfaceVariant = SongDarkSurface,            // 保持一致
+    onPrimary = Color(0xFF101012),               // 深色背景上的文字
     onSecondary = Color.White,
-    onTertiary = RetroDarkTextOnSurface,         // #141622 深色文字在奶油 FAB 上
-    onBackground = RetroDarkTextOnBG,            // #BDB4BF 浅灰在深色背景上
-    onSurface = RetroDarkTextOnBG,
-    onSurfaceVariant = RetroDarkTextOnSurface,   // #141622 深色文字在奶油卡片上
-    outline = RetroDarkSecondary.copy(alpha = 0.5f)
+    onTertiary = Color.White,
+    onBackground = SongDarkTextOnBG,             // 银灰
+    onSurface = SongDarkTextOnSurface,           // 霜白
+    onSurfaceVariant = SongDarkTextOnBG,         // 银灰
+    outline = SongDarkTextOnBG.copy(alpha = 0.2f) // 极淡的边框
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = RetroLightAccent,                  // #D65C5C 砖红 (交互色，与深色模式一致)
-    secondary = RetroLightSecondary,             // #AFC8DA 褪色丹宁
-    tertiary = RetroLightPrimary,                // #47709B 海蓝 (FAB，与卡片呼应但稍浅)
-    background = RetroLightBackground,           // #FEFFFF 冷瓷白
-    surface = RetroLightBackground,              // 全局表面保持白色
-    surfaceVariant = RetroLightSurface,          // #355D82 深海蓝卡片 (加深以提高白字对比)
-    onPrimary = Color.White,                     // 白字在砖红上
-    onSecondary = RetroLightTextOnBG,            // 深色文字在褪色丹宁上
-    onTertiary = Color.White,                    // 白字在海蓝 FAB 上
-    onBackground = RetroLightTextOnBG,           // #1A232C 深蓝墨色在白色背景上
-    onSurface = RetroLightTextOnBG,
-    onSurfaceVariant = RetroLightTextOnSurface,  // #FEFFFF 白色文字在深蓝卡片上
-    outline = RetroLightTextOnBG.copy(alpha = 0.2f) // 深色描边，在白底和蓝卡上均可见
+    primary = SongLightPrimary,                  // 胭脂
+    secondary = SongLightSecondary,              // 石绿
+    tertiary = SongLightTertiary,                // 淡墨
+    background = SongLightBackground,            // 宣纸
+    surface = SongLightSurface,                  // 留白 (卡片背景)
+    surfaceVariant = SongLightBackground,        // 辅助背景
+    onPrimary = Color.White,
+    onSecondary = Color.White,
+    onTertiary = Color.White,
+    onBackground = SongLightTextOnBG,            // 焦墨
+    onSurface = SongLightTextOnSurface,          // 焦墨
+    onSurfaceVariant = SongLightTextOnBG,        // 焦墨
+    outline = SongLightTextOnBG.copy(alpha = 0.12f) // 极淡的边框，模拟纸张边缘
 )
 
-/** @param themeMode 0=跟随系统 1=浅色 2=深色 */
+private fun parseHexOrNull(hex: String?): Color? {
+    if (hex.isNullOrBlank()) return null
+    return try {
+        Color(android.graphics.Color.parseColor(hex))
+    } catch (_: Exception) {
+        null
+    }
+}
+
+/** @param themeMode 0=跟随系统 1=浅色 2=深色；fontPreset 0=默认 1=衬线 2=手写 3=等宽；custom*Hex 为用户自定义色 */
 @Composable
 fun TimeAPKTheme(
     themeMode: Int = 0,
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = false,
+    fontPreset: Int = 0,
+    customBackgroundHex: String? = null,
+    customSurfaceHex: String? = null,
+    customPrimaryHex: String? = null,
+    customOnBackgroundHex: String? = null,
     content: @Composable () -> Unit
 ) {
     val resolvedDark = when (themeMode) {
@@ -77,7 +78,7 @@ fun TimeAPKTheme(
         2 -> true
         else -> darkTheme
     }
-    val colorScheme = when {
+    var colorScheme = when {
         // 动态配色仅用于浅色主题，深色始终使用自定义 Cinematic Dark Glass
         dynamicColor && !resolvedDark && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
@@ -86,10 +87,20 @@ fun TimeAPKTheme(
         resolvedDark -> DarkColorScheme
         else -> LightColorScheme
     }
+    parseHexOrNull(customBackgroundHex)?.let { colorScheme = colorScheme.copy(background = it, surface = it) }
+    parseHexOrNull(customSurfaceHex)?.let { colorScheme = colorScheme.copy(surfaceVariant = it) }
+    parseHexOrNull(customPrimaryHex)?.let { colorScheme = colorScheme.copy(primary = it) }
+    parseHexOrNull(customOnBackgroundHex)?.let {
+        colorScheme = colorScheme.copy(
+            onBackground = it,
+            onSurface = it,
+            onSurfaceVariant = it
+        )
+    }
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
-            val window = (view.context as Activity).window
+            val window = view.context.findActivity()?.window ?: return@SideEffect
             // 状态栏使用与背景一致的色彩，营造沉浸感
             window.statusBarColor = colorScheme.background.toArgb()
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !resolvedDark
@@ -98,7 +109,7 @@ fun TimeAPKTheme(
 
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = Typography,
+        typography = typographyForFontPreset(fontPreset),
         content = content
     )
 }

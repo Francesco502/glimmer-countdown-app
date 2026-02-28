@@ -6,6 +6,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,6 +26,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.border
@@ -33,11 +36,18 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.timeapk.R
+import com.example.timeapk.TimeApplication
+import com.example.timeapk.data.REPEAT_YEARLY
 import com.example.timeapk.ui.home.EventUiState
+import com.example.timeapk.ui.home.milestoneLabel
 import com.example.timeapk.ui.theme.AnimationSpecs
+import com.example.timeapk.ui.utils.formatDays
+import com.example.timeapk.ui.utils.formatBetweenAsYMD
+import com.example.timeapk.ui.utils.formatDaysSmart
+import com.example.timeapk.ui.utils.getDisplayDateFormatter
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,6 +59,10 @@ fun DetailScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val prefs = (context.applicationContext as TimeApplication).userPrefs
+    val showMilestone by prefs.showMilestoneFlow.collectAsState(initial = true)
+    val dateFormatMode by prefs.dateFormatModeFlow.collectAsState(initial = 0)
+    val dateFormatter = remember(dateFormatMode) { getDisplayDateFormatter(dateFormatMode) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
     if (eventState == null) {
@@ -82,6 +96,15 @@ fun DetailScreen(
             }
         )
     }
+
+    val detailBaseColor = parseEventColorOrFallback(
+        hex = eventState.event.colorHex,
+        fallback = MaterialTheme.colorScheme.primary
+    )
+    
+    // Song Aesthetic: Surface color for card, primary/base color for accents
+    val detailCardColor = MaterialTheme.colorScheme.surface
+    val detailContentColor = MaterialTheme.colorScheme.onSurface
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background, // 与其他页面背景一致
@@ -120,29 +143,36 @@ fun DetailScreen(
                 .verticalScroll(scrollState)
                 .padding(24.dp)
         ) {
-            // 复古场记板/老黄历风格卡片
+            // 复古场记板/老黄历风格卡片 -> 宋代书画样式
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(4.dp), // 直角/微圆角
+                shape = RoundedCornerShape(2.dp), // 极小圆角
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    containerColor = detailCardColor
                 ),
                 border = BorderStroke(
-                    width = 2.dp, // 加粗边框，模拟边框感
+                    width = 0.5.dp, // 极细边框
                     color = MaterialTheme.colorScheme.outline
                 ),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column(
-                    modifier = Modifier.padding(24.dp),
+                    modifier = Modifier.padding(32.dp), // 增加内部留白
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // 顶部：日期与类别（类似报纸刊头）
-                    val formatter = DateTimeFormatter.ofPattern("yyyy.MM.dd")
-                    val dateStr = Instant.ofEpochMilli(eventState.event.date)
+                    // 顶部：日期与类别（与设置中日期格式一致）
+                    val today = LocalDate.now()
+                    val targetLocalDate = Instant.ofEpochMilli(eventState.event.date)
                         .atZone(ZoneId.systemDefault())
                         .toLocalDate()
-                        .format(formatter)
+                    // Logic Migration: Use repeatType instead of category
+                    val isYearly = eventState.event.repeatType == REPEAT_YEARLY
+                    
+                    val isAgeMode = !eventState.isPast && isYearly && !targetLocalDate.isAfter(today)
+                    // Treat all Yearly events as Anniversaries for milestone logic
+                    val isAnniversary = isYearly
+                    
+                    val dateStr = targetLocalDate.format(dateFormatter)
                     
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -152,63 +182,139 @@ fun DetailScreen(
                         Text(
                             text = dateStr,
                             style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                            color = detailContentColor.copy(alpha = 0.5f)
                         )
-                        Box(
-                            modifier = Modifier
-                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(2.dp))
-                                .padding(horizontal = 8.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = eventState.event.category,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-                            )
-                        }
+                        // Removed category tag
                     }
                     
                     HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 16.dp),
-                        thickness = 1.dp,
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                        modifier = Modifier.padding(vertical = 24.dp),
+                        thickness = 0.5.dp,
+                        color = detailContentColor.copy(alpha = 0.1f)
                     )
 
                     // 核心：标题与倒计时
                     Text(
                         text = eventState.event.title,
-                        style = MaterialTheme.typography.displayLarge.copy(fontSize = 32.sp),
+                        style = MaterialTheme.typography.displayLarge.copy(
+                            fontSize = 32.sp,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Normal,
+                            letterSpacing = 2.sp
+                        ),
                         textAlign = TextAlign.Center,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = detailContentColor.copy(alpha = 0.9f)
                     )
                     
-                    Spacer(modifier = Modifier.height(32.dp))
+                    Spacer(modifier = Modifier.height(40.dp))
+
+                    // Display Mode Logic: 0 = Remaining, 1 = Elapsed(Days), 2 = Elapsed(YMD)
+                    val initialMode = remember(eventState.event.id) {
+                        if (isAgeMode) 2 else if (eventState.isPast) 1 else 0
+                    }
+                    var displayMode by remember(eventState.event.id) { mutableIntStateOf(initialMode) }
                     
-                    // 巨大的数字展示：始终显示具体“天数”
-                    Text(
-                        text = "${eventState.daysRemaining}",
-                        style = MaterialTheme.typography.displayMedium.copy(fontSize = 96.sp, lineHeight = 96.sp), // 极大字号
-                        // 注意：primary 和 surfaceVariant 同色，必须用 onSurfaceVariant
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
+                    fun cycleMode() {
+                        displayMode = when (displayMode) {
+                            0 -> if (isAgeMode) 2 else 1
+                            1 -> 0
+                            2 -> 1
+                            else -> 0
+                        }
+                    }
+
+                    val isToday = eventState.daysRemaining == 0L
+                    val todayLabel = stringResource(R.string.days_today_label)
+                    val daysDisplay = if (isToday) todayLabel else when (displayMode) {
+                        2 -> formatBetweenAsYMD(targetLocalDate, today)
+                        1 -> formatDays(eventState.daysPassed)
+                        else -> formatDaysSmart(eventState.daysRemaining, false)
+                    }
+                    val isYMDLong = displayMode == 2 && daysDisplay.length > 6
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = { cycleMode() }
+                            ),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = daysDisplay,
+                            style = if (isYMDLong)
+                                MaterialTheme.typography.displaySmall.copy(fontSize = 40.sp, lineHeight = 48.sp)
+                            else
+                                MaterialTheme.typography.displayMedium.copy(fontSize = 72.sp, lineHeight = 80.sp), // 稍微减小字号，更雅致
+                            color = detailBaseColor, // 使用强调色
+                            textAlign = TextAlign.Center
+                        )
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        Text(
+                            text = if (isToday) ""
+                                else when (displayMode) {
+                                    2, 1 -> stringResource(R.string.days_past_label)
+                                    else -> stringResource(R.string.days_left_label)
+                                },
+                            style = MaterialTheme.typography.titleMedium,
+                            color = detailContentColor.copy(alpha = 0.4f),
+                            letterSpacing = 4.sp
+                        )
+                    }
+
+                    // Complementary Info Area
+                    Spacer(modifier = Modifier.height(24.dp))
                     
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    Text(
-                        text = if (eventState.isPast) stringResource(R.string.days_past_label)
-                        else stringResource(R.string.days_left_label),
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                        letterSpacing = 4.sp
-                    )
+                    // Show complementary info based on mode
+                    val secondaryText = if (isToday) {
+                        null
+                    } else if (displayMode == 0) {
+                        if (isAgeMode) {
+                            stringResource(R.string.days_past_label) + " " + formatBetweenAsYMD(targetLocalDate, today)
+                        } else if (eventState.daysPassed > 0) {
+                            stringResource(R.string.days_past_label) + " " + formatDays(eventState.daysPassed)
+                        } else null
+                    } else {
+                        stringResource(R.string.days_left_label) + " " + formatDays(eventState.daysRemaining)
+                    }
+
+                    if (secondaryText != null) {
+                        Text(
+                            text = secondaryText,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = detailContentColor.copy(alpha = 0.6f),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+
+                    if (showMilestone && isAnniversary && eventState.nextMilestoneDays != null && eventState.nextMilestoneValue != null && displayMode == 0) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = stringResource(
+                                R.string.milestone_in_days,
+                                milestoneLabel(eventState.nextMilestoneValue!!),
+                                eventState.nextMilestoneDays!!.toInt()
+                            ),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = detailContentColor.copy(alpha = 0.5f),
+                            textAlign = TextAlign.Center
+                        )
+                    }
 
                     if (eventState.event.note.isNotBlank()) {
-                        Spacer(modifier = Modifier.height(32.dp))
-                        // 备注区域：类似报纸引言
+                        Spacer(modifier = Modifier.height(48.dp))
+                        // 备注区域：类似报纸引言 -> 宋代题跋风格
                         Text(
-                            text = "“ ${eventState.event.note} ”",
-                            style = MaterialTheme.typography.bodyLarge.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            text = eventState.event.note, // 去掉引号，更干净
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                fontStyle = androidx.compose.ui.text.font.FontStyle.Normal,
+                                letterSpacing = 0.5.sp
+                            ),
+                            color = detailContentColor.copy(alpha = 0.6f),
                             textAlign = TextAlign.Center
                         )
                     }
@@ -222,10 +328,14 @@ fun DetailScreen(
                 onEditClick = onEditClick,
                 onDeleteClick = { showDeleteConfirm = true },
                 onShareClick = {
-                    val text = if (eventState.isPast)
-                        context.getString(R.string.share_text_past, eventState.event.title, eventState.daysRemaining)
-                    else
-                        context.getString(R.string.share_text_countdown, eventState.event.title, eventState.daysRemaining)
+                    val text = when {
+                        eventState.isPast ->
+                            context.getString(R.string.share_text_past, eventState.event.title, eventState.daysElapsed)
+                        eventState.daysRemaining == 0L ->
+                            context.getString(R.string.share_text_today, eventState.event.title)
+                        else ->
+                            context.getString(R.string.share_text_countdown, eventState.event.title, eventState.daysRemaining)
+                    }
                     val sendIntent = Intent().apply {
                         action = Intent.ACTION_SEND
                         putExtra(Intent.EXTRA_TEXT, text)
@@ -269,7 +379,7 @@ private fun DetailActionButtons(
             shape = RoundedCornerShape(4.dp),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onBackground)
         ) {
-            Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(20.dp))
+            Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.cd_edit), modifier = Modifier.size(20.dp))
         }
         OutlinedButton(
             onClick = onDeleteClick,
@@ -281,7 +391,7 @@ private fun DetailActionButtons(
             shape = RoundedCornerShape(4.dp),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
         ) {
-            Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(20.dp))
+            Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.cd_delete), modifier = Modifier.size(20.dp))
         }
         Button(
             onClick = onShareClick,
@@ -296,7 +406,20 @@ private fun DetailActionButtons(
                 contentColor = MaterialTheme.colorScheme.onPrimary
             )
         ) {
-            Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(20.dp))
+            Icon(Icons.Default.Share, contentDescription = stringResource(R.string.cd_share), modifier = Modifier.size(20.dp))
         }
     }
+}
+
+private fun parseEventColorOrFallback(hex: String?, fallback: Color): Color {
+    if (hex.isNullOrBlank()) return fallback
+    return try {
+        Color(android.graphics.Color.parseColor(hex))
+    } catch (_: Exception) {
+        fallback
+    }
+}
+
+private fun contentColorFor(backgroundColor: Color): Color {
+    return if (backgroundColor.luminance() > 0.5f) Color(0xFF1A232C) else Color.White
 }

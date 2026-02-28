@@ -130,18 +130,25 @@ keyPassword=你的密钥密码
 
 ---
 
-## 三、在 GitHub 上创建 Release（可选）
+## 三、在 GitHub 上创建 Release（必做：支持应用内更新）
 
-若希望在 GitHub 提供“发布版”下载链接：
+应用内「检查更新」会请求 GitHub API 获取**最新 Release** 及其中的 **.apk 附件**。因此每次发布新版本时都要在 GitHub 创建 Release 并上传 APK。
 
-1. 打开仓库 → **Releases** → **Create a new release**。
-2. **Tag**：新建标签，如 `v1.0.0`（建议与 `versionName` 一致）。
-3. **Release title**：如 `v1.0.0 - 首次发布`。
-4. **Describe**：简要写更新说明。
-5. 将构建好的 `app-direct-release.apk` **拖拽上传**到 “Attach binaries”。
+### 步骤
+
+1. 打开仓库：`https://github.com/Francesco502/glimmer-countdown-app` → **Releases** → **Create a new release**。
+2. **Choose a tag**：新建标签，**必须与当前版本号一致**，例如当前 `VERSION_NAME=1.0` 则填 **`v1.0`**（带前缀 `v`）。选 “Create new tag” 后发布。
+3. **Release title**：如 `v1.0 - 首次发布`。
+4. **Describe**：写更新说明（会显示在应用内更新弹窗的「更新说明」中）。
+5. **Attach binaries**：将本地构建好的 APK 拖拽上传。  
+   - 路径示例：`app\build\outputs\apk\direct\release\app-direct-release.apk`  
+   - 附件名需为 **.apk 结尾**（如 `app-direct-release.apk`），应用只会识别带 `.apk` 的附件作为下载链接。
 6. 点击 **Publish release**。
 
-用户即可在 Releases 页面下载 APK。
+完成后：
+
+- 用户可在 GitHub Releases 页面直接下载 APK 安装。
+- 已安装用户可在应用内 **设置 → 检查更新** 收到新版本提示，并选择「下载并安装」或「在浏览器中打开」完成更新。
 
 ---
 

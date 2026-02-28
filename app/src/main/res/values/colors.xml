@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 启动页 & 图标背景色：深海蓝黑，与主题 RetroDarkBackground 一致 -->
-    <color name="splash_bg">#141622</color>
+    <!-- 启动页背景色：宣纸暖白 (与 SongLightBackground 一致) -->
+    <color name="splash_bg">#F9F7F2</color>
+    <color name="widget_background_light">#FFFFFFFF</color>
+    <color name="widget_background_dark">#FF141622</color>
+    <color name="widget_text_light">#FF000000</color>
+    <color name="widget_text_dark">#FFFFFFFF</color>
+    <color name="widget_tag_light">#757575</color>
+    <color name="widget_tag_dark">#9E9E9E</color>
 </resources>

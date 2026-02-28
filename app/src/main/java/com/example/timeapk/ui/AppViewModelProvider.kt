@@ -13,7 +13,8 @@ object AppViewModelProvider {
         initializer {
             HomeViewModel(
                 timeApplication(),
-                timeApplication().repository
+                timeApplication().repository,
+                timeApplication().userPrefs
             )
         }
         initializer {

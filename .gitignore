@@ -11,8 +11,9 @@ build/
 app/build/
 .gradle/
 
-# IDE
+# IDE / Editor
 .idea/
+.claude/
 *.iml
 *.ipr
 *.iws

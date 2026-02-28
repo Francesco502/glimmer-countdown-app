@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.timeapk.data.Event
 import com.example.timeapk.notifications.scheduleReminder
+import com.example.timeapk.widget.WidgetUpdater
 import com.example.timeapk.data.REPEAT_NONE
 import com.example.timeapk.data.EventRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -50,6 +51,7 @@ class EventEntryViewModel(
             val generatedId = repository.insertEvent(event)
             scheduleReminder(application, event.copy(id = generatedId.toInt()))
         }
+        WidgetUpdater.refreshCountdownWidgets(application)
     }
 
     private fun validateInput(uiState: EventDetails = _eventUiState.value.eventDetails): Boolean {
@@ -66,14 +68,15 @@ data class EventDetails(
     val id: Int = 0,
     val title: String = "",
     val date: Long = System.currentTimeMillis(),
-    val category: String = "其他",
+    val category: String = "",
     val note: String = "",
     val colorHex: String? = null,
     val repeatType: String = REPEAT_NONE,
     val remindDaysBefore: Int = 0,
     val reminderTimeMinutesOfDay: Int = 480,
     val remindEnabled: Boolean = false,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val isLunar: Boolean = false
 )
 
 fun EventDetails.toEvent(): Event = Event(
@@ -87,7 +90,8 @@ fun EventDetails.toEvent(): Event = Event(
     remindDaysBefore = remindDaysBefore,
     reminderTimeMinutesOfDay = reminderTimeMinutesOfDay,
     remindEnabled = remindEnabled,
-    createdAt = createdAt
+    createdAt = createdAt,
+    isLunar = isLunar
 )
 
 fun Event.toEventDetails(): EventDetails = EventDetails(
@@ -101,5 +105,6 @@ fun Event.toEventDetails(): EventDetails = EventDetails(
     remindDaysBefore = remindDaysBefore,
     reminderTimeMinutesOfDay = reminderTimeMinutesOfDay,
     remindEnabled = remindEnabled,
-    createdAt = createdAt
+    createdAt = createdAt,
+    isLunar = isLunar
 )

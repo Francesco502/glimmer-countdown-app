@@ -7,9 +7,25 @@
     <string name="home_empty_subtitle">点击下方 + 添加第一个</string>
     <string name="fab_add_event">添加事件</string>
     <string name="fab_add_anniversary">添加纪念日</string>
+    <string name="days_unit">天</string>
     <string name="days_left">天</string>
     <string name="days_left_label">剩余</string>
-    <string name="days_past_label">已过</string>
+    <string name="days_today_label">就是今天</string>
+    <string name="days_past_label">已经</string>
+    <string name="days_elapsed_format">已经 %d 天</string>
+    <string name="days_both_summary">已经 %1$d 天 · 剩余 %2$d 天</string>
+    <string name="days_both_summary_ymd">已经 %1$s · 剩余 %2$d 天</string>
+    <string name="birthday_in_days">距离生日还有 %d 天</string>
+    <string name="days_birthday_summary">已经 %1$d 天 · 距离生日还有 %2$d 天</string>
+    <string name="days_birthday_summary_ymd">已经 %1$s · 距离生日还有 %2$d 天</string>
+    <string name="milestone_in_days">距离 %1$s 还有 %2$d 天</string>
+    <string name="milestone_7">7 天</string>
+    <string name="milestone_30">30 天</string>
+    <string name="milestone_100">100 天</string>
+    <string name="milestone_365">一周年</string>
+    <string name="milestone_520">520 天</string>
+    <string name="milestone_1000">1000 天</string>
+    <string name="milestone_days_format">%d 天</string>
 
     <!-- Filter & Sort -->
     <string name="filter_all">全部</string>
@@ -19,6 +35,13 @@
     <string name="sort_by_date">按目标日期</string>
     <string name="sort_by_created">按创建时间</string>
     <string name="sort_menu">排序</string>
+    <string name="display_mode_card">卡片</string>
+    <string name="display_mode_list">列表</string>
+    <string name="home_density_title">首页信息</string>
+    <string name="home_density_compact">简洁</string>
+    <string name="home_density_detailed">详细</string>
+    <string name="home_density_compact_summary">仅标题与天数</string>
+    <string name="home_density_detailed_summary">显示日期、已经/剩余、节点等</string>
 
     <!-- Repeat -->
     <string name="repeat_none">无重复</string>
@@ -95,7 +118,8 @@
 
     <!-- Share -->
     <string name="share_text_countdown">距离 %1$s 还有 %2$d 天</string>
-    <string name="share_text_past">%1$s 已过 %2$d 天</string>
+    <string name="share_text_today">%1$s — 就是今天！</string>
+    <string name="share_text_past">%1$s 已经 %2$d 天</string>
     <string name="share_chooser_title">分享倒计时</string>
     <string name="nav_back">返回</string>
 
@@ -103,25 +127,64 @@
     <string name="cd_add_event">添加事件</string>
     <string name="cd_select_date">选择日期</string>
     <string name="cd_event_card">事件卡片</string>
+    <string name="hint_swipe_delete">左滑可删除，支持撤销</string>
+    <string name="date_format_title">日期格式</string>
+    <string name="date_format_dot">2025.01.01</string>
+    <string name="date_format_dash">2025-01-01</string>
     <string name="cd_edit">编辑</string>
     <string name="cd_delete">删除</string>
     <string name="cd_share">分享</string>
 
     <!-- Settings -->
     <string name="settings_title">设置</string>
+    <string name="settings_about_version">关于 · 版本 %1$s</string>
+    <string name="settings_check_update">检查更新</string>
+    <string name="update_latest">已是最新版本</string>
+    <string name="update_error">检查更新失败，请稍后重试</string>
+    <string name="update_new_title">发现新版本 %1$s</string>
+    <string name="update_download_install">下载并安装</string>
+    <string name="update_later">稍后</string>
+    <string name="update_release_notes">更新说明</string>
+    <string name="update_downloading">正在下载…</string>
+    <string name="update_download_failed">下载失败</string>
+    <string name="update_open_browser">在浏览器中打开</string>
     <string name="theme_title">主题</string>
     <string name="theme_follow_system">跟随系统</string>
     <string name="theme_light">浅色</string>
     <string name="theme_dark">深色</string>
+    <string name="custom_colors_title">自定义颜色</string>
+    <string name="custom_color_background">背景</string>
+    <string name="custom_color_surface">卡片 / 表面</string>
+    <string name="custom_color_primary">主色</string>
+    <string name="custom_color_on_background">文字色</string>
+    <string name="custom_color_reset">恢复默认</string>
+    <string name="custom_color_pick">选择</string>
+    <string name="custom_color_accessibility_hint">如果自定义颜色过浅或过暗，可能会影响文字可读性。</string>
+    <string name="custom_color_hex_hint">十六进制颜色 (#RRGGBB)</string>
     <string name="hours_remaining">%1$d 小时</string>
+    <string name="hours_remaining_short">%d 小时</string>
+    <string name="milestone_in_days_short">%1$d 周年 · %2$d 天</string>
     <string name="settings_show_hours">显示小时</string>
     <string name="settings_show_hours_summary">在卡片上显示剩余小时数（当天内）</string>
+    <string name="settings_show_milestone">显示重大节点</string>
+    <string name="settings_show_milestone_summary">显示距离 100 天、一周年、520 天等节点的天数</string>
+    <string name="settings_custom_milestones_title">自定义重大节点</string>
+    <string name="settings_custom_milestones_restore">恢复默认</string>
+    <string name="settings_custom_milestones_add_hint">添加天数，如 200</string>
+    <string name="settings_custom_milestones_add">添加</string>
+    <string name="font_title">字体</string>
+    <string name="font_default">默认</string>
+    <string name="font_serif">衬线 (Serif)</string>
+    <string name="font_cursive">手写 (Cursive)</string>
+    <string name="font_mono">等宽 (Monospace)</string>
+    <string name="font_slender_gold">瘦金体 (Slender Gold)</string>
     <string name="language_title">语言</string>
     <string name="language_zh">中文</string>
     <string name="language_en">English</string>
+    <string name="settings_category_display_title">显示与语言</string>
 
     <!-- Widget tags -->
-    <string name="widget_tag_past">已过</string>
+    <string name="widget_tag_past">已经</string>
     <string name="widget_tag_soon">临近</string>
 
     <!-- Reminder notifications -->
@@ -129,4 +192,7 @@
     <string name="notification_today">就是今天！</string>
     <string name="notification_days_left">还有 %1$d 天</string>
     <string name="notification_title_prefix">倒计时提醒</string>
+
+    <string name="lunar_calendar">农历</string>
+    <string name="lunar_date_prefix">农历</string>
 </resources>

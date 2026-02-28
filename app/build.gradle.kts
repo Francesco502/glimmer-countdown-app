@@ -21,14 +21,14 @@ val hasSigningConfig = keystorePropertiesFile.exists()
 
 android {
     namespace = "com.example.timeapk"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.example.timeapk"
         minSdk = 26
-        targetSdk = 34
-        versionCode = versionCodeOverride ?: 1
-        versionName = versionNameOverride ?: "1.0"
+        targetSdk = 35
+        versionCode = versionCodeOverride ?: 2
+        versionName = versionNameOverride ?: "2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -50,8 +50,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
-            isShrinkResources = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             if (hasSigningConfig) {
                 signingConfig = signingConfigs.getByName("release")
@@ -90,6 +90,24 @@ android {
     }
 }
 
+// Release APK 输出名：glimmer-countdown-1-0.apk（版本号中 . 改为 -）
+val versionNameForApk = versionNameOverride ?: "2.0"
+val apkBaseName = "glimmer-countdown-${versionNameForApk.replace(".", "-")}"
+tasks.register("renameDirectReleaseApk") {
+    dependsOn("packageDirectRelease")
+    doLast {
+        val releaseDir = layout.buildDirectory.dir("outputs/apk/direct/release").get().asFile
+        val fromFile = File(releaseDir, "app-direct-release.apk")
+        val toFile = File(releaseDir, "$apkBaseName.apk")
+        if (fromFile.exists()) {
+            fromFile.renameTo(toFile)
+        }
+    }
+}
+project.afterEvaluate {
+    tasks.findByName("assembleDirectRelease")?.finalizedBy("renameDirectReleaseApk")
+}
+
 dependencies {
 
     implementation("androidx.core:core-ktx:1.12.0")
@@ -116,6 +134,9 @@ dependencies {
 
     // DataStore
     implementation("androidx.datastore:datastore-preferences:1.0.0")
+
+    // 检查更新：拉取 GitHub Release 信息
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")

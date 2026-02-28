@@ -9,7 +9,22 @@
     <string name="fab_add_anniversary">Add anniversary</string>
     <string name="days_left">days</string>
     <string name="days_left_label">left</string>
-    <string name="days_past_label">ago</string>
+    <string name="days_today_label">Today</string>
+    <string name="days_past_label">elapsed</string>
+    <string name="days_elapsed_format">has been %d days</string>
+    <string name="days_both_summary">%1$d days elapsed · %2$d days left</string>
+    <string name="days_both_summary_ymd">%1$s elapsed · %2$d days left</string>
+    <string name="birthday_in_days">%d days until birthday</string>
+    <string name="days_birthday_summary">%1$d days elapsed · %2$d days until birthday</string>
+    <string name="days_birthday_summary_ymd">%1$s elapsed · %2$d days until birthday</string>
+    <string name="milestone_in_days">%2$d days until %1$s</string>
+    <string name="milestone_7">7 days</string>
+    <string name="milestone_30">30 days</string>
+    <string name="milestone_100">100 days</string>
+    <string name="milestone_365">1 year</string>
+    <string name="milestone_520">520 days</string>
+    <string name="milestone_1000">1000 days</string>
+    <string name="milestone_days_format">Day %d</string>
 
     <!-- Filter & Sort -->
     <string name="filter_all">All</string>
@@ -19,6 +34,13 @@
     <string name="sort_by_date">By target date</string>
     <string name="sort_by_created">By created</string>
     <string name="sort_menu">Sort</string>
+    <string name="display_mode_card">Cards</string>
+    <string name="display_mode_list">List</string>
+    <string name="home_density_title">Home info</string>
+    <string name="home_density_compact">Compact</string>
+    <string name="home_density_detailed">Detailed</string>
+    <string name="home_density_compact_summary">Title and days only</string>
+    <string name="home_density_detailed_summary">Date, elapsed/left, milestones</string>
 
     <!-- Repeat -->
     <string name="repeat_none">None</string>
@@ -95,7 +117,8 @@
 
     <!-- Share -->
     <string name="share_text_countdown">%1$s in %2$d days</string>
-    <string name="share_text_past">%1$s was %2$d days ago</string>
+    <string name="share_text_today">%1$s — Today!</string>
+    <string name="share_text_past">%1$s has been %2$d days</string>
     <string name="share_chooser_title">Share countdown</string>
     <string name="nav_back">Back</string>
 
@@ -103,25 +126,62 @@
     <string name="cd_add_event">Add event</string>
     <string name="cd_select_date">Select date</string>
     <string name="cd_event_card">Event card</string>
+    <string name="hint_swipe_delete">Swipe left to delete, undo supported</string>
+    <string name="date_format_title">Date format</string>
+    <string name="date_format_dot">2025.01.01</string>
+    <string name="date_format_dash">2025-01-01</string>
     <string name="cd_edit">Edit</string>
     <string name="cd_delete">Delete</string>
     <string name="cd_share">Share</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
+    <string name="settings_about_version">About · Version %1$s</string>
+    <string name="settings_check_update">Check for updates</string>
+    <string name="update_latest">Already up to date</string>
+    <string name="update_error">Update check failed. Please try again later.</string>
+    <string name="update_new_title">New version %1$s available</string>
+    <string name="update_download_install">Download and install</string>
+    <string name="update_later">Later</string>
+    <string name="update_release_notes">Release notes</string>
+    <string name="update_downloading">Downloading…</string>
+    <string name="update_download_failed">Download failed</string>
+    <string name="update_open_browser">Open in browser</string>
     <string name="theme_title">Theme</string>
     <string name="theme_follow_system">Follow system</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
+    <string name="custom_colors_title">Custom colors</string>
+    <string name="custom_color_background">Background</string>
+    <string name="custom_color_surface">Cards / Surface</string>
+    <string name="custom_color_primary">Primary</string>
+    <string name="custom_color_on_background">Text</string>
+    <string name="custom_color_reset">Reset to default</string>
+    <string name="custom_color_pick">Pick</string>
+    <string name="custom_color_hex_hint">Hex Color (#RRGGBB)</string>
+    <string name="custom_color_accessibility_hint">If custom colors are too light or too dark, text readability may be affected.</string>
     <string name="hours_remaining">%1$d hours</string>
     <string name="settings_show_hours">Show hours</string>
     <string name="settings_show_hours_summary">Show remaining hours on cards (within the day)</string>
+    <string name="settings_show_milestone">Show milestones</string>
+    <string name="settings_show_milestone_summary">Show days until 100 days, 1 year, 520 days, etc.</string>
+    <string name="settings_custom_milestones_title">Custom milestones</string>
+    <string name="settings_custom_milestones_restore">Restore default</string>
+    <string name="settings_custom_milestones_add_hint">Add days, e.g. 200</string>
+    <string name="settings_custom_milestones_add">Add</string>
+    <string name="font_title">Font</string>
+    <string name="font_default">Default</string>
+    <string name="font_serif">Serif</string>
+    <string name="font_cursive">Cursive</string>
+    <string name="font_mono">Monospace</string>
+    <string name="font_slender_gold">Slender Gold (Serif Thin)</string>
     <string name="language_title">Language</string>
     <string name="language_zh">中文</string>
     <string name="language_en">English</string>
+    <string name="settings_category_display_title">Display &amp; language</string>
 
     <!-- Widget tags -->
-    <string name="widget_tag_past">Past</string>
+    <string name="widget_tag_past">Elapsed</string>
     <string name="widget_tag_soon">Soon</string>
 
     <!-- Reminder notifications -->
@@ -129,4 +189,12 @@
     <string name="notification_today">Today!</string>
     <string name="notification_days_left">%1$d day(s) left</string>
     <string name="notification_title_prefix">Countdown reminder</string>
+
+    <string name="lunar_calendar">Lunar</string>
+    <string name="lunar_date_prefix">Lunar</string>
+    <string name="days_unit">days</string>
+
+    <!-- Card short strings -->
+    <string name="hours_remaining_short">%d hours</string>
+    <string name="milestone_in_days_short">%1$dth · %2$dd</string>
 </resources>

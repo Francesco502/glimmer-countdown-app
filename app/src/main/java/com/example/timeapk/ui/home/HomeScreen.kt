@@ -11,6 +11,8 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -24,6 +26,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.automirrored.filled.ViewList
+import androidx.compose.material.icons.filled.ViewModule
 import androidx.compose.material3.*
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
@@ -38,15 +42,25 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.platform.LocalContext
-import java.time.Instant
-import java.time.ZoneId
+import com.example.timeapk.data.REPEAT_YEARLY
+import com.example.timeapk.ui.utils.formatDays
+import com.example.timeapk.ui.utils.formatBetweenAsYMD
+import com.example.timeapk.ui.utils.formatDaysSmart
+import com.example.timeapk.ui.utils.getDisplayDateFormatter
+import com.example.timeapk.ui.utils.parseEventColorOrFallback
 import java.time.format.DateTimeFormatter
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import com.example.timeapk.R
 import com.example.timeapk.TimeApplication
 import com.example.timeapk.data.Event
@@ -54,6 +68,13 @@ import com.example.timeapk.ui.theme.AnimationSpecs
 
 enum class FilterType { All, Upcoming, Past }
 enum class SortType { ByDays, ByDate, ByCreated }
+
+// Event category type for unified display
+sealed class EventType {
+    object Birthday : EventType()
+    object Anniversary : EventType()
+    object Regular : EventType()
+}
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -72,11 +93,16 @@ fun HomeScreen(
     val savedFilter by prefs.filterTypeFlow.collectAsState(initial = 0)
     val savedSort by prefs.sortTypeFlow.collectAsState(initial = 0)
     val showHours by prefs.showHoursFlow.collectAsState(initial = true)
+    val showMilestone by prefs.showMilestoneFlow.collectAsState(initial = true)
+    val homeDensityMode by prefs.homeDensityModeFlow.collectAsState(initial = 1)
+    val dateFormatMode by prefs.dateFormatModeFlow.collectAsState(initial = 0)
+    val dateFormatter = remember(dateFormatMode) { getDisplayDateFormatter(dateFormatMode) }
+    val hasSeenSwipeHint by prefs.hasSeenSwipeHintFlow.collectAsState(initial = false)
+    val savedHomeDisplayMode by prefs.homeDisplayModeFlow.collectAsState(initial = 0)
+    var homeDisplayMode by remember(savedHomeDisplayMode) { mutableStateOf(savedHomeDisplayMode) }
     var filterType by remember(savedFilter) { mutableStateOf(FilterType.entries.getOrNull(savedFilter) ?: FilterType.All) }
     var sortType by remember(savedSort) { mutableStateOf(SortType.entries.getOrNull(savedSort) ?: SortType.ByDays) }
     var showSortMenu by remember { mutableStateOf(false) }
-    var showCardMenu by remember { mutableStateOf<EventUiState?>(null) }
-    var showDeleteConfirm by remember { mutableStateOf<Event?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(filterType) {
@@ -85,14 +111,18 @@ fun HomeScreen(
     LaunchedEffect(sortType) {
         prefs.setSortType(sortType.ordinal)
     }
+    LaunchedEffect(homeDisplayMode) {
+        prefs.setHomeDisplayMode(homeDisplayMode)
+    }
 
-    val displayedList = remember(homeUiState, filterType, sortType) {
+    val displayedList = remember(homeUiState, filterType, sortType, homeDisplayMode) {
         var list = when (filterType) {
             FilterType.All -> homeUiState
             FilterType.Upcoming -> homeUiState.filter { !it.isPast }
             FilterType.Past -> homeUiState.filter { it.isPast }
         }
-        list = when (sortType) {
+        val effectiveSort = if (homeDisplayMode == 1) SortType.ByDays else sortType
+        list = when (effectiveSort) {
             SortType.ByDays -> list.sortedBy { it.daysRemaining }
             SortType.ByDate -> list.sortedBy { it.event.date }
             SortType.ByCreated -> list.sortedByDescending { it.event.createdAt }
@@ -102,47 +132,25 @@ fun HomeScreen(
 
     val deletedSnackbarText = stringResource(R.string.deleted_snackbar)
     val undoLabel = stringResource(R.string.undo)
-    if (showDeleteConfirm != null) {
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirm = null },
-            title = { Text(stringResource(R.string.delete_confirm_title)) },
-            text = { Text(stringResource(R.string.delete_confirm_message, showDeleteConfirm!!.title)) },
-                confirmButton = {
-                    TextButton(onClick = {
-                    val toDelete = showDeleteConfirm!!
-                    viewModel.deleteEvent(toDelete)
-                    showDeleteConfirm = null
-                    showCardMenu = null
-                    scope.launch {
-                        val result = snackbarHostState.showSnackbar(
-                            message = deletedSnackbarText,
-                            actionLabel = undoLabel
-                        )
-                        if (result == SnackbarResult.ActionPerformed) {
-                            viewModel.restoreEvent(toDelete)
-                        }
-                    }
-                }) {
-                    Text(stringResource(R.string.delete_confirm_ok), color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = null; showCardMenu = null }) {
-                    Text(stringResource(R.string.delete_confirm_cancel))
-                }
-            }
-        )
+    LaunchedEffect(displayedList.isNotEmpty(), hasSeenSwipeHint) {
+        if (displayedList.isNotEmpty() && !hasSeenSwipeHint) {
+            snackbarHostState.showSnackbar(context.getString(R.string.hint_swipe_delete))
+            scope.launch { prefs.setHasSeenSwipeHint(true) }
+        }
     }
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background, // 与新建事件页一致
+        containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
                     Text(
                         text = stringResource(R.string.app_name),
-                        style = MaterialTheme.typography.titleLarge
+                        style = MaterialTheme.typography.displayLarge.copy(
+                            fontSize = 22.sp,
+                            lineHeight = 28.sp
+                        )
                     )
                 },
                 actions = {
@@ -206,16 +214,15 @@ fun HomeScreen(
             modifier = modifier
                 .padding(innerPadding)
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background) // 使用定义好的复古背景色，移除渐变
+                .background(MaterialTheme.colorScheme.background)
         ) {
+            // Filter chips and view mode toggle
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Chip 位于 background 上 → 使用 onBackground 色系
-                // 选中态：实心 primary (砖红) + 白字 → 高对比
                 val chipColors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = MaterialTheme.colorScheme.primary,
                     selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
@@ -243,7 +250,34 @@ fun HomeScreen(
                     shape = RoundedCornerShape(4.dp),
                     colors = chipColors
                 )
+                Spacer(modifier = Modifier.weight(1f))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = { homeDisplayMode = 0 },
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.ViewModule,
+                            contentDescription = stringResource(R.string.display_mode_card),
+                            tint = if (homeDisplayMode == 0) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                        )
+                    }
+                    IconButton(
+                        onClick = { homeDisplayMode = 1 },
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ViewList,
+                            contentDescription = stringResource(R.string.display_mode_list),
+                            tint = if (homeDisplayMode == 1) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                        )
+                    }
+                }
             }
+
+            // Event list
             AnimatedContent(
                 targetState = displayedList.isEmpty(),
                 transitionSpec = {
@@ -258,8 +292,8 @@ fun HomeScreen(
                     EmptyState(modifier = Modifier.fillMaxSize())
                 } else {
                     LazyColumn(
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(if (homeDisplayMode == 0) 12.dp else 6.dp)
                     ) {
                         items(displayedList, key = { it.event.id }) { eventState ->
                             val dismissState = rememberSwipeToDismissBoxState(
@@ -306,48 +340,34 @@ fun HomeScreen(
                                 }
                             }
                         ) {
-                            EventCard(
-                                eventState = eventState,
-                                onClick = { navigateToDetail(eventState.event.id) },
-                                onLongClick = { showCardMenu = eventState },
-                                showHours = showHours
-                            )
+                            val showDetail = homeDensityMode == 1
+                            if (homeDisplayMode == 0) {
+                                EventCard(
+                                    eventState = eventState,
+                                    dateFormatter = dateFormatter,
+                                    onClick = { navigateToDetail(eventState.event.id) },
+                                    onLongClick = { navigateToEdit(eventState.event.id) },
+                                    showHours = showHours,
+                                    showMilestone = showMilestone,
+                                    showDetail = showDetail
+                                )
+                            } else {
+                                EventListItem(
+                                    eventState = eventState,
+                                    dateFormatter = dateFormatter,
+                                    onClick = { navigateToDetail(eventState.event.id) },
+                                    onLongClick = { navigateToEdit(eventState.event.id) },
+                                    showHours = false,
+                                    showMilestone = false,
+                                    showDetail = true
+                                )
+                            }
                         }
                     }
                 }
             }
-            }
         }
     }
-
-    showCardMenu?.let { state ->
-        AlertDialog(
-            onDismissRequest = { showCardMenu = null },
-            title = { Text(state.event.title) },
-            text = {
-                Column {
-                    Text(state.event.category, style = MaterialTheme.typography.bodyMedium)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    TextButton(onClick = {
-                        showCardMenu = null
-                        showDeleteConfirm = state.event
-                    }) {
-                        Text(stringResource(R.string.button_delete), color = MaterialTheme.colorScheme.error)
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    showCardMenu = null
-                    navigateToEdit(state.event.id)
-                }) { Text(stringResource(R.string.button_edit)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showCardMenu = null }) {
-                    Text(stringResource(R.string.delete_confirm_cancel))
-                }
-            }
-        )
     }
 }
 
@@ -381,9 +401,12 @@ private fun EmptyState(modifier: Modifier = Modifier) {
 @Composable
 fun EventCard(
     eventState: EventUiState,
+    dateFormatter: DateTimeFormatter,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     showHours: Boolean = true,
+    showMilestone: Boolean = true,
+    showDetail: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -393,150 +416,399 @@ fun EventCard(
         animationSpec = AnimationSpecs.springButton,
         label = "cardScale"
     )
-    val cardColor = eventState.event.colorHex?.let { hex ->
-        try {
-            Color(android.graphics.Color.parseColor(hex))
-        } catch (_: Exception) {
-            MaterialTheme.colorScheme.primary
-        }
-    } ?: MaterialTheme.colorScheme.primary
-
     val isPast = eventState.isPast
-    // 票据/胶片样式：直角或微圆角 (4dp)
+    val baseCardColor = parseEventColorOrFallback(
+        hex = eventState.event.colorHex,
+        fallback = MaterialTheme.colorScheme.primary
+    )
+
+    // Song Aesthetics: "Juanben" (Silk Scroll) Texture
+    // Slightly reduce transparency again to make cards darker and more solid.
+    val juanbenTint = if (isPast) 0.35f else 0.55f
+    val cardContainerColor = baseCardColor.copy(alpha = juanbenTint)
+    
+    // Content color: "Jiao Mo" (Burnt Ink) - Darker, richer text to contrast with the deeper background
+    val cardContentColor = MaterialTheme.colorScheme.onSurface
+
+    val view = androidx.compose.ui.platform.LocalView.current
+    val today = remember { LocalDate.now() }
+
+    // 缓存日期计算
+    val targetLocalDate = remember(eventState.event.date) {
+        Instant.ofEpochMilli(eventState.event.date)
+            .atZone(ZoneId.systemDefault())
+            .toLocalDate()
+    }
+
+    // Logic Migration: Use repeatType instead of category
+    val isYearly = eventState.event.repeatType == REPEAT_YEARLY
+    
+    // Age Mode: Shows "X years Y months" for any yearly event that has started
+    val isAgeMode = remember(isPast, isYearly, targetLocalDate, today) {
+        !isPast && isYearly && !targetLocalDate.isAfter(today)
+    }
+    
+    // Milestones: Show for all yearly events (as requested by user to cover Anniversaries)
+    // "Only Anniversary triggers milestones" -> We treat all Yearly events as Anniversaries for milestone purposes
+    val isAnniversary = isYearly
+
+    // Display Mode Logic: 0 = Remaining, 1 = Elapsed(Days), 2 = Elapsed(YMD)
+    // Default: AgeMode -> YMD(2), Past -> Days(1), Future -> Remaining(0)
+    val initialMode = remember(eventState.event.id, isAgeMode, isPast) {
+        if (isAgeMode) 2 else if (isPast) 1 else 0
+    }
+    var displayMode by remember(eventState.event.id, isAgeMode, isPast) { mutableIntStateOf(initialMode) }
+    
+    // Cycle through modes: 
+    // If AgeMode: 0 -> 2 -> 1 -> 0
+    // If Past: 1 -> 0 -> 1 (or 1 -> 2 -> 0 -> 1 if we want YMD for past events too)
+    // If Future: 0 -> 1 -> 0
+    fun cycleMode() {
+        displayMode = when (displayMode) {
+            0 -> if (isAgeMode) 2 else 1
+            1 -> 0
+            2 -> 1
+            else -> 0
+        }
+    }
+
+    // Days Display Logic with Units
+    // We separate the number and the unit for styling if needed, or keep them together string
+    // Requirement: Always show units (Days, Years/Months/Days)
+    val isToday = eventState.daysRemaining == 0L
+    val todayLabel = stringResource(R.string.days_today_label)
+    val mainDisplayPair = if (isToday) {
+        todayLabel to ""
+    } else when (displayMode) {
+        2 -> {
+            formatBetweenAsYMD(targetLocalDate, today) to ""
+        }
+        1 -> {
+            formatDays(eventState.daysPassed) to stringResource(R.string.days_unit)
+        }
+        else -> {
+            formatDays(eventState.daysRemaining) to stringResource(R.string.days_unit)
+        }
+    }
+    
+    val displayContent = mainDisplayPair.first
+    val displayUnit = mainDisplayPair.second
+
+    val cardDescription = buildString {
+        append(eventState.event.title)
+        append(", ")
+        // Add accessibility description based on current mode
+        if (isToday) {
+            append(todayLabel)
+        } else when (displayMode) {
+            2, 1 -> {
+                append(stringResource(R.string.days_past_label)).append(" ")
+                append(displayContent).append(displayUnit)
+            }
+            else -> {
+                append(stringResource(R.string.days_left_label)).append(" ").append(displayContent).append(displayUnit)
+            }
+        }
+    }
+
     Card(
         modifier = modifier
             .fillMaxWidth()
+            .height(100.dp) // 固定高度，确保极度一致的韵律感
+            .semantics(mergeDescendants = true) { contentDescription = cardDescription }
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .combinedClickable(
                 onClick = onClick,
-                onLongClick = onLongClick,
+                onLongClick = {
+                    view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+                    onLongClick()
+                },
                 interactionSource = interactionSource,
                 indication = null
             ),
-        shape = RoundedCornerShape(4.dp),
-        colors = CardDefaults.cardColors(
-            // 过期事件：用 lerp 混合生成实心减淡色（alpha 半透明 + 白字半透明 = 对比度双重衰减）
-            containerColor = if (isPast)
-                lerp(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.background, 0.15f)
-            else
-                MaterialTheme.colorScheme.surfaceVariant
-        ),
-        // 票据描边：使用主题 outline (半透明次色)
+        shape = RoundedCornerShape(2.dp), // 极小圆角，模拟纸张折叠
+        colors = CardDefaults.cardColors(containerColor = cardContainerColor),
         border = BorderStroke(
-            width = 1.dp,
-            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f) // 略微提升边框可见度
+            width = 0.5.dp, // 极细淡墨边框
+            color = MaterialTheme.colorScheme.outline
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(IntrinsicSize.Min)
+                .fillMaxHeight()
+                .padding(horizontal = 24.dp, vertical = 16.dp), // 增加留白，更显疏朗
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // 左侧颜色标识条：用事件自选色做视觉锚点
-            Box(
-                modifier = Modifier
-                    .width(4.dp)
-                    .fillMaxHeight()
-                    .background(cardColor.copy(alpha = if (isPast) 0.4f else 0.7f))
-            )
-            // 内容区域
-            Box(
-                modifier = Modifier
-                    .weight(1f)
+            // Left color indicator dot - Removed to let the whole card color speak
+            // Instead, we use the whole card background as the indicator
+            
+            // Main content: title, category, date
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.SpaceBetween, // 垂直两端对齐
+                horizontalAlignment = Alignment.Start
             ) {
+                // Title row
+                Text(
+                    text = eventState.event.title,
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        letterSpacing = 0.5.sp,
+                        lineHeight = 28.sp
+                    ),
+                    // "Nong Mo" (Thick Ink): High opacity for strong contrast against the silk background
+                    color = cardContentColor.copy(alpha = if (isPast) 0.6f else 0.95f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                // Date: "Dan Mo" (Pale Ink)
+                Text(
+                    text = targetLocalDate.format(dateFormatter),
+                    style = MaterialTheme.typography.bodyMedium, // labelMedium -> bodyMedium (larger)
+                    color = cardContentColor.copy(alpha = 0.65f) // Slightly increased alpha for better readability
+                )
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            // Right side: Days display
+            Column(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = { cycleMode() }
+                    ),
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.Center
+            ) {
+                // Days number with unit
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            Brush.linearGradient(
-                                colors = listOf(
-                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (isPast) 0.02f else 0.06f),
-                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.0f)
-                                ),
-                                start = Offset(0f, 0f),
-                                end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
-                            )
-                        )
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.Bottom,
+                    horizontalArrangement = Arrangement.End
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = displayContent,
+                        style = MaterialTheme.typography.displaySmall.copy( // 统一使用大字号 displaySmall
+                            fontSize = 28.sp, // 统一设定为 28sp，兼顾长短文本
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                            letterSpacing = (-0.5).sp
+                        ),
+                        color = if (isPast) cardContentColor.copy(alpha = 0.6f) else baseCardColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Visible // 允许溢出，但通常固定高度下不会
+                    )
+                    
+                    if (displayUnit.isNotEmpty()) {
+                        Spacer(modifier = Modifier.width(2.dp))
                         Text(
-                            text = eventState.event.title,
-                            style = MaterialTheme.typography.titleLarge,
-                            // 卡片背景 = surfaceVariant → 文字必须用 onSurfaceVariant
-                            color = if (isPast) {
-                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.92f)
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            }
+                            text = displayUnit,
+                            style = MaterialTheme.typography.titleSmall, // 单位统一使用小号标题字
+                            color = if (isPast) cardContentColor.copy(alpha = 0.5f) else baseCardColor.copy(alpha = 0.7f),
+                            modifier = Modifier.padding(bottom = 6.dp) // 统一基线对齐
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = eventState.event.category,
-                            style = MaterialTheme.typography.labelMedium, // 使用标签样式
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (isPast) 0.72f else 0.7f)
-                        )
-                        // 具体日期展示
-                        run {
-                            val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
-                            val dateStr = Instant.ofEpochMilli(eventState.event.date)
-                                .atZone(ZoneId.systemDefault())
-                                .toLocalDate()
-                                .format(formatter)
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = dateStr,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                            )
-                        }
-                        if (eventState.event.note.isNotBlank()) {
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = eventState.event.note,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-                    // 右侧天数区 (已正确使用 onSurfaceVariant)
-                    Column(
-                        modifier = Modifier
-                            .padding(start = 12.dp),
-                        horizontalAlignment = Alignment.End
-                    ) {
-                        Text(
-                            text = "${eventState.daysRemaining}",
-                            style = MaterialTheme.typography.displayMedium,
-                            color = if (isPast) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.78f)
-                            else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = if (isPast) stringResource(R.string.days_past_label)
-                            else stringResource(R.string.days_left_label),
-                            style = MaterialTheme.typography.labelSmall,
-                            letterSpacing = 1.sp,
-                            color = if (isPast) {
-                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.68f)
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-                            }
-                        )
-                        if (showHours && !isPast && eventState.hoursRemaining > 0L) {
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = stringResource(R.string.hours_remaining, eventState.hoursRemaining.toInt()),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                            )
-                        }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(2.dp))
+
+                // Label
+                Text(
+                    text = if (isToday) ""
+                        else when (displayMode) {
+                            2, 1 -> stringResource(R.string.days_past_label)
+                            else -> stringResource(R.string.days_left_label)
+                        },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = cardContentColor.copy(alpha = 0.5f),
+                    letterSpacing = 2.sp
+                )
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun EventListItem(
+    eventState: EventUiState,
+    dateFormatter: DateTimeFormatter,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    showHours: Boolean = true,
+    showMilestone: Boolean = true,
+    showDetail: Boolean = true,
+    modifier: Modifier = Modifier
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        if (isPressed) 0.99f else 1f,
+        animationSpec = AnimationSpecs.springButton,
+        label = "listItemScale"
+    )
+    val isPast = eventState.isPast
+    val listView = androidx.compose.ui.platform.LocalView.current
+    val today = LocalDate.now()
+    // 缓存日期计算
+    val targetLocalDate = remember(eventState.event.date) {
+        Instant.ofEpochMilli(eventState.event.date)
+            .atZone(ZoneId.systemDefault())
+            .toLocalDate()
+    }
+
+    // Logic Migration: Use repeatType instead of category
+    val isYearly = eventState.event.repeatType == REPEAT_YEARLY
+    
+    // Age Mode: Shows "X years Y months" for any yearly event that has started
+    val isAgeMode = remember(isPast, isYearly, targetLocalDate, today) {
+        !isPast && isYearly && !targetLocalDate.isAfter(today)
+    }
+    
+    // Milestones: Show for all yearly events (as requested by user to cover Anniversaries)
+    // "Only Anniversary triggers milestones" -> We treat all Yearly events as Anniversaries for milestone purposes
+    val isAnniversary = isYearly
+
+    // Display Mode Logic: 0 = Remaining, 1 = Elapsed(Days), 2 = Elapsed(YMD)
+    val initialMode = remember(eventState.event.id, isAgeMode, isPast) {
+        if (isAgeMode) 2 else if (isPast) 1 else 0
+    }
+    var displayMode by remember(eventState.event.id, isAgeMode, isPast) { mutableIntStateOf(initialMode) }
+
+    fun cycleMode() {
+        displayMode = when (displayMode) {
+            0 -> if (isAgeMode) 2 else 1
+            1 -> 0
+            2 -> 1
+            else -> 0
+        }
+    }
+
+    val isToday = eventState.daysRemaining == 0L
+    val todayLabel = stringResource(R.string.days_today_label)
+    val daysDisplay = if (isToday) todayLabel else when (displayMode) {
+        2 -> formatBetweenAsYMD(targetLocalDate, today)
+        1 -> formatDays(eventState.daysPassed)
+        else -> formatDays(eventState.daysRemaining)
+    }
+
+    val itemContentColor = MaterialTheme.colorScheme.onSurface
+    val eventColor = parseEventColorOrFallback(
+        hex = eventState.event.colorHex,
+        fallback = MaterialTheme.colorScheme.primary
+    )
+    val itemDescription = buildString {
+        append(eventState.event.title)
+        append(", ")
+        if (isToday) {
+            append(todayLabel)
+        } else when (displayMode) {
+            2, 1 -> {
+                append(stringResource(R.string.days_past_label)).append(" ")
+                append(daysDisplay)
+            }
+            else -> {
+                append(stringResource(R.string.days_left_label)).append(" ").append(daysDisplay)
+            }
+        }
+    }
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(64.dp) // 固定高度，保持列表整齐
+            .semantics(mergeDescendants = true) { contentDescription = itemDescription }
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = {
+                    listView.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+                    onLongClick()
+                },
+                interactionSource = interactionSource,
+                indication = null
+            )
+            .background(
+                color = MaterialTheme.colorScheme.surface, // 统一使用 Surface (Paper) 背景
+                shape = RoundedCornerShape(2.dp)
+            )
+            .border(
+                width = 0.5.dp, // 极细边框
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(2.dp)
+            )
+            .padding(horizontal = 16.dp, vertical = 0.dp), // 垂直方向由 Row 的 Arrangement 控制
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Color dot
+        Box(
+            modifier = Modifier
+                .size(6.dp)
+                .background(
+                    eventColor.copy(alpha = if (isPast) 0.5f else 0.9f),
+                    androidx.compose.foundation.shape.CircleShape
+                )
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+
+        // Title and category
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = eventState.event.title,
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Normal,
+                    letterSpacing = 0.5.sp
+                ),
+                color = itemContentColor.copy(alpha = if (isPast) 0.6f else 0.9f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (showDetail) {
+                Text(
+                    text = targetLocalDate.format(dateFormatter),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = itemContentColor.copy(alpha = 0.4f)
+                )
+            }
+        }
+
+        // Days display
+        Column(
+            modifier = Modifier
+                .fillMaxHeight()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = { cycleMode() }
+                ),
+            horizontalAlignment = Alignment.End,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = daysDisplay,
+                style = if (daysDisplay.length > 5)
+                    MaterialTheme.typography.titleMedium
+                else
+                    MaterialTheme.typography.titleLarge,
+                color = if (isPast) itemContentColor.copy(alpha = 0.4f) else eventColor
+            )
+            Text(
+                text = if (isToday) ""
+                    else when (displayMode) {
+                        2, 1 -> stringResource(R.string.days_past_label)
+                        else -> stringResource(R.string.days_left_label)
+                    },
+                style = MaterialTheme.typography.labelSmall,
+                color = itemContentColor.copy(alpha = 0.4f),
+                letterSpacing = 1.sp
+            )
         }
     }
 }

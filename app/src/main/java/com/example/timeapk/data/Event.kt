@@ -26,5 +26,7 @@ data class Event(
     /** 是否开启提醒 */
     val remindEnabled: Boolean = false,
     /** 创建时间，用于排序与迁移 */
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    /** 是否为农历日期 */
+    val isLunar: Boolean = false
 )

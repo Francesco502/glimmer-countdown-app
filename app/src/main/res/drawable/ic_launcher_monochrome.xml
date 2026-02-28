@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- Monochrome 动态图标：使用负空间挖空中心原点，沙漏整体按约 0.7 倍等比缩放 -->
+    <path
+        android:fillColor="#000000"
+        android:fillType="evenOdd"
+        android:pathData="
+            M 40, 30.2 
+            Q 54, 29.5 68, 30.2 
+            C 68, 44.2 59.6, 48.4 59.6, 54 
+            C 59.6, 59.6 68, 63.8 68, 77.8 
+            Q 54, 78.5 40, 77.8 
+            C 40, 63.8 48.4, 59.6 48.4, 54 
+            C 48.4, 48.4 40, 44.2 40, 30.2 Z
+            M 54,49.1 
+            A 4.9,4.9 0 1,1 54,58.9 
+            A 4.9,4.9 0 1,1 54,49.1 Z" />
+</vector>
