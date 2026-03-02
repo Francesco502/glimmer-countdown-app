@@ -3,6 +3,7 @@ package com.example.timeapk.ui.home
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -76,6 +77,10 @@ import com.example.timeapk.ui.theme.AnimationSpecs
 import androidx.compose.foundation.LocalOverscrollConfiguration
 import androidx.compose.foundation.OverscrollConfiguration
 import androidx.compose.runtime.CompositionLocalProvider
+import org.burnoutcrew.reorderable.detectReorderAfterLongPress
+import org.burnoutcrew.reorderable.rememberReorderableLazyListState
+import org.burnoutcrew.reorderable.reorderable
+import org.burnoutcrew.reorderable.ReorderableItem
 
 enum class FilterType { All, Upcoming, Past }
 enum class SortType { ByDays, ByDate, ByCreated }
@@ -125,6 +130,7 @@ fun HomeScreen(
     val hasSeenSwipeHint by prefs.hasSeenSwipeHintFlow.collectAsState(initial = false)
     val dateDeltaDisplayMode by prefs.dateDeltaDisplayModeFlow.collectAsState(initial = 0)
     val perEventDateDeltaModes by prefs.perEventDateDeltaDisplayModesFlow.collectAsState(initial = emptyMap())
+    val customEventOrderIds by prefs.customEventOrderFlow.collectAsState(initial = emptyList())
     val savedHomeDisplayMode by prefs.homeDisplayModeFlow.collectAsState(initial = 0)
     var homeDisplayMode by remember(savedHomeDisplayMode) { mutableStateOf(savedHomeDisplayMode) }
     var filterType by remember(savedFilter) { mutableStateOf(FilterType.entries.getOrNull(savedFilter) ?: FilterType.All) }
@@ -142,7 +148,7 @@ fun HomeScreen(
         prefs.setHomeDisplayMode(homeDisplayMode)
     }
 
-    val displayedList = remember(homeUiState, filterType, sortType, homeDisplayMode) {
+    val displayedList = remember(homeUiState, filterType, sortType, homeDisplayMode, customEventOrderIds) {
         var list = when (filterType) {
             FilterType.All -> homeUiState
             FilterType.Upcoming -> homeUiState.filter { !it.isPast }
@@ -154,8 +160,58 @@ fun HomeScreen(
             SortType.ByDate -> list.sortedBy { it.event.date }
             SortType.ByCreated -> list.sortedByDescending { it.event.createdAt }
         }
+        if (customEventOrderIds.isNotEmpty()) {
+            list = list.sortedBy { id ->
+                val i = customEventOrderIds.indexOf(id.event.id)
+                if (i < 0) Int.MAX_VALUE else i
+            }
+        }
         list
     }
+
+    // ── 拖拽排序列表 ──
+    // 必须在 composition 阶段同步填充，不能用 LaunchedEffect（会延迟一帧导致全部卡片同时飞入）
+    val orderedList = remember { mutableStateListOf<EventUiState>() }
+    // 标记是否完成过首次初始化，用于跳过首次 animateItemPlacement
+    var listInitialized by remember { mutableStateOf(false) }
+
+    // 同步初始化：在 composition 阶段立即填充，确保 LazyColumn 首帧就有数据
+    // 不在此处设置 listInitialized，避免从详情返回时首帧触发 animateItemPlacement 产生拖动动画
+    if (orderedList.isEmpty() && displayedList.isNotEmpty()) {
+        orderedList.addAll(displayedList)
+    }
+
+    // 后续数据变化（增删/筛选/排序/数据刷新）在 LaunchedEffect 增量同步
+    LaunchedEffect(displayedList) {
+        if (orderedList.isEmpty()) return@LaunchedEffect
+        val targetIds = displayedList.map { it.event.id }
+        val currentIds = orderedList.map { it.event.id }
+        if (targetIds == currentIds) {
+            // 仅数据更新（如天数变化），就地替换，不触发位移动画
+            displayedList.forEachIndexed { i, newItem ->
+                if (i < orderedList.size && orderedList[i] != newItem) {
+                    orderedList[i] = newItem
+                }
+            }
+        } else {
+            // 结构变化（增删/排序变更）：全量替换
+            orderedList.clear()
+            orderedList.addAll(displayedList)
+        }
+        listInitialized = true
+    }
+
+    val reorderState = rememberReorderableLazyListState(
+        onMove = { from, to ->
+            val fromIdx = from.index
+            val toIdx = to.index
+            if (fromIdx in orderedList.indices && toIdx in orderedList.indices && fromIdx != toIdx) {
+                val item = orderedList.removeAt(fromIdx)
+                orderedList.add(toIdx, item)
+                scope.launch { prefs.setCustomEventOrder(orderedList.map { it.event.id }) }
+            }
+        }
+    )
 
     val deletedSnackbarText = stringResource(R.string.deleted_snackbar)
     val undoLabel = stringResource(R.string.undo)
@@ -327,10 +383,15 @@ fun HomeScreen(
                 } else {
                     CompositionLocalProvider(LocalOverscrollConfiguration provides null) {
                         LazyColumn(
+                            state = reorderState.listState,
+                            modifier = Modifier
+                                .reorderable(reorderState)
+                                .detectReorderAfterLongPress(reorderState),
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                             verticalArrangement = Arrangement.spacedBy(if (homeDisplayMode == 0) 12.dp else 6.dp)
                         ) {
-                        items(displayedList, key = { it.event.id }) { eventState ->
+                        items(orderedList, key = { it.event.id }) { eventState ->
+                            ReorderableItem(reorderState, key = eventState.event.id) { isDragging ->
                             val dismissState = rememberSwipeToDismissBoxState(
                             confirmValueChange = { value ->
                                 if (value == SwipeToDismissBoxValue.EndToStart) {
@@ -353,7 +414,10 @@ fun HomeScreen(
                             state = dismissState,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .animateItemPlacement(animationSpec = AnimationSpecs.springItemPlacement),
+                                .then(
+                                    if (listInitialized) Modifier.animateItemPlacement(animationSpec = AnimationSpecs.springItemPlacement)
+                                    else Modifier
+                                ),
                             enableDismissFromStartToEnd = false,
                             enableDismissFromEndToStart = true,
                             backgroundContent = {
@@ -392,7 +456,8 @@ fun HomeScreen(
                                     onLongClick = { navigateToEdit(eventState.event.id) },
                                     showHours = showHours,
                                     showMilestone = showMilestone,
-                                    showDetail = showDetail
+                                    showDetail = showDetail,
+                                    isDragging = isDragging
                                 )
                             } else {
                                 val itemDisplayMode = perEventDateDeltaModes[eventState.event.id] ?: dateDeltaDisplayMode
@@ -407,10 +472,12 @@ fun HomeScreen(
                                         }
                                     },
                                     onClick = { navigateToDetail(eventState.event.id) },
-                                    onLongClick = { navigateToEdit(eventState.event.id) }
+                                    onLongClick = { navigateToEdit(eventState.event.id) },
+                                    isDragging = isDragging
                                 )
                             }
                         }
+                    }
                     }
                     }
                 }
@@ -459,6 +526,7 @@ fun EventCard(
     showHours: Boolean = true,
     showMilestone: Boolean = true,
     showDetail: Boolean = true,
+    isDragging: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val isPast = eventState.isPast
@@ -482,6 +550,11 @@ fun EventCard(
         targetValue = if (isPressed) 0.92f else 1f,
         animationSpec = androidx.compose.animation.core.tween(150),
         label = "cardAlpha"
+    )
+    val dragElevation by animateDpAsState(
+        targetValue = if (isDragging) 12.dp else 0.dp,
+        animationSpec = androidx.compose.animation.core.tween(200),
+        label = "dragElevation"
     )
 
     // 原始首页卡片：使用事件色大面积铺色（降低透明度，加深颜色实感）
@@ -529,9 +602,13 @@ fun EventCard(
         displayContent = todayLabel
         displayUnit = ""
     } else if (isAnniversary) {
-        // 纪念日首页：显示“已经 XX 天”（自缘起日至今的累计天数，用 daysPassed）
-        displayContent = formatDaysSmart(eventState.daysPassed, false)
-        displayUnit = stringResource(R.string.days_unit)
+        if (dateDeltaDisplayMode == 0) {
+            displayContent = formatDaysSmart(eventState.daysPassed, false)
+            displayUnit = stringResource(R.string.days_unit)
+        } else {
+            displayContent = formatBetweenAsYMD(targetLocalDate, today)
+            displayUnit = ""
+        }
     } else if (dateDeltaDisplayMode == 0) {
         displayContent = formatDaysSmart(dayCount, false)
         displayUnit = stringResource(R.string.days_unit)
@@ -553,21 +630,19 @@ fun EventCard(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = 110.dp)
-            .semantics(mergeDescendants = true) { contentDescription = cardDescription }
-            .graphicsLayer { 
+            .shadow(dragElevation, RoundedCornerShape(2.dp), spotColor = Color.Black.copy(alpha = 0.25f))
+            .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
                 alpha = cardAlpha
             }
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = {
-                    view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
-                    onLongClick()
-                },
+            // 整张卡片可点击进入详情，避免只有标题区域有点击效果
+            .clickable(
                 interactionSource = interactionSource,
-                indication = null
-            ),
+                indication = null,
+                onClick = onClick
+            )
+            .semantics(mergeDescendants = true) { contentDescription = cardDescription },
         shape = RoundedCornerShape(2.dp), // 极小圆角，模拟纸张折叠
         colors = CardDefaults.cardColors(containerColor = cardContainerColor),
         border = BorderStroke(
@@ -586,86 +661,90 @@ fun EventCard(
             // Left color indicator dot - Removed to let the whole card color speak
             // Instead, we use the whole card background as the indicator
             
-            // 标题
+            // 标题与日期区域：不再单独处理点击，交由整卡片的 clickable 统一处理
             Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.SpaceBetween, // 垂直两端对齐
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+                verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.Start
             ) {
-                // Title row（略增字号以便阅读）
-                Text(
-                    text = eventState.event.title,
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = androidx.compose.ui.text.font.FontWeight.Normal, // 去掉粗体，回归宋式瘦硬
-                        letterSpacing = 0.5.sp,
-                        lineHeight = 24.sp,
-                        fontSize = 18.sp
-                    ),
-                    color = cardContentColor.copy(alpha = if (isPast) 0.8f else 1.0f),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                // Date: "Dan Mo" (Pale Ink)
-                Text(
-                    text = targetLocalDate.format(dateFormatter),
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 14.sp),
-                    color = cardContentColor.copy(alpha = 0.8f)
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = eventState.event.title,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Normal,
+                            letterSpacing = 0.5.sp,
+                            lineHeight = 24.sp,
+                            fontSize = 18.sp
+                        ),
+                        color = cardContentColor.copy(alpha = if (isPast) 0.8f else 1.0f),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = targetLocalDate.format(dateFormatter),
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 14.sp),
+                        color = cardContentColor.copy(alpha = 0.8f)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            // Right side: Days display
-            Column(
+            // 已历/剩余时间区域：仅此处点击切换「xx天」/「x年x月x天」，热区不小于 48dp 便于点击；靠右对齐使「已经/剩余」多卡对齐
+            val timeColor = if (isPast) cardContentColor.copy(alpha = 0.85f) else cardContentColor
+            Box(
                 modifier = Modifier
                     .fillMaxHeight()
+                    .widthIn(min = 72.dp)
+                    .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         onClick = onToggleDateDeltaDisplayMode
                     ),
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.Center
+                contentAlignment = Alignment.CenterEnd
             ) {
-                // Days number with unit（使用卡片高对比度内容色，确保在深色铺色下依然绝对清晰）
-                val timeColor = if (isPast) cardContentColor.copy(alpha = 0.85f) else cardContentColor
-                Row(
-                    verticalAlignment = Alignment.Bottom,
-                    horizontalArrangement = Arrangement.End
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier.heightIn(min = 52.dp)
                 ) {
-                    Text(
-                        text = displayContent,
-                        style = MaterialTheme.typography.displaySmall.copy(
-                            fontSize = 24.sp,
-                            fontWeight = androidx.compose.ui.text.font.FontWeight.Normal,
-                            letterSpacing = (-0.5).sp
-                        ),
-                        color = timeColor,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    
-                    if (displayUnit.isNotEmpty()) {
-                        Spacer(modifier = Modifier.width(2.dp))
+                    Row(
+                        verticalAlignment = Alignment.Bottom,
+                        horizontalArrangement = Arrangement.End
+                    ) {
                         Text(
-                            text = displayUnit,
-                            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
-                            color = timeColor.copy(alpha = 1.0f),
-                            modifier = Modifier.padding(bottom = 4.dp)
+                            text = displayContent,
+                            style = MaterialTheme.typography.displaySmall.copy(
+                                fontSize = 24.sp,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Normal,
+                                letterSpacing = (-0.5).sp
+                            ),
+                            color = timeColor,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
+                        if (displayUnit.isNotEmpty()) {
+                            Spacer(modifier = Modifier.width(2.dp))
+                            Text(
+                                text = displayUnit,
+                                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+                                color = timeColor.copy(alpha = 1.0f),
+                                modifier = Modifier.padding(bottom = 4.dp)
+                            )
+                        }
                     }
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = labelText,
+                        // 与左侧日期统一使用 bodySmall 14sp，提升可读性
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 14.sp),
+                        color = timeColor.copy(alpha = 0.85f),
+                        letterSpacing = 1.sp
+                    )
                 }
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                // Label（剩余/已经）
-                Text(
-                    text = labelText,
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                    color = timeColor.copy(alpha = 0.85f),
-                    letterSpacing = 2.sp
-                )
             }
         }
     }
@@ -681,6 +760,7 @@ private fun EventListItem(
     onToggleDateDeltaDisplayMode: () -> Unit,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
+    isDragging: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -698,8 +778,12 @@ private fun EventListItem(
         animationSpec = androidx.compose.animation.core.tween(150),
         label = "listItemAlpha"
     )
+    val listDragElevation by animateDpAsState(
+        targetValue = if (isDragging) 8.dp else 0.dp,
+        animationSpec = androidx.compose.animation.core.tween(200),
+        label = "listDragElevation"
+    )
     val isPast = eventState.isPast
-    val listView = androidx.compose.ui.platform.LocalView.current
     val targetLocalDate = remember(eventState.event.date) {
         eventDateToLocalDate(eventState.event.date)
     }
@@ -723,9 +807,14 @@ private fun EventListItem(
     }
     val daysDisplay = if (isToday) {
         todayLabel
-    } else if (isAnniversary || dateDeltaDisplayMode == 0) {
-        val dc = if (isAnniversary) eventState.daysPassed else dayCount
-        formatDaysSmart(dc, false) + stringResource(R.string.days_unit)
+    } else if (isAnniversary) {
+        if (dateDeltaDisplayMode == 0) {
+            formatDaysSmart(eventState.daysPassed, false) + stringResource(R.string.days_unit)
+        } else {
+            formatBetweenAsYMD(targetLocalDate, today)
+        }
+    } else if (dateDeltaDisplayMode == 0) {
+        formatDaysSmart(dayCount, false) + stringResource(R.string.days_unit)
     } else {
         val start = if (!isRepeating && isPast) today.minusDays(dayCount) else today
         val end = if (!isRepeating && isPast) today else today.plusDays(dayCount)
@@ -748,36 +837,36 @@ private fun EventListItem(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = 68.dp)
-            .semantics(mergeDescendants = true) { contentDescription = itemDescription }
-            .graphicsLayer { 
+            .shadow(listDragElevation, RoundedCornerShape(2.dp), spotColor = Color.Black.copy(alpha = 0.2f))
+            .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
                 alpha = itemAlpha
             }
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = {
-                    listView.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
-                    onLongClick()
-                },
-                interactionSource = interactionSource,
-                indication = null
-            )
             .background(
-                color = MaterialTheme.colorScheme.surface, // 统一使用 Surface (Paper) 背景
+                color = MaterialTheme.colorScheme.surface,
                 shape = RoundedCornerShape(2.dp)
             )
             .border(
-                width = 0.5.dp, // 极细边框
+                width = 0.5.dp,
                 color = eventColor.copy(alpha = if (isPast) 0.3f else 0.8f),
                 shape = RoundedCornerShape(2.dp)
             )
-            .padding(horizontal = 24.dp, vertical = 0.dp), // 垂直方向由 Row 的 Arrangement 控制
+            .padding(horizontal = 24.dp, vertical = 0.dp)
+            // 整行列表项可点击进入详情，避免只有文字区域可点
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            )
+            .semantics(mergeDescendants = true) { contentDescription = itemDescription },
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Title and category
+        // 标题与日期区域：点击行为由整行 Row 统一处理
         Column(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight(),
             verticalArrangement = Arrangement.Center
         ) {
             Text(
@@ -797,10 +886,11 @@ private fun EventListItem(
             )
         }
 
-        // Days display
+        // 已历/剩余时间区域：仅此处点击切换显示模式，热区不小于 48dp
         Column(
             modifier = Modifier
                 .fillMaxHeight()
+                .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,

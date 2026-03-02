@@ -8,7 +8,7 @@ $tag = $null
 $releaseName = $null
 $rootDir = Split-Path $PSScriptRoot -Parent
 $gradleProps = Join-Path $rootDir 'gradle.properties'
-$versionName = '2.1'
+$versionName = '3.0'
 if (Test-Path $gradleProps) {
     $line = Get-Content $gradleProps | Where-Object { $_ -match '^\s*VERSION_NAME\s*=\s*(.+)$' } | Select-Object -First 1
     if ($line -match 'VERSION_NAME\s*=\s*(.+)') { $versionName = $Matches[1].Trim() }

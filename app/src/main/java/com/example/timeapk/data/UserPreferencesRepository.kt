@@ -36,6 +36,8 @@ private val DATE_DELTA_DISPLAY_MODE = intPreferencesKey("date_delta_display_mode
 private val PER_EVENT_DATE_DELTA_MODES = stringPreferencesKey("per_event_date_delta_modes")
 private val CUSTOM_MILESTONES_JSON = stringPreferencesKey("custom_milestones_json")
 private val HAS_SEEN_SWIPE_HINT = booleanPreferencesKey("has_seen_swipe_hint")
+/** 首页卡片/列表自定义顺序：JSON 数组 [id1, id2, ...]，空表示使用当前排序 */
+private val CUSTOM_EVENT_ORDER_JSON = stringPreferencesKey("custom_event_order_json")
 private val MILESTONE_REMIND_ENABLED = booleanPreferencesKey("milestone_remind_enabled")
 private val MILESTONE_REMIND_DAYS_AHEAD = intPreferencesKey("milestone_remind_days_ahead")
 
@@ -77,6 +79,20 @@ class UserPreferencesRepository(private val context: Context) {
         parsePerEventDateDeltaModes(raw)
     }
     val hasSeenSwipeHintFlow: Flow<Boolean> = context.dataStore.data.map { it[HAS_SEEN_SWIPE_HINT] ?: false }
+    /** 首页自定义顺序的事件 ID 列表，空表示使用筛选/排序默认顺序 */
+    val customEventOrderFlow: Flow<List<Int>> = context.dataStore.data.map { prefs ->
+        parseCustomEventOrder(prefs[CUSTOM_EVENT_ORDER_JSON] ?: "")
+    }
+
+    private fun parseCustomEventOrder(raw: String): List<Int> {
+        if (raw.isBlank()) return emptyList()
+        return try {
+            val arr = JSONArray(raw)
+            List(arr.length()) { i -> arr.optInt(i) }.filter { it != 0 }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
 
     private fun parseMilestonesJson(json: String?): List<Long> {
         if (json.isNullOrBlank()) return DEFAULT_MILESTONE_DAYS
@@ -180,6 +196,12 @@ class UserPreferencesRepository(private val context: Context) {
 
     suspend fun setHasSeenSwipeHint(seen: Boolean) {
         context.dataStore.edit { it[HAS_SEEN_SWIPE_HINT] = seen }
+    }
+
+    /** 保存首页卡片/列表的自定义顺序（卡片与列表共用，联动同步） */
+    suspend fun setCustomEventOrder(orderedIds: List<Int>) {
+        val json = JSONArray(orderedIds).toString()
+        context.dataStore.edit { it[CUSTOM_EVENT_ORDER_JSON] = json }
     }
 
     suspend fun setCustomMilestones(days: List<Long>) {

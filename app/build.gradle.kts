@@ -141,6 +141,9 @@ dependencies {
     // 农历、干支（详情页「缘起｜已历｜静候」展示）
     implementation("cn.6tail:lunar:1.7.4")
 
+    // 首页卡片/列表拖拽排序
+    implementation("org.burnoutcrew.composereorderable:reorderable:0.9.6")
+
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")

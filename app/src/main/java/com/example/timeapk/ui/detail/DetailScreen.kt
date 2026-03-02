@@ -285,31 +285,57 @@ fun DetailScreen(
                     
                     Spacer(modifier = Modifier.height(40.dp))
 
+                    // 按类别区分：纪念日只显示「已历」，生日/其他只显示「尚余」（剩余按用户设定的重复计算）
                     val isToday = eventState.daysRemaining == 0L && !eventState.isPast
                     val todayLabel = stringResource(R.string.days_today_label)
                     val isRepeating = eventState.event.repeatType != REPEAT_NONE
-                    val isShowUntil = isRepeating || !eventState.isPast
-                    val labelText = when {
-                        isToday -> ""
-                        isYearly -> stringResource(R.string.detail_repeat_elapsed)
-                        isShowUntil -> stringResource(R.string.days_until_label)
-                        else -> stringResource(R.string.days_past_label)
+                    val isAnniversaryCategory = effectiveCategory == CATEGORY_ANNIVERSARY
+
+                    var labelText = ""
+                    var dayCount = 0L
+                    var ymdStart = today
+                    var ymdEnd = today
+                    when {
+                        isToday -> {
+                            labelText = ""
+                            dayCount = 0L
+                            ymdStart = today
+                            ymdEnd = today
+                        }
+                        isAnniversaryCategory -> {
+                            labelText = stringResource(R.string.detail_repeat_elapsed)
+                            dayCount = eventState.daysPassed
+                            ymdStart = targetLocalDate
+                            ymdEnd = today
+                        }
+                        effectiveCategory == CATEGORY_BIRTHDAY || effectiveCategory == CATEGORY_OTHER -> {
+                            if (!isRepeating && eventState.isPast) {
+                                labelText = stringResource(R.string.days_past_label)
+                                dayCount = eventState.daysElapsed
+                                ymdStart = targetLocalDate
+                                ymdEnd = today
+                            } else {
+                                labelText = stringResource(R.string.days_until_label)
+                                dayCount = eventState.daysRemaining
+                                ymdStart = today
+                                ymdEnd = nextOccurrenceDate(targetLocalDate, today, eventState.event.repeatType)
+                            }
+                        }
+                        else -> {
+                            labelText = stringResource(R.string.days_until_label)
+                            dayCount = eventState.daysRemaining
+                            ymdStart = today
+                            ymdEnd = today.plusDays(eventState.daysRemaining)
+                        }
                     }
+
                     val detailDisplayMode = perEventDateDeltaModes[eventState.event.id] ?: dateDeltaDisplayMode
-                    val dayCount = when {
-                        isYearly -> eventState.daysPassed
-                        !isRepeating && eventState.isPast -> eventState.daysElapsed
-                        else -> eventState.daysRemaining
-                    }
                     val daysDisplay = if (isToday) todayLabel else if (detailDisplayMode == 0) {
                         formatDaysSmart(dayCount, false) + stringResource(R.string.days_unit)
                     } else {
-                        val start = if (!isRepeating && eventState.isPast) today.minusDays(eventState.daysElapsed) else today
-                        val end = if (!isRepeating && eventState.isPast) today else today.plusDays(eventState.daysRemaining)
-                        formatBetweenAsYMD(start, end)
+                        formatBetweenAsYMD(ymdStart, ymdEnd)
                     }
-                    val isYMDLong = detailDisplayMode == 1 && daysDisplay.length > 6
-
+                    // 切换显示模式时保持字号一致，不随内容长短变化
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -327,13 +353,11 @@ fun DetailScreen(
                     ) {
                         Text(
                             text = daysDisplay,
-                            style = if (isYMDLong)
-                                MaterialTheme.typography.displaySmall.copy(fontSize = 20.sp, lineHeight = 24.sp)
-                            else
-                                MaterialTheme.typography.displayMedium.copy(fontSize = 36.sp, lineHeight = 40.sp),
-                            // 改为跟随主题的内容色，避免浅色主题下过亮或过暗
+                            style = MaterialTheme.typography.displayMedium.copy(fontSize = 36.sp, lineHeight = 40.sp),
                             color = detailContentColor,
-                            textAlign = TextAlign.Center
+                            textAlign = TextAlign.Center,
+                            maxLines = 2,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                         )
                         
                         Spacer(modifier = Modifier.height(16.dp))
