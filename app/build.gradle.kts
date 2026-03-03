@@ -27,8 +27,8 @@ android {
         applicationId = "com.example.timeapk"
         minSdk = 26
         targetSdk = 35
-        versionCode = versionCodeOverride ?: 5
-        versionName = versionNameOverride ?: "3.1"
+        versionCode = versionCodeOverride ?: 6
+        versionName = versionNameOverride ?: "3.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -90,8 +90,8 @@ android {
     }
 }
 
-// Release APK 输出名：例如 glimmer-countdown-3-1.apk（版本号中 . 改为 -）
-val versionNameForApk = versionNameOverride ?: "3.1"
+// Release APK 输出名：例如 glimmer-countdown-3-2.apk（版本号中 . 改为 -）
+val versionNameForApk = versionNameOverride ?: "3.2"
 val apkBaseName = "glimmer-countdown-${versionNameForApk.replace(".", "-")}"
 tasks.register("renameDirectReleaseApk") {
     dependsOn("packageDirectRelease")

@@ -361,29 +361,23 @@ fun HomeScreen(
                     colors = chipColors
                 )
                 Spacer(modifier = Modifier.weight(1f))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(
-                        onClick = { homeDisplayMode = 0 },
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.ViewModule,
-                            contentDescription = stringResource(R.string.display_mode_card),
-                            tint = if (homeDisplayMode == 0) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
-                        )
-                    }
-                    IconButton(
-                        onClick = { homeDisplayMode = 1 },
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ViewList,
-                            contentDescription = stringResource(R.string.display_mode_list),
-                            tint = if (homeDisplayMode == 1) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
-                        )
-                    }
+                // 单一视图切换按钮：在卡片/列表模式之间切换
+                val isCardMode = homeDisplayMode == 0
+                IconButton(
+                    onClick = {
+                        homeDisplayMode = if (isCardMode) 1 else 0
+                    },
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isCardMode) Icons.AutoMirrored.Filled.ViewList else Icons.Default.ViewModule,
+                        contentDescription = if (isCardMode) {
+                            stringResource(R.string.display_mode_list)
+                        } else {
+                            stringResource(R.string.display_mode_card)
+                        },
+                        tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f)
+                    )
                 }
             }
 
