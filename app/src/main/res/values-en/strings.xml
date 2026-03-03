@@ -10,6 +10,11 @@
     <string name="days_left">days</string>
     <string name="days_left_label">left</string>
     <string name="days_until_label">until</string>
+    <string name="until_anniversary_label">Until Year %d</string>
+    <string name="until_month_anniversary_label">Until Month %d</string>
+    <string name="until_half_year_anniversary_label">Until %d half-yrs</string>
+    <string name="until_birthday_label">Until %d yrs old</string>
+    <string name="until_lunar_birthday_label">Until lunar %1$d yrs old</string>
     <string name="days_today_label">Today</string>
     <string name="days_past_label">elapsed</string>
     <string name="days_elapsed_format">has been %d days</string>
@@ -26,6 +31,7 @@
     <string name="milestone_520">520 days</string>
     <string name="milestone_1000">1000 days</string>
     <string name="milestone_days_format">Day %d</string>
+    <string name="milestone_label_prefix">Until %1$s</string>
 
     <!-- Filter & Sort -->
     <string name="filter_all">All</string>
@@ -120,6 +126,8 @@
     <string name="button_edit">Edit</string>
     <string name="button_delete">Delete</string>
     <string name="button_share">Share</string>
+    <string name="button_pin">Pin</string>
+    <string name="button_unpin">Unpin</string>
     <string name="delete_confirm_title">Delete event</string>
     <string name="delete_confirm_message">Delete \"%1$s\"?</string>
     <string name="delete_confirm_ok">Delete</string>

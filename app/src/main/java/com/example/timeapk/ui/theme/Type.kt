@@ -39,25 +39,25 @@ fun typographyForFontPreset(preset: Int): Typography {
     val labelWeight = if (isSlenderGold) FontWeight.Normal else FontWeight.Medium
     return Typography(
         displayLarge = TextStyle(
-            fontFamily = displayFamily,
-            fontWeight = displayWeight,
-            fontStyle = if (isSlenderGold) FontStyle.Normal else FontStyle.Italic,
-            fontSize = 40.sp,
-            lineHeight = 48.sp,
-            letterSpacing = if (isSlenderGold) 2.sp else 1.sp // 瘦金体字间距稍宽
-        ),
-        displayMedium = TextStyle(
             fontFamily = numbersFamily,
             fontWeight = if (isSlenderGold) FontWeight.Light else FontWeight.Bold,
             fontSize = 36.sp,
             lineHeight = 44.sp,
             letterSpacing = (-1).sp
         ),
+        displayMedium = TextStyle(
+            fontFamily = displayFamily,
+            fontWeight = displayWeight,
+            fontStyle = if (isSlenderGold) FontStyle.Normal else FontStyle.Italic,
+            fontSize = 32.sp,
+            lineHeight = 40.sp,
+            letterSpacing = if (isSlenderGold) 2.sp else 1.sp
+        ),
         displaySmall = TextStyle(
             fontFamily = numbersFamily,
             fontWeight = if (isSlenderGold) FontWeight.Light else FontWeight.Bold,
-            fontSize = 32.sp,
-            lineHeight = 40.sp,
+            fontSize = 28.sp,
+            lineHeight = 36.sp,
             letterSpacing = (-0.5).sp
         ),
         headlineLarge = TextStyle(
@@ -113,15 +113,15 @@ fun typographyForFontPreset(preset: Int): Typography {
             fontFamily = bodyFamily,
             fontWeight = bodyWeight,
             fontSize = 14.sp,
-            lineHeight = 24.sp,
+            lineHeight = 22.sp,
             letterSpacing = 0.sp
         ),
         bodySmall = TextStyle(
             fontFamily = bodyFamily,
             fontWeight = bodyWeight,
-            fontSize = 12.sp,
-            lineHeight = 20.sp,
-            letterSpacing = 0.4.sp
+            fontSize = 13.sp,
+            lineHeight = 18.sp,
+            letterSpacing = 0.2.sp
         ),
         labelLarge = TextStyle(
             fontFamily = bodyFamily,
@@ -134,7 +134,7 @@ fun typographyForFontPreset(preset: Int): Typography {
             fontFamily = bodyFamily,
             fontWeight = labelWeight,
             fontSize = 12.sp,
-            lineHeight = 18.sp,
+            lineHeight = 16.sp,
             letterSpacing = 0.5.sp
         ),
         labelSmall = TextStyle(

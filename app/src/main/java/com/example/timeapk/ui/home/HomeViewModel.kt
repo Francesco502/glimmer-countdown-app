@@ -17,6 +17,8 @@ import com.example.timeapk.data.REPEAT_NONE
 import com.example.timeapk.data.REPEAT_YEARLY
 import com.example.timeapk.data.EventRepository
 import com.example.timeapk.ui.utils.eventDateToLocalDate
+import com.example.timeapk.ui.utils.getNextLunarOccurrence
+import com.example.timeapk.ui.utils.getPreviousLunarOccurrence
 import com.example.timeapk.ui.utils.safeWithYear
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -38,13 +40,19 @@ fun Event.toEventUiState(milestones: List<Long> = DEFAULT_MILESTONE_DAYS): Event
     when (repeatType) {
         REPEAT_YEARLY -> {
             if (hasStarted) {
-                val currentYearDate = safeWithYear(targetDate, today.year)
-                if (currentYearDate != null && currentYearDate.isBefore(today)) {
-                    nextTargetDate = safeWithYear(targetDate, today.year + 1) ?: targetDate
-                    prevTargetDate = currentYearDate
-                } else if (currentYearDate != null) {
-                    nextTargetDate = currentYearDate
-                    prevTargetDate = safeWithYear(targetDate, today.year - 1)
+                if (isLunar) {
+                    val originDate = targetDate
+                    nextTargetDate = getNextLunarOccurrence(originDate, today)
+                    prevTargetDate = getPreviousLunarOccurrence(originDate, today)
+                } else {
+                    val currentYearDate = safeWithYear(targetDate, today.year)
+                    if (currentYearDate != null && currentYearDate.isBefore(today)) {
+                        nextTargetDate = safeWithYear(targetDate, today.year + 1) ?: targetDate
+                        prevTargetDate = currentYearDate
+                    } else if (currentYearDate != null) {
+                        nextTargetDate = currentYearDate
+                        prevTargetDate = safeWithYear(targetDate, today.year - 1)
+                    }
                 }
             }
         }

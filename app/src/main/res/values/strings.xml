@@ -11,6 +11,11 @@
     <string name="days_left">天</string>
     <string name="days_left_label">剩余</string>
     <string name="days_until_label">还有</string>
+    <string name="until_anniversary_label">距离 %d 周年</string>
+    <string name="until_month_anniversary_label">距离 %d 个月</string>
+    <string name="until_half_year_anniversary_label">距离 %d 个半年</string>
+    <string name="until_birthday_label">距离 %d 岁</string>
+    <string name="until_lunar_birthday_label">距离 农历%1$d岁生日</string>
     <string name="days_today_label">正当此时</string>
     <string name="days_past_label">已经</string>
     <string name="days_elapsed_format">已经 %d 天</string>
@@ -27,6 +32,7 @@
     <string name="milestone_520">520 天</string>
     <string name="milestone_1000">1000 天</string>
     <string name="milestone_days_format">%d 天</string>
+    <string name="milestone_label_prefix">距离 %1$s</string>
 
     <!-- Filter & Sort -->
     <string name="filter_all">全部</string>
@@ -121,6 +127,8 @@
     <string name="button_edit">编辑</string>
     <string name="button_delete">删除</string>
     <string name="button_share">分享</string>
+    <string name="button_pin">置顶</string>
+    <string name="button_unpin">取消置顶</string>
     <string name="delete_confirm_title">删除事件</string>
     <string name="delete_confirm_message">确定要删除「%1$s」吗？</string>
     <string name="delete_confirm_ok">删除</string>

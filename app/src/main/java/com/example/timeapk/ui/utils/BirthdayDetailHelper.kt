@@ -134,7 +134,9 @@ fun wuxingFromDate(date: LocalDate): String? {
     val missing = allWuxing.filter { !wuxingSet.contains(it) }
     val missingStr = if (missing.isEmpty()) "五行俱全" else "缺${missing.joinToString("")}"
 
+    // bazi format: "甲子 丙寅 戊戌"
     val pillars = bazi.split(" ")
+    // 日主（Day Master）是日柱的天干，也就是第三个柱子的第一个字符
     val dayMaster = if (pillars.size >= 3 && pillars[2].isNotEmpty()) pillars[2][0] else null
     val masterWuxing = dayMaster?.let { tianGanWuXing[it] }
 

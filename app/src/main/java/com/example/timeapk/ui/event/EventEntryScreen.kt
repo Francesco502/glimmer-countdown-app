@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -41,13 +40,16 @@ import com.example.timeapk.data.REPEAT_MONTHLY
 import com.example.timeapk.data.REPEAT_NONE
 import com.example.timeapk.data.REPEAT_YEARLY
 import com.example.timeapk.ui.AppViewModelProvider
+import com.example.timeapk.ui.components.BottomSheetDatePicker
 import com.example.timeapk.ui.theme.AnimationSpecs
 import com.example.timeapk.ui.utils.eventDateToLocalDate
 import com.example.timeapk.ui.utils.getDisplayDateFormatter
+import com.example.timeapk.ui.utils.formatLunarDateString
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
+import java.time.ZoneOffset
 
 private val PRESET_COLORS = listOf(
     // 宋代美学颜色：用户指定默认色 + 补充色
@@ -207,60 +209,17 @@ fun EventInputForm(
     val dateFormatMode by (context.applicationContext as TimeApplication).userPrefs.dateFormatModeFlow.collectAsState(initial = 0)
     val dateFormatter = remember(dateFormatMode) { getDisplayDateFormatter(dateFormatMode) }
     var showDatePicker by remember { mutableStateOf(false) }
-    val datePickerState = rememberDatePickerState(
-        initialSelectedDateMillis = eventDetails.date
-    )
-    // 修复：编辑事件时，loadEvent 异步完成后 eventDetails.date 变化，
-    // 但 rememberDatePickerState 只捕获了初始值。用 LaunchedEffect 同步。
-    LaunchedEffect(eventDetails.date) {
-        if (datePickerState.selectedDateMillis != eventDetails.date) {
-            datePickerState.selectedDateMillis = eventDetails.date
-        }
-    }
 
     if (showDatePicker) {
-        // 统一 DatePicker 所有区域的背景 & 文字颜色，与首页背景保持一致
-        val datePickerColors = DatePickerDefaults.colors(
-            containerColor = MaterialTheme.colorScheme.background,
-            titleContentColor = MaterialTheme.colorScheme.onBackground,
-            headlineContentColor = MaterialTheme.colorScheme.onBackground,
-            weekdayContentColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-            subheadContentColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-            navigationContentColor = MaterialTheme.colorScheme.onBackground,
-            yearContentColor = MaterialTheme.colorScheme.onBackground,
-            currentYearContentColor = MaterialTheme.colorScheme.primary,
-            selectedYearContentColor = MaterialTheme.colorScheme.onPrimary,
-            selectedYearContainerColor = MaterialTheme.colorScheme.primary,
-            dayContentColor = MaterialTheme.colorScheme.onBackground,
-            selectedDayContentColor = MaterialTheme.colorScheme.onPrimary,
-            selectedDayContainerColor = MaterialTheme.colorScheme.primary,
-            todayContentColor = MaterialTheme.colorScheme.primary,
-            todayDateBorderColor = MaterialTheme.colorScheme.primary,
-            dividerColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.12f)
-        )
-        DatePickerDialog(
+        BottomSheetDatePicker(
+            initialDateMillis = eventDetails.date,
+            initialIsLunar = eventDetails.isLunar,
+            title = stringResource(R.string.field_date),
             onDismissRequest = { showDatePicker = false },
-            shape = RoundedCornerShape(4.dp), // 直角弹窗
-            colors = datePickerColors,
-            confirmButton = {
-                TextButton(onClick = {
-                    datePickerState.selectedDateMillis?.let {
-                        onValueChange(eventDetails.copy(date = it))
-                    }
-                    showDatePicker = false
-                }) {
-                    Text(stringResource(R.string.date_picker_ok), color = MaterialTheme.colorScheme.primary)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
-                    Text(stringResource(R.string.date_picker_cancel), color = MaterialTheme.colorScheme.onSurface)
-                }
+            onConfirm = { millis, isLunar ->
+                onValueChange(eventDetails.copy(date = millis, isLunar = isLunar))
             }
-        ) {
-            // 同样传入 datePickerColors，确保日历网格、头部导航等区域背景一致
-            DatePicker(state = datePickerState, colors = datePickerColors)
-        }
+        )
     }
 
     val textFieldColors = TextFieldDefaults.colors(
@@ -352,9 +311,13 @@ fun EventInputForm(
             colors = textFieldColors
         )
 
-        // 日期选择（与设置中日期格式一致）
-        val dateString = eventDateToLocalDate(eventDetails.date)
-            .format(dateFormatter)
+        // 日期选择：公历 / 农历 显示
+        val baseDate = eventDateToLocalDate(eventDetails.date)
+        val dateString = if (eventDetails.isLunar) {
+            formatLunarDateString(baseDate)
+        } else {
+            baseDate.format(dateFormatter)
+        }
 
         // 整个日期输入框可点击打开日期选择器，去掉右侧图标
         // 使用上层透明点击层，避免 TextField 自身消费点击事件
@@ -537,6 +500,45 @@ fun EventInputForm(
                 selected = noColorSelected,
                 onClick = { onValueChange(eventDetails.copy(colorHex = null)) },
                 icon = Icons.Default.Clear
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MonthQuickSelector(datePickerState: DatePickerState) {
+    val displayedDate = remember(datePickerState.displayedMonthMillis) {
+        Instant.ofEpochMilli(datePickerState.displayedMonthMillis)
+            .atZone(ZoneOffset.UTC)
+            .toLocalDate()
+    }
+    val currentYear = displayedDate.year
+    val currentMonth = displayedDate.monthValue
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        (1..12).forEach { month ->
+            val selected = month == currentMonth
+            AssistChip(
+                onClick = {
+                    val targetMonthDate = displayedDate.withYear(currentYear).withMonth(month).withDayOfMonth(1)
+                    val targetMillis = targetMonthDate
+                        .atStartOfDay(ZoneOffset.UTC)
+                        .toInstant()
+                        .toEpochMilli()
+                    datePickerState.displayedMonthMillis = targetMillis
+                },
+                label = { Text("${month}月") },
+                colors = AssistChipDefaults.assistChipColors(
+                    containerColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                    labelColor = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                )
             )
         }
     }

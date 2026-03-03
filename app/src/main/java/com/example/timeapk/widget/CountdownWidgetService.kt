@@ -12,6 +12,13 @@ import com.example.timeapk.TimeApplication
 import com.example.timeapk.ui.home.EventUiState
 import com.example.timeapk.ui.home.toEventUiState
 import com.example.timeapk.ui.utils.formatDays
+import com.example.timeapk.ui.utils.DisplayModes
+import com.example.timeapk.ui.utils.getAvailableDisplayModes
+import com.example.timeapk.ui.utils.eventDateToLocalDate
+import com.example.timeapk.ui.utils.formatBetweenAsYMD
+import com.example.timeapk.ui.home.getMilestoneLabel
+import com.example.timeapk.data.REPEAT_NONE
+import java.time.LocalDate
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import androidx.core.content.ContextCompat
@@ -31,6 +38,10 @@ class CountdownRemoteViewsFactory(
         intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
 
     private val items = mutableListOf<EventUiState>()
+    
+    private var dateDeltaDisplayMode: Int = 0
+    private var perEventDateDeltaModes: Map<Int, Int> = emptyMap()
+    private var showMilestone: Boolean = true
 
     override fun onCreate() {
         // no-op
@@ -47,6 +58,10 @@ class CountdownRemoteViewsFactory(
             val app = context.applicationContext as TimeApplication
             val list = runBlocking {
                 val milestones = app.userPrefs.customMilestonesFlow.first()
+                dateDeltaDisplayMode = app.userPrefs.dateDeltaDisplayModeFlow.first()
+                perEventDateDeltaModes = app.userPrefs.perEventDateDeltaDisplayModesFlow.first()
+                showMilestone = app.userPrefs.showMilestoneFlow.first()
+                
                 app.repository.getAllEventsSnapshot()
                     .map { it.toEventUiState(milestones) }
                     .sortedWith(
@@ -88,17 +103,64 @@ class CountdownRemoteViewsFactory(
             views.setViewVisibility(R.id.widget_item_tag, View.GONE)
         }
 
-        val daysStr = formatDays(state.daysRemaining)
-        val valueText = when {
-            state.isPast ->
-                "${context.getString(R.string.days_past_label)} $daysStr ${context.getString(R.string.days_left)}"
-            state.daysRemaining == 0L ->
-                context.getString(R.string.days_today_label)
-            else ->
-                "${context.getString(R.string.days_left_label)} $daysStr ${context.getString(R.string.days_left)}"
+        val targetLocalDate = eventDateToLocalDate(state.event.date)
+        val today = LocalDate.now()
+        val isRepeating = state.event.repeatType != REPEAT_NONE
+        val isToday = state.daysRemaining == 0L && !state.isPast
+        
+        val persistedMode = perEventDateDeltaModes[state.event.id] ?: dateDeltaDisplayMode
+        val availableModes = getAvailableDisplayModes(state, showMilestone)
+        val modeIndex = availableModes.indexOf(persistedMode)
+        val mode = if (modeIndex != -1) persistedMode else availableModes.first()
+
+        val valueText = when (mode) {
+            DisplayModes.PAST_DAYS -> {
+                val days = if (isRepeating) state.daysPassed else state.daysElapsed
+                "${formatDays(days)} ${context.getString(R.string.days_unit)}"
+            }
+            DisplayModes.PAST_YMD -> {
+                formatBetweenAsYMD(targetLocalDate, today)
+            }
+            DisplayModes.UNTIL_DAYS -> {
+                if (isToday) {
+                    context.getString(R.string.days_today_label)
+                } else {
+                    val days = if (isRepeating) state.daysLeft else state.daysRemaining
+                    val label = com.example.timeapk.ui.utils.getUntilLabel(context, state)
+                    if (label != context.getString(R.string.days_until_label)) {
+                        "$label ${formatDays(days)} ${context.getString(R.string.days_unit)}"
+                    } else {
+                        "${formatDays(days)} ${context.getString(R.string.days_unit)}"
+                    }
+                }
+            }
+            DisplayModes.UNTIL_YMD -> {
+                if (isToday) {
+                    context.getString(R.string.days_today_label)
+                } else {
+                    val days = if (isRepeating) state.daysLeft else state.daysRemaining
+                    val ymd = formatBetweenAsYMD(today, today.plusDays(days))
+                    val label = com.example.timeapk.ui.utils.getUntilLabel(context, state)
+                    if (label != context.getString(R.string.days_until_label)) {
+                        "$label $ymd"
+                    } else {
+                        ymd
+                    }
+                }
+            }
+            DisplayModes.MILESTONE -> {
+                val milestoneStr = getMilestoneLabel(context, state.nextMilestoneValue!!)
+                context.getString(R.string.milestone_in_days, milestoneStr, state.nextMilestoneDays!!.toInt())
+            }
+            else -> ""
         }
 
-        views.setTextViewText(R.id.widget_item_title, state.event.title)
+        val titleText = if (state.event.isLunar) {
+            "[农] ${state.event.title}"
+        } else {
+            state.event.title
+        }
+        views.setTextViewText(R.id.widget_item_title, titleText)
         views.setTextViewText(R.id.widget_item_value, valueText)
         views.setTextColor(R.id.widget_item_title, textColor)
         views.setTextColor(R.id.widget_item_value, textColor)

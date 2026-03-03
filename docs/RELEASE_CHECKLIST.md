@@ -1,7 +1,7 @@
 # 发布前检查清单
 
-**检查日期**：2025-02-28  
-**版本**：3.0 (versionCode 4)
+**检查日期**：2026-03-02  
+**版本**：3.1 (versionCode 5)
 
 ---
 
@@ -31,12 +31,12 @@
 
 | 项目 | 值 |
 |------|-----|
-| versionCode | 4 |
-| versionName | 3.0 |
+| versionCode | 5 |
+| versionName | 3.1 |
 | minSdk | 26 |
 | targetSdk | 35 |
 | 渠道 | direct / play (`applicationIdSuffix=".play"`) |
-| APK 输出 | `app/build/outputs/apk/direct/release/glimmer-countdown-3-0.apk` |
+| APK 输出 | `app/build/outputs/apk/direct/release/glimmer-countdown-3-1.apk` |
 
 ---
 
@@ -90,10 +90,11 @@
 
 ## 9. 发布前建议步骤
 
-1. [ ] 配置 `keystore.properties` 并完成 Release 签名
-2. [ ] 在真机上测试 direct 与 play 渠道安装、升级
-3. [ ] 测试小组件：添加/编辑/删除事件后即时刷新；点击列表项跳转详情
-4. [ ] 测试检查更新、下载安装流程
-5. [ ] 测试导出/导入 JSON、CSV
-6. [ ] 验证深色/浅色模式与自定义主题
-7. [ ] 确认 `applicationId` 与发布渠道一致（Play 商店使用 `.play` 后缀）
+1. [ ] 按 **[3.1 版本最终测试清单](TEST_CHECKLIST_3.1.md)** 逐模块执行：首页 / 详情 / 新建编辑 / 小组件 / 更新检测
+2. [ ] 配置 `keystore.properties` 并完成 Release 签名
+3. [ ] 在真机上测试 direct 与 play 渠道安装、升级
+4. [ ] 测试小组件：添加/编辑/删除事件后即时刷新；点击列表项跳转详情
+5. [ ] 测试检查更新、下载安装流程
+6. [ ] 测试导出/导入 JSON、CSV
+7. [ ] 验证深色/浅色模式与自定义主题
+8. [ ] 确认 `applicationId` 与发布渠道一致（Play 商店使用 `.play` 后缀）

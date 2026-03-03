@@ -30,7 +30,7 @@ private val CUSTOM_ON_BACKGROUND_HEX = stringPreferencesKey("custom_on_backgroun
 private val LANGUAGE_MODE = intPreferencesKey("language_mode")
 /** 0=yyyy.MM.dd 1=yyyy-MM-dd */
 private val DATE_FORMAT_MODE = intPreferencesKey("date_format_mode")
-/** 0=天数 1=年/月/天 */
+/** 日期显示模式常量见 DisplayModes：0=已历天数 1=已历年月天 2=还有天数 3=还有年月天 4=里程碑 */
 private val DATE_DELTA_DISPLAY_MODE = intPreferencesKey("date_delta_display_mode")
 /** 按事件覆盖：JSON 对象 "{\"eventId\":0|1}"，未覆盖的用 DATE_DELTA_DISPLAY_MODE */
 private val PER_EVENT_DATE_DELTA_MODES = stringPreferencesKey("per_event_date_delta_modes")
@@ -38,6 +38,8 @@ private val CUSTOM_MILESTONES_JSON = stringPreferencesKey("custom_milestones_jso
 private val HAS_SEEN_SWIPE_HINT = booleanPreferencesKey("has_seen_swipe_hint")
 /** 首页卡片/列表自定义顺序：JSON 数组 [id1, id2, ...]，空表示使用当前排序 */
 private val CUSTOM_EVENT_ORDER_JSON = stringPreferencesKey("custom_event_order_json")
+/** 置顶事件 ID 列表（JSON 数组），顺序为置顶显示顺序，始终排在最前 */
+private val PINNED_EVENT_IDS_JSON = stringPreferencesKey("pinned_event_ids_json")
 private val MILESTONE_REMIND_ENABLED = booleanPreferencesKey("milestone_remind_enabled")
 private val MILESTONE_REMIND_DAYS_AHEAD = intPreferencesKey("milestone_remind_days_ahead")
 
@@ -71,8 +73,10 @@ class UserPreferencesRepository(private val context: Context) {
     val languageModeFlow: Flow<Int> = context.dataStore.data.map { it[LANGUAGE_MODE] ?: LANG_ZH }
     /** 0=yyyy.MM.dd 1=yyyy-MM-dd */
     val dateFormatModeFlow: Flow<Int> = context.dataStore.data.map { it[DATE_FORMAT_MODE] ?: 0 }
-    /** 0=天数 1=年/月/天 */
-    val dateDeltaDisplayModeFlow: Flow<Int> = context.dataStore.data.map { it[DATE_DELTA_DISPLAY_MODE] ?: 0 }
+    /** 0..4 见 DisplayModes，超出范围的旧值自动回落为 0 */
+    val dateDeltaDisplayModeFlow: Flow<Int> = context.dataStore.data.map {
+        (it[DATE_DELTA_DISPLAY_MODE] ?: 0).coerceIn(0, 4)
+    }
     /** 按事件 ID 覆盖的显示模式，未出现的用全局 dateDeltaDisplayMode */
     val perEventDateDeltaDisplayModesFlow: Flow<Map<Int, Int>> = context.dataStore.data.map { prefs ->
         val raw = prefs[PER_EVENT_DATE_DELTA_MODES] ?: return@map emptyMap()
@@ -82,6 +86,10 @@ class UserPreferencesRepository(private val context: Context) {
     /** 首页自定义顺序的事件 ID 列表，空表示使用筛选/排序默认顺序 */
     val customEventOrderFlow: Flow<List<Int>> = context.dataStore.data.map { prefs ->
         parseCustomEventOrder(prefs[CUSTOM_EVENT_ORDER_JSON] ?: "")
+    }
+    /** 置顶事件 ID 列表（顺序即置顶显示顺序），无论何种排序都会排在最前 */
+    val pinnedEventIdsFlow: Flow<List<Int>> = context.dataStore.data.map { prefs ->
+        parseCustomEventOrder(prefs[PINNED_EVENT_IDS_JSON] ?: "")
     }
 
     private fun parseCustomEventOrder(raw: String): List<Int> {
@@ -109,7 +117,7 @@ class UserPreferencesRepository(private val context: Context) {
         return try {
             val obj = org.json.JSONObject(raw)
             obj.keys().asSequence().mapNotNull { key ->
-                key.toIntOrNull()?.let { id -> id to obj.optInt(key).coerceIn(0, 1) }
+                key.toIntOrNull()?.let { id -> id to obj.optInt(key).coerceIn(0, 4) }
             }.toMap()
         } catch (_: Exception) {
             emptyMap()
@@ -181,12 +189,12 @@ class UserPreferencesRepository(private val context: Context) {
     }
 
     suspend fun setDateDeltaDisplayMode(mode: Int) {
-        context.dataStore.edit { it[DATE_DELTA_DISPLAY_MODE] = mode.coerceIn(0, 1) }
+        context.dataStore.edit { it[DATE_DELTA_DISPLAY_MODE] = mode.coerceIn(0, 4) }
     }
 
-    /** 仅修改指定事件的日期显示模式，其它事件不受影响 */
+    /** 仅修改指定事件的日期显示模式，其它事件不受影响。支持 0..4 全部模式（见 DisplayModes）。 */
     suspend fun setDateDeltaDisplayModeForEvent(eventId: Int, mode: Int) {
-        val m = mode.coerceIn(0, 1)
+        val m = mode.coerceIn(0, 4)
         context.dataStore.edit { prefs ->
             val current = parsePerEventDateDeltaModes(prefs[PER_EVENT_DATE_DELTA_MODES] ?: "")
             val next = current + (eventId to m)
@@ -202,6 +210,15 @@ class UserPreferencesRepository(private val context: Context) {
     suspend fun setCustomEventOrder(orderedIds: List<Int>) {
         val json = JSONArray(orderedIds).toString()
         context.dataStore.edit { it[CUSTOM_EVENT_ORDER_JSON] = json }
+    }
+
+    /** 切换指定事件的置顶状态：若已置顶则取消，否则置顶并排到置顶列表最前 */
+    suspend fun togglePinnedEventId(eventId: Int) {
+        context.dataStore.edit { prefs ->
+            val current = parseCustomEventOrder(prefs[PINNED_EVENT_IDS_JSON] ?: "")
+            val next = if (eventId in current) current.filter { it != eventId } else listOf(eventId) + current
+            prefs[PINNED_EVENT_IDS_JSON] = JSONArray(next).toString()
+        }
     }
 
     suspend fun setCustomMilestones(days: List<Long>) {

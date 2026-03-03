@@ -30,9 +30,6 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.ViewModule
 import androidx.compose.material3.*
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.*
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
@@ -64,6 +61,8 @@ import com.example.timeapk.ui.utils.formatDaysSmart
 import com.example.timeapk.ui.utils.getDisplayDateFormatter
 import com.example.timeapk.ui.utils.parseEventColorOrFallback
 import com.example.timeapk.ui.utils.eventDateToLocalDate
+import com.example.timeapk.ui.utils.DisplayModes
+import com.example.timeapk.ui.utils.getAvailableDisplayModes
 import java.time.format.DateTimeFormatter
 import java.time.Instant
 import java.time.LocalDate
@@ -72,6 +71,9 @@ import java.time.temporal.ChronoUnit
 import com.example.timeapk.R
 import com.example.timeapk.TimeApplication
 import com.example.timeapk.data.Event
+import com.example.timeapk.data.CATEGORY_ANNIVERSARY
+import com.example.timeapk.data.CATEGORY_BIRTHDAY
+import com.example.timeapk.data.CATEGORY_OTHER
 import com.example.timeapk.ui.theme.AnimationSpecs
 
 import androidx.compose.foundation.LocalOverscrollConfiguration
@@ -82,7 +84,7 @@ import org.burnoutcrew.reorderable.rememberReorderableLazyListState
 import org.burnoutcrew.reorderable.reorderable
 import org.burnoutcrew.reorderable.ReorderableItem
 
-enum class FilterType { All, Upcoming, Past }
+enum class FilterType { All, Birthday, Anniversary, Other }
 enum class SortType { ByDays, ByDate, ByCreated }
 
 // Event category type for unified display
@@ -127,10 +129,10 @@ fun HomeScreen(
     val homeDensityMode by prefs.homeDensityModeFlow.collectAsState(initial = 1)
     val dateFormatMode by prefs.dateFormatModeFlow.collectAsState(initial = 0)
     val dateFormatter = remember(dateFormatMode) { getDisplayDateFormatter(dateFormatMode) }
-    val hasSeenSwipeHint by prefs.hasSeenSwipeHintFlow.collectAsState(initial = false)
     val dateDeltaDisplayMode by prefs.dateDeltaDisplayModeFlow.collectAsState(initial = 0)
     val perEventDateDeltaModes by prefs.perEventDateDeltaDisplayModesFlow.collectAsState(initial = emptyMap())
     val customEventOrderIds by prefs.customEventOrderFlow.collectAsState(initial = emptyList())
+    val pinnedEventIds by prefs.pinnedEventIdsFlow.collectAsState(initial = emptyList())
     val savedHomeDisplayMode by prefs.homeDisplayModeFlow.collectAsState(initial = 0)
     var homeDisplayMode by remember(savedHomeDisplayMode) { mutableStateOf(savedHomeDisplayMode) }
     var filterType by remember(savedFilter) { mutableStateOf(FilterType.entries.getOrNull(savedFilter) ?: FilterType.All) }
@@ -148,23 +150,33 @@ fun HomeScreen(
         prefs.setHomeDisplayMode(homeDisplayMode)
     }
 
-    val displayedList = remember(homeUiState, filterType, sortType, homeDisplayMode, customEventOrderIds) {
+    val displayedList = remember(homeUiState, filterType, sortType, homeDisplayMode, customEventOrderIds, pinnedEventIds) {
         var list = when (filterType) {
             FilterType.All -> homeUiState
-            FilterType.Upcoming -> homeUiState.filter { !it.isPast }
-            FilterType.Past -> homeUiState.filter { it.isPast }
+            FilterType.Birthday -> homeUiState.filter { it.event.category == CATEGORY_BIRTHDAY }
+            FilterType.Anniversary -> homeUiState.filter { it.event.category == CATEGORY_ANNIVERSARY }
+            FilterType.Other -> homeUiState.filter { it.event.category == CATEGORY_OTHER }
         }
-        val effectiveSort = if (homeDisplayMode == 1) SortType.ByDays else sortType
+        val effectiveSort = sortType
         list = when (effectiveSort) {
             SortType.ByDays -> list.sortedBy { it.daysRemaining }
             SortType.ByDate -> list.sortedBy { it.event.date }
             SortType.ByCreated -> list.sortedByDescending { it.event.createdAt }
         }
-        if (customEventOrderIds.isNotEmpty()) {
+        // 仅在选择“按创建时间”时应用拖拽产生的自定义顺序；
+        // 其余排序模式下，显式排序优先生效，避免看起来“排序按钮没反应”。
+        if (customEventOrderIds.isNotEmpty() && sortType == SortType.ByCreated) {
             list = list.sortedBy { id ->
                 val i = customEventOrderIds.indexOf(id.event.id)
                 if (i < 0) Int.MAX_VALUE else i
             }
+        }
+        // 置顶事件始终排在最前，顺序按 pinnedEventIds
+        if (pinnedEventIds.isNotEmpty()) {
+            val pinnedSet = pinnedEventIds.toSet()
+            val pinned = pinnedEventIds.mapNotNull { id -> list.find { it.event.id == id } }
+            val unpinned = list.filter { it.event.id !in pinnedSet }
+            list = pinned + unpinned
         }
         list
     }
@@ -213,15 +225,6 @@ fun HomeScreen(
         }
     )
 
-    val deletedSnackbarText = stringResource(R.string.deleted_snackbar)
-    val undoLabel = stringResource(R.string.undo)
-    LaunchedEffect(displayedList.isNotEmpty(), hasSeenSwipeHint) {
-        if (displayedList.isNotEmpty() && !hasSeenSwipeHint) {
-            snackbarHostState.showSnackbar(context.getString(R.string.hint_swipe_delete))
-            scope.launch { prefs.setHasSeenSwipeHint(true) }
-        }
-    }
-
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -230,11 +233,7 @@ fun HomeScreen(
                 title = {
                     Text(
                         text = stringResource(R.string.app_name),
-                        style = MaterialTheme.typography.displayLarge.copy(
-                            fontSize = 22.sp,
-                            lineHeight = 28.sp,
-                            fontStyle = androidx.compose.ui.text.font.FontStyle.Normal
-                        )
+                        style = MaterialTheme.typography.titleLarge
                     )
                 },
                 actions = {
@@ -243,24 +242,38 @@ fun HomeScreen(
                     ) {
                         Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.settings_title))
                     }
-                    IconButton(
-                        onClick = { showSortMenu = true }
-                    ) {
-                        Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = stringResource(R.string.sort_menu))
-                    }
-                    DropdownMenu(expanded = showSortMenu, onDismissRequest = { showSortMenu = false }) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.sort_by_days)) },
-                            onClick = { sortType = SortType.ByDays; showSortMenu = false }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.sort_by_date)) },
-                            onClick = { sortType = SortType.ByDate; showSortMenu = false }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.sort_by_created)) },
-                            onClick = { sortType = SortType.ByCreated; showSortMenu = false }
-                        )
+                    Box {
+                        IconButton(
+                            onClick = { showSortMenu = true }
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = stringResource(R.string.sort_menu))
+                        }
+                        DropdownMenu(
+                            expanded = showSortMenu,
+                            onDismissRequest = { showSortMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.sort_by_days)) },
+                                onClick = {
+                                    sortType = SortType.ByDays
+                                    showSortMenu = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.sort_by_date)) },
+                                onClick = {
+                                    sortType = SortType.ByDate
+                                    showSortMenu = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.sort_by_created)) },
+                                onClick = {
+                                    sortType = SortType.ByCreated
+                                    showSortMenu = false
+                                }
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
@@ -327,16 +340,23 @@ fun HomeScreen(
                     colors = chipColors
                 )
                 FilterChip(
-                    selected = filterType == FilterType.Upcoming,
-                    onClick = { filterType = FilterType.Upcoming },
-                    label = { Text(stringResource(R.string.filter_upcoming)) },
+                    selected = filterType == FilterType.Birthday,
+                    onClick = { filterType = FilterType.Birthday },
+                    label = { Text(stringResource(R.string.category_birthday)) },
                     shape = RoundedCornerShape(4.dp),
                     colors = chipColors
                 )
                 FilterChip(
-                    selected = filterType == FilterType.Past,
-                    onClick = { filterType = FilterType.Past },
-                    label = { Text(stringResource(R.string.filter_past)) },
+                    selected = filterType == FilterType.Anniversary,
+                    onClick = { filterType = FilterType.Anniversary },
+                    label = { Text(stringResource(R.string.category_anniversary)) },
+                    shape = RoundedCornerShape(4.dp),
+                    colors = chipColors
+                )
+                FilterChip(
+                    selected = filterType == FilterType.Other,
+                    onClick = { filterType = FilterType.Other },
+                    label = { Text(stringResource(R.string.category_other)) },
                     shape = RoundedCornerShape(4.dp),
                     colors = chipColors
                 )
@@ -392,64 +412,34 @@ fun HomeScreen(
                         ) {
                         items(orderedList, key = { it.event.id }) { eventState ->
                             ReorderableItem(reorderState, key = eventState.event.id) { isDragging ->
-                            val dismissState = rememberSwipeToDismissBoxState(
-                            confirmValueChange = { value ->
-                                if (value == SwipeToDismissBoxValue.EndToStart) {
-                                    val event = eventState.event
-                                    viewModel.deleteEvent(event)
-                                    scope.launch {
-                                        val result = snackbarHostState.showSnackbar(
-                                            message = deletedSnackbarText,
-                                            actionLabel = undoLabel
-                                        )
-                                        if (result == SnackbarResult.ActionPerformed) {
-                                            viewModel.restoreEvent(event)
-                                        }
-                                    }
-                                    true
-                                } else false
-                            }
-                        )
-                        SwipeToDismissBox(
-                            state = dismissState,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .then(
-                                    if (listInitialized) Modifier.animateItemPlacement(animationSpec = AnimationSpecs.springItemPlacement)
-                                    else Modifier
-                                ),
-                            enableDismissFromStartToEnd = false,
-                            enableDismissFromEndToStart = true,
-                            backgroundContent = {
-                                when (dismissState.dismissDirection) {
-                                    SwipeToDismissBoxValue.EndToStart -> Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .background(MaterialTheme.colorScheme.error)
-                                            .padding(horizontal = 24.dp),
-                                        contentAlignment = Alignment.CenterEnd
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Delete,
-                                            contentDescription = stringResource(R.string.cd_delete),
-                                            tint = MaterialTheme.colorScheme.onError
-                                        )
-                                    }
-                                    else -> {}
-                                }
-                            }
-                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .then(
+                                        if (listInitialized) Modifier.animateItemPlacement(animationSpec = AnimationSpecs.springItemPlacement)
+                                        else Modifier
+                                    )
+                            ) {
                             val showDetail = homeDensityMode == 1
                             if (homeDisplayMode == 0) {
-                                val cardDisplayMode = perEventDateDeltaModes[eventState.event.id] ?: dateDeltaDisplayMode
+                                val persistedMode = perEventDateDeltaModes[eventState.event.id] ?: dateDeltaDisplayMode
+                                // 本地 UI 状态：确保点击后立即切换显示，即便偏好存储有延迟
+                                var cardDisplayMode by remember(eventState.event.id, persistedMode) {
+                                    mutableStateOf(persistedMode)
+                                }
                                 EventCard(
                                     eventState = eventState,
                                     today = today,
                                     dateFormatter = dateFormatter,
                                     dateDeltaDisplayMode = cardDisplayMode,
                                     onToggleDateDeltaDisplayMode = {
+                                        val availableModes = getAvailableDisplayModes(eventState, showMilestone = true)
+                                        val currentModeIndex = availableModes.indexOf(cardDisplayMode)
+                                        val nextModeIndex = (if (currentModeIndex != -1) currentModeIndex + 1 else 1) % availableModes.size
+                                        val nextMode = availableModes[nextModeIndex]
+                                        cardDisplayMode = nextMode
                                         scope.launch {
-                                            prefs.setDateDeltaDisplayModeForEvent(eventState.event.id, if (cardDisplayMode == 0) 1 else 0)
+                                            prefs.setDateDeltaDisplayModeForEvent(eventState.event.id, nextMode)
                                         }
                                     },
                                     onClick = { navigateToDetail(eventState.event.id) },
@@ -460,15 +450,23 @@ fun HomeScreen(
                                     isDragging = isDragging
                                 )
                             } else {
-                                val itemDisplayMode = perEventDateDeltaModes[eventState.event.id] ?: dateDeltaDisplayMode
+                                val persistedMode = perEventDateDeltaModes[eventState.event.id] ?: dateDeltaDisplayMode
+                                var itemDisplayMode by remember(eventState.event.id, persistedMode) {
+                                    mutableStateOf(persistedMode)
+                                }
                                 EventListItem(
                                     eventState = eventState,
                                     today = today,
                                     dateFormatter = dateFormatter,
                                     dateDeltaDisplayMode = itemDisplayMode,
                                     onToggleDateDeltaDisplayMode = {
+                                        val availableModes = getAvailableDisplayModes(eventState, showMilestone = true)
+                                        val currentModeIndex = availableModes.indexOf(itemDisplayMode)
+                                        val nextModeIndex = (if (currentModeIndex != -1) currentModeIndex + 1 else 1) % availableModes.size
+                                        val nextMode = availableModes[nextModeIndex]
+                                        itemDisplayMode = nextMode
                                         scope.launch {
-                                            prefs.setDateDeltaDisplayModeForEvent(eventState.event.id, if (itemDisplayMode == 0) 1 else 0)
+                                            prefs.setDateDeltaDisplayModeForEvent(eventState.event.id, nextMode)
                                         }
                                     },
                                     onClick = { navigateToDetail(eventState.event.id) },
@@ -476,8 +474,8 @@ fun HomeScreen(
                                     isDragging = isDragging
                                 )
                             }
+                            }
                         }
-                    }
                     }
                     }
                 }
@@ -578,45 +576,68 @@ fun EventCard(
     }
 
     val isRepeating = eventState.event.repeatType != REPEAT_NONE
-    val isYearly = eventState.event.repeatType == REPEAT_YEARLY
-    val isAnniversary = isYearly
-
     val isToday = eventState.daysRemaining == 0L && !eventState.isPast
     val todayLabel = stringResource(R.string.days_today_label)
-    val isShowUntil = isRepeating || !isPast
-    val labelText = when {
-        isToday -> ""
-        isAnniversary -> stringResource(R.string.days_past_label)
-        isShowUntil -> stringResource(R.string.days_until_label)
-        else -> stringResource(R.string.days_past_label)
-    }
-    var dayCount = if (!isRepeating && isPast) eventState.daysElapsed else eventState.daysRemaining
-    // 修正：状态为 0 但目标日期并非今天时，按本地日期重算，修复多卡片误显示 0 天
-    if (dayCount == 0L && !isToday) {
-        dayCount = if (targetLocalDate.isBefore(today)) ChronoUnit.DAYS.between(targetLocalDate, today)
-        else ChronoUnit.DAYS.between(today, targetLocalDate)
-    }
+
+    val availableModes = getAvailableDisplayModes(eventState, showMilestone)
+    val modeIndex = availableModes.indexOf(dateDeltaDisplayMode)
+    val mode = if (modeIndex != -1) dateDeltaDisplayMode else availableModes.first()
+
     val displayContent: String
     val displayUnit: String
-    if (isToday) {
-        displayContent = todayLabel
-        displayUnit = ""
-    } else if (isAnniversary) {
-        if (dateDeltaDisplayMode == 0) {
-            displayContent = formatDaysSmart(eventState.daysPassed, false)
+    val labelText: String
+
+    when (mode) {
+        DisplayModes.PAST_DAYS -> {
+            val days = if (isRepeating) eventState.daysPassed else eventState.daysElapsed
+            displayContent = formatDaysSmart(days, false)
             displayUnit = stringResource(R.string.days_unit)
-        } else {
-            displayContent = formatBetweenAsYMD(targetLocalDate, today)
-            displayUnit = ""
+            labelText = stringResource(R.string.days_past_label)
         }
-    } else if (dateDeltaDisplayMode == 0) {
-        displayContent = formatDaysSmart(dayCount, false)
-        displayUnit = stringResource(R.string.days_unit)
-    } else {
-        val start = if (!isRepeating && isPast) today.minusDays(dayCount) else today
-        val end = if (!isRepeating && isPast) today else today.plusDays(dayCount)
-        displayContent = formatBetweenAsYMD(start, end)
-        displayUnit = ""
+        DisplayModes.PAST_YMD -> {
+            val start = targetLocalDate
+            val end = today
+            displayContent = formatBetweenAsYMD(start, end)
+            displayUnit = ""
+            labelText = stringResource(R.string.days_past_label)
+        }
+        DisplayModes.UNTIL_DAYS -> {
+            if (isToday) {
+                displayContent = todayLabel
+                displayUnit = ""
+                labelText = ""
+            } else {
+                val days = if (isRepeating) eventState.daysLeft else eventState.daysRemaining
+                displayContent = formatDaysSmart(days, false)
+                displayUnit = stringResource(R.string.days_unit)
+                labelText = com.example.timeapk.ui.utils.getUntilLabel(androidx.compose.ui.platform.LocalContext.current, eventState)
+            }
+        }
+        DisplayModes.UNTIL_YMD -> {
+            if (isToday) {
+                displayContent = todayLabel
+                displayUnit = ""
+                labelText = ""
+            } else {
+                val days = if (isRepeating) eventState.daysLeft else eventState.daysRemaining
+                val end = today.plusDays(days)
+                displayContent = formatBetweenAsYMD(today, end)
+                displayUnit = ""
+                labelText = com.example.timeapk.ui.utils.getUntilLabel(androidx.compose.ui.platform.LocalContext.current, eventState)
+            }
+        }
+        DisplayModes.MILESTONE -> {
+            displayContent = formatDaysSmart(eventState.nextMilestoneDays ?: 0L, false)
+            displayUnit = stringResource(R.string.days_unit)
+            val milestoneVal = eventState.nextMilestoneValue ?: 0L
+            val milestoneStr = milestoneLabel(milestoneVal)
+            labelText = stringResource(R.string.milestone_label_prefix, milestoneStr)
+        }
+        else -> {
+            displayContent = ""
+            displayUnit = ""
+            labelText = ""
+        }
     }
 
     val cardDescription = buildString {
@@ -673,10 +694,7 @@ fun EventCard(
                     Text(
                         text = eventState.event.title,
                         style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = androidx.compose.ui.text.font.FontWeight.Normal,
-                            letterSpacing = 0.5.sp,
-                            lineHeight = 24.sp,
-                            fontSize = 18.sp
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Normal
                         ),
                         color = cardContentColor.copy(alpha = if (isPast) 0.8f else 1.0f),
                         maxLines = 2,
@@ -684,7 +702,7 @@ fun EventCard(
                     )
                     Text(
                         text = targetLocalDate.format(dateFormatter),
-                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 14.sp),
+                        style = MaterialTheme.typography.bodySmall,
                         color = cardContentColor.copy(alpha = 0.8f)
                     )
                 }
@@ -718,9 +736,7 @@ fun EventCard(
                         Text(
                             text = displayContent,
                             style = MaterialTheme.typography.displaySmall.copy(
-                                fontSize = 24.sp,
-                                fontWeight = androidx.compose.ui.text.font.FontWeight.Normal,
-                                letterSpacing = (-0.5).sp
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Normal
                             ),
                             color = timeColor,
                             maxLines = 1,
@@ -730,7 +746,7 @@ fun EventCard(
                             Spacer(modifier = Modifier.width(2.dp))
                             Text(
                                 text = displayUnit,
-                                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+                                style = MaterialTheme.typography.bodyMedium,
                                 color = timeColor.copy(alpha = 1.0f),
                                 modifier = Modifier.padding(bottom = 4.dp)
                             )
@@ -739,8 +755,7 @@ fun EventCard(
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = labelText,
-                        // 与左侧日期统一使用 bodySmall 14sp，提升可读性
-                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 14.sp),
+                        style = MaterialTheme.typography.bodySmall,
                         color = timeColor.copy(alpha = 0.85f),
                         letterSpacing = 1.sp
                     )
@@ -789,36 +804,59 @@ private fun EventListItem(
     }
 
     val isRepeating = eventState.event.repeatType != REPEAT_NONE
-    val isYearly = eventState.event.repeatType == REPEAT_YEARLY
-    val isAnniversary = isYearly
     val isToday = eventState.daysRemaining == 0L && !eventState.isPast
     val todayLabel = stringResource(R.string.days_today_label)
-    val isShowUntil = isRepeating || !isPast
-    val labelText = when {
-        isToday -> ""
-        isAnniversary -> stringResource(R.string.days_past_label)
-        isShowUntil -> stringResource(R.string.days_until_label)
-        else -> stringResource(R.string.days_past_label)
-    }
-    var dayCount = if (!isRepeating && isPast) eventState.daysElapsed else eventState.daysRemaining
-    if (dayCount == 0L && !isToday) {
-        dayCount = if (targetLocalDate.isBefore(today)) ChronoUnit.DAYS.between(targetLocalDate, today)
-        else ChronoUnit.DAYS.between(today, targetLocalDate)
-    }
-    val daysDisplay = if (isToday) {
-        todayLabel
-    } else if (isAnniversary) {
-        if (dateDeltaDisplayMode == 0) {
-            formatDaysSmart(eventState.daysPassed, false) + stringResource(R.string.days_unit)
-        } else {
-            formatBetweenAsYMD(targetLocalDate, today)
+
+    val availableModes = getAvailableDisplayModes(eventState, showMilestone = true)
+    val modeIndex = availableModes.indexOf(dateDeltaDisplayMode)
+    val mode = if (modeIndex != -1) dateDeltaDisplayMode else availableModes.first()
+
+    val labelText: String
+    val daysDisplay: String
+
+    when (mode) {
+        DisplayModes.PAST_DAYS -> {
+            val days = if (isRepeating) eventState.daysPassed else eventState.daysElapsed
+            daysDisplay = formatDaysSmart(days, false) + stringResource(R.string.days_unit)
+            labelText = stringResource(R.string.days_past_label)
         }
-    } else if (dateDeltaDisplayMode == 0) {
-        formatDaysSmart(dayCount, false) + stringResource(R.string.days_unit)
-    } else {
-        val start = if (!isRepeating && isPast) today.minusDays(dayCount) else today
-        val end = if (!isRepeating && isPast) today else today.plusDays(dayCount)
-        formatBetweenAsYMD(start, end)
+        DisplayModes.PAST_YMD -> {
+            val start = targetLocalDate
+            val end = today
+            daysDisplay = formatBetweenAsYMD(start, end)
+            labelText = stringResource(R.string.days_past_label)
+        }
+        DisplayModes.UNTIL_DAYS -> {
+            if (isToday) {
+                daysDisplay = todayLabel
+                labelText = ""
+            } else {
+                val days = if (isRepeating) eventState.daysLeft else eventState.daysRemaining
+                daysDisplay = formatDaysSmart(days, false) + stringResource(R.string.days_unit)
+                labelText = com.example.timeapk.ui.utils.getUntilLabel(androidx.compose.ui.platform.LocalContext.current, eventState)
+            }
+        }
+        DisplayModes.UNTIL_YMD -> {
+            if (isToday) {
+                daysDisplay = todayLabel
+                labelText = ""
+            } else {
+                val days = if (isRepeating) eventState.daysLeft else eventState.daysRemaining
+                val end = today.plusDays(days)
+                daysDisplay = formatBetweenAsYMD(today, end)
+                labelText = com.example.timeapk.ui.utils.getUntilLabel(androidx.compose.ui.platform.LocalContext.current, eventState)
+            }
+        }
+        DisplayModes.MILESTONE -> {
+            daysDisplay = formatDaysSmart(eventState.nextMilestoneDays ?: 0L, false) + stringResource(R.string.days_unit)
+            val milestoneVal = eventState.nextMilestoneValue ?: 0L
+            val milestoneStr = milestoneLabel(milestoneVal)
+            labelText = stringResource(R.string.milestone_label_prefix, milestoneStr)
+        }
+        else -> {
+            daysDisplay = ""
+            labelText = ""
+        }
     }
 
     val itemContentColor = MaterialTheme.colorScheme.onSurface

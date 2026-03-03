@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsOff
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -55,7 +56,6 @@ import com.example.timeapk.ui.utils.formatDaysSmart
 import com.example.timeapk.ui.utils.getDisplayDateFormatter
 import com.example.timeapk.ui.utils.parseEventColorOrFallback
 import com.example.timeapk.ui.utils.formatDateWithWeekday
-import com.example.timeapk.ui.utils.formatLunarLine
 import com.example.timeapk.ui.utils.formatElapsedLiterary
 import com.example.timeapk.ui.utils.formatElapsedDays
 import com.example.timeapk.ui.utils.nextOccurrenceDate
@@ -66,6 +66,11 @@ import com.example.timeapk.ui.utils.zodiacAnimalFromDate
 import com.example.timeapk.ui.utils.baziFromDate
 import com.example.timeapk.ui.utils.wuxingFromDate
 import com.example.timeapk.ui.utils.eventDateToLocalDate
+import com.example.timeapk.ui.utils.DisplayModes
+import com.example.timeapk.ui.utils.getAvailableDisplayModes
+import com.example.timeapk.ui.utils.getNextLunarOccurrence
+import com.example.timeapk.ui.utils.getLunarElapsedPeriod
+import com.example.timeapk.ui.utils.formatLunarDateString
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -88,6 +93,7 @@ fun DetailScreen(
     val dateFormatMode by prefs.dateFormatModeFlow.collectAsState(initial = 0)
     val dateDeltaDisplayMode by prefs.dateDeltaDisplayModeFlow.collectAsState(initial = 0)
     val perEventDateDeltaModes by prefs.perEventDateDeltaDisplayModesFlow.collectAsState(initial = emptyMap())
+    val pinnedEventIds by prefs.pinnedEventIdsFlow.collectAsState(initial = emptyList())
     val dateFormatter = remember(dateFormatMode) { getDisplayDateFormatter(dateFormatMode) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
@@ -272,8 +278,7 @@ fun DetailScreen(
                     // 核心：标题与倒计时
                     Text(
                         text = eventState.event.title,
-                        style = MaterialTheme.typography.displayLarge.copy(
-                            fontSize = 32.sp,
+                        style = MaterialTheme.typography.displayMedium.copy(
                             fontWeight = androidx.compose.ui.text.font.FontWeight.Normal,
                             letterSpacing = 2.sp
                         ),
@@ -285,55 +290,62 @@ fun DetailScreen(
                     
                     Spacer(modifier = Modifier.height(40.dp))
 
-                    // 按类别区分：纪念日只显示「已历」，生日/其他只显示「尚余」（剩余按用户设定的重复计算）
+                    // 倒计时 / 已历展示：智能模式轮转支持
                     val isToday = eventState.daysRemaining == 0L && !eventState.isPast
                     val todayLabel = stringResource(R.string.days_today_label)
                     val isRepeating = eventState.event.repeatType != REPEAT_NONE
-                    val isAnniversaryCategory = effectiveCategory == CATEGORY_ANNIVERSARY
 
-                    var labelText = ""
-                    var dayCount = 0L
-                    var ymdStart = today
-                    var ymdEnd = today
-                    when {
-                        isToday -> {
-                            labelText = ""
-                            dayCount = 0L
-                            ymdStart = today
-                            ymdEnd = today
+                    val detailDisplayModeRaw = perEventDateDeltaModes[eventState.event.id] ?: dateDeltaDisplayMode
+                    val availableModes = getAvailableDisplayModes(eventState, showMilestone = true)
+                    val modeIndex = availableModes.indexOf(detailDisplayModeRaw)
+                    val mode = if (modeIndex != -1) detailDisplayModeRaw else availableModes.first()
+
+                    val labelText: String
+                    val daysDisplay: String
+
+                    when (mode) {
+                        DisplayModes.PAST_DAYS -> {
+                            val days = if (isRepeating) eventState.daysPassed else eventState.daysElapsed
+                            daysDisplay = formatDaysSmart(days, false) + stringResource(R.string.days_unit)
+                            labelText = stringResource(R.string.days_past_label)
                         }
-                        isAnniversaryCategory -> {
-                            labelText = stringResource(R.string.detail_repeat_elapsed)
-                            dayCount = eventState.daysPassed
-                            ymdStart = targetLocalDate
-                            ymdEnd = today
+                        DisplayModes.PAST_YMD -> {
+                            val start = targetLocalDate
+                            val end = today
+                            daysDisplay = formatBetweenAsYMD(start, end)
+                            labelText = stringResource(R.string.days_past_label)
                         }
-                        effectiveCategory == CATEGORY_BIRTHDAY || effectiveCategory == CATEGORY_OTHER -> {
-                            if (!isRepeating && eventState.isPast) {
-                                labelText = stringResource(R.string.days_past_label)
-                                dayCount = eventState.daysElapsed
-                                ymdStart = targetLocalDate
-                                ymdEnd = today
+                        DisplayModes.UNTIL_DAYS -> {
+                            if (isToday) {
+                                daysDisplay = todayLabel
+                                labelText = ""
                             } else {
-                                labelText = stringResource(R.string.days_until_label)
-                                dayCount = eventState.daysRemaining
-                                ymdStart = today
-                                ymdEnd = nextOccurrenceDate(targetLocalDate, today, eventState.event.repeatType)
+                                val days = if (isRepeating) eventState.daysLeft else eventState.daysRemaining
+                                daysDisplay = formatDaysSmart(days, false) + stringResource(R.string.days_unit)
+                                labelText = com.example.timeapk.ui.utils.getUntilLabel(androidx.compose.ui.platform.LocalContext.current, eventState)
                             }
                         }
-                        else -> {
-                            labelText = stringResource(R.string.days_until_label)
-                            dayCount = eventState.daysRemaining
-                            ymdStart = today
-                            ymdEnd = today.plusDays(eventState.daysRemaining)
+                        DisplayModes.UNTIL_YMD -> {
+                            if (isToday) {
+                                daysDisplay = todayLabel
+                                labelText = ""
+                            } else {
+                                val days = if (isRepeating) eventState.daysLeft else eventState.daysRemaining
+                                val end = today.plusDays(days)
+                                daysDisplay = formatBetweenAsYMD(today, end)
+                                labelText = com.example.timeapk.ui.utils.getUntilLabel(androidx.compose.ui.platform.LocalContext.current, eventState)
+                            }
                         }
-                    }
-
-                    val detailDisplayMode = perEventDateDeltaModes[eventState.event.id] ?: dateDeltaDisplayMode
-                    val daysDisplay = if (isToday) todayLabel else if (detailDisplayMode == 0) {
-                        formatDaysSmart(dayCount, false) + stringResource(R.string.days_unit)
-                    } else {
-                        formatBetweenAsYMD(ymdStart, ymdEnd)
+                        DisplayModes.MILESTONE -> {
+                            daysDisplay = formatDaysSmart(eventState.nextMilestoneDays ?: 0L, false) + stringResource(R.string.days_unit)
+                            val milestoneVal = eventState.nextMilestoneValue ?: 0L
+                            val milestoneStr = milestoneLabel(milestoneVal)
+                            labelText = stringResource(R.string.milestone_label_prefix, milestoneStr)
+                        }
+                        else -> {
+                            daysDisplay = ""
+                            labelText = ""
+                        }
                     }
                     // 切换显示模式时保持字号一致，不随内容长短变化
                     Column(
@@ -344,7 +356,9 @@ fun DetailScreen(
                                 indication = null,
                                 onClick = {
                                     scope.launch {
-                                        prefs.setDateDeltaDisplayModeForEvent(eventState.event.id, if (detailDisplayMode == 0) 1 else 0)
+                                        val nextModeIndex = (availableModes.indexOf(mode) + 1) % availableModes.size
+                                        val nextMode = availableModes[nextModeIndex]
+                                        prefs.setDateDeltaDisplayModeForEvent(eventState.event.id, nextMode)
                                     }
                                 }
                             ),
@@ -353,7 +367,7 @@ fun DetailScreen(
                     ) {
                         Text(
                             text = daysDisplay,
-                            style = MaterialTheme.typography.displayMedium.copy(fontSize = 36.sp, lineHeight = 40.sp),
+                            style = MaterialTheme.typography.displayLarge,
                             color = detailContentColor,
                             textAlign = TextAlign.Center,
                             maxLines = 2,
@@ -397,11 +411,20 @@ fun DetailScreen(
 
                     // 纪念日：缘起｜已历｜静候 六行（折页排版）
                     if (effectiveCategory == CATEGORY_ANNIVERSARY && isRepeating) {
-                        val originDate = targetLocalDate
-                        val nextDate = nextOccurrenceDate(originDate, today, eventState.event.repeatType)
-                        val safeToday = if (originDate.isAfter(today)) originDate else today
-                        val elapsedPeriod = Period.between(originDate, safeToday)
-                        val elapsedDays = ChronoUnit.DAYS.between(originDate, safeToday)
+                    val originDate = targetLocalDate
+                    val isLunarAnniversary = eventState.event.isLunar && eventState.event.repeatType == REPEAT_YEARLY
+                    val nextDate = if (isLunarAnniversary) {
+                        getNextLunarOccurrence(originDate, today)
+                    } else {
+                        nextOccurrenceDate(originDate, today, eventState.event.repeatType)
+                    }
+                    val safeToday = if (originDate.isAfter(today)) originDate else today
+                    val elapsedPeriod = if (isLunarAnniversary) {
+                        getLunarElapsedPeriod(originDate, safeToday)
+                    } else {
+                        Period.between(originDate, safeToday)
+                    }
+                    val elapsedDays = ChronoUnit.DAYS.between(originDate, safeToday)
                         Spacer(modifier = Modifier.height(32.dp))
                         Column(
                             modifier = Modifier
@@ -423,16 +446,29 @@ fun DetailScreen(
                                 )
                                 Spacer(modifier = Modifier.width(16.dp))
                                 Column(horizontalAlignment = Alignment.Start) {
-                                    Text(
-                                        text = formatDateWithWeekday(originDate, context),
-                                        style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp),
-                                        color = detailContentColor.copy(alpha = 0.95f)
-                                    )
-                                    Text(
-                                        text = formatLunarLine(originDate),
-                                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp),
-                                        color = detailContentColor.copy(alpha = 0.75f)
-                                    )
+                                    if (isLunarAnniversary) {
+                                        Text(
+                                            text = formatLunarDateString(originDate),
+                                            style = MaterialTheme.typography.titleLarge,
+                                            color = detailContentColor.copy(alpha = 0.95f)
+                                        )
+                                        Text(
+                                            text = formatDateWithWeekday(originDate, context),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = detailContentColor.copy(alpha = 0.75f)
+                                        )
+                                    } else {
+                                        Text(
+                                            text = formatDateWithWeekday(originDate, context),
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = detailContentColor.copy(alpha = 0.95f)
+                                        )
+                                        Text(
+                                            text = formatLunarDateString(originDate),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = detailContentColor.copy(alpha = 0.75f)
+                                        )
+                                    }
                                 }
                             }
                             Spacer(modifier = Modifier.height(16.dp))
@@ -452,12 +488,12 @@ fun DetailScreen(
                                 Column(horizontalAlignment = Alignment.Start) {
                                     Text(
                                         text = formatElapsedLiterary(elapsedPeriod, context),
-                                        style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp),
+                                        style = MaterialTheme.typography.bodyLarge,
                                         color = detailContentColor.copy(alpha = 0.95f)
                                     )
                                     Text(
                                         text = formatElapsedDays(kotlin.math.abs(elapsedDays), context),
-                                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp),
+                                        style = MaterialTheme.typography.bodyMedium,
                                         color = detailContentColor.copy(alpha = 0.75f)
                                     )
                                 }
@@ -477,16 +513,29 @@ fun DetailScreen(
                                 )
                                 Spacer(modifier = Modifier.width(16.dp))
                                 Column(horizontalAlignment = Alignment.Start) {
-                                    Text(
-                                        text = formatDateWithWeekday(nextDate, context),
-                                        style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp),
-                                        color = detailContentColor.copy(alpha = 0.95f)
-                                    )
-                                    Text(
-                                        text = formatLunarLine(nextDate),
-                                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp),
-                                        color = detailContentColor.copy(alpha = 0.75f)
-                                    )
+                                    if (isLunarAnniversary) {
+                                        Text(
+                                            text = formatLunarDateString(nextDate),
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = detailContentColor.copy(alpha = 0.95f)
+                                        )
+                                        Text(
+                                            text = formatDateWithWeekday(nextDate, context),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = detailContentColor.copy(alpha = 0.75f)
+                                        )
+                                    } else {
+                                        Text(
+                                            text = formatDateWithWeekday(nextDate, context),
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = detailContentColor.copy(alpha = 0.95f)
+                                        )
+                                        Text(
+                                            text = formatLunarDateString(nextDate),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = detailContentColor.copy(alpha = 0.75f)
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -501,12 +550,12 @@ fun DetailScreen(
                         ) {
                             Text(
                                 text = dateStr,
-                                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp),
+                                style = MaterialTheme.typography.bodyLarge,
                                 color = detailContentColor.copy(alpha = 0.95f)
                             )
                             Text(
-                                text = formatLunarLine(targetLocalDate),
-                                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp),
+                                text = formatLunarDateString(targetLocalDate),
+                                style = MaterialTheme.typography.bodyMedium,
                                 color = detailContentColor.copy(alpha = 0.75f)
                             )
                         }
@@ -515,7 +564,7 @@ fun DetailScreen(
                     // 生日：农历、岁数、属相、八字、五行、星座
                     if (effectiveCategory == CATEGORY_BIRTHDAY) {
                         Spacer(modifier = Modifier.height(24.dp))
-                        val lunarLine = formatLunarLine(targetLocalDate)
+                        val lunarLine = formatLunarDateString(targetLocalDate)
                         val period = agePeriod(targetLocalDate, today)
                         val ageYmd = context.getString(R.string.detail_birthday_age_format_ymd, period.years, period.months, period.days)
                         val zodiac = zodiacAnimalFromDate(targetLocalDate)
@@ -535,20 +584,6 @@ fun DetailScreen(
                             if (wuxing != null) DetailLabelRow(stringResource(R.string.detail_birthday_wuxing), wuxing, detailContentColor)
                             DetailLabelRow(stringResource(R.string.detail_birthday_constellation), constellation, detailContentColor)
                         }
-                    }
-
-                    if (showMilestone && isAnniversary && eventState.nextMilestoneDays != null && eventState.nextMilestoneValue != null && detailDisplayMode == 0) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = stringResource(
-                                R.string.milestone_in_days,
-                                milestoneLabel(eventState.nextMilestoneValue!!),
-                                eventState.nextMilestoneDays!!.toInt()
-                            ),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = detailContentColor.copy(alpha = 0.75f),
-                            textAlign = TextAlign.Center
-                        )
                     }
 
                     if (eventState.event.note.isNotBlank()) {
@@ -571,6 +606,8 @@ fun DetailScreen(
             
             // 底部操作区：方形按钮（带按压缩放反馈）
             DetailActionButtons(
+                isPinned = eventState.event.id in pinnedEventIds,
+                onPinClick = { scope.launch { prefs.togglePinnedEventId(eventState.event.id) } },
                 onEditClick = onEditClick,
                 onDeleteClick = { showDeleteConfirm = true },
                 onShareClick = {
@@ -598,16 +635,21 @@ fun DetailScreen(
 
 @Composable
 private fun DetailActionButtons(
+    isPinned: Boolean,
+    onPinClick: () -> Unit,
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit,
     onShareClick: () -> Unit
 ) {
+    val pinInteractionSource = remember { MutableInteractionSource() }
     val editInteractionSource = remember { MutableInteractionSource() }
     val deleteInteractionSource = remember { MutableInteractionSource() }
     val shareInteractionSource = remember { MutableInteractionSource() }
+    val pinPressed by pinInteractionSource.collectIsPressedAsState()
     val editPressed by editInteractionSource.collectIsPressedAsState()
     val deletePressed by deleteInteractionSource.collectIsPressedAsState()
     val sharePressed by shareInteractionSource.collectIsPressedAsState()
+    val scalePin by animateFloatAsState(if (pinPressed) 0.96f else 1f, AnimationSpecs.springButton, label = "pin")
     val scaleEdit by animateFloatAsState(if (editPressed) 0.96f else 1f, AnimationSpecs.springButton, label = "edit")
     val scaleDelete by animateFloatAsState(if (deletePressed) 0.96f else 1f, AnimationSpecs.springButton, label = "delete")
     val scaleShare by animateFloatAsState(if (sharePressed) 0.96f else 1f, AnimationSpecs.springButton, label = "share")
@@ -619,6 +661,30 @@ private fun DetailActionButtons(
         horizontalArrangement = Arrangement.SpaceEvenly, // 水平分散对齐
         verticalAlignment = Alignment.CenterVertically
     ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .clickable(
+                    interactionSource = pinInteractionSource,
+                    indication = null,
+                    onClick = onPinClick
+                )
+                .graphicsLayer { scaleX = scalePin; scaleY = scalePin }
+                .padding(8.dp)
+        ) {
+            Icon(
+                Icons.Default.PushPin,
+                contentDescription = if (isPinned) stringResource(R.string.button_unpin) else stringResource(R.string.button_pin),
+                modifier = Modifier.size(24.dp),
+                tint = if (isPinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                if (isPinned) stringResource(R.string.button_unpin) else stringResource(R.string.button_pin),
+                style = MaterialTheme.typography.labelSmall,
+                color = if (isPinned) MaterialTheme.colorScheme.primary.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
+            )
+        }
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
@@ -680,14 +746,14 @@ private fun DetailLabelRow(label: String, value: String, contentColor: androidx.
     ) {
         Text(
             text = "$label ｜ ",
-            style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp),
+            style = MaterialTheme.typography.bodyLarge,
             color = contentColor.copy(alpha = 0.75f),
             modifier = Modifier.width(80.dp) // 给 Label 留出固定空间，营造折页错落感
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = value,
-            style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp, lineHeight = 24.sp),
+            style = MaterialTheme.typography.bodyLarge,
             color = contentColor.copy(alpha = 0.95f),
             modifier = Modifier.weight(1f)
         )

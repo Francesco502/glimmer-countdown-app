@@ -7,6 +7,7 @@ import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.example.timeapk.data.Event
 import com.example.timeapk.ui.utils.eventDateToLocalDate
+import com.example.timeapk.ui.utils.getNextLunarOccurrence
 import java.time.ZoneId
 import java.util.concurrent.TimeUnit
 
@@ -19,7 +20,13 @@ fun scheduleReminder(context: Context, event: Event) {
         return
     }
     val eventLocalDate = eventDateToLocalDate(event.date)
-    val remindDate = eventLocalDate.minusDays(event.remindDaysBefore.toLong())
+    val today = java.time.LocalDate.now()
+    val baseDate = if (event.isLunar && event.repeatType == com.example.timeapk.data.REPEAT_YEARLY) {
+        getNextLunarOccurrence(eventLocalDate, today)
+    } else {
+        eventLocalDate
+    }
+    val remindDate = baseDate.minusDays(event.remindDaysBefore.toLong())
     val remindZdt = remindDate.atTime(
         event.reminderTimeMinutesOfDay / 60,
         event.reminderTimeMinutesOfDay % 60
