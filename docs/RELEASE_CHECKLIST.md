@@ -1,7 +1,7 @@
 # 发布前检查清单
 
-**检查日期**：2026-03-03  
-**版本**：3.2 (versionCode 6)
+**检查日期**：2026-03-04  
+**版本**：3.3 (versionCode 7)
 
 ---
 
@@ -31,12 +31,12 @@
 
 | 项目 | 值 |
 |------|-----|
-| versionCode | 6 |
-| versionName | 3.2 |
+| versionCode | 7 |
+| versionName | 3.3 |
 | minSdk | 26 |
 | targetSdk | 35 |
 | 渠道 | direct / play (`applicationIdSuffix=".play"`) |
-| APK 输出 | `app/build/outputs/apk/direct/release/glimmer-countdown-3-2.apk` |
+| APK 输出 | `app/build/outputs/apk/direct/release/glimmer-countdown-3-3.apk` |
 
 ---
 
