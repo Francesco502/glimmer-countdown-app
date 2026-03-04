@@ -9,21 +9,11 @@
     android:gravity="center_vertical">
 
     <TextView
-        android:id="@+id/widget_item_tag"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginEnd="6dp"
-        android:textSize="9sp"
-        android:maxLines="1"
-        android:visibility="gone"
-        android:textColor="?android:attr/textColorSecondary" />
-
-    <TextView
         android:id="@+id/widget_item_title"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:textSize="13sp"
+        android:textSize="12sp"
         android:maxLines="1"
         android:ellipsize="end"
         android:textColor="?android:attr/textColorPrimary" />
@@ -33,7 +23,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="8dp"
-        android:textSize="15sp"
+        android:textSize="13sp"
         android:maxLines="1"
         android:ellipsize="end"
         android:textColor="?android:attr/textColorPrimary" />

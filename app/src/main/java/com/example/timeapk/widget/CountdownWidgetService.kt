@@ -16,7 +16,6 @@ import com.example.timeapk.ui.utils.DisplayModes
 import com.example.timeapk.ui.utils.getAvailableDisplayModes
 import com.example.timeapk.ui.utils.eventDateToLocalDate
 import com.example.timeapk.ui.utils.formatBetweenAsYMD
-import com.example.timeapk.ui.home.getMilestoneLabel
 import com.example.timeapk.data.REPEAT_NONE
 import java.time.LocalDate
 import kotlinx.coroutines.flow.first
@@ -58,15 +57,33 @@ class CountdownRemoteViewsFactory(
             val app = context.applicationContext as TimeApplication
             val list = runBlocking {
                 val milestones = app.userPrefs.customMilestonesFlow.first()
+                val pinnedEventIds = app.userPrefs.pinnedEventIdsFlow.first()
                 dateDeltaDisplayMode = app.userPrefs.dateDeltaDisplayModeFlow.first()
                 perEventDateDeltaModes = app.userPrefs.perEventDateDeltaDisplayModesFlow.first()
                 showMilestone = app.userPrefs.showMilestoneFlow.first()
-                
-                app.repository.getAllEventsSnapshot()
+
+                val all = app.repository.getAllEventsSnapshot()
                     .map { it.toEventUiState(milestones) }
-                    .sortedWith(
-                        compareBy<EventUiState> { it.isPast }.thenBy { it.daysRemaining }
-                    )
+
+                // 先按是否已过期 + 剩余天数排序（与首页逻辑一致）
+                val upcoming = all
+                    .filter { !it.isPast }
+                    .sortedBy { it.daysRemaining }
+                val past = all
+                    .filter { it.isPast }
+                    .sortedBy { it.daysRemaining }
+                var base = upcoming + past
+
+                // 应用“置顶”排序：置顶事件始终在最前，其余按剩余时间排序
+                if (pinnedEventIds.isNotEmpty()) {
+                    val pinnedSet = pinnedEventIds.toSet()
+                    val pinned = pinnedEventIds.mapNotNull { id ->
+                        base.find { it.event.id == id }
+                    }
+                    val unpinned = base.filter { it.event.id !in pinnedSet }
+                    base = pinned + unpinned
+                }
+                base
             }
             items.clear()
             items.addAll(list)
@@ -87,39 +104,26 @@ class CountdownRemoteViewsFactory(
                 android.content.res.Configuration.UI_MODE_NIGHT_YES
         val textColorRes = if (isDark) R.color.widget_text_dark else R.color.widget_text_light
         val textColor = ContextCompat.getColor(context, textColorRes)
-        val tagColorRes = if (isDark) R.color.widget_tag_dark else R.color.widget_tag_light
-        val tagColor = ContextCompat.getColor(context, tagColorRes)
-
-        val tagText = when {
-            state.isPast -> context.getString(R.string.widget_tag_past)
-            !state.isPast && state.daysRemaining <= 7L -> context.getString(R.string.widget_tag_soon)
-            else -> null
-        }
-        if (tagText != null) {
-            views.setViewVisibility(R.id.widget_item_tag, View.VISIBLE)
-            views.setTextViewText(R.id.widget_item_tag, tagText)
-            views.setTextColor(R.id.widget_item_tag, tagColor)
-        } else {
-            views.setViewVisibility(R.id.widget_item_tag, View.GONE)
-        }
 
         val targetLocalDate = eventDateToLocalDate(state.event.date)
         val today = LocalDate.now()
         val isRepeating = state.event.repeatType != REPEAT_NONE
         val isToday = state.daysRemaining == 0L && !state.isPast
-        
+
         val persistedMode = perEventDateDeltaModes[state.event.id] ?: dateDeltaDisplayMode
-        val availableModes = getAvailableDisplayModes(state, showMilestone)
-        val modeIndex = availableModes.indexOf(persistedMode)
-        val mode = if (modeIndex != -1) persistedMode else availableModes.first()
+        val mode = when (persistedMode) {
+            // 小组件不展示“重大里程碑”，若用户在应用中选择了里程碑模式，则退化为天数字段显示
+            DisplayModes.MILESTONE -> if (state.isPast) DisplayModes.PAST_DAYS else DisplayModes.UNTIL_DAYS
+            else -> persistedMode
+        }
 
         val valueText = when (mode) {
             DisplayModes.PAST_DAYS -> {
                 val days = if (isRepeating) state.daysPassed else state.daysElapsed
-                "${formatDays(days)} ${context.getString(R.string.days_unit)}"
+                "${context.getString(R.string.days_past_label)} ${formatDays(days)} ${context.getString(R.string.days_unit)}"
             }
             DisplayModes.PAST_YMD -> {
-                formatBetweenAsYMD(targetLocalDate, today)
+                "${context.getString(R.string.days_past_label)} ${formatBetweenAsYMD(targetLocalDate, today)}"
             }
             DisplayModes.UNTIL_DAYS -> {
                 if (isToday) {
@@ -127,11 +131,7 @@ class CountdownRemoteViewsFactory(
                 } else {
                     val days = if (isRepeating) state.daysLeft else state.daysRemaining
                     val label = com.example.timeapk.ui.utils.getUntilLabel(context, state)
-                    if (label != context.getString(R.string.days_until_label)) {
-                        "$label ${formatDays(days)} ${context.getString(R.string.days_unit)}"
-                    } else {
-                        "${formatDays(days)} ${context.getString(R.string.days_unit)}"
-                    }
+                    "$label ${formatDays(days)} ${context.getString(R.string.days_unit)}"
                 }
             }
             DisplayModes.UNTIL_YMD -> {
@@ -141,16 +141,8 @@ class CountdownRemoteViewsFactory(
                     val days = if (isRepeating) state.daysLeft else state.daysRemaining
                     val ymd = formatBetweenAsYMD(today, today.plusDays(days))
                     val label = com.example.timeapk.ui.utils.getUntilLabel(context, state)
-                    if (label != context.getString(R.string.days_until_label)) {
-                        "$label $ymd"
-                    } else {
-                        ymd
-                    }
+                    "$label $ymd"
                 }
-            }
-            DisplayModes.MILESTONE -> {
-                val milestoneStr = getMilestoneLabel(context, state.nextMilestoneValue!!)
-                context.getString(R.string.milestone_in_days, milestoneStr, state.nextMilestoneDays!!.toInt())
             }
             else -> ""
         }

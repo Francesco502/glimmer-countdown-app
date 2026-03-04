@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.timeapk.data.Event
 import com.example.timeapk.notifications.rescheduleMilestoneReminders
 import com.example.timeapk.notifications.scheduleReminder
+import com.example.timeapk.notifications.ScheduleSyncManager
+import com.example.timeapk.notifications.cancelReminder
 import com.example.timeapk.widget.WidgetUpdater
 import com.example.timeapk.data.CATEGORY_ANNIVERSARY
 import com.example.timeapk.data.CATEGORY_BIRTHDAY
@@ -55,13 +57,24 @@ class EventEntryViewModel(
         if (!validateInput(details)) return false
         return try {
             withContext(NonCancellable) {
-                val event = details.toEvent()
+                var event = details.toEvent()
                 if (event.id != 0) {
                     repository.updateEvent(event)
+                    cancelReminder(application, event.id)
+                    ScheduleSyncManager.removeScheduleReminder(application, event.scheduleEventId)
                     scheduleReminder(application, event)
                 } else {
                     val generatedId = repository.insertEvent(event)
-                    scheduleReminder(application, event.copy(id = generatedId.toInt()))
+                    event = event.copy(id = generatedId.toInt())
+                    scheduleReminder(application, event)
+                }
+                if (event.remindEnabled && event.syncToScheduleEnabled) {
+                    val scheduleId = ScheduleSyncManager.insertScheduleReminder(application, event)
+                    if (scheduleId != null) {
+                        repository.updateEvent(event.copy(scheduleEventId = scheduleId))
+                    }
+                } else if (event.scheduleEventId != null) {
+                    repository.updateEvent(event.copy(scheduleEventId = null))
                 }
                 rescheduleMilestoneReminders(application)
                 WidgetUpdater.refreshCountdownWidgets(application)
@@ -94,6 +107,8 @@ data class EventDetails(
     val remindDaysBefore: Int = 0,
     val reminderTimeMinutesOfDay: Int = 480,
     val remindEnabled: Boolean = false,
+    val syncToScheduleEnabled: Boolean = true,
+    val scheduleEventId: Long? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val isLunar: Boolean = false
 )
@@ -109,6 +124,8 @@ fun EventDetails.toEvent(): Event = Event(
     remindDaysBefore = remindDaysBefore,
     reminderTimeMinutesOfDay = reminderTimeMinutesOfDay,
     remindEnabled = remindEnabled,
+    syncToScheduleEnabled = syncToScheduleEnabled,
+    scheduleEventId = scheduleEventId,
     createdAt = createdAt,
     isLunar = isLunar
 )
@@ -124,6 +141,8 @@ fun Event.toEventDetails(): EventDetails = EventDetails(
     remindDaysBefore = remindDaysBefore,
     reminderTimeMinutesOfDay = reminderTimeMinutesOfDay,
     remindEnabled = remindEnabled,
+    syncToScheduleEnabled = syncToScheduleEnabled,
+    scheduleEventId = scheduleEventId,
     createdAt = createdAt,
     isLunar = isLunar
 )

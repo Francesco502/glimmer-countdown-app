@@ -30,6 +30,10 @@ data class Event(
     val reminderTimeMinutesOfDay: Int = 480,
     /** 是否开启提醒 */
     val remindEnabled: Boolean = false,
+    /** 是否将提醒同步到系统日程（日历），由系统在设定时间通过通知栏提醒 */
+    val syncToScheduleEnabled: Boolean = true,
+    /** 已写入系统日程时对应的事件 ID，用于更新/删除 */
+    val scheduleEventId: Long? = null,
     /** 创建时间，用于排序与迁移 */
     val createdAt: Long = System.currentTimeMillis(),
     /** 是否为农历日期 */

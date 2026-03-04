@@ -10,6 +10,7 @@ import com.example.timeapk.notifications.cancelMilestoneReminders
 import com.example.timeapk.notifications.cancelReminder
 import com.example.timeapk.notifications.rescheduleMilestoneReminders
 import com.example.timeapk.notifications.scheduleReminder
+import com.example.timeapk.notifications.ScheduleSyncManager
 import com.example.timeapk.widget.WidgetUpdater
 import com.example.timeapk.data.REPEAT_HALF_YEARLY
 import com.example.timeapk.data.REPEAT_MONTHLY
@@ -162,6 +163,7 @@ class HomeViewModel(
         viewModelScope.launch {
             cancelReminder(application, event.id)
             cancelMilestoneReminders(application, event.id)
+            ScheduleSyncManager.removeScheduleReminder(application, event.scheduleEventId)
             repository.deleteEvent(event)
             rescheduleMilestoneReminders(application)
             WidgetUpdater.refreshCountdownWidgets(application)
@@ -171,8 +173,15 @@ class HomeViewModel(
     fun restoreEvent(event: Event) {
         viewModelScope.launch {
             try {
-                repository.insertEvent(event)
-                scheduleReminder(application, event)
+                val newId = repository.insertEvent(event)
+                val savedEvent = event.copy(id = newId.toInt())
+                scheduleReminder(application, savedEvent)
+                if (savedEvent.remindEnabled && savedEvent.syncToScheduleEnabled) {
+                    val scheduleId = ScheduleSyncManager.insertScheduleReminder(application, savedEvent)
+                    if (scheduleId != null) {
+                        repository.updateEvent(savedEvent.copy(scheduleEventId = scheduleId))
+                    }
+                }
                 rescheduleMilestoneReminders(application)
                 WidgetUpdater.refreshCountdownWidgets(application)
             } catch (_: Exception) {

@@ -31,6 +31,7 @@ import com.example.timeapk.TimeApplication
 import com.example.timeapk.data.*
 import com.example.timeapk.notifications.rescheduleMilestoneReminders
 import com.example.timeapk.notifications.scheduleReminder
+import com.example.timeapk.notifications.ScheduleSyncManager
 import com.example.timeapk.widget.WidgetUpdater
 import com.example.timeapk.update.CheckUpdateResult
 import com.example.timeapk.update.UpdateInstaller
@@ -698,8 +699,15 @@ fun DataSettingsContent(
             } else {
                 list.forEach { event ->
                     val newId = repository.insertEvent(event)
-                    if (event.remindEnabled) {
-                        scheduleReminder(context, event.copy(id = newId.toInt()))
+                    val savedEvent = event.copy(id = newId.toInt())
+                    if (savedEvent.remindEnabled) {
+                        scheduleReminder(context, savedEvent)
+                        if (savedEvent.syncToScheduleEnabled) {
+                            val scheduleId = ScheduleSyncManager.insertScheduleReminder(context, savedEvent)
+                            if (scheduleId != null) {
+                                repository.updateEvent(savedEvent.copy(scheduleEventId = scheduleId))
+                            }
+                        }
                     }
                 }
                 WidgetUpdater.refreshCountdownWidgets(context)
@@ -752,8 +760,15 @@ fun DataSettingsContent(
                         } else {
                             for (event in list) {
                                 val newId = repository.insertEvent(event)
-                                if (event.remindEnabled) {
-                                    scheduleReminder(context, event.copy(id = newId.toInt()))
+                                val savedEvent = event.copy(id = newId.toInt())
+                                if (savedEvent.remindEnabled) {
+                                    scheduleReminder(context, savedEvent)
+                                    if (savedEvent.syncToScheduleEnabled) {
+                                        val scheduleId = ScheduleSyncManager.insertScheduleReminder(context, savedEvent)
+                                        if (scheduleId != null) {
+                                            repository.updateEvent(savedEvent.copy(scheduleEventId = scheduleId))
+                                        }
+                                    }
                                 }
                             }
                             WidgetUpdater.refreshCountdownWidgets(context)

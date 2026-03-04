@@ -18,6 +18,7 @@ fun List<Event>.toJsonString(): String {
                 put("remindDaysBefore", e.remindDaysBefore)
                 put("reminderTimeMinutesOfDay", e.reminderTimeMinutesOfDay)
                 put("remindEnabled", e.remindEnabled)
+                put("syncToScheduleEnabled", e.syncToScheduleEnabled)
                 put("createdAt", e.createdAt)
                 put("isLunar", e.isLunar)
             }
@@ -44,6 +45,8 @@ fun parseEventsFromJson(json: String): List<Event> {
                     remindDaysBefore = o.optInt("remindDaysBefore", 0),
                     reminderTimeMinutesOfDay = o.optInt("reminderTimeMinutesOfDay", 480),
                     remindEnabled = o.optBoolean("remindEnabled", false),
+                    syncToScheduleEnabled = o.optBoolean("syncToScheduleEnabled", true),
+                    scheduleEventId = null,
                     createdAt = o.optLong("createdAt", System.currentTimeMillis()),
                     isLunar = o.optBoolean("isLunar", false)
                 )

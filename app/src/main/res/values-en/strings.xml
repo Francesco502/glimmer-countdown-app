@@ -80,6 +80,10 @@
     <string name="reminder_time_9">9:00</string>
     <string name="reminder_time_12">12:00</string>
     <string name="reminder_time_18">18:00</string>
+    <string name="sync_to_schedule">Sync to system schedule</string>
+    <string name="sync_to_schedule_summary">Add to calendar/agenda so the system notifies you at the set time</string>
+    <string name="schedule_reminder_title_format">%2$d day(s) until \"%1$s\"</string>
+    <string name="schedule_reminder_title_today">\"%1$s\" — today</string>
 
     <!-- Category preset -->
     <string name="category_birthday">Birthday</string>
