@@ -1,10 +1,12 @@
 package com.example.timeapk.ui.home
 
 import com.example.timeapk.data.Event
+import com.example.timeapk.data.REPEAT_NONE
 import com.example.timeapk.data.REPEAT_MONTHLY
 import com.example.timeapk.data.REPEAT_YEARLY
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Test
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -72,5 +74,31 @@ class EventUiStateTest {
         assertFalse(state.isPast)
         assertEquals(0L, state.daysPassed)
         assertEquals(ChronoUnit.DAYS.between(today, future), state.daysRemaining)
+    }
+
+    @Test
+    fun smartMilestones_shouldProvideDynamicNextValue() {
+        val today = LocalDate.now()
+        val start = today.minusDays(95)
+        val event = Event(
+            title = "progress event",
+            date = epochMillisOf(start),
+            category = "other",
+            repeatType = REPEAT_NONE
+        )
+
+        val stateWithSmart = event.toEventUiState(
+            milestones = emptyList(),
+            smartMilestonesEnabled = true
+        )
+        val stateWithoutSmart = event.toEventUiState(
+            milestones = emptyList(),
+            smartMilestonesEnabled = false
+        )
+
+        assertEquals(100L, stateWithSmart.nextMilestoneValue)
+        assertEquals(5L, stateWithSmart.nextMilestoneDays)
+        assertNull(stateWithoutSmart.nextMilestoneValue)
+        assertNull(stateWithoutSmart.nextMilestoneDays)
     }
 }

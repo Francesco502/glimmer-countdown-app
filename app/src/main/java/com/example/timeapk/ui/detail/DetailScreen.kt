@@ -5,6 +5,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -87,6 +88,7 @@ fun DetailScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val locale = context.resources.configuration.locales[0]
     val prefs = (context.applicationContext as TimeApplication).userPrefs
     val scope = rememberCoroutineScope()
     val showMilestone by prefs.showMilestoneFlow.collectAsState(initial = true)
@@ -306,13 +308,13 @@ fun DetailScreen(
                     when (mode) {
                         DisplayModes.PAST_DAYS -> {
                             val days = if (isRepeating) eventState.daysPassed else eventState.daysElapsed
-                            daysDisplay = formatDaysSmart(days, false) + stringResource(R.string.days_unit)
+                            daysDisplay = formatDaysSmart(days, false, locale) + stringResource(R.string.days_unit)
                             labelText = stringResource(R.string.days_past_label)
                         }
                         DisplayModes.PAST_YMD -> {
                             val start = targetLocalDate
                             val end = today
-                            daysDisplay = formatBetweenAsYMD(start, end)
+                            daysDisplay = formatBetweenAsYMD(start, end, locale)
                             labelText = stringResource(R.string.days_past_label)
                         }
                         DisplayModes.UNTIL_DAYS -> {
@@ -321,7 +323,7 @@ fun DetailScreen(
                                 labelText = ""
                             } else {
                                 val days = if (isRepeating) eventState.daysLeft else eventState.daysRemaining
-                                daysDisplay = formatDaysSmart(days, false) + stringResource(R.string.days_unit)
+                                daysDisplay = formatDaysSmart(days, false, locale) + stringResource(R.string.days_unit)
                                 labelText = com.example.timeapk.ui.utils.getUntilLabel(androidx.compose.ui.platform.LocalContext.current, eventState)
                             }
                         }
@@ -332,12 +334,12 @@ fun DetailScreen(
                             } else {
                                 val days = if (isRepeating) eventState.daysLeft else eventState.daysRemaining
                                 val end = today.plusDays(days)
-                                daysDisplay = formatBetweenAsYMD(today, end)
+                                daysDisplay = formatBetweenAsYMD(today, end, locale)
                                 labelText = com.example.timeapk.ui.utils.getUntilLabel(androidx.compose.ui.platform.LocalContext.current, eventState)
                             }
                         }
                         DisplayModes.MILESTONE -> {
-                            daysDisplay = formatDaysSmart(eventState.nextMilestoneDays ?: 0L, false) + stringResource(R.string.days_unit)
+                            daysDisplay = formatDaysSmart(eventState.nextMilestoneDays ?: 0L, false, locale) + stringResource(R.string.days_unit)
                             val milestoneVal = eventState.nextMilestoneValue ?: 0L
                             val milestoneStr = milestoneLabel(milestoneVal)
                             labelText = stringResource(R.string.milestone_label_prefix, milestoneStr)
@@ -353,7 +355,7 @@ fun DetailScreen(
                             .fillMaxWidth()
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
+                                indication = LocalIndication.current,
                                 onClick = {
                                     scope.launch {
                                         val nextModeIndex = (availableModes.indexOf(mode) + 1) % availableModes.size
@@ -448,7 +450,7 @@ fun DetailScreen(
                                 Column(horizontalAlignment = Alignment.Start) {
                                     if (isLunarAnniversary) {
                                         Text(
-                                            text = formatLunarDateString(originDate),
+                                            text = formatLunarDateString(originDate, context),
                                             style = MaterialTheme.typography.titleLarge,
                                             color = detailContentColor.copy(alpha = 0.95f)
                                         )
@@ -464,7 +466,7 @@ fun DetailScreen(
                                             color = detailContentColor.copy(alpha = 0.95f)
                                         )
                                         Text(
-                                            text = formatLunarDateString(originDate),
+                                            text = formatLunarDateString(originDate, context),
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = detailContentColor.copy(alpha = 0.75f)
                                         )
@@ -515,7 +517,7 @@ fun DetailScreen(
                                 Column(horizontalAlignment = Alignment.Start) {
                                     if (isLunarAnniversary) {
                                         Text(
-                                            text = formatLunarDateString(nextDate),
+                                            text = formatLunarDateString(nextDate, context),
                                             style = MaterialTheme.typography.bodyLarge,
                                             color = detailContentColor.copy(alpha = 0.95f)
                                         )
@@ -531,7 +533,7 @@ fun DetailScreen(
                                             color = detailContentColor.copy(alpha = 0.95f)
                                         )
                                         Text(
-                                            text = formatLunarDateString(nextDate),
+                                            text = formatLunarDateString(nextDate, context),
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = detailContentColor.copy(alpha = 0.75f)
                                         )
@@ -554,7 +556,7 @@ fun DetailScreen(
                                 color = detailContentColor.copy(alpha = 0.95f)
                             )
                             Text(
-                                text = formatLunarDateString(targetLocalDate),
+                                text = formatLunarDateString(targetLocalDate, context),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = detailContentColor.copy(alpha = 0.75f)
                             )
@@ -564,12 +566,17 @@ fun DetailScreen(
                     // 鐢熸棩锛氬啘鍘嗐€佸瞾鏁般€佸睘鐩搞€佸叓瀛椼€佷簲琛屻€佹槦搴?
                     if (effectiveCategory == CATEGORY_BIRTHDAY) {
                         Spacer(modifier = Modifier.height(24.dp))
-                        val lunarLine = formatLunarDateString(targetLocalDate)
+                        val lunarLine = formatLunarDateString(targetLocalDate, context)
                         val period = agePeriod(targetLocalDate, today)
-                        val ageYmd = "${period.years}y ${period.months}m ${period.days}d"
+                        val ageYmd = context.getString(
+                            R.string.detail_birthday_age_format_ymd,
+                            period.years,
+                            period.months,
+                            period.days
+                        )
                         val zodiac = zodiacAnimalFromDate(targetLocalDate)
                         val bazi = baziFromDate(targetLocalDate)
-                        val wuxing = wuxingFromDate(targetLocalDate)
+                        val wuxing = wuxingFromDate(targetLocalDate, context)
                         val constellation = constellationFromDate(targetLocalDate, context)
                         Column(
                             modifier = Modifier
@@ -666,7 +673,7 @@ private fun DetailActionButtons(
             modifier = Modifier
                 .clickable(
                     interactionSource = pinInteractionSource,
-                    indication = null,
+                    indication = LocalIndication.current,
                     onClick = onPinClick
                 )
                 .graphicsLayer { scaleX = scalePin; scaleY = scalePin }
@@ -690,7 +697,7 @@ private fun DetailActionButtons(
             modifier = Modifier
                 .clickable(
                     interactionSource = editInteractionSource,
-                    indication = null,
+                    indication = LocalIndication.current,
                     onClick = onEditClick
                 )
                 .graphicsLayer { scaleX = scaleEdit; scaleY = scaleEdit }
@@ -706,7 +713,7 @@ private fun DetailActionButtons(
             modifier = Modifier
                 .clickable(
                     interactionSource = shareInteractionSource,
-                    indication = null,
+                    indication = LocalIndication.current,
                     onClick = onShareClick
                 )
                 .graphicsLayer { scaleX = scaleShare; scaleY = scaleShare }
@@ -722,7 +729,7 @@ private fun DetailActionButtons(
             modifier = Modifier
                 .clickable(
                     interactionSource = deleteInteractionSource,
-                    indication = null,
+                    indication = LocalIndication.current,
                     onClick = onDeleteClick
                 )
                 .graphicsLayer { scaleX = scaleDelete; scaleY = scaleDelete }
@@ -745,7 +752,7 @@ private fun DetailLabelRow(label: String, value: String, contentColor: androidx.
         verticalAlignment = Alignment.Top
     ) {
         Text(
-            text = "$label 锝?",
+            text = "$label:",
             style = MaterialTheme.typography.bodyLarge,
             color = contentColor.copy(alpha = 0.75f),
             modifier = Modifier.width(80.dp) // 缁?Label 鐣欏嚭鍥哄畾绌洪棿锛岃惀閫犳姌椤甸敊钀芥劅
@@ -759,4 +766,7 @@ private fun DetailLabelRow(label: String, value: String, contentColor: androidx.
         )
     }
 }
+
+
+
 

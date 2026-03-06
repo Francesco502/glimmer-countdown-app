@@ -1,23 +1,21 @@
 package com.example.timeapk
 
-import android.Manifest
+import android.animation.ValueAnimator
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
-import androidx.core.content.ContextCompat
+import com.example.timeapk.ui.theme.AnimationSpecs
 import com.example.timeapk.ui.theme.TimeAPKTheme
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -25,9 +23,6 @@ import kotlinx.coroutines.runBlocking
 class MainActivity : ComponentActivity() {
 
     private val openEventIdState = mutableStateOf<Int?>(null)
-    private val notificationPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { _ -> }
 
     override fun attachBaseContext(newBase: Context) {
         val app = newBase.applicationContext as TimeApplication
@@ -38,7 +33,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        requestNotificationPermissionIfNeeded()
         updateOpenEventIdFromIntent(intent)
         setContent {
             val openEventId by openEventIdState
@@ -50,10 +44,19 @@ class MainActivity : ComponentActivity() {
             val customPrimaryHex by prefs.customPrimaryHexFlow.collectAsState(initial = null)
             val customOnBackgroundHex by prefs.customOnBackgroundHexFlow.collectAsState(initial = null)
             val fontPreset by prefs.fontPresetFlow.collectAsState(initial = 0)
+            val appBaseFontScale by prefs.appBaseFontScaleFlow.collectAsState(initial = 1f)
+            val reduceMotionEnabled by prefs.reduceMotionEnabledFlow.collectAsState(initial = false)
+
+            SideEffect {
+                val systemReducedMotion = !ValueAnimator.areAnimatorsEnabled()
+                AnimationSpecs.setReducedMotionEnabled(reduceMotionEnabled || systemReducedMotion)
+            }
+
             TimeAPKTheme(
                 themeMode = themeMode,
                 darkTheme = isSystemInDarkTheme(),
                 fontPreset = fontPreset,
+                baseFontScale = appBaseFontScale,
                 customBackgroundHex = customBackgroundHex,
                 customSurfaceHex = customSurfaceHex,
                 customPrimaryHex = customPrimaryHex,
@@ -80,18 +83,5 @@ class MainActivity : ComponentActivity() {
 
     private fun updateOpenEventIdFromIntent(intent: Intent) {
         openEventIdState.value = intent.getIntExtra("open_event_id", -1).takeIf { it >= 0 }
-    }
-
-    private fun requestNotificationPermissionIfNeeded() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
-        if (
-            ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.POST_NOTIFICATIONS
-            ) == PackageManager.PERMISSION_GRANTED
-        ) {
-            return
-        }
-        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 }

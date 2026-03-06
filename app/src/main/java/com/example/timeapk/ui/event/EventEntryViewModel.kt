@@ -93,12 +93,6 @@ class EventEntryViewModel(
             hasSideEffectFailure = true
         }
 
-        try {
-            ScheduleSyncManager.removeScheduleReminder(application, persistedEvent.scheduleEventId)
-        } catch (_: Exception) {
-            hasSideEffectFailure = true
-        }
-
         if (persistedEvent.remindEnabled) {
             try {
                 scheduleReminder(application, persistedEvent)
@@ -109,7 +103,11 @@ class EventEntryViewModel(
 
         val newScheduleId = if (persistedEvent.remindEnabled && persistedEvent.syncToScheduleEnabled) {
             try {
-                ScheduleSyncManager.insertScheduleReminder(application, persistedEvent).also {
+                ScheduleSyncManager.upsertScheduleReminder(
+                    context = application,
+                    event = persistedEvent,
+                    currentScheduleEventId = persistedEvent.scheduleEventId
+                ).also {
                     if (it == null) hasSideEffectFailure = true
                 }
             } catch (_: Exception) {
@@ -117,6 +115,12 @@ class EventEntryViewModel(
                 null
             }
         } else {
+            try {
+                ScheduleSyncManager.removeScheduleReminder(application, persistedEvent.scheduleEventId)
+                ScheduleSyncManager.removeScheduleReminderByEventId(application, persistedEvent.id)
+            } catch (_: Exception) {
+                hasSideEffectFailure = true
+            }
             null
         }
 

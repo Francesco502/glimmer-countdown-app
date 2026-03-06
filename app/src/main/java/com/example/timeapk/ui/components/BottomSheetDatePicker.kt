@@ -1,4 +1,4 @@
-package com.example.timeapk.ui.components
+﻿package com.example.timeapk.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -37,11 +37,7 @@ import java.time.ZoneOffset
 private const val WHEEL_VISIBLE_COUNT = 5
 
 /**
- * 底部弹窗日期选择器（Bottom Sheet Date Picker）
- *
- * - 顶部操作区：取消 / 标题 / 确定
- * - 中间：年/月/日三个数字输入框（键盘输入）
- * - 下方：年 / 月 / 日三级滚轮，支持双向联动
+ * Bottom-sheet date picker with wheel columns and optional lunar mode.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,13 +51,13 @@ fun BottomSheetDatePicker(
     yearRange: IntRange = 1900..2100
 ) {
     val initialDate = remember(initialDateMillis) {
-        // 与全局 eventDateToLocalDate 一致：按 UTC 午夜解释，避免时区偏移
+        // Keep UTC midnight conversion consistent with event date storage.
         eventDateToLocalDate(initialDateMillis)
     }
     var selectedDate by remember { mutableStateOf(initialDate) }
     var isLunarMode by remember { mutableStateOf(initialIsLunar) }
 
-    // 输入框状态
+    // Numeric input field states.
     var yearInput by remember { mutableStateOf(selectedDate.year.toString()) }
     var monthInput by remember { mutableStateOf(selectedDate.monthValue.toString().padStart(2, '0')) }
     var dayInput by remember { mutableStateOf(selectedDate.dayOfMonth.toString().padStart(2, '0')) }
@@ -70,7 +66,7 @@ fun BottomSheetDatePicker(
     val scope = rememberCoroutineScope()
     var isProgrammaticScroll by remember { mutableStateOf(false) }
 
-    // 滚轮数据（公历）
+    // Wheel data (solar calendar).
     val years = remember(yearRange.first, yearRange.last) { yearRange.toList() }
     val daysInMonth by remember(selectedDate.year, selectedDate.monthValue) {
         mutableStateOf(YearMonth.of(selectedDate.year, selectedDate.monthValue).lengthOfMonth())
@@ -78,7 +74,7 @@ fun BottomSheetDatePicker(
     val solarMonths = remember { (1..12).toList() }
     val solarDays = remember(daysInMonth) { (1..daysInMonth).toList() }
 
-    // 当前选中日期对应的农历
+    // Lunar date corresponding to current solar selection.
     val currentLunar: Lunar? = remember(selectedDate) {
         try {
             val solar = Solar.fromYmd(
@@ -92,7 +88,7 @@ fun BottomSheetDatePicker(
         }
     }
 
-    // 滚轮数据（农历）
+    // Wheel data (lunar calendar).
     val lunarMonths: List<Int> = remember(currentLunar?.year) {
         val lunar = currentLunar
         if (lunar == null) {
@@ -129,6 +125,8 @@ fun BottomSheetDatePicker(
     val dayItems: List<Int> =
         if (!isLunarMode || currentLunar == null || lunarDays.isEmpty()) solarDays else lunarDays
 
+    val lunarMonthSuffix = stringResource(R.string.lunar_month_suffix)
+
     fun monthLabel(value: Int): String {
         val lunar = currentLunar
         return if (!isLunarMode || lunar == null || lunarMonths.isEmpty()) {
@@ -136,7 +134,7 @@ fun BottomSheetDatePicker(
         } else {
             try {
                 val l = Lunar.fromYmd(lunar.year, value, 1)
-                l.monthInChinese + "月"
+                l.monthInChinese + lunarMonthSuffix
             } catch (_: Throwable) {
                 value.toString()
             }
@@ -159,7 +157,7 @@ fun BottomSheetDatePicker(
 
     val paddingCount = WHEEL_VISIBLE_COUNT / 2
 
-    // 滚轮状态（考虑顶部 padding）
+    // 婊氳疆鐘舵€侊紙鑰冭檻椤堕儴 padding锛?
     val yearState = rememberLazyListState(
         initialFirstVisibleItemIndex = (selectedDate.year - yearRange.first).coerceAtLeast(0)
     )
@@ -170,7 +168,7 @@ fun BottomSheetDatePicker(
         initialFirstVisibleItemIndex = selectedDate.dayOfMonth - 1
     )
 
-    // 当滚轮变化时更新选中日期（滚轮 → 输入框）
+    // 褰撴粴杞彉鍖栨椂鏇存柊閫変腑鏃ユ湡锛堟粴杞?鈫?杈撳叆妗嗭級
     WheelSyncEffect(
         listState = yearState,
         items = years,
@@ -278,10 +276,10 @@ fun BottomSheetDatePicker(
         }
     )
 
-    // 输入框 → 滚轮 & 日期
+    // 杈撳叆妗?鈫?婊氳疆 & 鏃ユ湡
     fun applyInputAndSyncWheels() {
         if (isLunarMode) {
-            // 农历模式下暂不支持通过输入框直接修改联动，直接还原为当前选中日期
+            // 鍐滃巻妯″紡涓嬫殏涓嶆敮鎸侀€氳繃杈撳叆妗嗙洿鎺ヤ慨鏀硅仈鍔紝鐩存帴杩樺師涓哄綋鍓嶉€変腑鏃ユ湡
             yearInput = selectedDate.year.toString()
             monthInput = selectedDate.monthValue.toString().padStart(2, '0')
             dayInput = selectedDate.dayOfMonth.toString().padStart(2, '0')
@@ -293,7 +291,7 @@ fun BottomSheetDatePicker(
         val day = dayInput.toIntOrNull()
 
         if (year == null || month == null || day == null) {
-            // 非法输入：还原为当前选中日期
+            // 闈炴硶杈撳叆锛氳繕鍘熶负褰撳墠閫変腑鏃ユ湡
             yearInput = selectedDate.year.toString()
             monthInput = selectedDate.monthValue.toString().padStart(2, '0')
             dayInput = selectedDate.dayOfMonth.toString().padStart(2, '0')
@@ -315,7 +313,7 @@ fun BottomSheetDatePicker(
             return
         }
 
-        // 合法输入：更新日期并滚动滚轮
+        // 鍚堟硶杈撳叆锛氭洿鏂版棩鏈熷苟婊氬姩婊氳疆
         selectedDate = LocalDate.of(year, month, day)
         scope.launch {
             isProgrammaticScroll = true
@@ -341,7 +339,7 @@ fun BottomSheetDatePicker(
                 .background(MaterialTheme.colorScheme.surface)
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
-            // 顶部操作区
+            // 椤堕儴鎿嶄綔鍖?
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -362,7 +360,7 @@ fun BottomSheetDatePicker(
                 )
                 TextButton(onClick = {
                     focusManager.clearFocus()
-                    // 使用当前选中日期
+                    // 浣跨敤褰撳墠閫変腑鏃ユ湡
                     val millis = selectedDate
                         .atStartOfDay(ZoneOffset.UTC)
                         .toInstant()
@@ -374,7 +372,7 @@ fun BottomSheetDatePicker(
                 }
             }
 
-            // 公历 / 农历 模式切换（当前仅标记类型，日期依然使用公历滚轮选择）
+            // 鍏巻 / 鍐滃巻 妯″紡鍒囨崲锛堝綋鍓嶄粎鏍囪绫诲瀷锛屾棩鏈熶緷鐒朵娇鐢ㄥ叕鍘嗘粴杞€夋嫨锛?
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -410,7 +408,7 @@ fun BottomSheetDatePicker(
                 )
             }
 
-            // 手动输入区（年 / 月 / 日）
+            // 鎵嬪姩杈撳叆鍖猴紙骞?/ 鏈?/ 鏃ワ級
             if (!isLunarMode) {
                 Row(
                     modifier = Modifier
@@ -456,12 +454,12 @@ fun BottomSheetDatePicker(
                     )
                 }
             } else {
-                // 农历模式下隐藏手动输入框，仅保留占位以防高度突变，或者直接移除
-                // 这里选择直接移除，让滚轮区域更大或者保持紧凑
+                // 鍐滃巻妯″紡涓嬮殣钘忔墜鍔ㄨ緭鍏ユ锛屼粎淇濈暀鍗犱綅浠ラ槻楂樺害绐佸彉锛屾垨鑰呯洿鎺ョЩ闄?
+                // 杩欓噷閫夋嫨鐩存帴绉婚櫎锛岃婊氳疆鍖哄煙鏇村ぇ鎴栬€呬繚鎸佺揣鍑?
                 Spacer(modifier = Modifier.height(12.dp))
             }
 
-            // 滚轮选择区
+            // 婊氳疆閫夋嫨鍖?
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -520,7 +518,7 @@ private fun DatePartField(
         modifier = modifier.onFocusChanged { state ->
             val nowFocused = state.isFocused
             if (hasFocus && !nowFocused) {
-                // 失去焦点时触发一次校验
+                // 澶卞幓鐒︾偣鏃惰Е鍙戜竴娆℃牎楠?
                 onDone()
             }
             hasFocus = nowFocused
@@ -576,7 +574,7 @@ private fun <T> WheelColumn(
             }
         }
 
-        // 中间选中区域的“宋式”边框高亮
+        // 涓棿閫変腑鍖哄煙鐨勨€滃畫寮忊€濊竟妗嗛珮浜?
         val primaryColor = MaterialTheme.colorScheme.primary
         Box(
             modifier = Modifier
@@ -610,7 +608,7 @@ private fun <T> WheelSyncEffect(
     enabled: Boolean,
     onItemSelected: (T) -> Unit
 ) {
-    // 滚动停止时的吸附逻辑
+    // 婊氬姩鍋滄鏃剁殑鍚搁檮閫昏緫
     LaunchedEffect(listState.isScrollInProgress) {
         if (!listState.isScrollInProgress && enabled) {
             val firstVisibleItemIndex = listState.firstVisibleItemIndex
@@ -632,7 +630,7 @@ private fun <T> WheelSyncEffect(
     LaunchedEffect(listState, items, enabled) {
         if (!enabled) return@LaunchedEffect
         snapshotFlow {
-            // 取中间那一行对应的 index
+            // 鍙栦腑闂撮偅涓€琛屽搴旂殑 index
             listState.firstVisibleItemIndex + paddingCount
         }.collectLatest { index ->
             if (items.isNotEmpty()) {
@@ -644,4 +642,6 @@ private fun <T> WheelSyncEffect(
         }
     }
 }
+
+
 

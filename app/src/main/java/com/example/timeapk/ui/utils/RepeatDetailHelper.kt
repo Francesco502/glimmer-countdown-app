@@ -1,4 +1,4 @@
-﻿package com.example.timeapk.ui.utils
+package com.example.timeapk.ui.utils
 
 import android.content.Context
 import com.example.timeapk.R
@@ -7,43 +7,41 @@ import com.example.timeapk.data.REPEAT_HALF_YEARLY
 import com.example.timeapk.data.REPEAT_MONTHLY
 import com.example.timeapk.data.REPEAT_WEEKLY
 import com.example.timeapk.data.REPEAT_YEARLY
-import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.Period
+import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
 import java.time.temporal.ChronoUnit
+import java.util.Locale
 
 fun formatDateWithWeekday(date: LocalDate, context: Context? = null): String {
-    val weekday = if (context != null) {
-        when (date.dayOfWeek) {
-            DayOfWeek.MONDAY -> context.getString(R.string.weekday_mon)
-            DayOfWeek.TUESDAY -> context.getString(R.string.weekday_tue)
-            DayOfWeek.WEDNESDAY -> context.getString(R.string.weekday_wed)
-            DayOfWeek.THURSDAY -> context.getString(R.string.weekday_thu)
-            DayOfWeek.FRIDAY -> context.getString(R.string.weekday_fri)
-            DayOfWeek.SATURDAY -> context.getString(R.string.weekday_sat)
-            DayOfWeek.SUNDAY -> context.getString(R.string.weekday_sun)
-        }
+    val locale = context?.resources?.configuration?.locales?.get(0) ?: Locale.getDefault()
+    val weekday = date.dayOfWeek.getDisplayName(TextStyle.SHORT, locale)
+    val dateStr = date.format(DateTimeFormatter.ofPattern("yyyy.MM.dd", locale))
+    return if (context != null) {
+        context.getString(R.string.date_weekday_format, dateStr, weekday)
     } else {
-        when (date.dayOfWeek) {
-            DayOfWeek.MONDAY -> "周一"
-            DayOfWeek.TUESDAY -> "周二"
-            DayOfWeek.WEDNESDAY -> "周三"
-            DayOfWeek.THURSDAY -> "周四"
-            DayOfWeek.FRIDAY -> "周五"
-            DayOfWeek.SATURDAY -> "周六"
-            DayOfWeek.SUNDAY -> "周日"
-        }
+        "$dateStr · $weekday"
     }
-    val dateStr = date.format(java.time.format.DateTimeFormatter.ofPattern("yyyy.MM.dd"))
-    return "$dateStr · $weekday"
 }
 
-fun formatGanZhiYear(year: Int): String {
-    val tianGan = listOf("甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸")
-    val diZhi = listOf("子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥")
+fun formatGanZhiYear(year: Int, context: Context? = null): String {
+    val tianGan = listOf(
+        "\u7532", "\u4e59", "\u4e19", "\u4e01", "\u620a",
+        "\u5df1", "\u5e9a", "\u8f9b", "\u58ec", "\u7678"
+    )
+    val diZhi = listOf(
+        "\u5b50", "\u4e11", "\u5bc5", "\u536f", "\u8fb0", "\u5df3",
+        "\u5348", "\u672a", "\u7533", "\u9149", "\u620c", "\u4ea5"
+    )
     val i = (year - 4).mod(10)
     val j = (year - 4).mod(12)
-    return "岁次${tianGan[i]}${diZhi[j]}"
+    val ganZhi = "${tianGan[i]}${diZhi[j]}"
+    return if (context != null) {
+        context.getString(R.string.ganzhi_year_format, ganZhi)
+    } else {
+        ganZhi
+    }
 }
 
 fun formatLunarMonthDay(date: LocalDate): String? {
@@ -61,49 +59,15 @@ fun formatLunarMonthDay(date: LocalDate): String? {
     }
 }
 
-fun formatLunarLine(date: LocalDate): String {
-    val gz = formatGanZhiYear(date.year)
+fun formatLunarLine(date: LocalDate, context: Context? = null): String {
+    val gz = formatGanZhiYear(date.year, context)
     val lunar = formatLunarMonthDay(date)
     return if (lunar != null) "$gz $lunar" else gz
 }
 
 fun formatElapsedLiterary(period: Period, context: Context? = null): String {
-    val y = kotlin.math.abs(period.years)
-    val m = kotlin.math.abs(period.months)
-    val d = kotlin.math.abs(period.days)
-
-    val isEnglish = context != null && context.resources.configuration.locales[0].language == "en"
-    if (isEnglish) {
-        val parts = mutableListOf<String>()
-        if (y > 0) parts += "$y year${if (y > 1) "s" else ""}"
-        if (m > 0) parts += "$m month${if (m > 1) "s" else ""}"
-        if (d > 0) parts += "$d day${if (d > 1) "s" else ""}"
-        if (parts.isEmpty()) parts += "0 days"
-        return parts.joinToString(", ")
-    }
-
-    val yStr = when (y) {
-        0 -> null
-        1 -> "一载"
-        2 -> "两载"
-        else -> "${y}载"
-    }
-    val mStr = when (m) {
-        0 -> null
-        1 -> "一月"
-        else -> "${m}月"
-    }
-    val dayCn = listOf(
-        "", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十",
-        "十一", "十二", "十三", "十四", "十五", "十六", "十七", "十八", "十九", "二十",
-        "廿一", "廿二", "廿三", "廿四", "廿五", "廿六", "廿七", "廿八", "廿九", "三十", "卅一"
-    )
-    val dStr = when {
-        d == 0 -> if (yStr == null && mStr == null) "〇日" else null
-        d in 1..31 -> "又${dayCn[d]}日"
-        else -> "又${d}日"
-    }
-    return listOfNotNull(yStr, mStr, dStr).joinToString("")
+    val locale = context?.resources?.configuration?.locales?.get(0) ?: Locale.getDefault()
+    return formatPeriodYMD(period, locale)
 }
 
 fun formatElapsedDays(days: Long, context: Context? = null): String {
@@ -111,7 +75,7 @@ fun formatElapsedDays(days: Long, context: Context? = null): String {
     return if (context != null) {
         context.getString(R.string.elapsed_days_format, formatted)
     } else {
-        "忽度 $formatted 日"
+        formatted
     }
 }
 

@@ -1,64 +1,79 @@
-package com.example.timeapk.ui.theme
+﻿package com.example.timeapk.ui.theme
 
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.Dp
 
-/**
- * 统一动效规范 (Interaction Design)
- * - 100–150ms: 微反馈 (hover/click)
- * - 200–300ms: 小过渡 (toggle, dropdown)
- * - 300–500ms: 页面/内容切换
- * 使用 transform + opacity 保证 60fps；尊重 prefers-reduced-motion。
- */
 @Immutable
 object AnimationSpecs {
-    /** 微反馈：点击、hover、焦点变化 */
-    const val DurationMicroMs = 150
+    const val DurationMicroMs = SongDesignTokens.MotionFastMs
+    const val DurationSmallMs = SongDesignTokens.MotionNormalMs
+    const val DurationMediumMs = SongDesignTokens.MotionSlowMs
 
-    /** 小过渡：下拉、开关、小弹层 */
-    const val DurationSmallMs = 250
+    @Volatile
+    private var reducedMotionEnabled: Boolean = false
 
-    /** 中等过渡：页面切换、模态、内容入场 */
-    const val DurationMediumMs = 350
-
-    /** 入场/强调：轻微减速 (ease-out) */
     val EaseOut = LinearOutSlowInEasing
-
-    /** 出场：轻微加速 (ease-in) */
     val EaseIn = FastOutSlowInEasing
 
-    /** 微反馈 tween */
-    fun microTween() = tween<Float>(DurationMicroMs, easing = EaseOut)
+    private fun effectiveDuration(duration: Int): Int = if (reducedMotionEnabled) 0 else duration
 
-    /** 小过渡 tween */
-    fun smallTween() = tween<Float>(DurationSmallMs, easing = EaseOut)
+    fun setReducedMotionEnabled(enabled: Boolean) {
+        reducedMotionEnabled = enabled
+    }
 
-    /** 中等过渡 tween（页面/内容） */
-    fun mediumTween() = tween<Float>(DurationMediumMs, easing = EaseOut)
+    fun microTween() = tween<Float>(effectiveDuration(DurationMicroMs), easing = EaseOut)
 
-    /** 用于 slide/offset 过渡（IntOffset） */
-    fun mediumTweenIntOffset() = tween<IntOffset>(DurationMediumMs, easing = EaseOut)
+    fun smallTween() = tween<Float>(effectiveDuration(DurationSmallMs), easing = EaseOut)
 
-    /** 弹性按压（按钮、FAB、卡片） */
-    val springButton = spring<Float>(
-        dampingRatio = Spring.DampingRatioMediumBouncy,
-        stiffness = Spring.StiffnessMedium
+    fun smallTweenDp() = tween<Dp>(effectiveDuration(DurationSmallMs), easing = EaseOut)
+
+    fun mediumTween() = tween<Float>(effectiveDuration(DurationMediumMs), easing = EaseOut)
+
+    fun mediumTweenIntOffset() = tween<IntOffset>(effectiveDuration(DurationMediumMs), easing = EaseOut)
+
+    private val springButtonDefault = spring<Float>(
+        dampingRatio = Spring.DampingRatioNoBouncy,
+        stiffness = Spring.StiffnessMediumLow
     )
 
-    /** 列表项入场：略柔和 */
-    val springItem = spring<Float>(
+    private val springItemDefault = spring<Float>(
         dampingRatio = Spring.DampingRatioNoBouncy,
         stiffness = Spring.StiffnessLow
     )
 
-    /** 列表项位置变化（animateItemPlacement 用 IntOffset） */
-    val springItemPlacement = spring<IntOffset>(
+    private val springItemPlacementDefault = spring<IntOffset>(
         dampingRatio = Spring.DampingRatioNoBouncy,
         stiffness = Spring.StiffnessLow
     )
+
+    private val springButtonReduced = spring<Float>(
+        dampingRatio = Spring.DampingRatioNoBouncy,
+        stiffness = Spring.StiffnessHigh
+    )
+
+    private val springItemReduced = spring<Float>(
+        dampingRatio = Spring.DampingRatioNoBouncy,
+        stiffness = Spring.StiffnessHigh
+    )
+
+    private val springItemPlacementReduced = spring<IntOffset>(
+        dampingRatio = Spring.DampingRatioNoBouncy,
+        stiffness = Spring.StiffnessHigh
+    )
+
+    val springButton: FiniteAnimationSpec<Float>
+        get() = if (reducedMotionEnabled) springButtonReduced else springButtonDefault
+
+    val springItem: FiniteAnimationSpec<Float>
+        get() = if (reducedMotionEnabled) springItemReduced else springItemDefault
+
+    val springItemPlacement: FiniteAnimationSpec<IntOffset>
+        get() = if (reducedMotionEnabled) springItemPlacementReduced else springItemPlacementDefault
 }

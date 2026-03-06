@@ -11,6 +11,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -29,9 +30,10 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.ViewModule
 import androidx.compose.material3.*
@@ -55,7 +57,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.platform.LocalContext
 import com.example.timeapk.data.REPEAT_NONE
-import com.example.timeapk.ui.utils.findActivity
 import com.example.timeapk.data.REPEAT_YEARLY
 import com.example.timeapk.ui.utils.formatDays
 import com.example.timeapk.ui.utils.formatBetweenAsYMD
@@ -71,12 +72,10 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
+import java.util.Locale
 import com.example.timeapk.R
 import com.example.timeapk.TimeApplication
 import com.example.timeapk.data.Event
-import com.example.timeapk.data.CATEGORY_ANNIVERSARY
-import com.example.timeapk.data.CATEGORY_BIRTHDAY
-import com.example.timeapk.data.CATEGORY_OTHER
 import com.example.timeapk.data.tagsList
 import com.example.timeapk.ui.theme.AnimationSpecs
 
@@ -87,9 +86,6 @@ import org.burnoutcrew.reorderable.detectReorderAfterLongPress
 import org.burnoutcrew.reorderable.rememberReorderableLazyListState
 import org.burnoutcrew.reorderable.reorderable
 import org.burnoutcrew.reorderable.ReorderableItem
-
-enum class FilterType { All, Birthday, Anniversary, Other }
-enum class SortType { ByDays, ByDate, ByCreated }
 
 // Event category type for unified display
 sealed class EventType {
@@ -113,8 +109,11 @@ fun HomeScreen(
     val prefs = (context.applicationContext as TimeApplication).userPrefs
     val today = LocalDate.now()
     val scope = rememberCoroutineScope()
-    val savedFilter by prefs.filterTypeFlow.collectAsState(initial = 0)
-    val savedSort by prefs.sortTypeFlow.collectAsState(initial = 0)
+    val filterType by viewModel.filterType.collectAsState()
+    val sortType by viewModel.sortType.collectAsState()
+    val searchQuery by viewModel.searchQuery.collectAsState()
+    val selectedTag by viewModel.selectedTag.collectAsState()
+    val availableTags by viewModel.availableTags.collectAsState()
     val showHours by prefs.showHoursFlow.collectAsState(initial = true)
     val showMilestone by prefs.showMilestoneFlow.collectAsState(initial = true)
     val homeDensityMode by prefs.homeDensityModeFlow.collectAsState(initial = 1)
@@ -122,108 +121,23 @@ fun HomeScreen(
     val dateFormatter = remember(dateFormatMode) { getDisplayDateFormatter(dateFormatMode) }
     val dateDeltaDisplayMode by prefs.dateDeltaDisplayModeFlow.collectAsState(initial = 0)
     val perEventDateDeltaModes by prefs.perEventDateDeltaDisplayModesFlow.collectAsState(initial = emptyMap())
-    val customEventOrderIds by prefs.customEventOrderFlow.collectAsState(initial = emptyList())
-    val pinnedEventIds by prefs.pinnedEventIdsFlow.collectAsState(initial = emptyList())
     val savedHomeDisplayMode by prefs.homeDisplayModeFlow.collectAsState(initial = 0)
     var homeDisplayMode by remember(savedHomeDisplayMode) { mutableStateOf(savedHomeDisplayMode) }
-    var filterType by remember(savedFilter) { mutableStateOf(FilterType.entries.getOrNull(savedFilter) ?: FilterType.All) }
-    var sortType by remember(savedSort) { mutableStateOf(SortType.entries.getOrNull(savedSort) ?: SortType.ByDays) }
     var showSortMenu by remember { mutableStateOf(false) }
-    var searchQuery by remember { mutableStateOf("") }
-    var selectedTag by remember { mutableStateOf<String?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
-
-    val availableTags = remember(homeUiState) {
-        homeUiState
-            .flatMap { it.event.tagsList() }
-            .distinctBy { it.lowercase() }
-            .sortedBy { it.lowercase() }
-    }
-
-    LaunchedEffect(availableTags, selectedTag) {
-        val selected = selectedTag ?: return@LaunchedEffect
-        if (availableTags.none { it.equals(selected, ignoreCase = true) }) {
-            selectedTag = null
-        }
-    }
-
-    LaunchedEffect(filterType) {
-        prefs.setFilterType(filterType.ordinal)
-    }
-    LaunchedEffect(sortType) {
-        prefs.setSortType(sortType.ordinal)
-    }
     LaunchedEffect(homeDisplayMode) {
         prefs.setHomeDisplayMode(homeDisplayMode)
     }
+    val displayedList = homeUiState
 
-    val displayedList = remember(
-        homeUiState,
-        filterType,
-        sortType,
-        searchQuery,
-        selectedTag,
-        customEventOrderIds,
-        pinnedEventIds
-    ) {
-        var list = when (filterType) {
-            FilterType.All -> homeUiState
-            FilterType.Birthday -> homeUiState.filter { it.event.category == CATEGORY_BIRTHDAY }
-            FilterType.Anniversary -> homeUiState.filter { it.event.category == CATEGORY_ANNIVERSARY }
-            FilterType.Other -> homeUiState.filter { it.event.category == CATEGORY_OTHER }
-        }
-
-        selectedTag?.let { tag ->
-            list = list.filter { state ->
-                state.event.tagsList().any { it.equals(tag, ignoreCase = true) }
-            }
-        }
-
-        val query = searchQuery.trim().lowercase()
-        if (query.isNotBlank()) {
-            list = list.filter { state ->
-                state.event.title.lowercase().contains(query) ||
-                    state.event.note.lowercase().contains(query) ||
-                    state.event.category.lowercase().contains(query) ||
-                    state.event.tagsList().any { it.lowercase().contains(query) }
-            }
-        }
-
-        list = when (sortType) {
-            SortType.ByDays -> list.sortedBy { it.daysRemaining }
-            SortType.ByDate -> list.sortedBy { it.event.date }
-            SortType.ByCreated -> list.sortedByDescending { it.event.createdAt }
-        }
-
-        if (customEventOrderIds.isNotEmpty() && sortType == SortType.ByCreated) {
-            list = list.sortedBy { item ->
-                val i = customEventOrderIds.indexOf(item.event.id)
-                if (i < 0) Int.MAX_VALUE else i
-            }
-        }
-
-        if (pinnedEventIds.isNotEmpty()) {
-            val pinnedSet = pinnedEventIds.toSet()
-            val pinned = pinnedEventIds.mapNotNull { id -> list.find { it.event.id == id } }
-            val unpinned = list.filter { it.event.id !in pinnedSet }
-            list = pinned + unpinned
-        }
-        list
-    }
-
-    // 鈹€鈹€ 鎷栨嫿鎺掑簭鍒楄〃 鈹€鈹€
-    // 蹇呴』鍦?composition 闃舵鍚屾濉厖锛屼笉鑳界敤 LaunchedEffect锛堜細寤惰繜涓€甯у鑷村叏閮ㄥ崱鐗囧悓鏃堕鍏ワ級
+    // Reorder list state is seeded synchronously to avoid first-frame jump/glitch.
     val orderedList = remember { mutableStateListOf<EventUiState>() }
-    // 鏍囪鏄惁瀹屾垚杩囬娆″垵濮嬪寲锛岀敤浜庤烦杩囬娆?animateItemPlacement
     var listInitialized by remember { mutableStateOf(false) }
 
-    // 鍚屾鍒濆鍖栵細鍦?composition 闃舵绔嬪嵆濉厖锛岀‘淇?LazyColumn 棣栧抚灏辨湁鏁版嵁
-    // 涓嶅湪姝ゅ璁剧疆 listInitialized锛岄伩鍏嶄粠璇︽儏杩斿洖鏃堕甯цЕ鍙?animateItemPlacement 浜х敓鎷栧姩鍔ㄧ敾
     if (orderedList.isEmpty() && displayedList.isNotEmpty()) {
         orderedList.addAll(displayedList)
     }
 
-    // 鍚庣画鏁版嵁鍙樺寲锛堝鍒?绛涢€?鎺掑簭/鏁版嵁鍒锋柊锛夊湪 LaunchedEffect 澧為噺鍚屾
     LaunchedEffect(displayedList) {
         if (orderedList.isEmpty()) return@LaunchedEffect
         val targetIds = displayedList.map { it.event.id }
@@ -235,7 +149,6 @@ fun HomeScreen(
                 }
             }
         } else {
-            // 缁撴瀯鍙樺寲锛堝鍒?鎺掑簭鍙樻洿锛夛細鍏ㄩ噺鏇挎崲
             orderedList.clear()
             orderedList.addAll(displayedList)
         }
@@ -284,21 +197,21 @@ fun HomeScreen(
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.sort_by_days)) },
                                 onClick = {
-                                    sortType = SortType.ByDays
+                                    viewModel.updateSortType(SortType.ByDays)
                                     showSortMenu = false
                                 }
                             )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.sort_by_date)) },
                                 onClick = {
-                                    sortType = SortType.ByDate
+                                    viewModel.updateSortType(SortType.ByDate)
                                     showSortMenu = false
                                 }
                             )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.sort_by_created)) },
                                 onClick = {
-                                    sortType = SortType.ByCreated
+                                    viewModel.updateSortType(SortType.ByCreated)
                                     showSortMenu = false
                                 }
                             )
@@ -317,7 +230,7 @@ fun HomeScreen(
         floatingActionButton = {
             val isEmpty = displayedList.isEmpty()
             val fabScale by animateFloatAsState(
-                if (isEmpty) 1.08f else 1f,
+                if (isEmpty) 1.03f else 1f,
                 animationSpec = AnimationSpecs.springButton,
                 label = "fabScale"
             )
@@ -348,10 +261,22 @@ fun HomeScreen(
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
         ) {
-            // Search + category/tag filter + view mode
+            val chipColors = FilterChipDefaults.filterChipColors(
+                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                containerColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f),
+                labelColor = MaterialTheme.colorScheme.onBackground
+            )
+            val nextMode = (homeDisplayMode + 1) % 3
+            val hasActiveFilter = filterType != FilterType.All || selectedTag != null
+            var showFilterPanel by remember { mutableStateOf(hasActiveFilter) }
+            LaunchedEffect(hasActiveFilter) {
+                if (hasActiveFilter) showFilterPanel = true
+            }
+
             OutlinedTextField(
                 value = searchQuery,
-                onValueChange = { searchQuery = it },
+                onValueChange = viewModel::updateSearchQuery,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
@@ -360,49 +285,41 @@ fun HomeScreen(
                 shape = RoundedCornerShape(6.dp)
             )
 
-            // Filter chips and view mode toggle
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                val chipColors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = MaterialTheme.colorScheme.primary,
-                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-                    containerColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f),
-                    labelColor = MaterialTheme.colorScheme.onBackground
-                )
-                FilterChip(
-                    selected = filterType == FilterType.All,
-                    onClick = { filterType = FilterType.All },
-                    label = { Text(stringResource(R.string.filter_all)) },
-                    shape = RoundedCornerShape(4.dp),
-                    colors = chipColors
-                )
-                FilterChip(
-                    selected = filterType == FilterType.Birthday,
-                    onClick = { filterType = FilterType.Birthday },
-                    label = { Text(stringResource(R.string.category_birthday)) },
-                    shape = RoundedCornerShape(4.dp),
-                    colors = chipColors
-                )
-                FilterChip(
-                    selected = filterType == FilterType.Anniversary,
-                    onClick = { filterType = FilterType.Anniversary },
-                    label = { Text(stringResource(R.string.category_anniversary)) },
-                    shape = RoundedCornerShape(4.dp),
-                    colors = chipColors
-                )
-                FilterChip(
-                    selected = filterType == FilterType.Other,
-                    onClick = { filterType = FilterType.Other },
-                    label = { Text(stringResource(R.string.category_other)) },
-                    shape = RoundedCornerShape(4.dp),
-                    colors = chipColors
-                )
+                if (hasActiveFilter) {
+                    val activeLabel = when {
+                        selectedTag != null -> "#$selectedTag"
+                        filterType == FilterType.Birthday -> stringResource(R.string.category_birthday)
+                        filterType == FilterType.Anniversary -> stringResource(R.string.category_anniversary)
+                        filterType == FilterType.Other -> stringResource(R.string.category_other)
+                        else -> stringResource(R.string.filter_all)
+                    }
+                    AssistChip(
+                        onClick = { showFilterPanel = true },
+                        label = { Text(activeLabel) },
+                        colors = AssistChipDefaults.assistChipColors(
+                            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                            labelColor = MaterialTheme.colorScheme.onSurface
+                        )
+                    )
+                }
                 Spacer(modifier = Modifier.weight(1f))
-                val nextMode = (homeDisplayMode + 1) % 3
+                IconButton(
+                    onClick = { showFilterPanel = !showFilterPanel },
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Tune,
+                        contentDescription = stringResource(R.string.home_filter_panel_toggle),
+                        tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f)
+                    )
+                }
                 IconButton(
                     onClick = { homeDisplayMode = nextMode },
                     modifier = Modifier.size(40.dp)
@@ -423,35 +340,79 @@ fun HomeScreen(
                 }
             }
 
-            if (availableTags.isNotEmpty()) {
-                Row(
+            AnimatedVisibility(visible = showFilterPanel) {
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    val tagChipColors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primary,
-                        selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-                        containerColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f),
-                        labelColor = MaterialTheme.colorScheme.onBackground
-                    )
-                    FilterChip(
-                        selected = selectedTag == null,
-                        onClick = { selectedTag = null },
-                        label = { Text(stringResource(R.string.filter_all_tags)) },
-                        shape = RoundedCornerShape(4.dp),
-                        colors = tagChipColors
-                    )
-                    availableTags.forEach { tag ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         FilterChip(
-                            selected = selectedTag?.equals(tag, ignoreCase = true) == true,
-                            onClick = { selectedTag = tag },
-                            label = { Text("#$tag") },
+                            selected = filterType == FilterType.All,
+                            onClick = { viewModel.updateFilterType(FilterType.All) },
+                            label = { Text(stringResource(R.string.filter_all)) },
                             shape = RoundedCornerShape(4.dp),
-                            colors = tagChipColors
+                            colors = chipColors
                         )
+                        FilterChip(
+                            selected = filterType == FilterType.Birthday,
+                            onClick = { viewModel.updateFilterType(FilterType.Birthday) },
+                            label = { Text(stringResource(R.string.category_birthday)) },
+                            shape = RoundedCornerShape(4.dp),
+                            colors = chipColors
+                        )
+                        FilterChip(
+                            selected = filterType == FilterType.Anniversary,
+                            onClick = { viewModel.updateFilterType(FilterType.Anniversary) },
+                            label = { Text(stringResource(R.string.category_anniversary)) },
+                            shape = RoundedCornerShape(4.dp),
+                            colors = chipColors
+                        )
+                        FilterChip(
+                            selected = filterType == FilterType.Other,
+                            onClick = { viewModel.updateFilterType(FilterType.Other) },
+                            label = { Text(stringResource(R.string.category_other)) },
+                            shape = RoundedCornerShape(4.dp),
+                            colors = chipColors
+                        )
+                    }
+
+                    if (availableTags.isNotEmpty()) {
+                        val tagChipColors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                            containerColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f),
+                            labelColor = MaterialTheme.colorScheme.onBackground
+                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            FilterChip(
+                                selected = selectedTag == null,
+                                onClick = { viewModel.updateSelectedTag(null) },
+                                label = { Text(stringResource(R.string.filter_all_tags)) },
+                                shape = RoundedCornerShape(4.dp),
+                                colors = tagChipColors
+                            )
+                            availableTags.forEach { tag ->
+                                FilterChip(
+                                    selected = selectedTag?.equals(tag, ignoreCase = true) == true,
+                                    onClick = { viewModel.updateSelectedTag(tag) },
+                                    label = { Text("#$tag") },
+                                    shape = RoundedCornerShape(4.dp),
+                                    colors = tagChipColors
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -472,9 +433,9 @@ fun HomeScreen(
             AnimatedContent(
                 targetState = displayedList.isEmpty(),
                 transitionSpec = {
-                    (fadeIn(animationSpec = AnimationSpecs.mediumTween()) + slideInVertically(animationSpec = AnimationSpecs.mediumTweenIntOffset()) { it / 4 })
+                    (fadeIn(animationSpec = AnimationSpecs.mediumTween()) + slideInVertically(animationSpec = AnimationSpecs.mediumTweenIntOffset()) { it / 8 })
                         .togetherWith(
-                            fadeOut(animationSpec = AnimationSpecs.mediumTween()) + slideOutVertically(animationSpec = AnimationSpecs.mediumTweenIntOffset()) { -it / 4 }
+                            fadeOut(animationSpec = AnimationSpecs.mediumTween()) + slideOutVertically(animationSpec = AnimationSpecs.mediumTweenIntOffset()) { -it / 8 }
                         )
                 },
                 label = "listOrEmpty"
@@ -618,37 +579,33 @@ fun EventCard(
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.98f else 1f,
-        animationSpec = androidx.compose.animation.core.spring(
-            dampingRatio = androidx.compose.animation.core.Spring.DampingRatioLowBouncy,
-            stiffness = androidx.compose.animation.core.Spring.StiffnessLow
-        ),
+        animationSpec = AnimationSpecs.springButton,
         label = "cardScale"
     )
     val cardAlpha by animateFloatAsState(
         targetValue = if (isPressed) 0.92f else 1f,
-        animationSpec = androidx.compose.animation.core.tween(150),
+        animationSpec = AnimationSpecs.microTween(),
         label = "cardAlpha"
     )
     val dragElevation by animateDpAsState(
         targetValue = if (isDragging) 12.dp else 0.dp,
-        animationSpec = androidx.compose.animation.core.tween(200),
+        animationSpec = AnimationSpecs.smallTweenDp(),
         label = "dragElevation"
     )
 
     val juanbenTint = if (isPast) 0.85f else 1.0f
     val cardContainerColor = baseCardColor.copy(alpha = juanbenTint)
 
-    // 鍐呭鏂囧瓧棰滆壊锛氱粷瀵规竻鏅扮殑楂樺姣斿害瀹嬪紡鐢ㄨ壊
+    // Keep high contrast for readability on both light and dark card colors.
     val isLight = cardContainerColor.luminance() > 0.45f
     val cardContentColor = if (isLight) {
-        // 娴呰壊搴曪細鐢ㄦ瀬娣辩殑鐒﹀ⅷ鑹诧紝甯︿竴鐐圭偣鍘熻壊鍊惧悜
         lerp(Color(0xFF141618), baseCardColor, 0.1f)
     } else {
-        // 娣辫壊搴曪細鐢ㄥ甫鏆栬皟鐨勫绾搁湝鐧斤紝闃插埡鐪间笖鏋佸叾娓呮櫚
         lerp(Color(0xFFF9F7F2), baseCardColor, 0.05f)
     }
 
     val view = androidx.compose.ui.platform.LocalView.current
+    val locale = androidx.compose.ui.platform.LocalContext.current.resources.configuration.locales[0]
 
     val targetLocalDate = remember(eventState.event.date) {
         eventDateToLocalDate(eventState.event.date)
@@ -669,14 +626,14 @@ fun EventCard(
     when (mode) {
         DisplayModes.PAST_DAYS -> {
             val days = if (isRepeating) eventState.daysPassed else eventState.daysElapsed
-            displayContent = formatDaysSmart(days, false)
+            displayContent = formatDaysSmart(days, false, locale)
             displayUnit = stringResource(R.string.days_unit)
             labelText = stringResource(R.string.days_past_label)
         }
         DisplayModes.PAST_YMD -> {
             val start = targetLocalDate
             val end = today
-            displayContent = formatBetweenAsYMD(start, end)
+            displayContent = formatBetweenAsYMD(start, end, locale)
             displayUnit = ""
             labelText = stringResource(R.string.days_past_label)
         }
@@ -687,7 +644,7 @@ fun EventCard(
                 labelText = ""
             } else {
                 val days = if (isRepeating) eventState.daysLeft else eventState.daysRemaining
-                displayContent = formatDaysSmart(days, false)
+                displayContent = formatDaysSmart(days, false, locale)
                 displayUnit = stringResource(R.string.days_unit)
                 labelText = com.example.timeapk.ui.utils.getUntilLabel(androidx.compose.ui.platform.LocalContext.current, eventState)
             }
@@ -700,13 +657,13 @@ fun EventCard(
             } else {
                 val days = if (isRepeating) eventState.daysLeft else eventState.daysRemaining
                 val end = today.plusDays(days)
-                displayContent = formatBetweenAsYMD(today, end)
+                displayContent = formatBetweenAsYMD(today, end, locale)
                 displayUnit = ""
                 labelText = com.example.timeapk.ui.utils.getUntilLabel(androidx.compose.ui.platform.LocalContext.current, eventState)
             }
         }
         DisplayModes.MILESTONE -> {
-            displayContent = formatDaysSmart(eventState.nextMilestoneDays ?: 0L, false)
+            displayContent = formatDaysSmart(eventState.nextMilestoneDays ?: 0L, false, locale)
             displayUnit = stringResource(R.string.days_unit)
             val milestoneVal = eventState.nextMilestoneValue ?: 0L
             val milestoneStr = milestoneLabel(milestoneVal)
@@ -738,7 +695,7 @@ fun EventCard(
             }
             .clickable(
                 interactionSource = interactionSource,
-                indication = null,
+                indication = LocalIndication.current,
                 onClick = onClick
             )
             .semantics(mergeDescendants = true) { contentDescription = cardDescription },
@@ -796,7 +753,7 @@ fun EventCard(
                     .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
+                        indication = LocalIndication.current,
                         onClick = onToggleDateDeltaDisplayMode
                     ),
                 contentAlignment = Alignment.CenterEnd
@@ -859,20 +816,17 @@ private fun EventListItem(
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.98f else 1f,
-        animationSpec = androidx.compose.animation.core.spring(
-            dampingRatio = androidx.compose.animation.core.Spring.DampingRatioLowBouncy,
-            stiffness = androidx.compose.animation.core.Spring.StiffnessLow
-        ),
+        animationSpec = AnimationSpecs.springButton,
         label = "listItemScale"
     )
     val itemAlpha by animateFloatAsState(
         targetValue = if (isPressed) 0.92f else 1f,
-        animationSpec = androidx.compose.animation.core.tween(150),
+        animationSpec = AnimationSpecs.microTween(),
         label = "listItemAlpha"
     )
     val listDragElevation by animateDpAsState(
         targetValue = if (isDragging) 8.dp else 0.dp,
-        animationSpec = androidx.compose.animation.core.tween(200),
+        animationSpec = AnimationSpecs.smallTweenDp(),
         label = "listDragElevation"
     )
     val isPast = eventState.isPast
@@ -883,6 +837,7 @@ private fun EventListItem(
     val isRepeating = eventState.event.repeatType != REPEAT_NONE
     val isToday = eventState.daysRemaining == 0L && !eventState.isPast
     val todayLabel = stringResource(R.string.days_today_label)
+    val locale = androidx.compose.ui.platform.LocalContext.current.resources.configuration.locales[0]
 
     val availableModes = getAvailableDisplayModes(eventState, showMilestone = true)
     val modeIndex = availableModes.indexOf(dateDeltaDisplayMode)
@@ -894,13 +849,13 @@ private fun EventListItem(
     when (mode) {
         DisplayModes.PAST_DAYS -> {
             val days = if (isRepeating) eventState.daysPassed else eventState.daysElapsed
-            daysDisplay = formatDaysSmart(days, false) + stringResource(R.string.days_unit)
+            daysDisplay = formatDaysSmart(days, false, locale) + stringResource(R.string.days_unit)
             labelText = stringResource(R.string.days_past_label)
         }
         DisplayModes.PAST_YMD -> {
             val start = targetLocalDate
             val end = today
-            daysDisplay = formatBetweenAsYMD(start, end)
+            daysDisplay = formatBetweenAsYMD(start, end, locale)
             labelText = stringResource(R.string.days_past_label)
         }
         DisplayModes.UNTIL_DAYS -> {
@@ -909,7 +864,7 @@ private fun EventListItem(
                 labelText = ""
             } else {
                 val days = if (isRepeating) eventState.daysLeft else eventState.daysRemaining
-                daysDisplay = formatDaysSmart(days, false) + stringResource(R.string.days_unit)
+                daysDisplay = formatDaysSmart(days, false, locale) + stringResource(R.string.days_unit)
                 labelText = com.example.timeapk.ui.utils.getUntilLabel(androidx.compose.ui.platform.LocalContext.current, eventState)
             }
         }
@@ -920,12 +875,12 @@ private fun EventListItem(
             } else {
                 val days = if (isRepeating) eventState.daysLeft else eventState.daysRemaining
                 val end = today.plusDays(days)
-                daysDisplay = formatBetweenAsYMD(today, end)
+                daysDisplay = formatBetweenAsYMD(today, end, locale)
                 labelText = com.example.timeapk.ui.utils.getUntilLabel(androidx.compose.ui.platform.LocalContext.current, eventState)
             }
         }
         DisplayModes.MILESTONE -> {
-            daysDisplay = formatDaysSmart(eventState.nextMilestoneDays ?: 0L, false) + stringResource(R.string.days_unit)
+            daysDisplay = formatDaysSmart(eventState.nextMilestoneDays ?: 0L, false, locale) + stringResource(R.string.days_unit)
             val milestoneVal = eventState.nextMilestoneValue ?: 0L
             val milestoneStr = milestoneLabel(milestoneVal)
             labelText = stringResource(R.string.milestone_label_prefix, milestoneStr)
@@ -970,7 +925,7 @@ private fun EventListItem(
             .padding(horizontal = 24.dp, vertical = 0.dp)
             .clickable(
                 interactionSource = interactionSource,
-                indication = null,
+                indication = LocalIndication.current,
                 onClick = onClick
             )
             .semantics(mergeDescendants = true) { contentDescription = itemDescription },
@@ -1007,7 +962,7 @@ private fun EventListItem(
                 .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
+                    indication = LocalIndication.current,
                     onClick = onToggleDateDeltaDisplayMode
                 ),
             horizontalAlignment = Alignment.End,
@@ -1063,8 +1018,17 @@ private fun MonthCalendarView(
 ) {
     var currentMonth by remember(selectedDate) { mutableStateOf(YearMonth.from(selectedDate)) }
     var pickedDate by remember(selectedDate) { mutableStateOf(selectedDate) }
+    val context = androidx.compose.ui.platform.LocalContext.current
 
-    val monthFormatter = remember { DateTimeFormatter.ofPattern("yyyy.MM") }
+    val locale = context.resources.configuration.locales[0]
+    val monthPattern = stringResource(R.string.calendar_month_title_pattern)
+    val selectedDatePattern = stringResource(R.string.calendar_selected_date_pattern)
+    val monthFormatter = remember(locale, monthPattern) {
+        DateTimeFormatter.ofPattern(monthPattern, locale)
+    }
+    val selectedDateFormatter = remember(locale, selectedDatePattern) {
+        DateTimeFormatter.ofPattern(selectedDatePattern, locale)
+    }
     val eventsByDate = remember(events) { events.groupBy { it.nextOccurrenceDate } }
 
     val daysInMonth = currentMonth.lengthOfMonth()
@@ -1098,7 +1062,7 @@ private fun MonthCalendarView(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = { currentMonth = currentMonth.minusMonths(1) }) {
-                Icon(Icons.Default.KeyboardArrowLeft, contentDescription = stringResource(R.string.calendar_prev_month))
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = stringResource(R.string.calendar_prev_month))
             }
             Text(
                 text = currentMonth.atDay(1).format(monthFormatter),
@@ -1106,7 +1070,7 @@ private fun MonthCalendarView(
                 color = MaterialTheme.colorScheme.onBackground
             )
             IconButton(onClick = { currentMonth = currentMonth.plusMonths(1) }) {
-                Icon(Icons.Default.KeyboardArrowRight, contentDescription = stringResource(R.string.calendar_next_month))
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = stringResource(R.string.calendar_next_month))
             }
         }
 
@@ -1138,16 +1102,16 @@ private fun MonthCalendarView(
                     Surface(
                         modifier = Modifier
                             .weight(1f)
-                            .height(56.dp)
+                            .height(60.dp)
                             .clickable(enabled = date != null) { if (date != null) pickedDate = date },
-                        shape = RoundedCornerShape(6.dp),
+                        shape = RoundedCornerShape(8.dp),
                         color = if (isSelected) {
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
                         } else {
                             MaterialTheme.colorScheme.surface
                         },
                         border = BorderStroke(
-                            width = if (isToday) 1.dp else 0.5.dp,
+                            width = if (isToday) 1.dp else 0.6.dp,
                             color = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
                         )
                     ) {
@@ -1178,7 +1142,7 @@ private fun MonthCalendarView(
         }
 
         Text(
-            text = stringResource(R.string.calendar_selected_date_events, pickedDate.toString()),
+            text = stringResource(R.string.calendar_selected_date_events, pickedDate.format(selectedDateFormatter)),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 4.dp)
@@ -1205,7 +1169,7 @@ private fun MonthCalendarView(
                                 onClick = { onEventClick(state.event.id) },
                                 onLongClick = { onEventLongClick(state.event.id) }
                             ),
-                        shape = RoundedCornerShape(6.dp),
+                        shape = RoundedCornerShape(8.dp),
                         color = MaterialTheme.colorScheme.surface,
                         border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
                     ) {
@@ -1238,6 +1202,16 @@ private fun MonthCalendarView(
         }
     }
 }
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -1,26 +1,26 @@
-package com.example.timeapk.widget
+﻿package com.example.timeapk.widget
 
 import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.Intent
 import android.os.Binder
-import android.view.View
+import android.util.TypedValue
 import android.widget.RemoteViews
 import android.widget.RemoteViewsService
+import androidx.core.content.ContextCompat
 import com.example.timeapk.R
 import com.example.timeapk.TimeApplication
+import com.example.timeapk.data.REPEAT_NONE
 import com.example.timeapk.ui.home.EventUiState
 import com.example.timeapk.ui.home.toEventUiState
-import com.example.timeapk.ui.utils.formatDays
 import com.example.timeapk.ui.utils.DisplayModes
-import com.example.timeapk.ui.utils.getAvailableDisplayModes
 import com.example.timeapk.ui.utils.eventDateToLocalDate
 import com.example.timeapk.ui.utils.formatBetweenAsYMD
-import com.example.timeapk.data.REPEAT_NONE
-import java.time.LocalDate
+import com.example.timeapk.ui.utils.formatDays
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import androidx.core.content.ContextCompat
+import java.time.LocalDate
+import kotlin.math.roundToInt
 
 class CountdownWidgetService : RemoteViewsService() {
     override fun onGetViewFactory(intent: Intent): RemoteViewsFactory {
@@ -33,14 +33,19 @@ class CountdownRemoteViewsFactory(
     intent: Intent
 ) : RemoteViewsService.RemoteViewsFactory {
 
-    private var appWidgetId: Int =
+    private val appWidgetId: Int =
         intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
 
+    private val widgetSizeBucket: Int = intent.getIntExtra(
+        WidgetSizeBucket.EXTRA_SIZE_BUCKET,
+        WidgetSizeBucket.MEDIUM
+    )
+
     private val items = mutableListOf<EventUiState>()
-    
+
     private var dateDeltaDisplayMode: Int = 0
     private var perEventDateDeltaModes: Map<Int, Int> = emptyMap()
-    private var showMilestone: Boolean = true
+    private var widgetFontScale: Float = 1f
 
     override fun onCreate() {
         // no-op
@@ -51,7 +56,6 @@ class CountdownRemoteViewsFactory(
     }
 
     override fun onDataSetChanged() {
-        // 允许在 DataStore / Room 上下文中访问
         val identityToken = Binder.clearCallingIdentity()
         try {
             val app = context.applicationContext as TimeApplication
@@ -60,26 +64,16 @@ class CountdownRemoteViewsFactory(
                 val pinnedEventIds = app.userPrefs.pinnedEventIdsFlow.first()
                 dateDeltaDisplayMode = app.userPrefs.dateDeltaDisplayModeFlow.first()
                 perEventDateDeltaModes = app.userPrefs.perEventDateDeltaDisplayModesFlow.first()
-                showMilestone = app.userPrefs.showMilestoneFlow.first()
+                widgetFontScale = app.userPrefs.widgetFontScaleFlow.first()
 
-                val all = app.repository.getAllEventsSnapshot()
-                    .map { it.toEventUiState(milestones) }
-
-                // 先按是否已过期 + 剩余天数排序（与首页逻辑一致）
-                val upcoming = all
-                    .filter { !it.isPast }
-                    .sortedBy { it.daysRemaining }
-                val past = all
-                    .filter { it.isPast }
-                    .sortedBy { it.daysRemaining }
+                val all = app.repository.getAllEventsSnapshot().map { it.toEventUiState(milestones) }
+                val upcoming = all.filter { !it.isPast }.sortedBy { it.daysRemaining }
+                val past = all.filter { it.isPast }.sortedBy { it.daysRemaining }
                 var base = upcoming + past
 
-                // 应用“置顶”排序：置顶事件始终在最前，其余按剩余时间排序
                 if (pinnedEventIds.isNotEmpty()) {
                     val pinnedSet = pinnedEventIds.toSet()
-                    val pinned = pinnedEventIds.mapNotNull { id ->
-                        base.find { it.event.id == id }
-                    }
+                    val pinned = pinnedEventIds.mapNotNull { id -> base.find { it.event.id == id } }
                     val unpinned = base.filter { it.event.id !in pinnedSet }
                     base = pinned + unpinned
                 }
@@ -96,12 +90,14 @@ class CountdownRemoteViewsFactory(
 
     override fun getViewAt(position: Int): RemoteViews? {
         if (position < 0 || position >= items.size) return null
+
         val state = items[position]
         val views = RemoteViews(context.packageName, R.layout.widget_countdown_item)
+        applySizeStyle(views)
 
         val isDark = (context.resources.configuration.uiMode and
             android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
-                android.content.res.Configuration.UI_MODE_NIGHT_YES
+            android.content.res.Configuration.UI_MODE_NIGHT_YES
         val textColorRes = if (isDark) R.color.widget_text_dark else R.color.widget_text_light
         val textColor = ContextCompat.getColor(context, textColorRes)
 
@@ -112,46 +108,22 @@ class CountdownRemoteViewsFactory(
 
         val persistedMode = perEventDateDeltaModes[state.event.id] ?: dateDeltaDisplayMode
         val mode = when (persistedMode) {
-            // 小组件不展示“重大里程碑”，若用户在应用中选择了里程碑模式，则退化为天数字段显示
             DisplayModes.MILESTONE -> if (state.isPast) DisplayModes.PAST_DAYS else DisplayModes.UNTIL_DAYS
             else -> persistedMode
         }
 
-        val valueText = when (mode) {
-            DisplayModes.PAST_DAYS -> {
-                val days = if (isRepeating) state.daysPassed else state.daysElapsed
-                "${context.getString(R.string.days_past_label)} ${formatDays(days)} ${context.getString(R.string.days_unit)}"
-            }
-            DisplayModes.PAST_YMD -> {
-                "${context.getString(R.string.days_past_label)} ${formatBetweenAsYMD(targetLocalDate, today)}"
-            }
-            DisplayModes.UNTIL_DAYS -> {
-                if (isToday) {
-                    context.getString(R.string.days_today_label)
-                } else {
-                    val days = if (isRepeating) state.daysLeft else state.daysRemaining
-                    val label = com.example.timeapk.ui.utils.getUntilLabel(context, state)
-                    "$label ${formatDays(days)} ${context.getString(R.string.days_unit)}"
-                }
-            }
-            DisplayModes.UNTIL_YMD -> {
-                if (isToday) {
-                    context.getString(R.string.days_today_label)
-                } else {
-                    val days = if (isRepeating) state.daysLeft else state.daysRemaining
-                    val ymd = formatBetweenAsYMD(today, today.plusDays(days))
-                    val label = com.example.timeapk.ui.utils.getUntilLabel(context, state)
-                    "$label $ymd"
-                }
-            }
-            else -> ""
+        val valueText = when (widgetSizeBucket) {
+            WidgetSizeBucket.SMALL -> buildNumericValueText(state, mode, isRepeating, isToday)
+            WidgetSizeBucket.LARGE -> buildVerboseValueText(state, mode, targetLocalDate, today, isRepeating, isToday)
+            else -> buildCompactValueText(state, mode, targetLocalDate, today, isRepeating, isToday)
         }
 
         val titleText = if (state.event.isLunar) {
-            "[农] ${state.event.title}"
+            context.getString(R.string.widget_lunar_prefix, state.event.title)
         } else {
             state.event.title
         }
+
         views.setTextViewText(R.id.widget_item_title, titleText)
         views.setTextViewText(R.id.widget_item_value, valueText)
         views.setTextColor(R.id.widget_item_title, textColor)
@@ -161,16 +133,119 @@ class CountdownRemoteViewsFactory(
             putExtra("open_event_id", state.event.id)
         }
         views.setOnClickFillInIntent(R.id.widget_item_root, fillIntent)
-
         return views
+    }
+
+    private fun applySizeStyle(views: RemoteViews) {
+        val style = WidgetStylePolicy.resolve(widgetSizeBucket, widgetFontScale)
+        views.setTextViewTextSize(R.id.widget_item_title, TypedValue.COMPLEX_UNIT_SP, style.titleSp)
+        views.setTextViewTextSize(R.id.widget_item_value, TypedValue.COMPLEX_UNIT_SP, style.valueSp)
+        views.setViewPadding(
+            R.id.widget_item_root,
+            dp(style.paddingHorizontalDp),
+            dp(style.paddingVerticalDp),
+            dp(style.paddingHorizontalDp),
+            dp(style.paddingVerticalDp)
+        )
+        views.setInt(R.id.widget_item_value, "setMaxEms", style.valueMaxEms)
+    }
+
+    private fun buildNumericValueText(
+        state: EventUiState,
+        mode: Int,
+        isRepeating: Boolean,
+        isToday: Boolean
+    ): String {
+        return WidgetValueFormatter.numericValueForSmall(
+            mode = mode,
+            isPast = state.isPast,
+            isRepeating = isRepeating,
+            isToday = isToday,
+            daysElapsed = state.daysElapsed,
+            daysPassed = state.daysPassed,
+            daysRemaining = state.daysRemaining,
+            daysLeft = state.daysLeft
+        )
+    }
+
+    private fun buildCompactValueText(
+        state: EventUiState,
+        mode: Int,
+        targetLocalDate: LocalDate,
+        today: LocalDate,
+        isRepeating: Boolean,
+        isToday: Boolean
+    ): String {
+        if (isToday) return context.getString(R.string.widget_today_compact)
+        val locale = context.resources.configuration.locales[0]
+
+        return when (mode) {
+            DisplayModes.PAST_DAYS -> {
+                val days = if (isRepeating) state.daysPassed else state.daysElapsed
+                context.getString(R.string.widget_past_days_compact, formatDays(days))
+            }
+            DisplayModes.PAST_YMD -> {
+                context.getString(R.string.widget_past_ymd_compact, formatBetweenAsYMD(targetLocalDate, today, locale))
+            }
+            DisplayModes.UNTIL_DAYS -> {
+                val days = if (isRepeating) state.daysLeft else state.daysRemaining
+                context.getString(R.string.widget_until_days_compact, formatDays(days))
+            }
+            DisplayModes.UNTIL_YMD -> {
+                val days = if (isRepeating) state.daysLeft else state.daysRemaining
+                context.getString(R.string.widget_until_ymd_compact, formatBetweenAsYMD(today, today.plusDays(days), locale))
+            }
+            else -> ""
+        }
+    }
+
+    private fun buildVerboseValueText(
+        state: EventUiState,
+        mode: Int,
+        targetLocalDate: LocalDate,
+        today: LocalDate,
+        isRepeating: Boolean,
+        isToday: Boolean
+    ): String {
+        if (isToday) return context.getString(R.string.days_today_label)
+        val locale = context.resources.configuration.locales[0]
+
+        return when (mode) {
+            DisplayModes.PAST_DAYS -> {
+                val days = if (isRepeating) state.daysPassed else state.daysElapsed
+                context.getString(R.string.days_elapsed_format, days.toDisplayInt())
+            }
+            DisplayModes.PAST_YMD -> {
+                context.getString(R.string.widget_past_ymd_compact, formatBetweenAsYMD(targetLocalDate, today, locale))
+            }
+            DisplayModes.UNTIL_DAYS -> {
+                val days = if (isRepeating) state.daysLeft else state.daysRemaining
+                context.getString(R.string.notification_days_left, days.toDisplayInt())
+            }
+            DisplayModes.UNTIL_YMD -> {
+                val days = if (isRepeating) state.daysLeft else state.daysRemaining
+                context.getString(R.string.widget_until_ymd_compact, formatBetweenAsYMD(today, today.plusDays(days), locale))
+            }
+            else -> ""
+        }
+    }
+
+    private fun Long.toDisplayInt(): Int = coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+
+    private fun dp(value: Int): Int {
+        val density = context.resources.displayMetrics.density
+        return (value * density).roundToInt()
     }
 
     override fun getLoadingView(): RemoteViews? = null
 
     override fun getViewTypeCount(): Int = 1
 
-    override fun getItemId(position: Int): Long = items.getOrNull(position)?.event?.id?.toLong() ?: position.toLong()
+    override fun getItemId(position: Int): Long =
+        items.getOrNull(position)?.event?.id?.toLong() ?: position.toLong()
 
     override fun hasStableIds(): Boolean = true
 }
+
+
 

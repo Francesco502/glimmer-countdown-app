@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -23,6 +24,8 @@ private val SHOW_MILESTONE = booleanPreferencesKey("show_milestone")
 private val HOME_DISPLAY_MODE = intPreferencesKey("home_display_mode")
 private val HOME_DENSITY_MODE = intPreferencesKey("home_density_mode")
 private val FONT_PRESET = intPreferencesKey("font_preset")
+private val APP_BASE_FONT_SCALE = floatPreferencesKey("app_base_font_scale")
+private val WIDGET_FONT_SCALE = floatPreferencesKey("widget_font_scale")
 private val CUSTOM_BACKGROUND_HEX = stringPreferencesKey("custom_background_hex")
 private val CUSTOM_SURFACE_HEX = stringPreferencesKey("custom_surface_hex")
 private val CUSTOM_PRIMARY_HEX = stringPreferencesKey("custom_primary_hex")
@@ -38,6 +41,13 @@ private val PINNED_EVENT_IDS_JSON = stringPreferencesKey("pinned_event_ids_json"
 private val MILESTONE_REMIND_ENABLED = booleanPreferencesKey("milestone_remind_enabled")
 private val MILESTONE_REMIND_DAYS_AHEAD = intPreferencesKey("milestone_remind_days_ahead")
 private val MILESTONE_REMIND_TIME_MINUTES_OF_DAY = intPreferencesKey("milestone_remind_time_minutes_of_day")
+private val SMART_MILESTONES_ENABLED = booleanPreferencesKey("smart_milestones_enabled")
+private val REDUCE_MOTION_ENABLED = booleanPreferencesKey("reduce_motion_enabled")
+
+private const val APP_BASE_FONT_SCALE_MIN = 0.85f
+private const val APP_BASE_FONT_SCALE_MAX = 1.30f
+private const val WIDGET_FONT_SCALE_MIN = 0.85f
+private const val WIDGET_FONT_SCALE_MAX = 1.60f
 
 const val THEME_FOLLOW_SYSTEM = 0
 const val THEME_LIGHT = 1
@@ -57,6 +67,12 @@ class UserPreferencesRepository(private val context: Context) {
     val homeDisplayModeFlow: Flow<Int> = context.dataStore.data.map { (it[HOME_DISPLAY_MODE] ?: 0).coerceIn(0, 2) }
     val homeDensityModeFlow: Flow<Int> = context.dataStore.data.map { it[HOME_DENSITY_MODE] ?: 1 }
     val fontPresetFlow: Flow<Int> = context.dataStore.data.map { it[FONT_PRESET] ?: 4 }
+    val appBaseFontScaleFlow: Flow<Float> = context.dataStore.data.map {
+        sanitizeAppBaseFontScale(it[APP_BASE_FONT_SCALE] ?: 1f)
+    }
+    val widgetFontScaleFlow: Flow<Float> = context.dataStore.data.map {
+        sanitizeWidgetFontScale(it[WIDGET_FONT_SCALE] ?: 1f)
+    }
     val customBackgroundHexFlow: Flow<String?> = context.dataStore.data.map { it[CUSTOM_BACKGROUND_HEX].takeIf { s -> !s.isNullOrBlank() } }
     val customSurfaceHexFlow: Flow<String?> = context.dataStore.data.map { it[CUSTOM_SURFACE_HEX].takeIf { s -> !s.isNullOrBlank() } }
     val customPrimaryHexFlow: Flow<String?> = context.dataStore.data.map { it[CUSTOM_PRIMARY_HEX].takeIf { s -> !s.isNullOrBlank() } }
@@ -84,6 +100,12 @@ class UserPreferencesRepository(private val context: Context) {
     }
     val milestoneRemindTimeMinutesOfDayFlow: Flow<Int> = context.dataStore.data.map {
         sanitizeReminderTimeMinutesOfDay(it[MILESTONE_REMIND_TIME_MINUTES_OF_DAY] ?: 480)
+    }
+    val smartMilestonesEnabledFlow: Flow<Boolean> = context.dataStore.data.map {
+        it[SMART_MILESTONES_ENABLED] ?: true
+    }
+    val reduceMotionEnabledFlow: Flow<Boolean> = context.dataStore.data.map {
+        it[REDUCE_MOTION_ENABLED] ?: false
     }
 
     private fun parseCustomEventOrder(raw: String): List<Int> {
@@ -148,6 +170,14 @@ class UserPreferencesRepository(private val context: Context) {
 
     suspend fun setFontPreset(preset: Int) {
         context.dataStore.edit { it[FONT_PRESET] = preset }
+    }
+
+    suspend fun setAppBaseFontScale(scale: Float) {
+        context.dataStore.edit { it[APP_BASE_FONT_SCALE] = sanitizeAppBaseFontScale(scale) }
+    }
+
+    suspend fun setWidgetFontScale(scale: Float) {
+        context.dataStore.edit { it[WIDGET_FONT_SCALE] = sanitizeWidgetFontScale(scale) }
     }
 
     suspend fun setCustomBackgroundHex(hex: String?) {
@@ -222,5 +252,21 @@ class UserPreferencesRepository(private val context: Context) {
         context.dataStore.edit {
             it[MILESTONE_REMIND_TIME_MINUTES_OF_DAY] = sanitizeReminderTimeMinutesOfDay(minutesOfDay)
         }
+    }
+
+    suspend fun setSmartMilestonesEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[SMART_MILESTONES_ENABLED] = enabled }
+    }
+
+    suspend fun setReduceMotionEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[REDUCE_MOTION_ENABLED] = enabled }
+    }
+
+    private fun sanitizeAppBaseFontScale(scale: Float): Float {
+        return scale.coerceIn(APP_BASE_FONT_SCALE_MIN, APP_BASE_FONT_SCALE_MAX)
+    }
+
+    private fun sanitizeWidgetFontScale(scale: Float): Float {
+        return scale.coerceIn(WIDGET_FONT_SCALE_MIN, WIDGET_FONT_SCALE_MAX)
     }
 }

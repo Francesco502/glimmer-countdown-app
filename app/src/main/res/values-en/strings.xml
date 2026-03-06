@@ -18,11 +18,11 @@
     <string name="days_today_label">Today</string>
     <string name="days_past_label">elapsed</string>
     <string name="days_elapsed_format">has been %d days</string>
-    <string name="days_both_summary">%1$d days elapsed 路 %2$d days left</string>
-    <string name="days_both_summary_ymd">%1$s elapsed 路 %2$d days left</string>
+    <string name="days_both_summary">%1$d days elapsed · %2$d days left</string>
+    <string name="days_both_summary_ymd">%1$s elapsed · %2$d days left</string>
     <string name="birthday_in_days">%d days until birthday</string>
-    <string name="days_birthday_summary">%1$d days elapsed 路 %2$d days until birthday</string>
-    <string name="days_birthday_summary_ymd">%1$s elapsed 路 %2$d days until birthday</string>
+    <string name="days_birthday_summary">%1$d days elapsed · %2$d days until birthday</string>
+    <string name="days_birthday_summary_ymd">%1$s elapsed · %2$d days until birthday</string>
     <string name="milestone_in_days">%2$d days until %1$s</string>
     <string name="milestone_7">7 days</string>
     <string name="milestone_30">30 days</string>
@@ -85,7 +85,7 @@
     <string name="sync_to_schedule">Sync to system schedule</string>
     <string name="sync_to_schedule_summary">Add to calendar/agenda so the system notifies you at the set time</string>
     <string name="schedule_reminder_title_format">%2$d day(s) until \"%1$s\"</string>
-    <string name="schedule_reminder_title_today">\"%1$s\" 鈥?today</string>
+    <string name="schedule_reminder_title_today">\"%1$s\" · today</string>
 
     <!-- Category preset -->
     <string name="category_birthday">Birthday</string>
@@ -143,7 +143,7 @@
 
     <!-- Share -->
     <string name="share_text_countdown">%1$s in %2$d days</string>
-    <string name="share_text_today">%1$s 鈥?Today!</string>
+    <string name="share_text_today">%1$s · Today!</string>
     <string name="share_text_past">%1$s has been %2$d days</string>
     <string name="share_chooser_title">Share countdown</string>
     <string name="nav_back">Back</string>
@@ -164,7 +164,7 @@
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
-    <string name="settings_about_version">About 路 Version %1$s</string>
+    <string name="settings_about_version">About · Version %1$s</string>
     <string name="settings_check_update">Check for updates</string>
     <string name="update_latest">Already up to date</string>
     <string name="update_error">Update check failed. Please try again later.</string>
@@ -172,7 +172,8 @@
     <string name="update_download_install">Download and install</string>
     <string name="update_later">Later</string>
     <string name="update_release_notes">Release notes</string>
-    <string name="update_downloading">Downloading鈥?</string>
+    <string name="update_downloading">Downloading...</string>
+    <string name="settings_check_update_loading">Checking...</string>
     <string name="update_download_failed">Download failed</string>
     <string name="update_open_browser">Open in browser</string>
     <string name="theme_title">Theme</string>
@@ -193,6 +194,8 @@
     <string name="settings_show_hours_summary">Show remaining hours on cards (within the day)</string>
     <string name="settings_show_milestone">Show milestones</string>
     <string name="settings_show_milestone_summary">Show days until major time milestones</string>
+    <string name="settings_smart_milestones_title">Smart milestone presets</string>
+    <string name="settings_smart_milestones_summary">Auto add practical milestone points based on current progress</string>
     <string name="settings_custom_milestones_title">Custom milestones</string>
     <string name="settings_custom_milestones_restore">Restore default</string>
     <string name="settings_custom_milestones_add_hint">Add days, e.g. 200 or 1500</string>
@@ -204,13 +207,19 @@
     <string name="font_mono">Monospace</string>
     <string name="font_slender_gold">Slender Gold (Serif Thin)</string>
     <string name="language_title">Language</string>
-    <string name="language_zh">涓枃</string>
+    <string name="language_zh">Chinese</string>
     <string name="language_en">English</string>
     <string name="settings_category_display_title">Display &amp; language</string>
 
     <!-- Widget tags -->
     <string name="widget_tag_past">Elapsed</string>
     <string name="widget_tag_soon">Soon</string>
+    <string name="widget_today_compact">Today</string>
+    <string name="widget_until_days_compact">%1$sd left</string>
+    <string name="widget_past_days_compact">%1$sd ago</string>
+    <string name="widget_until_ymd_compact">%1$s left</string>
+    <string name="widget_past_ymd_compact">%1$s ago</string>
+    <string name="widget_lunar_prefix">L· %1$s</string>
 
     <!-- Reminder notifications -->
     <string name="notification_channel_name">Countdown reminders</string>
@@ -234,7 +243,7 @@
 
     <!-- Card short strings -->
     <string name="hours_remaining_short">%d hours</string>
-    <string name="milestone_in_days_short">%1$d ann. 路 %2$d d</string>
+    <string name="milestone_in_days_short">%1$d ann. · %2$d d</string>
 
     <!-- Splash -->
     <string name="splash_tagline">Time flies, casting shadows</string>
@@ -256,7 +265,7 @@
     <string name="weekday_fri">Fri</string>
     <string name="weekday_sat">Sat</string>
     <string name="weekday_sun">Sun</string>
-    <string name="date_weekday_format">%1$s 路 %2$s</string>
+    <string name="date_weekday_format">%1$s · %2$s</string>
     <string name="elapsed_days_format">%1$s days elapsed</string>
 
     <!-- Constellation -->
@@ -277,6 +286,7 @@
     <string name="date_part_month">Month</string>
     <string name="date_part_day">Day</string>
     <string name="calendar_permission_required_for_sync">Calendar permission is required to sync to system schedule.</string>
+    <string name="notification_permission_required_for_reminder">Notification permission is required to enable reminders.</string>
     <string name="action_apply">Apply</string>
     <string name="custom_remind_days_label">Custom days before</string>
     <string name="custom_remind_days_hint">e.g. 30</string>
@@ -299,7 +309,35 @@
     <string name="calendar_next_month">Next month</string>
     <string name="calendar_selected_date_events">Events on %1$s</string>
     <string name="calendar_no_events">No events on this day</string>
+    <string name="settings_app_font_scale_title">App base font size</string>
+    <string name="settings_widget_font_scale_title">Widget base font size</string>
+    <string name="settings_font_scale_summary">Current %1$d%%</string>
+    <string name="settings_font_scale_reset">Reset to 100%</string>
+    <string name="lunar_month_suffix"></string>
+    <string name="home_filter_panel_toggle">Filters</string>
+    <string name="custom_color_contrast_error">Contrast is too low (minimum %1$.2f). Please choose a more readable color.</string>
+    <string name="settings_reduce_motion_title">Reduce motion</string>
+    <string name="settings_reduce_motion_summary">Use subtler animations and reduce movement transitions</string>
+    <string name="ganzhi_year_format">Ganzhi %1$s</string>
+    <string name="wuxing_element_metal">Metal</string>
+    <string name="wuxing_element_wood">Wood</string>
+    <string name="wuxing_element_water">Water</string>
+    <string name="wuxing_element_fire">Fire</string>
+    <string name="wuxing_element_earth">Earth</string>
+    <string name="wuxing_complete">all five present</string>
+    <string name="wuxing_missing_format">missing %1$s</string>
+    <string name="wuxing_master_format">%1$s (%2$s)</string>
+    <string name="wuxing_summary_format">%1$s (%2$s)</string>
+    <string name="calendar_month_title_pattern">MMM yyyy</string>
+    <string name="calendar_selected_date_pattern">MMM d, yyyy</string>
+    <string name="lunar_date_full_format">Ganzhi %1$s ? Lunar %2$s%3$s %4$s</string>
+    <string name="lunar_date_fallback_format">Lunar %1$d-%2$d-%3$d</string>
 </resources>
+
+
+
+
+
 
 
 

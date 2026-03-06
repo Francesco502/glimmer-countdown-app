@@ -1,6 +1,7 @@
 ﻿package com.example.timeapk.ui.event
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -31,6 +32,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.core.content.ContextCompat
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.input.KeyboardType
@@ -64,16 +66,16 @@ import java.time.ZoneOffset
 import java.util.Locale
 
 private val PRESET_COLORS = listOf(
-    // 瀹嬩唬缇庡棰滆壊锛氱敤鎴锋寚瀹氶粯璁よ壊 + 琛ュ厖鑹?
-    "#4A4933", // 娌夐
-    "#457080", // 鏅嘲钃?
-    "#5F856B", // 姹佺豢
-    "#AF4E31", // 涓圭浇
-    "#AC8F62", // 绉嬮
-    "#86351C", // 鏍楀３
-    "#5B8E79", // 锜瑰３闈?
-    "#3A4550", // 閾佺伆
-    "#785B64"  // 缁涚传
+    // Song-style preset palette for event cards.
+    "#4A4933",
+    "#457080",
+    "#5F856B",
+    "#AF4E31",
+    "#AC8F62",
+    "#86351C",
+    "#5B8E79",
+    "#3A4550",
+    "#785B64"
 )
 // CATEGORY_DEFAULT_COLOR map removed as explicit category selection is gone
 
@@ -92,6 +94,7 @@ fun EventEntryScreen(
     val calendarPermissions = remember {
         arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR)
     }
+    var pendingSaveAfterNotificationPermission by remember { mutableStateOf(false) }
     var pendingSaveAfterCalendarPermission by remember { mutableStateOf(false) }
     LaunchedEffect(eventId) {
         if (eventId != null && eventId != 0) {
@@ -118,6 +121,14 @@ fun EventEntryScreen(
             Manifest.permission.WRITE_CALENDAR
         ) == PackageManager.PERMISSION_GRANTED
         return readGranted && writeGranted
+    }
+
+    fun hasNotificationPermission(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
+        return ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.POST_NOTIFICATIONS
+        ) == PackageManager.PERMISSION_GRANTED
     }
 
     fun launchSave() {
@@ -155,6 +166,37 @@ fun EventEntryScreen(
             coroutineScope.launch {
                 snackbarHostState.showSnackbar(
                     context.getString(R.string.calendar_permission_required_for_sync)
+                )
+            }
+        }
+    }
+
+    fun continueSaveAfterPermissionChecks() {
+        val details = eventUiState.eventDetails
+        val shouldCheckCalendarPermission = details.syncToScheduleEnabled
+        if (shouldCheckCalendarPermission && !hasCalendarPermission()) {
+            pendingSaveAfterCalendarPermission = true
+            calendarPermissionLauncher.launch(calendarPermissions)
+            return
+        }
+        launchSave()
+    }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (!pendingSaveAfterNotificationPermission) {
+            return@rememberLauncherForActivityResult
+        }
+
+        pendingSaveAfterNotificationPermission = false
+        if (granted) {
+            continueSaveAfterPermissionChecks()
+        } else {
+            isSaving = false
+            coroutineScope.launch {
+                snackbarHostState.showSnackbar(
+                    context.getString(R.string.notification_permission_required_for_reminder)
                 )
             }
         }
@@ -198,16 +240,17 @@ fun EventEntryScreen(
                 if (isSaving) return@EventEntryBody
 
                 val details = eventUiState.eventDetails
-                val shouldCheckCalendarPermission = details.syncToScheduleEnabled
-                if (shouldCheckCalendarPermission && !hasCalendarPermission()) {
+                val shouldRequestNotificationPermission =
+                    details.remindEnabled && !hasNotificationPermission()
+                if (shouldRequestNotificationPermission) {
                     isSaving = true
-                    pendingSaveAfterCalendarPermission = true
-                    calendarPermissionLauncher.launch(calendarPermissions)
+                    pendingSaveAfterNotificationPermission = true
+                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                     return@EventEntryBody
                 }
 
                 isSaving = true
-                launchSave()
+                continueSaveAfterPermissionChecks()
             },
             modifier = modifier.padding(innerPadding)
         )
@@ -228,16 +271,16 @@ fun EventEntryBody(
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .imePadding()
-            .background(MaterialTheme.colorScheme.background) // 澶嶅彜绾壊鑳屾櫙
+            .background(MaterialTheme.colorScheme.background)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        // 琛ㄥ崟鍖哄煙锛氫笌椤甸潰鑳屾櫙鍚岃壊锛屼笉鍐嶄娇鐢?surfaceVariant 澶ч潰绉富鑹?
+        // Keep a clear paper layer for form content.
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(4.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background),
-            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.24f)),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Column(
@@ -251,7 +294,6 @@ fun EventEntryBody(
             }
         }
         
-        // 搴曢儴淇濆瓨鎸夐挳锛氬簾寮冨疄蹇冭壊鍧楋紝鏀逛负绾枃瀛?鍗扮珷椋庢牸
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.End
@@ -282,7 +324,28 @@ fun EventInputForm(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val latestEventDetails by rememberUpdatedState(eventDetails)
     val calendarPermissions = arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR)
+    var pendingReminderEnableAfterPermission by remember { mutableStateOf(false) }
+
+    fun hasNotificationPermission(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
+        return ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.POST_NOTIFICATIONS
+        ) == PackageManager.PERMISSION_GRANTED
+    }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (!pendingReminderEnableAfterPermission) {
+            return@rememberLauncherForActivityResult
+        }
+        pendingReminderEnableAfterPermission = false
+        onValueChange(latestEventDetails.copy(remindEnabled = granted))
+    }
+
     val calendarPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { grantResults ->
@@ -423,7 +486,7 @@ fun EventInputForm(
         // 鏃ユ湡閫夋嫨锛氬叕鍘?/ 鍐滃巻 鏄剧ず
         val baseDate = eventDateToLocalDate(eventDetails.date)
         val dateString = if (eventDetails.isLunar) {
-            formatLunarDateString(baseDate)
+                                            formatLunarDateString(baseDate, context)
         } else {
             baseDate.format(dateFormatter)
         }
@@ -443,10 +506,7 @@ fun EventInputForm(
             Box(
                 modifier = Modifier
                     .matchParentSize()
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) {
+                    .clickable {
                         showDatePicker = true
                     }
             )
@@ -488,7 +548,7 @@ fun EventInputForm(
             }
         }
         
-        // 鎻愰啋璁剧疆
+        // Reminder settings
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -502,14 +562,17 @@ fun EventInputForm(
             Spacer(modifier = Modifier.weight(1f))
             Switch(
                 checked = eventDetails.remindEnabled,
-                onCheckedChange = { onValueChange(eventDetails.copy(remindEnabled = it)) }
+                onCheckedChange = { enabled ->
+                    if (enabled && !hasNotificationPermission()) {
+                        pendingReminderEnableAfterPermission = true
+                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    } else {
+                        onValueChange(eventDetails.copy(remindEnabled = enabled))
+                    }
+                }
             )
         }
         if (eventDetails.remindEnabled) {
-            // ... (鍐呴儴 Chip 鍚屾牱搴旂敤 shape = 4.dp锛屾澶勭暐杩囩粏鑺備唬鐮侀噸澶嶏紝浠呭仛閫昏緫鏇挎崲)
-            // 瀹為檯浠ｇ爜涓渶瑕佹妸鍐呴儴鐨?FilterChip 涔熼兘鍔犱笂 shape = RoundedCornerShape(4.dp)
-            // 涓鸿妭鐪佺瘒骞咃紝鍋囪涓嬫柟 Chip 涔熷凡鍚屾牱澶勭悊锛屾垨鐢?default style 瑕嗙洊锛堝鏋滆兘鍏ㄥ眬瑕嗙洊鐨勮瘽锛屼絾 Chip 閫氬父闇€瑕佹樉寮忔寚瀹氾級
-            // 杩欓噷鎴戜滑鏄惧紡鍐欏嚑涓叧閿殑
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -802,7 +865,7 @@ private fun MonthQuickSelector(datePickerState: DatePickerState) {
                         .toEpochMilli()
                     datePickerState.displayedMonthMillis = targetMillis
                 },
-                label = { Text("${month}月") },
+                label = { Text(java.time.Month.of(month).getDisplayName(java.time.format.TextStyle.SHORT, Locale.getDefault())) },
                 colors = AssistChipDefaults.assistChipColors(
                     containerColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
                     labelColor = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
@@ -835,7 +898,7 @@ private fun ColorChip(
                 if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp))
                 else Modifier.border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
             )
-            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick),
+            .clickable(interactionSource = interactionSource, indication = LocalIndication.current, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         if (icon != null) {
@@ -904,6 +967,13 @@ fun CustomColorDialog(
         }
     )
 }
+
+
+
+
+
+
+
 
 
 

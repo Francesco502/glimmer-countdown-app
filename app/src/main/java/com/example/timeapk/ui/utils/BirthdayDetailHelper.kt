@@ -4,13 +4,8 @@ import android.content.Context
 import com.example.timeapk.R
 import java.time.LocalDate
 import java.time.Period
+import java.util.Locale
 
-/**
- * 生日详情区块：岁数、属相、八字、五行、星座。
- * 农历日期与岁次复用 RepeatDetailHelper.formatLunarLine / formatLunarMonthDay。
- */
-
-/** 周岁：若今年未过生日则减 1 */
 fun ageInYears(birthDate: LocalDate, today: LocalDate): Int {
     var age = today.year - birthDate.year
     if (today.monthValue < birthDate.monthValue || (today.monthValue == birthDate.monthValue && today.dayOfMonth < birthDate.dayOfMonth)) {
@@ -19,29 +14,27 @@ fun ageInYears(birthDate: LocalDate, today: LocalDate): Int {
     return kotlin.math.max(0, age)
 }
 
-/** 年龄的完整周期：岁、月、日（用于显示「27岁3月15日」） */
 fun agePeriod(birthDate: LocalDate, today: LocalDate): Period {
     val safeToday = if (birthDate.isAfter(today)) birthDate else today
     return Period.between(birthDate, safeToday)
 }
 
-/** 星座（公历月日），支持 i18n */
 fun constellationFromDate(date: LocalDate, context: Context? = null): String {
     val m = date.monthValue
     val d = date.dayOfMonth
     val index = when {
-        m == 1 && d >= 20 || m == 2 && d <= 18 -> 0  // Aquarius
-        m == 2 && d >= 19 || m == 3 && d <= 20 -> 1  // Pisces
-        m == 3 && d >= 21 || m == 4 && d <= 19 -> 2  // Aries
-        m == 4 && d >= 20 || m == 5 && d <= 20 -> 3  // Taurus
-        m == 5 && d >= 21 || m == 6 && d <= 21 -> 4  // Gemini
-        m == 6 && d >= 22 || m == 7 && d <= 22 -> 5  // Cancer
-        m == 7 && d >= 23 || m == 8 && d <= 22 -> 6  // Leo
-        m == 8 && d >= 23 || m == 9 && d <= 22 -> 7  // Virgo
-        m == 9 && d >= 23 || m == 10 && d <= 23 -> 8  // Libra
-        m == 10 && d >= 24 || m == 11 && d <= 22 -> 9  // Scorpio
-        m == 11 && d >= 23 || m == 12 && d <= 21 -> 10 // Sagittarius
-        else -> 11 // Capricorn
+        m == 1 && d >= 20 || m == 2 && d <= 18 -> 0
+        m == 2 && d >= 19 || m == 3 && d <= 20 -> 1
+        m == 3 && d >= 21 || m == 4 && d <= 19 -> 2
+        m == 4 && d >= 20 || m == 5 && d <= 20 -> 3
+        m == 5 && d >= 21 || m == 6 && d <= 21 -> 4
+        m == 6 && d >= 22 || m == 7 && d <= 22 -> 5
+        m == 7 && d >= 23 || m == 8 && d <= 22 -> 6
+        m == 8 && d >= 23 || m == 9 && d <= 22 -> 7
+        m == 9 && d >= 23 || m == 10 && d <= 23 -> 8
+        m == 10 && d >= 24 || m == 11 && d <= 22 -> 9
+        m == 11 && d >= 23 || m == 12 && d <= 21 -> 10
+        else -> 11
     }
     if (context != null) {
         val resIds = intArrayOf(
@@ -55,13 +48,12 @@ fun constellationFromDate(date: LocalDate, context: Context? = null): String {
         return context.getString(resIds[index])
     }
     val names = listOf(
-        "水瓶座", "双鱼座", "白羊座", "金牛座", "双子座", "巨蟹座",
-        "狮子座", "处女座", "天秤座", "天蝎座", "射手座", "摩羯座"
+        "Aquarius", "Pisces", "Aries", "Taurus", "Gemini", "Cancer",
+        "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn"
     )
     return names[index]
 }
 
-/** 生肖（属相），由农历年；无库时返回 null */
 fun zodiacAnimalFromDate(date: LocalDate): String? {
     return try {
         val clazz = Class.forName("com.nlf.calendar.Solar")
@@ -69,14 +61,13 @@ fun zodiacAnimalFromDate(date: LocalDate): String? {
         val solar = ctor.newInstance(date.year, date.monthValue, date.dayOfMonth)
         val getLunar = clazz.getMethod("getLunar")
         val lunar = getLunar.invoke(solar) ?: return null
-        val m = lunar.javaClass.getMethod("getYearShengXiao")
-        m.invoke(lunar) as? String
+        val method = lunar.javaClass.getMethod("getYearShengXiao")
+        method.invoke(lunar) as? String
     } catch (_: Throwable) {
         null
     }
 }
 
-/** 生辰八字（年月日三柱，未设置时辰则无时柱）；无库时返回 null */
 fun baziFromDate(date: LocalDate): String? {
     return try {
         val clazz = Class.forName("com.nlf.calendar.Solar")
@@ -94,56 +85,83 @@ fun baziFromDate(date: LocalDate): String? {
     }
 }
 
-/** 正五行（结合地支藏干）；无库时返回 null */
-fun wuxingFromDate(date: LocalDate): String? {
+private enum class WuXingElement {
+    METAL, WOOD, WATER, FIRE, EARTH
+}
+
+private fun WuXingElement.displayName(context: Context?): String {
+    return when (this) {
+        WuXingElement.METAL -> context?.getString(R.string.wuxing_element_metal) ?: "Metal"
+        WuXingElement.WOOD -> context?.getString(R.string.wuxing_element_wood) ?: "Wood"
+        WuXingElement.WATER -> context?.getString(R.string.wuxing_element_water) ?: "Water"
+        WuXingElement.FIRE -> context?.getString(R.string.wuxing_element_fire) ?: "Fire"
+        WuXingElement.EARTH -> context?.getString(R.string.wuxing_element_earth) ?: "Earth"
+    }
+}
+
+fun wuxingFromDate(date: LocalDate, context: Context? = null): String? {
     val bazi = baziFromDate(date) ?: return null
-    // bazi format: "年干支 月干支 日干支" e.g., "甲子 丙寅 戊戌"
+
     val tianGanWuXing = mapOf(
-        '甲' to "木", '乙' to "木",
-        '丙' to "火", '丁' to "火",
-        '戊' to "土", '己' to "土",
-        '庚' to "金", '辛' to "金",
-        '壬' to "水", '癸' to "水"
+        '\u7532' to WuXingElement.WOOD, '\u4e59' to WuXingElement.WOOD,
+        '\u4e19' to WuXingElement.FIRE, '\u4e01' to WuXingElement.FIRE,
+        '\u620a' to WuXingElement.EARTH, '\u5df1' to WuXingElement.EARTH,
+        '\u5e9a' to WuXingElement.METAL, '\u8f9b' to WuXingElement.METAL,
+        '\u58ec' to WuXingElement.WATER, '\u7678' to WuXingElement.WATER
     )
 
     val diZhiCangGanWuXing = mapOf(
-        '寅' to listOf("木", "火", "土"),
-        '卯' to listOf("木"),
-        '辰' to listOf("土", "木", "水"),
-        '巳' to listOf("火", "金", "土"),
-        '午' to listOf("火", "土"),
-        '未' to listOf("土", "火", "木"),
-        '申' to listOf("金", "水", "土"),
-        '酉' to listOf("金"),
-        '戌' to listOf("土", "金", "火"),
-        '亥' to listOf("水", "木"),
-        '子' to listOf("水"),
-        '丑' to listOf("土", "水", "金")
+        '\u5bc5' to listOf(WuXingElement.WOOD, WuXingElement.FIRE, WuXingElement.EARTH),
+        '\u536f' to listOf(WuXingElement.WOOD),
+        '\u8fb0' to listOf(WuXingElement.EARTH, WuXingElement.WOOD, WuXingElement.WATER),
+        '\u5df3' to listOf(WuXingElement.FIRE, WuXingElement.METAL, WuXingElement.EARTH),
+        '\u5348' to listOf(WuXingElement.FIRE, WuXingElement.EARTH),
+        '\u672a' to listOf(WuXingElement.EARTH, WuXingElement.FIRE, WuXingElement.WOOD),
+        '\u7533' to listOf(WuXingElement.METAL, WuXingElement.WATER, WuXingElement.EARTH),
+        '\u9149' to listOf(WuXingElement.METAL),
+        '\u620c' to listOf(WuXingElement.EARTH, WuXingElement.METAL, WuXingElement.FIRE),
+        '\u4ea5' to listOf(WuXingElement.WATER, WuXingElement.WOOD),
+        '\u5b50' to listOf(WuXingElement.WATER),
+        '\u4e11' to listOf(WuXingElement.EARTH, WuXingElement.WATER, WuXingElement.METAL)
     )
 
-    val wuxingSet = mutableSetOf<String>()
+    val wuxingSet = mutableSetOf<WuXingElement>()
     for (char in bazi) {
-        if (tianGanWuXing.containsKey(char)) {
-            wuxingSet.add(tianGanWuXing[char]!!)
-        } else if (diZhiCangGanWuXing.containsKey(char)) {
-            wuxingSet.addAll(diZhiCangGanWuXing[char]!!)
-        }
+        tianGanWuXing[char]?.let(wuxingSet::add)
+        diZhiCangGanWuXing[char]?.let(wuxingSet::addAll)
     }
 
-    val allWuxing = listOf("金", "木", "水", "火", "土")
-    val missing = allWuxing.filter { !wuxingSet.contains(it) }
-    val missingStr = if (missing.isEmpty()) "五行俱全" else "缺${missing.joinToString("")}"
+    val allWuxing = listOf(
+        WuXingElement.METAL,
+        WuXingElement.WOOD,
+        WuXingElement.WATER,
+        WuXingElement.FIRE,
+        WuXingElement.EARTH
+    )
 
-    // bazi format: "甲子 丙寅 戊戌"
+    val locale = context?.resources?.configuration?.locales?.get(0) ?: Locale.getDefault()
+    val joiner = if (locale.language.equals("zh", ignoreCase = true)) "" else ", "
+    val missing = allWuxing.filter { it !in wuxingSet }
+    val missingText = if (missing.isEmpty()) {
+        context?.getString(R.string.wuxing_complete) ?: "all five present"
+    } else {
+        val missingNames = missing.joinToString(joiner) { it.displayName(context) }
+        context?.getString(R.string.wuxing_missing_format, missingNames) ?: "missing $missingNames"
+    }
+
     val pillars = bazi.split(" ")
-    // 日主（Day Master）是日柱的天干，也就是第三个柱子的第一个字符
     val dayMaster = if (pillars.size >= 3 && pillars[2].isNotEmpty()) pillars[2][0] else null
     val masterWuxing = dayMaster?.let { tianGanWuXing[it] }
 
     return if (masterWuxing != null) {
-        "属$masterWuxing ($missingStr)"
+        context?.getString(
+            R.string.wuxing_master_format,
+            masterWuxing.displayName(context),
+            missingText
+        ) ?: "${masterWuxing.displayName(context)} ($missingText)"
     } else {
-        val presentStr = allWuxing.filter { wuxingSet.contains(it) }.joinToString("")
-        "$presentStr ($missingStr)"
+        val presentStr = allWuxing.filter { it in wuxingSet }.joinToString(joiner) { it.displayName(context) }
+        context?.getString(R.string.wuxing_summary_format, presentStr, missingText)
+            ?: "$presentStr ($missingText)"
     }
 }

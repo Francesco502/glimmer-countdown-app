@@ -89,33 +89,33 @@ class ReminderWorker(
         val event = repository.getEvent(eventId) ?: return
 
         if (!event.remindEnabled) {
-            if (event.scheduleEventId != null) {
-                ScheduleSyncManager.removeScheduleReminder(applicationContext, event.scheduleEventId)
-                repository.updateEvent(event.copy(scheduleEventId = null))
-            }
+            ScheduleSyncManager.removeScheduleReminder(applicationContext, event.scheduleEventId)
+            ScheduleSyncManager.removeScheduleReminderByEventId(applicationContext, event.id)
+            repository.updateEvent(event.copy(scheduleEventId = null))
             return
         }
 
         if (event.repeatType == REPEAT_NONE) {
-            if (event.scheduleEventId != null) {
-                ScheduleSyncManager.removeScheduleReminder(applicationContext, event.scheduleEventId)
-                repository.updateEvent(event.copy(scheduleEventId = null))
-            }
+            ScheduleSyncManager.removeScheduleReminder(applicationContext, event.scheduleEventId)
+            ScheduleSyncManager.removeScheduleReminderByEventId(applicationContext, event.id)
+            repository.updateEvent(event.copy(scheduleEventId = null))
             return
         }
 
         scheduleReminder(applicationContext, event)
 
         if (!event.syncToScheduleEnabled) {
-            if (event.scheduleEventId != null) {
-                ScheduleSyncManager.removeScheduleReminder(applicationContext, event.scheduleEventId)
-                repository.updateEvent(event.copy(scheduleEventId = null))
-            }
+            ScheduleSyncManager.removeScheduleReminder(applicationContext, event.scheduleEventId)
+            ScheduleSyncManager.removeScheduleReminderByEventId(applicationContext, event.id)
+            repository.updateEvent(event.copy(scheduleEventId = null))
             return
         }
 
-        ScheduleSyncManager.removeScheduleReminder(applicationContext, event.scheduleEventId)
-        val newScheduleId = ScheduleSyncManager.insertScheduleReminder(applicationContext, event)
+        val newScheduleId = ScheduleSyncManager.upsertScheduleReminder(
+            context = applicationContext,
+            event = event,
+            currentScheduleEventId = event.scheduleEventId
+        )
         if (newScheduleId != event.scheduleEventId) {
             repository.updateEvent(event.copy(scheduleEventId = newScheduleId))
         }

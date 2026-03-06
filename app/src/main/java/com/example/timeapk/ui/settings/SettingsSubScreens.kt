@@ -40,8 +40,11 @@ import com.example.timeapk.update.UpdateInstaller
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.example.timeapk.ui.theme.ColorContrastGuardrail
+import com.example.timeapk.ui.theme.SongDesignTokens
 import com.example.timeapk.ui.utils.findActivity
 import java.util.Locale
+import kotlin.math.roundToInt
 
 @Composable
 fun ClassicalToggle(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
@@ -50,10 +53,7 @@ fun ClassicalToggle(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
         style = MaterialTheme.typography.bodyLarge,
         color = if (checked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
         modifier = Modifier
-            .clickable(
-                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-                indication = null
-            ) { onCheckedChange(!checked) }
+            .clickable { onCheckedChange(!checked) }
             .border(
                 width = 0.5.dp,
                 color = if (checked) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
@@ -64,15 +64,9 @@ fun ClassicalToggle(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
 }
 
 private val PRESET_COLOR_HEX = listOf(
-    // 瀹嬩唬宸ョ瑪鐢?(榛樿) - 缁熶竴涓烘洿濂戝悎瀹嬪紡缇庡涓旇兘鑹ソ閫傚簲娣辨祬妯″紡鐨勮壊褰?    "#8E354A", "#576E6A", "#C7B398", "#5A7B86", "#8C4B47",
-    "#4B5054", "#7A6C77", "#B17A7D", "#8C9C9A", "#B09A97",
-    // 娓紡澶嶅彜
-    "#D65C5C", "#3F6987", "#FDF4DE", "#141622", "#355D82",
-    // 鍩虹榛戠櫧鐏?    "#000000", "#FFFFFF", "#8E8E93", "#1C1C1E", "#F2F2F7",
-    // iOS 绯荤粺鑹?    "#007AFF", "#FF3B30", "#34C759", "#FF9500", "#AF52DE", "#5856D6", "#FF2D55", "#A2845E",
-    // 鑾叞杩?鏌斿拰鑹茬郴
-    "#E0BBE4", "#957DAD", "#D291BC", "#FEC8D8", "#FFDFD3",
-    "#8AACFF", "#6EC6FF", "#99E6E6", "#CFFFFF", "#F0F8FF"
+    "#AF4E31", "#AC8F62", "#457080", "#5B8E79", "#86351C",
+    "#4A4933", "#785B64", "#3A4550", "#F5F3ED", "#EDE8DD",
+    "#1F1F1F", "#FFFFFF"
 )
 
 @Composable
@@ -84,14 +78,25 @@ fun AppearanceSettingsContent(
     if (app == null) return
     val prefs = app.userPrefs
     val scope = rememberCoroutineScope()
-    
+
     val themeMode by prefs.themeModeFlow.collectAsState(initial = THEME_FOLLOW_SYSTEM)
     val customBackgroundHex by prefs.customBackgroundHexFlow.collectAsState(initial = null)
     val customSurfaceHex by prefs.customSurfaceHexFlow.collectAsState(initial = null)
     val customPrimaryHex by prefs.customPrimaryHexFlow.collectAsState(initial = null)
     val customOnBackgroundHex by prefs.customOnBackgroundHexFlow.collectAsState(initial = null)
+    val fontPreset by prefs.fontPresetFlow.collectAsState(initial = 4)
+    val appBaseFontScale by prefs.appBaseFontScaleFlow.collectAsState(initial = 1f)
+    val widgetFontScale by prefs.widgetFontScaleFlow.collectAsState(initial = 1f)
+    var appBaseFontScaleDraft by remember(appBaseFontScale) { mutableStateOf(appBaseFontScale) }
+    var widgetFontScaleDraft by remember(widgetFontScale) { mutableStateOf(widgetFontScale) }
     var colorPickerKey by remember { mutableStateOf<String?>(null) }
-    val fontPreset by prefs.fontPresetFlow.collectAsState(initial = 0)
+
+    LaunchedEffect(appBaseFontScale) {
+        appBaseFontScaleDraft = appBaseFontScale
+    }
+    LaunchedEffect(widgetFontScale) {
+        widgetFontScaleDraft = widgetFontScale
+    }
 
     Column(
         modifier = modifier
@@ -99,9 +104,8 @@ fun AppearanceSettingsContent(
             .verticalScroll(rememberScrollState())
             .padding(24.dp)
     ) {
-        // Theme Section
         SettingsGroupHeader(title = stringResource(R.string.theme_title))
-        
+
         listOf(
             THEME_FOLLOW_SYSTEM to stringResource(R.string.theme_follow_system),
             THEME_LIGHT to stringResource(R.string.theme_light),
@@ -128,12 +132,11 @@ fun AppearanceSettingsContent(
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
         }
 
-        // Custom Colors Section
         SettingsGroupHeader(
             title = stringResource(R.string.custom_colors_title),
             modifier = Modifier.padding(top = 20.dp)
         )
-        
+
         CustomColorRow(
             label = stringResource(R.string.custom_color_background),
             currentHex = customBackgroundHex,
@@ -142,7 +145,7 @@ fun AppearanceSettingsContent(
             onReset = { scope.launch { prefs.setCustomBackgroundHex(null) } }
         )
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
-        
+
         CustomColorRow(
             label = stringResource(R.string.custom_color_surface),
             currentHex = customSurfaceHex,
@@ -151,7 +154,7 @@ fun AppearanceSettingsContent(
             onReset = { scope.launch { prefs.setCustomSurfaceHex(null) } }
         )
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
-        
+
         CustomColorRow(
             label = stringResource(R.string.custom_color_primary),
             currentHex = customPrimaryHex,
@@ -160,7 +163,7 @@ fun AppearanceSettingsContent(
             onReset = { scope.launch { prefs.setCustomPrimaryHex(null) } }
         )
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
-        
+
         CustomColorRow(
             label = stringResource(R.string.custom_color_on_background),
             currentHex = customOnBackgroundHex,
@@ -178,16 +181,25 @@ fun AppearanceSettingsContent(
             modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
         )
 
-        // Color Picker Dialog
         colorPickerKey?.let { key ->
             val (label, setter) = when (key) {
-                "background" -> stringResource(R.string.custom_color_background) to { hex: String -> scope.launch { prefs.setCustomBackgroundHex(hex) } }
-                "surface" -> stringResource(R.string.custom_color_surface) to { hex: String -> scope.launch { prefs.setCustomSurfaceHex(hex) } }
-                "primary" -> stringResource(R.string.custom_color_primary) to { hex: String -> scope.launch { prefs.setCustomPrimaryHex(hex) } }
-                "on_background" -> stringResource(R.string.custom_color_on_background) to { hex: String -> scope.launch { prefs.setCustomOnBackgroundHex(hex) } }
+                "background" -> stringResource(R.string.custom_color_background) to { hex: String ->
+                    scope.launch { prefs.setCustomBackgroundHex(hex) }
+                }
+                "surface" -> stringResource(R.string.custom_color_surface) to { hex: String ->
+                    scope.launch { prefs.setCustomSurfaceHex(hex) }
+                }
+                "primary" -> stringResource(R.string.custom_color_primary) to { hex: String ->
+                    scope.launch { prefs.setCustomPrimaryHex(hex) }
+                }
+                "on_background" -> stringResource(R.string.custom_color_on_background) to { hex: String ->
+                    scope.launch { prefs.setCustomOnBackgroundHex(hex) }
+                }
                 else -> return@let
             }
             var customHexInput by remember(key) { mutableStateOf("") }
+            var contrastErrorRatio by remember(key) { mutableStateOf<Double?>(null) }
+            val currentColorScheme = MaterialTheme.colorScheme
             val isValidHex = remember(customHexInput) {
                 try {
                     if (customHexInput.startsWith("#") && (customHexInput.length == 7 || customHexInput.length == 9)) {
@@ -200,6 +212,23 @@ fun AppearanceSettingsContent(
                     false
                 }
             }
+            val candidateAudit = remember(key, customHexInput, currentColorScheme) {
+                parseHexColor(customHexInput)?.let {
+                    evaluateContrastAuditForKey(currentColorScheme, key, it)
+                }
+            }
+
+            fun tryApplyColor(hex: String) {
+                val parsed = parseHexColor(hex) ?: return
+                val audit = evaluateContrastAuditForKey(currentColorScheme, key, parsed)
+                if (audit.isPass) {
+                    setter(hex)
+                    colorPickerKey = null
+                    contrastErrorRatio = null
+                } else {
+                    contrastErrorRatio = audit.minRatio
+                }
+            }
 
             AlertDialog(
                 onDismissRequest = { colorPickerKey = null },
@@ -210,7 +239,7 @@ fun AppearanceSettingsContent(
                         modifier = Modifier.verticalScroll(rememberScrollState())
                     ) {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            PRESET_COLOR_HEX.chunked(5).forEach { rowHexes ->
+                            PRESET_COLOR_HEX.chunked(6).forEach { rowHexes ->
                                 Row(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                                     modifier = Modifier.fillMaxWidth()
@@ -218,12 +247,11 @@ fun AppearanceSettingsContent(
                                     rowHexes.forEach { hex ->
                                         Box(
                                             modifier = Modifier
-                                                .size(40.dp)
+                                                .size(36.dp)
                                                 .background(Color(android.graphics.Color.parseColor(hex)), CircleShape)
                                                 .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), CircleShape)
                                                 .clickable {
-                                                    setter(hex)
-                                                    colorPickerKey = null
+                                                    tryApplyColor(hex)
                                                 }
                                         )
                                     }
@@ -233,10 +261,13 @@ fun AppearanceSettingsContent(
                         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
                         OutlinedTextField(
                             value = customHexInput,
-                            onValueChange = { customHexInput = it },
+                            onValueChange = {
+                                customHexInput = it
+                                contrastErrorRatio = null
+                            },
                             label = { Text(stringResource(R.string.custom_color_hex_hint)) },
                             placeholder = { Text("#RRGGBB") },
-                            isError = customHexInput.isNotEmpty() && !isValidHex,
+                            isError = customHexInput.isNotEmpty() && (!isValidHex || candidateAudit?.isPass == false),
                             singleLine = true,
                             trailingIcon = {
                                 if (isValidHex) {
@@ -250,17 +281,32 @@ fun AppearanceSettingsContent(
                             },
                             modifier = Modifier.fillMaxWidth()
                         )
+                        val customAuditFailed = isValidHex && candidateAudit?.isPass == false
+                        if (customAuditFailed) {
+                            Text(
+                                text = stringResource(
+                                    R.string.custom_color_contrast_error,
+                                    candidateAudit?.minRatio ?: 0.0
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                        contrastErrorRatio?.let { minRatio ->
+                            Text(
+                                text = stringResource(R.string.custom_color_contrast_error, minRatio),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
                     }
                 },
                 confirmButton = {
                     TextButton(
                         onClick = {
-                            if (isValidHex) {
-                                setter(customHexInput)
-                            }
-                            colorPickerKey = null
+                            tryApplyColor(customHexInput)
                         },
-                        enabled = isValidHex
+                        enabled = isValidHex && candidateAudit?.isPass == true
                     ) {
                         Text(stringResource(android.R.string.ok))
                     }
@@ -273,18 +319,15 @@ fun AppearanceSettingsContent(
             )
         }
 
-        // Font Section
         SettingsGroupHeader(
             title = stringResource(R.string.font_title),
             modifier = Modifier.padding(top = 20.dp)
         )
-        
+
         listOf(
-            0 to stringResource(R.string.font_default),
-            1 to stringResource(R.string.font_serif),
             4 to stringResource(R.string.font_slender_gold),
-            2 to stringResource(R.string.font_cursive),
-            3 to stringResource(R.string.font_mono)
+            1 to stringResource(R.string.font_serif),
+            0 to stringResource(R.string.font_default)
         ).forEach { (value, label) ->
             Row(
                 modifier = Modifier
@@ -306,9 +349,86 @@ fun AppearanceSettingsContent(
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
         }
+
+        Text(
+            text = stringResource(R.string.settings_app_font_scale_title),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(top = 12.dp)
+        )
+        Text(
+            text = stringResource(R.string.settings_font_scale_summary, (appBaseFontScaleDraft * 100).roundToInt()),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 2.dp)
+        )
+        Slider(
+            value = appBaseFontScaleDraft,
+            onValueChange = {
+                appBaseFontScaleDraft = it.coerceIn(
+                    SongDesignTokens.BaseFontScaleMin,
+                    SongDesignTokens.BaseFontScaleMax
+                )
+            },
+            valueRange = SongDesignTokens.BaseFontScaleMin..SongDesignTokens.BaseFontScaleMax,
+            onValueChangeFinished = {
+                scope.launch { prefs.setAppBaseFontScale(appBaseFontScaleDraft) }
+            },
+            modifier = Modifier.padding(top = 4.dp)
+        )
+        TextButton(
+            onClick = {
+                appBaseFontScaleDraft = 1f
+                scope.launch { prefs.setAppBaseFontScale(1f) }
+            }
+        ) {
+            Text(stringResource(R.string.settings_font_scale_reset))
+        }
+
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+
+        Text(
+            text = stringResource(R.string.settings_widget_font_scale_title),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(top = 12.dp)
+        )
+        Text(
+            text = stringResource(R.string.settings_font_scale_summary, (widgetFontScaleDraft * 100).roundToInt()),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 2.dp)
+        )
+        Slider(
+            value = widgetFontScaleDraft,
+            onValueChange = {
+                widgetFontScaleDraft = it.coerceIn(
+                    SongDesignTokens.WidgetFontScaleMin,
+                    SongDesignTokens.WidgetFontScaleMax
+                )
+            },
+            valueRange = SongDesignTokens.WidgetFontScaleMin..SongDesignTokens.WidgetFontScaleMax,
+            onValueChangeFinished = {
+                scope.launch {
+                    prefs.setWidgetFontScale(widgetFontScaleDraft)
+                    WidgetUpdater.refreshCountdownWidgets(context)
+                }
+            },
+            modifier = Modifier.padding(top = 4.dp)
+        )
+        TextButton(
+            onClick = {
+                widgetFontScaleDraft = 1f
+                scope.launch {
+                    prefs.setWidgetFontScale(1f)
+                    WidgetUpdater.refreshCountdownWidgets(context)
+                }
+            }
+        ) {
+            Text(stringResource(R.string.settings_font_scale_reset))
+        }
     }
 }
-
 @Composable
 fun DisplaySettingsContent(
     modifier: Modifier = Modifier
@@ -324,9 +444,11 @@ fun DisplaySettingsContent(
     val showHours by prefs.showHoursFlow.collectAsState(initial = true)
     val homeDensityMode by prefs.homeDensityModeFlow.collectAsState(initial = 1)
     val showMilestone by prefs.showMilestoneFlow.collectAsState(initial = true)
+    val reduceMotionEnabled by prefs.reduceMotionEnabledFlow.collectAsState(initial = false)
     val milestoneRemindEnabled by prefs.milestoneRemindEnabledFlow.collectAsState(initial = false)
     val milestoneRemindDaysAhead by prefs.milestoneRemindDaysAheadFlow.collectAsState(initial = 7)
     val milestoneRemindTimeMinutesOfDay by prefs.milestoneRemindTimeMinutesOfDayFlow.collectAsState(initial = 480)
+    val smartMilestonesEnabled by prefs.smartMilestonesEnabledFlow.collectAsState(initial = true)
     val customMilestones by prefs.customMilestonesFlow.collectAsState(initial = DEFAULT_MILESTONE_DAYS)
     val dateFormatMode by prefs.dateFormatModeFlow.collectAsState(initial = 0)
     var newMilestoneInput by remember { mutableStateOf("") }
@@ -412,6 +534,32 @@ fun DisplaySettingsContent(
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
 
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.settings_reduce_motion_title),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = stringResource(R.string.settings_reduce_motion_summary),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            ClassicalToggle(
+                checked = reduceMotionEnabled,
+                onCheckedChange = { scope.launch { prefs.setReduceMotionEnabled(it) } }
+            )
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+
         Text(
             text = stringResource(R.string.home_density_title),
             style = MaterialTheme.typography.bodyLarge,
@@ -464,6 +612,37 @@ fun DisplaySettingsContent(
                 text = stringResource(R.string.home_density_detailed_summary),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.settings_smart_milestones_title),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = stringResource(R.string.settings_smart_milestones_summary),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            ClassicalToggle(
+                checked = smartMilestonesEnabled,
+                onCheckedChange = {
+                    scope.launch {
+                        prefs.setSmartMilestonesEnabled(it)
+                        rescheduleMilestoneReminders(app)
+                    }
+                }
             )
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
@@ -826,7 +1005,11 @@ fun DataSettingsContent(
 
                 if (savedEvent.syncToScheduleEnabled) {
                     val scheduleId = try {
-                        ScheduleSyncManager.insertScheduleReminder(context, savedEvent)
+                        ScheduleSyncManager.upsertScheduleReminder(
+                            context = context,
+                            event = savedEvent,
+                            currentScheduleEventId = savedEvent.scheduleEventId
+                        )
                     } catch (_: Exception) {
                         hasWarning = true
                         null
@@ -1188,7 +1371,7 @@ fun AboutSettingsContent(
             )
             if (updateCheckInProgress) {
                 Text(
-                    text = "...",
+                    text = stringResource(R.string.settings_check_update_loading),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(start = 4.dp)
@@ -1253,6 +1436,38 @@ private fun parseReminderTimeInput(input: String): Int? {
     if (hour !in 0..23 || minute !in 0..59) return null
     return hour * 60 + minute
 }
+
+private fun parseHexColor(hex: String): Color? {
+    return try {
+        Color(android.graphics.Color.parseColor(hex))
+    } catch (_: Exception) {
+        null
+    }
+}
+
+private fun evaluateContrastAuditForKey(
+    colorScheme: ColorScheme,
+    key: String,
+    candidate: Color
+): com.example.timeapk.ui.theme.ContrastAudit {
+    val background = if (key == "background") candidate else colorScheme.background
+    val surface = if (key == "surface") candidate else colorScheme.surface
+    val primary = if (key == "primary") candidate else colorScheme.primary
+    val onBackground = if (key == "on_background") candidate else colorScheme.onBackground
+    val onSurface = if (key == "on_background") candidate else colorScheme.onSurface
+    val onPrimary = colorScheme.onPrimary
+    return ColorContrastGuardrail.audit(
+        background = background,
+        onBackground = onBackground,
+        surface = surface,
+        onSurface = onSurface,
+        primary = primary,
+        onPrimary = onPrimary
+    )
+}
+
+
+
 
 
 

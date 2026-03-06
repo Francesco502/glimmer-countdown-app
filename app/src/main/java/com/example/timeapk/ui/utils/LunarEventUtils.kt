@@ -1,5 +1,7 @@
 package com.example.timeapk.ui.utils
 
+import android.content.Context
+import com.example.timeapk.R
 import com.nlf.calendar.Lunar
 import com.nlf.calendar.Solar
 import java.time.LocalDate
@@ -136,7 +138,7 @@ fun getLunarElapsedPeriod(originSolarDate: LocalDate, today: LocalDate): Period 
     }
 }
 
-fun formatLunarDateString(solarDate: LocalDate): String {
+fun formatLunarDateString(solarDate: LocalDate, context: Context? = null): String {
     return try {
         val solar = Solar.fromYmd(
             solarDate.year,
@@ -144,11 +146,28 @@ fun formatLunarDateString(solarDate: LocalDate): String {
             solarDate.dayOfMonth
         )
         val lunar = solar.lunar
-        // 示例：岁次 甲申 腊月 初八
-        "岁次 ${lunar.yearInGanZhi} ${lunar.monthInChinese}月 ${lunar.dayInChinese}"
+        if (context != null) {
+            context.getString(
+                R.string.lunar_date_full_format,
+                lunar.yearInGanZhi,
+                lunar.monthInChinese,
+                context.getString(R.string.lunar_month_suffix),
+                lunar.dayInChinese
+            )
+        } else {
+            "${lunar.yearInGanZhi} ${lunar.monthInChinese} ${lunar.dayInChinese}"
+        }
     } catch (_: Throwable) {
-        // 库不可用时的退化显示
-        "农历 ${solarDate.year}-${solarDate.monthValue}-${solarDate.dayOfMonth}"
+        if (context != null) {
+            context.getString(
+                R.string.lunar_date_fallback_format,
+                solarDate.year,
+                solarDate.monthValue,
+                solarDate.dayOfMonth
+            )
+        } else {
+            "${solarDate.year}-${solarDate.monthValue}-${solarDate.dayOfMonth}"
+        }
     }
 }
 
@@ -208,4 +227,3 @@ private fun computeLunarYearsElapsed(
 
     return years.coerceAtLeast(0)
 }
-

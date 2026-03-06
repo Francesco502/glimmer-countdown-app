@@ -19,6 +19,9 @@ import java.time.temporal.ChronoUnit
 import java.util.concurrent.TimeUnit
 
 private const val MILESTONE_REMIND_TAG = "milestone_remind"
+private val SMART_MILESTONE_REMIND_VALUES = listOf(
+    1L, 3L, 7L, 14L, 30L, 60L, 90L, 100L, 180L, 365L, 520L, 730L, 1000L
+)
 
 fun cancelMilestoneReminders(context: android.content.Context, eventId: Int) {
     WorkManager.getInstance(context).cancelAllWorkByTag("${MILESTONE_REMIND_TAG}_$eventId")
@@ -39,8 +42,16 @@ suspend fun rescheduleMilestoneReminders(application: Application) {
     val daysAhead = app.userPrefs.milestoneRemindDaysAheadFlow.first()
     val remindMinuteOfDay = app.userPrefs.milestoneRemindTimeMinutesOfDayFlow.first()
     val milestones = app.userPrefs.customMilestonesFlow.first()
+    val smartMilestonesEnabled = app.userPrefs.smartMilestonesEnabledFlow.first()
     val events = app.repository.getAllEventsSnapshot()
-    scheduleMilestoneReminders(application, events, milestones, daysAhead, remindMinuteOfDay)
+    scheduleMilestoneReminders(
+        context = application,
+        events = events,
+        milestones = milestones,
+        remindDaysAhead = daysAhead,
+        remindMinuteOfDay = remindMinuteOfDay,
+        smartMilestonesEnabled = smartMilestonesEnabled
+    )
 }
 
 private fun scheduleMilestoneReminders(
@@ -48,9 +59,15 @@ private fun scheduleMilestoneReminders(
     events: List<Event>,
     milestones: List<Long>,
     remindDaysAhead: Int,
-    remindMinuteOfDay: Int
+    remindMinuteOfDay: Int,
+    smartMilestonesEnabled: Boolean
 ) {
-    val list = milestones.filter { it > 0 }.distinct().sorted()
+    val base = milestones.filter { it > 0 }
+    val list = if (smartMilestonesEnabled) {
+        (base + SMART_MILESTONE_REMIND_VALUES).distinct().sorted()
+    } else {
+        base.distinct().sorted()
+    }
     if (list.isEmpty()) return
     val today = LocalDate.now()
 

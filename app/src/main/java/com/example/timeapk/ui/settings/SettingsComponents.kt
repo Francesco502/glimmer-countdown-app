@@ -1,6 +1,7 @@
-package com.example.timeapk.ui.settings
+﻿package com.example.timeapk.ui.settings
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -94,7 +95,7 @@ fun SettingsPressableRow(
             .then(pressModifier)
             .clickable(
                 interactionSource = interactionSource,
-                indication = null,
+                indication = LocalIndication.current,
                 onClick = onClick
             )
             .padding(vertical = 16.dp),
@@ -160,4 +161,7 @@ fun SettingsGroupHeader(
     )
     HorizontalDivider(color = MaterialTheme.colorScheme.outline)
 }
+
+
+
 
