@@ -1,15 +1,17 @@
-package com.example.timeapk.data
+﻿package com.example.timeapk.data
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
-/** 事件分类：生日 / 纪念日 / 其他 */
+/** 浜嬩欢鍒嗙被锛氱敓鏃?/ 绾康鏃?/ 鍏朵粬 */
 const val CATEGORY_BIRTHDAY = "birthday"
 const val CATEGORY_ANNIVERSARY = "anniversary"
 const val CATEGORY_OTHER = "other"
 
-/** 重复类型：无 / 每年 / 每半年 / 每月 */
+/** 閲嶅绫诲瀷锛氭棤 / 姣忓勾 / 姣忓崐骞?/ 姣忔湀 */
 const val REPEAT_NONE = "none"
+const val REPEAT_DAILY = "daily"
+const val REPEAT_WEEKLY = "weekly"
 const val REPEAT_YEARLY = "yearly"
 const val REPEAT_HALF_YEARLY = "half_yearly"
 const val REPEAT_MONTHLY = "monthly"
@@ -21,21 +23,22 @@ data class Event(
     val date: Long,
     val category: String,
     val note: String = "",
+    val tags: String = "",
     val colorHex: String? = null,
-    /** 重复类型：REPEAT_* */
+    /** 閲嶅绫诲瀷锛歊EPEAT_* */
     val repeatType: String = REPEAT_NONE,
-    /** 提前几天提醒，0=当天 */
+    /** 鎻愬墠鍑犲ぉ鎻愰啋锛?=褰撳ぉ */
     val remindDaysBefore: Int = 0,
-    /** 当天提醒时刻（从 0 起的分钟数，如 480=8:00），0=0:00 */
+    /** 褰撳ぉ鎻愰啋鏃跺埢锛堜粠 0 璧风殑鍒嗛挓鏁帮紝濡?480=8:00锛夛紝0=0:00 */
     val reminderTimeMinutesOfDay: Int = 480,
-    /** 是否开启提醒 */
+    /** 鏄惁寮€鍚彁閱?*/
     val remindEnabled: Boolean = false,
-    /** 是否将提醒同步到系统日程（日历），由系统在设定时间通过通知栏提醒 */
+    /** 鏄惁灏嗘彁閱掑悓姝ュ埌绯荤粺鏃ョ▼锛堟棩鍘嗭級锛岀敱绯荤粺鍦ㄨ瀹氭椂闂撮€氳繃閫氱煡鏍忔彁閱?*/
     val syncToScheduleEnabled: Boolean = true,
-    /** 已写入系统日程时对应的事件 ID，用于更新/删除 */
+    /** 宸插啓鍏ョ郴缁熸棩绋嬫椂瀵瑰簲鐨勪簨浠?ID锛岀敤浜庢洿鏂?鍒犻櫎 */
     val scheduleEventId: Long? = null,
-    /** 创建时间，用于排序与迁移 */
+    /** 鍒涘缓鏃堕棿锛岀敤浜庢帓搴忎笌杩佺Щ */
     val createdAt: Long = System.currentTimeMillis(),
-    /** 是否为农历日期 */
+    /** 鏄惁涓哄啘鍘嗘棩鏈?*/
     val isLunar: Boolean = false
 )

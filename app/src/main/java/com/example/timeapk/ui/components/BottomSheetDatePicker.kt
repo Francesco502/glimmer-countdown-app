@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -21,6 +22,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.example.timeapk.R
 import com.example.timeapk.ui.utils.eventDateToLocalDate
 import com.nlf.calendar.Lunar
 import com.nlf.calendar.LunarMonth
@@ -351,7 +353,7 @@ fun BottomSheetDatePicker(
                     focusManager.clearFocus()
                     onDismissRequest()
                 }) {
-                    Text(text = "取消")
+                    Text(text = stringResource(R.string.date_picker_cancel))
                 }
                 Text(
                     text = title,
@@ -368,7 +370,7 @@ fun BottomSheetDatePicker(
                     onConfirm(millis, isLunarMode)
                     onDismissRequest()
                 }) {
-                    Text(text = "确定")
+                    Text(text = stringResource(R.string.date_picker_ok))
                 }
             }
 
@@ -381,7 +383,7 @@ fun BottomSheetDatePicker(
             ) {
                 AssistChip(
                     onClick = { isLunarMode = false },
-                    label = { Text("公历", style = MaterialTheme.typography.labelLarge) },
+                    label = { Text(stringResource(R.string.solar_calendar), style = MaterialTheme.typography.labelLarge) },
                     colors = AssistChipDefaults.assistChipColors(
                         containerColor = if (!isLunarMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
                         labelColor = if (!isLunarMode) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
@@ -395,7 +397,7 @@ fun BottomSheetDatePicker(
                 Spacer(modifier = Modifier.width(16.dp))
                 AssistChip(
                     onClick = { isLunarMode = true },
-                    label = { Text("农历", style = MaterialTheme.typography.labelLarge) },
+                    label = { Text(stringResource(R.string.lunar_calendar), style = MaterialTheme.typography.labelLarge) },
                     colors = AssistChipDefaults.assistChipColors(
                         containerColor = if (isLunarMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
                         labelColor = if (isLunarMode) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
@@ -417,7 +419,7 @@ fun BottomSheetDatePicker(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     DatePartField(
-                        label = "年",
+                        label = stringResource(R.string.date_part_year),
                         value = yearInput,
                         onValueChange = { new ->
                             yearInput = new.filter { it.isDigit() }.take(4)
@@ -429,7 +431,7 @@ fun BottomSheetDatePicker(
                         modifier = Modifier.weight(1.4f)
                     )
                     DatePartField(
-                        label = "月",
+                        label = stringResource(R.string.date_part_month),
                         value = monthInput,
                         onValueChange = { new ->
                             monthInput = new.filter { it.isDigit() }.take(2)
@@ -441,7 +443,7 @@ fun BottomSheetDatePicker(
                         modifier = Modifier.weight(1f)
                     )
                     DatePartField(
-                        label = "日",
+                        label = stringResource(R.string.date_part_day),
                         value = dayInput,
                         onValueChange = { new ->
                             dayInput = new.filter { it.isDigit() }.take(2)

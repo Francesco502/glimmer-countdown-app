@@ -6,37 +6,22 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.example.timeapk.data.Event
-import com.example.timeapk.ui.utils.eventDateToLocalDate
-import com.example.timeapk.ui.utils.getNextLunarOccurrence
-import java.time.ZoneId
 import java.util.concurrent.TimeUnit
 
 private const val REMIND_TAG_PREFIX = "remind_"
 
 fun scheduleReminder(context: Context, event: Event) {
-    // 始终先取消旧提醒，防止编辑事件后产生重复通知
     cancelReminder(context, event.id)
     if (!event.remindEnabled) {
         return
     }
-    val eventLocalDate = eventDateToLocalDate(event.date)
-    val today = java.time.LocalDate.now()
-    val baseDate = if (event.isLunar && event.repeatType == com.example.timeapk.data.REPEAT_YEARLY) {
-        getNextLunarOccurrence(eventLocalDate, today)
-    } else {
-        eventLocalDate
-    }
-    val remindDate = baseDate.minusDays(event.remindDaysBefore.toLong())
-    val remindZdt = remindDate.atTime(
-        event.reminderTimeMinutesOfDay / 60,
-        event.reminderTimeMinutesOfDay % 60
-    ).atZone(ZoneId.systemDefault())
-    val remindAtMillis = remindZdt.toInstant().toEpochMilli()
+
+    val remindAtMillis = computeNextReminderTriggerAtMillis(event) ?: return
     val delayMillis = remindAtMillis - System.currentTimeMillis()
-    // 若提醒时间已过，直接放弃本次调度，避免立刻弹出过期通知
     if (delayMillis <= 0) {
         return
     }
+
     val data: Data = workDataOf(
         ReminderWorker.KEY_TITLE to event.title,
         ReminderWorker.KEY_EVENT_ID to event.id,

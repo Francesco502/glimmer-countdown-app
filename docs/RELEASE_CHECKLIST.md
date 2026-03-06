@@ -1,100 +1,101 @@
-# 发布前检查清单
+﻿# 鍙戝竷鍓嶆鏌ユ竻鍗?
 
-**检查日期**：2026-03-04  
-**版本**：3.3 (versionCode 7)
-
+**检查日期**：2026-03-06  
+**版本**：3.4 (versionCode 8)
 ---
 
-## 1. 构建与编译
+## 1. 鏋勫缓涓庣紪璇?
 
-| 项目 | 状态 | 说明 |
+| 椤圭洰 | 鐘舵€?| 璇存槑 |
 |------|------|------|
-| Release 构建 | 通过 | `assembleDirectRelease` 成功 |
-| Lint 检查 | 通过 | 无阻塞性错误 |
-| ProGuard/R8 | 已配置 | `isMinifyEnabled=true`, `proguard-rules.pro` 已保留 Room/Compose |
-| 签名 | 需配置 | 需创建 `keystore.properties` 并配置 release 签名；未配置时使用 debug 签名 |
+| Release 鏋勫缓 | 閫氳繃 | `assembleDirectRelease` 鎴愬姛 |
+| Lint 妫€鏌?| 閫氳繃 | 鏃犻樆濉炴€ч敊璇?|
+| ProGuard/R8 | 宸查厤缃?| `isMinifyEnabled=true`, `proguard-rules.pro` 宸蹭繚鐣?Room/Compose |
+| 绛惧悕 | 闇€閰嶇疆 | 闇€鍒涘缓 `keystore.properties` 骞堕厤缃?release 绛惧悕锛涙湭閰嶇疆鏃朵娇鐢?debug 绛惧悕 |
 
 ---
 
-## 2. Manifest 与配置
+## 2. Manifest 涓庨厤缃?
 
-| 项目 | 状态 | 说明 |
+| 椤圭洰 | 鐘舵€?| 璇存槑 |
 |------|------|------|
-| MainActivity | 已修复 | 添加 `launchMode="singleTop"` 与 `onNewIntent`，小组件点击在应用已打开时能正确跳转事件详情 |
-| 权限 | 正常 | `POST_NOTIFICATIONS`, `INTERNET`, `REQUEST_INSTALL_PACKAGES` |
-| 导出标志 | 合理 | MainActivity、CountdownAppWidgetProvider 为 exported；FileProvider、CountdownWidgetService 为 false |
-| FileProvider | 正常 | `file_paths.xml` 配置 `updates/` 用于 APK 更新 |
+| MainActivity | 宸蹭慨澶?| 娣诲姞 `launchMode="singleTop"` 涓?`onNewIntent`锛屽皬缁勪欢鐐瑰嚮鍦ㄥ簲鐢ㄥ凡鎵撳紑鏃惰兘姝ｇ‘璺宠浆浜嬩欢璇︽儏 |
+| 鏉冮檺 | 姝ｅ父 | `POST_NOTIFICATIONS`, `INTERNET`, `REQUEST_INSTALL_PACKAGES` |
+| 瀵煎嚭鏍囧織 | 鍚堢悊 | MainActivity銆丆ountdownAppWidgetProvider 涓?exported锛汧ileProvider銆丆ountdownWidgetService 涓?false |
+| FileProvider | 姝ｅ父 | `file_paths.xml` 閰嶇疆 `updates/` 鐢ㄤ簬 APK 鏇存柊 |
 
 ---
 
-## 3. 版本与发布
+## 3. 鐗堟湰涓庡彂甯?
 
-| 项目 | 值 |
+| 椤圭洰 | 鍊?|
 |------|-----|
-| versionCode | 7 |
-| versionName | 3.3 |
+| versionCode | 8 |
+| versionName | 3.4 |
 | minSdk | 26 |
 | targetSdk | 35 |
-| 渠道 | direct / play (`applicationIdSuffix=".play"`) |
-| APK 输出 | `app/build/outputs/apk/direct/release/glimmer-countdown-3-3.apk` |
+| 娓犻亾 | direct / play (`applicationIdSuffix=".play"`) |
+| APK 杈撳嚭 | `app/build/outputs/apk/direct/release/glimmer-countdown-3-4.apk` |
 
 ---
 
-## 4. 多语言与资源
+## 4. 澶氳瑷€涓庤祫婧?
 
-| 项目 | 状态 |
+| 椤圭洰 | 鐘舵€?|
 |------|------|
-| values (默认) | 有 strings.xml |
-| values-zh | 有 |
-| values-en | 有 |
-| 备份规则 | `backup_rules.xml`、`data_extraction_rules.xml` 已配置 |
+| values (榛樿) | 鏈?strings.xml |
+| values-zh | 鏈?|
+| values-en | 鏈?|
+| 澶囦唤瑙勫垯 | `backup_rules.xml`銆乣data_extraction_rules.xml` 宸查厤缃?|
 
 ---
 
-## 5. 潜在问题与空指针
+## 5. 娼滃湪闂涓庣┖鎸囬拡
 
-| 检查项 | 结论 |
+| 妫€鏌ラ」 | 缁撹 |
 |--------|------|
-| UpdateInstaller | 已有 `response.body == null` 检查，`!!` 使用安全 |
-| GitHubReleaseUpdateChecker | 同上 |
-| TimeApplication.repository | 单例注入，正常 |
-| Widget runBlocking | 在 RemoteViewsService 线程执行，非主线程，可接受 |
+| UpdateInstaller | 宸叉湁 `response.body == null` 妫€鏌ワ紝`!!` 浣跨敤瀹夊叏 |
+| GitHubReleaseUpdateChecker | 鍚屼笂 |
+| TimeApplication.repository | 鍗曚緥娉ㄥ叆锛屾甯?|
+| Widget runBlocking | 鍦?RemoteViewsService 绾跨▼鎵ц锛岄潪涓荤嚎绋嬶紝鍙帴鍙?|
 
 ---
 
-## 6. 编译期警告（非阻塞）
+## 6. 缂栬瘧鏈熻鍛婏紙闈為樆濉烇級
 
-以下为 deprecation/优化类警告，不影响发布：
+浠ヤ笅涓?deprecation/浼樺寲绫昏鍛婏紝涓嶅奖鍝嶅彂甯冿細
 
-- `Theme.kt`: `statusBarColor` 已弃用
-- `CountdownAppWidgetProvider.kt`: `setRemoteAdapter` 已弃用（可后续迁移到 `setRemoteViewsAdapter`）
-- `WidgetUpdater.kt`: `notifyAppWidgetViewDataChanged` 已弃用（暂无替代 API）
-- Gradle properties 中部分选项将在 AGP 10.0 移除
-
----
-
-## 7. Lint 报告（部分）
-
-- **OldTargetApi**：`tools:targetApi="31"` 可考虑更新
-- **SmallSp**：小组件 tag 使用 10sp，略低于 11sp 建议，可保留
-- **UnusedResources**：可能有未引用资源
-- 完整报告：`app/build/reports/lint-results-directRelease.html`
+- `Theme.kt`: `statusBarColor` 宸插純鐢?
+- `CountdownAppWidgetProvider.kt`: `setRemoteAdapter` 宸插純鐢紙鍙悗缁縼绉诲埌 `setRemoteViewsAdapter`锛?
+- `WidgetUpdater.kt`: `notifyAppWidgetViewDataChanged` 宸插純鐢紙鏆傛棤鏇夸唬 API锛?
+- Gradle properties 涓儴鍒嗛€夐」灏嗗湪 AGP 10.0 绉婚櫎
 
 ---
 
-## 8. 本次修复
+## 7. Lint 鎶ュ憡锛堥儴鍒嗭級
 
-1. **MainActivity 小组件跳转**：当应用已在后台或前台时，点击小组件列表项会正确打开对应事件详情（`launchMode="singleTop"` + `onNewIntent`）。
+- **OldTargetApi**锛歚tools:targetApi="31"` 鍙€冭檻鏇存柊
+- **SmallSp**锛氬皬缁勪欢 tag 浣跨敤 10sp锛岀暐浣庝簬 11sp 寤鸿锛屽彲淇濈暀
+- **UnusedResources**锛氬彲鑳芥湁鏈紩鐢ㄨ祫婧?
+- 瀹屾暣鎶ュ憡锛歚app/build/reports/lint-results-directRelease.html`
 
 ---
 
-## 9. 发布前建议步骤
+## 8. 鏈淇
 
-1. [ ] 按 **[3.1 版本最终测试清单](TEST_CHECKLIST_3.1.md)** 逐模块执行：首页 / 详情 / 新建编辑 / 小组件 / 更新检测
-2. [ ] 配置 `keystore.properties` 并完成 Release 签名
-3. [ ] 在真机上测试 direct 与 play 渠道安装、升级
-4. [ ] 测试小组件：添加/编辑/删除事件后即时刷新；点击列表项跳转详情
-5. [ ] 测试检查更新、下载安装流程
-6. [ ] 测试导出/导入 JSON、CSV
-7. [ ] 验证深色/浅色模式与自定义主题
-8. [ ] 确认 `applicationId` 与发布渠道一致（Play 商店使用 `.play` 后缀）
+1. **MainActivity 灏忕粍浠惰烦杞?*锛氬綋搴旂敤宸插湪鍚庡彴鎴栧墠鍙版椂锛岀偣鍑诲皬缁勪欢鍒楄〃椤逛細姝ｇ‘鎵撳紑瀵瑰簲浜嬩欢璇︽儏锛坄launchMode="singleTop"` + `onNewIntent`锛夈€?
+
+---
+
+## 9. 鍙戝竷鍓嶅缓璁楠?
+
+1. [ ] 鎸?**[3.1 鐗堟湰鏈€缁堟祴璇曟竻鍗昡(TEST_CHECKLIST_3.1.md)** 閫愭ā鍧楁墽琛岋細棣栭〉 / 璇︽儏 / 鏂板缓缂栬緫 / 灏忕粍浠?/ 鏇存柊妫€娴?
+2. [ ] 閰嶇疆 `keystore.properties` 骞跺畬鎴?Release 绛惧悕
+3. [ ] 鍦ㄧ湡鏈轰笂娴嬭瘯 direct 涓?play 娓犻亾瀹夎銆佸崌绾?
+4. [ ] 娴嬭瘯灏忕粍浠讹細娣诲姞/缂栬緫/鍒犻櫎浜嬩欢鍚庡嵆鏃跺埛鏂帮紱鐐瑰嚮鍒楄〃椤硅烦杞鎯?
+5. [ ] 娴嬭瘯妫€鏌ユ洿鏂般€佷笅杞藉畨瑁呮祦绋?
+6. [ ] 娴嬭瘯瀵煎嚭/瀵煎叆 JSON銆丆SV
+7. [ ] 楠岃瘉娣辫壊/娴呰壊妯″紡涓庤嚜瀹氫箟涓婚
+8. [ ] 纭 `applicationId` 涓庡彂甯冩笭閬撲竴鑷达紙Play 鍟嗗簵浣跨敤 `.play` 鍚庣紑锛?
+
+

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Glimmer</string>
 
@@ -18,11 +18,11 @@
     <string name="days_today_label">Today</string>
     <string name="days_past_label">elapsed</string>
     <string name="days_elapsed_format">has been %d days</string>
-    <string name="days_both_summary">%1$d days elapsed · %2$d days left</string>
-    <string name="days_both_summary_ymd">%1$s elapsed · %2$d days left</string>
+    <string name="days_both_summary">%1$d days elapsed 路 %2$d days left</string>
+    <string name="days_both_summary_ymd">%1$s elapsed 路 %2$d days left</string>
     <string name="birthday_in_days">%d days until birthday</string>
-    <string name="days_birthday_summary">%1$d days elapsed · %2$d days until birthday</string>
-    <string name="days_birthday_summary_ymd">%1$s elapsed · %2$d days until birthday</string>
+    <string name="days_birthday_summary">%1$d days elapsed 路 %2$d days until birthday</string>
+    <string name="days_birthday_summary_ymd">%1$s elapsed 路 %2$d days until birthday</string>
     <string name="milestone_in_days">%2$d days until %1$s</string>
     <string name="milestone_7">7 days</string>
     <string name="milestone_30">30 days</string>
@@ -51,6 +51,8 @@
 
     <!-- Repeat -->
     <string name="repeat_none">None</string>
+    <string name="repeat_daily">Daily</string>
+    <string name="repeat_weekly">Weekly</string>
     <string name="repeat_yearly">Yearly</string>
     <string name="detail_repeat_origin">Origin</string>
     <string name="detail_repeat_elapsed">Elapsed</string>
@@ -83,7 +85,7 @@
     <string name="sync_to_schedule">Sync to system schedule</string>
     <string name="sync_to_schedule_summary">Add to calendar/agenda so the system notifies you at the set time</string>
     <string name="schedule_reminder_title_format">%2$d day(s) until \"%1$s\"</string>
-    <string name="schedule_reminder_title_today">\"%1$s\" — today</string>
+    <string name="schedule_reminder_title_today">\"%1$s\" 鈥?today</string>
 
     <!-- Category preset -->
     <string name="category_birthday">Birthday</string>
@@ -141,7 +143,7 @@
 
     <!-- Share -->
     <string name="share_text_countdown">%1$s in %2$d days</string>
-    <string name="share_text_today">%1$s — Today!</string>
+    <string name="share_text_today">%1$s 鈥?Today!</string>
     <string name="share_text_past">%1$s has been %2$d days</string>
     <string name="share_chooser_title">Share countdown</string>
     <string name="nav_back">Back</string>
@@ -162,7 +164,7 @@
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
-    <string name="settings_about_version">About · Version %1$s</string>
+    <string name="settings_about_version">About 路 Version %1$s</string>
     <string name="settings_check_update">Check for updates</string>
     <string name="update_latest">Already up to date</string>
     <string name="update_error">Update check failed. Please try again later.</string>
@@ -170,7 +172,7 @@
     <string name="update_download_install">Download and install</string>
     <string name="update_later">Later</string>
     <string name="update_release_notes">Release notes</string>
-    <string name="update_downloading">Downloading…</string>
+    <string name="update_downloading">Downloading鈥?</string>
     <string name="update_download_failed">Download failed</string>
     <string name="update_open_browser">Open in browser</string>
     <string name="theme_title">Theme</string>
@@ -202,7 +204,7 @@
     <string name="font_mono">Monospace</string>
     <string name="font_slender_gold">Slender Gold (Serif Thin)</string>
     <string name="language_title">Language</string>
-    <string name="language_zh">中文</string>
+    <string name="language_zh">涓枃</string>
     <string name="language_en">English</string>
     <string name="settings_category_display_title">Display &amp; language</string>
 
@@ -232,7 +234,7 @@
 
     <!-- Card short strings -->
     <string name="hours_remaining_short">%d hours</string>
-    <string name="milestone_in_days_short">%1$d ann. · %2$d d</string>
+    <string name="milestone_in_days_short">%1$d ann. 路 %2$d d</string>
 
     <!-- Splash -->
     <string name="splash_tagline">Time flies, casting shadows</string>
@@ -254,7 +256,7 @@
     <string name="weekday_fri">Fri</string>
     <string name="weekday_sat">Sat</string>
     <string name="weekday_sun">Sun</string>
-    <string name="date_weekday_format">%1$s · %2$s</string>
+    <string name="date_weekday_format">%1$s 路 %2$s</string>
     <string name="elapsed_days_format">%1$s days elapsed</string>
 
     <!-- Constellation -->
@@ -270,4 +272,37 @@
     <string name="constellation_scorpio">Scorpio</string>
     <string name="constellation_sagittarius">Sagittarius</string>
     <string name="constellation_capricorn">Capricorn</string>
+    <string name="solar_calendar">Solar</string>
+    <string name="date_part_year">Year</string>
+    <string name="date_part_month">Month</string>
+    <string name="date_part_day">Day</string>
+    <string name="calendar_permission_required_for_sync">Calendar permission is required to sync to system schedule.</string>
+    <string name="action_apply">Apply</string>
+    <string name="custom_remind_days_label">Custom days before</string>
+    <string name="custom_remind_days_hint">e.g. 30</string>
+    <string name="custom_reminder_time_label">Custom reminder time</string>
+    <string name="custom_reminder_time_hint">HH:mm (e.g. 08:30)</string>
+    <string name="custom_reminder_time_invalid">Use 24-hour time, e.g. 08:30 or 0830</string>
+    <string name="settings_milestone_remind_days_custom_hint">Custom days (e.g. 30)</string>
+    <string name="schedule_milestone_reminder_title_today_format">%1$s: %2$s is today</string>
+    <string name="schedule_milestone_reminder_title_format">%1$s: %2$s in %3$d days</string>
+    <string name="field_tags">Tags</string>
+    <string name="field_tags_hint">e.g. birthday, family, work</string>
+    <string name="save_event_failed">Save failed. Please try again.</string>
+    <string name="save_event_partial_warning">Event saved, but some reminder/sync steps failed. Please check permissions and system settings.</string>
+    <string name="import_partial_summary">Import completed: success %1$d, failed %2$d, warnings %3$d</string>
+    <string name="settings_milestone_remind_time_title">Milestone reminder time</string>
+    <string name="settings_milestone_remind_time_hint">HH:mm (e.g. 08:30)</string>
+    <string name="filter_all_tags">All tags</string>
+    <string name="display_mode_calendar">Calendar</string>
+    <string name="calendar_prev_month">Previous month</string>
+    <string name="calendar_next_month">Next month</string>
+    <string name="calendar_selected_date_events">Events on %1$s</string>
+    <string name="calendar_no_events">No events on this day</string>
 </resources>
+
+
+
+
+
+

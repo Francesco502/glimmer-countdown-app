@@ -1,4 +1,4 @@
-package com.example.timeapk.ui.detail
+﻿package com.example.timeapk.ui.detail
 
 import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
@@ -134,7 +134,7 @@ fun DetailScreen(
         fallback = MaterialTheme.colorScheme.primary
     )
     
-    // 融入主题色：使浅色不那么刺眼（像染色的宣纸），深色与背景有一定区分（像带底色的墨锭）
+    // 铻嶅叆涓婚鑹诧細浣挎祬鑹蹭笉閭ｄ箞鍒虹溂锛堝儚鏌撹壊鐨勫绾革級锛屾繁鑹蹭笌鑳屾櫙鏈変竴瀹氬尯鍒嗭紙鍍忓甫搴曡壊鐨勫ⅷ閿級
     val isDark = androidx.compose.foundation.isSystemInDarkTheme()
     val detailCardColor = androidx.compose.ui.graphics.lerp(
         MaterialTheme.colorScheme.surface,
@@ -144,7 +144,7 @@ fun DetailScreen(
     val detailContentColor = MaterialTheme.colorScheme.onSurface
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background, // 与其他页面背景一致
+        containerColor = MaterialTheme.colorScheme.background, // 涓庡叾浠栭〉闈㈣儗鏅竴鑷?
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text(stringResource(R.string.detail_title), style = MaterialTheme.typography.titleLarge) },
@@ -165,7 +165,7 @@ fun DetailScreen(
         }
     ) { innerPadding ->
         val scrollState = rememberScrollState()
-        // 修复：visible=true 首次组合不播放动画，需要从 false→true 过渡
+        // 淇锛歷isible=true 棣栨缁勫悎涓嶆挱鏀惧姩鐢伙紝闇€瑕佷粠 false鈫抰rue 杩囨浮
         var contentVisible by remember { mutableStateOf(false) }
         LaunchedEffect(Unit) { contentVisible = true }
         AnimatedVisibility(
@@ -180,24 +180,24 @@ fun DetailScreen(
                 .verticalScroll(scrollState)
                 .padding(24.dp)
         ) {
-            // 复古场记板/老黄历风格卡片 -> 宋代书画样式
+            // 澶嶅彜鍦鸿鏉?鑰侀粍鍘嗛鏍煎崱鐗?-> 瀹嬩唬涔︾敾鏍峰紡
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(4.dp), // 稍微增加圆角
+                shape = RoundedCornerShape(4.dp), // 绋嶅井澧炲姞鍦嗚
                 colors = CardDefaults.cardColors(
                     containerColor = detailCardColor
                 ),
                 border = BorderStroke(
-                    width = 1.dp, // 加深一点边框
+                    width = 1.dp, // 鍔犳繁涓€鐐硅竟妗?
                     color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
                 ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp) // 增加阴影以增强背景对比
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp) // 澧炲姞闃村奖浠ュ寮鸿儗鏅姣?
             ) {
                 Column(
-                    modifier = Modifier.padding(32.dp), // 增加内部留白
+                    modifier = Modifier.padding(32.dp), // 澧炲姞鍐呴儴鐣欑櫧
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // 顶部：日期与类别（与设置中日期格式一致）
+                    // 椤堕儴锛氭棩鏈熶笌绫诲埆锛堜笌璁剧疆涓棩鏈熸牸寮忎竴鑷达級
                     val today = LocalDate.now()
                     val targetLocalDate = eventDateToLocalDate(eventState.event.date)
                     val isYearly = eventState.event.repeatType == REPEAT_YEARLY
@@ -211,7 +211,7 @@ fun DetailScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            // 印章组件展示分类
+                            // 鍗扮珷缁勪欢灞曠ず鍒嗙被
                             val categoryName = when (eventState.event.category) {
                                 CATEGORY_BIRTHDAY -> stringResource(R.string.category_birthday)
                                 CATEGORY_ANNIVERSARY -> stringResource(R.string.category_anniversary)
@@ -253,7 +253,7 @@ fun DetailScreen(
                         )
                     }
                     
-                    // 古典两端渐隐分隔线
+                    // 鍙ゅ吀涓ょ娓愰殣鍒嗛殧绾?
                     androidx.compose.foundation.Canvas(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -275,7 +275,7 @@ fun DetailScreen(
                         )
                     }
 
-                    // 核心：标题与倒计时
+                    // 鏍稿績锛氭爣棰樹笌鍊掕鏃?
                     Text(
                         text = eventState.event.title,
                         style = MaterialTheme.typography.displayMedium.copy(
@@ -290,7 +290,7 @@ fun DetailScreen(
                     
                     Spacer(modifier = Modifier.height(40.dp))
 
-                    // 倒计时 / 已历展示：智能模式轮转支持
+                    // 鍊掕鏃?/ 宸插巻灞曠ず锛氭櫤鑳芥ā寮忚疆杞敮鎸?
                     val isToday = eventState.daysRemaining == 0L && !eventState.isPast
                     val todayLabel = stringResource(R.string.days_today_label)
                     val isRepeating = eventState.event.repeatType != REPEAT_NONE
@@ -347,7 +347,7 @@ fun DetailScreen(
                             labelText = ""
                         }
                     }
-                    // 切换显示模式时保持字号一致，不随内容长短变化
+                    // 鍒囨崲鏄剧ず妯″紡鏃朵繚鎸佸瓧鍙蜂竴鑷达紝涓嶉殢鍐呭闀跨煭鍙樺寲
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -384,7 +384,7 @@ fun DetailScreen(
                         )
                     }
 
-                    // 古典渐隐分隔线
+                    // 鍙ゅ吀娓愰殣鍒嗛殧绾?
                     Spacer(modifier = Modifier.height(32.dp))
                     androidx.compose.foundation.Canvas(
                         modifier = Modifier
@@ -409,22 +409,22 @@ fun DetailScreen(
                     }
                     Spacer(modifier = Modifier.height(32.dp))
 
-                    // 纪念日：缘起｜已历｜静候 六行（折页排版）
+                    // 绾康鏃ワ細缂樿捣锝滃凡鍘嗭綔闈欏€?鍏锛堟姌椤垫帓鐗堬級
                     if (effectiveCategory == CATEGORY_ANNIVERSARY && isRepeating) {
-                    val originDate = targetLocalDate
-                    val isLunarAnniversary = eventState.event.isLunar && eventState.event.repeatType == REPEAT_YEARLY
-                    val nextDate = if (isLunarAnniversary) {
-                        getNextLunarOccurrence(originDate, today)
-                    } else {
-                        nextOccurrenceDate(originDate, today, eventState.event.repeatType)
-                    }
-                    val safeToday = if (originDate.isAfter(today)) originDate else today
-                    val elapsedPeriod = if (isLunarAnniversary) {
-                        getLunarElapsedPeriod(originDate, safeToday)
-                    } else {
-                        Period.between(originDate, safeToday)
-                    }
-                    val elapsedDays = ChronoUnit.DAYS.between(originDate, safeToday)
+                        val originDate = targetLocalDate
+                        val isLunarAnniversary = eventState.event.isLunar && eventState.event.repeatType == REPEAT_YEARLY
+                        val nextDate = if (isLunarAnniversary) {
+                            getNextLunarOccurrence(originDate, today)
+                        } else {
+                            nextOccurrenceDate(originDate, today, eventState.event.repeatType)
+                        }
+                        val safeToday = if (originDate.isAfter(today)) originDate else today
+                        val elapsedPeriod = if (isLunarAnniversary) {
+                            getLunarElapsedPeriod(originDate, safeToday)
+                        } else {
+                            Period.between(originDate, safeToday)
+                        }
+                        val elapsedDays = ChronoUnit.DAYS.between(originDate, safeToday)
                         Spacer(modifier = Modifier.height(32.dp))
                         Column(
                             modifier = Modifier
@@ -432,7 +432,7 @@ fun DetailScreen(
                                 .padding(start = 16.dp, top = 8.dp, bottom = 8.dp),
                             horizontalAlignment = Alignment.Start
                         ) {
-                            // 缘起
+                            // 缂樿捣
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.Start,
@@ -472,7 +472,7 @@ fun DetailScreen(
                                 }
                             }
                             Spacer(modifier = Modifier.height(16.dp))
-                            // 已历
+                            // 宸插巻
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.Start,
@@ -499,7 +499,7 @@ fun DetailScreen(
                                 }
                             }
                             Spacer(modifier = Modifier.height(16.dp))
-                            // 静候
+                            // 闈欏€?
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.Start,
@@ -541,7 +541,7 @@ fun DetailScreen(
                         }
                     }
 
-                    // 其他：仅公历 + 农历
+                    // 鍏朵粬锛氫粎鍏巻 + 鍐滃巻
                     if (effectiveCategory == CATEGORY_OTHER) {
                         Spacer(modifier = Modifier.height(24.dp))
                         Column(
@@ -561,12 +561,12 @@ fun DetailScreen(
                         }
                     }
 
-                    // 生日：农历、岁数、属相、八字、五行、星座
+                    // 鐢熸棩锛氬啘鍘嗐€佸瞾鏁般€佸睘鐩搞€佸叓瀛椼€佷簲琛屻€佹槦搴?
                     if (effectiveCategory == CATEGORY_BIRTHDAY) {
                         Spacer(modifier = Modifier.height(24.dp))
                         val lunarLine = formatLunarDateString(targetLocalDate)
                         val period = agePeriod(targetLocalDate, today)
-                        val ageYmd = context.getString(R.string.detail_birthday_age_format_ymd, period.years, period.months, period.days)
+                        val ageYmd = "${period.years}y ${period.months}m ${period.days}d"
                         val zodiac = zodiacAnimalFromDate(targetLocalDate)
                         val bazi = baziFromDate(targetLocalDate)
                         val wuxing = wuxingFromDate(targetLocalDate)
@@ -588,9 +588,9 @@ fun DetailScreen(
 
                     if (eventState.event.note.isNotBlank()) {
                         Spacer(modifier = Modifier.height(48.dp))
-                        // 备注区域：类似报纸引言 -> 宋代题跋风格
+                        // 澶囨敞鍖哄煙锛氱被浼兼姤绾稿紩瑷€ -> 瀹嬩唬棰樿穻椋庢牸
                         Text(
-                            text = eventState.event.note, // 去掉引号，更干净
+                            text = eventState.event.note, // 鍘绘帀寮曞彿锛屾洿骞插噣
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontStyle = androidx.compose.ui.text.font.FontStyle.Normal,
                                 letterSpacing = 0.5.sp
@@ -604,7 +604,7 @@ fun DetailScreen(
             
             Spacer(modifier = Modifier.height(32.dp))
             
-            // 底部操作区：方形按钮（带按压缩放反馈）
+            // 搴曢儴鎿嶄綔鍖猴細鏂瑰舰鎸夐挳锛堝甫鎸夊帇缂╂斁鍙嶉锛?
             DetailActionButtons(
                 isPinned = eventState.event.id in pinnedEventIds,
                 onPinClick = { scope.launch { prefs.togglePinnedEventId(eventState.event.id) } },
@@ -657,8 +657,8 @@ private fun DetailActionButtons(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 48.dp, bottom = 24.dp), // 上方留出大量空白
-        horizontalArrangement = Arrangement.SpaceEvenly, // 水平分散对齐
+            .padding(top = 48.dp, bottom = 24.dp), // 涓婃柟鐣欏嚭澶ч噺绌虹櫧
+        horizontalArrangement = Arrangement.SpaceEvenly, // 姘村钩鍒嗘暎瀵归綈
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(
@@ -745,10 +745,10 @@ private fun DetailLabelRow(label: String, value: String, contentColor: androidx.
         verticalAlignment = Alignment.Top
     ) {
         Text(
-            text = "$label ｜ ",
+            text = "$label 锝?",
             style = MaterialTheme.typography.bodyLarge,
             color = contentColor.copy(alpha = 0.75f),
-            modifier = Modifier.width(80.dp) // 给 Label 留出固定空间，营造折页错落感
+            modifier = Modifier.width(80.dp) // 缁?Label 鐣欏嚭鍥哄畾绌洪棿锛岃惀閫犳姌椤甸敊钀芥劅
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
@@ -759,3 +759,4 @@ private fun DetailLabelRow(label: String, value: String, contentColor: androidx.
         )
     }
 }
+

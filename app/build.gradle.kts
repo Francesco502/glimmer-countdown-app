@@ -1,4 +1,4 @@
-import java.util.Properties
+﻿import java.util.Properties
 
 plugins {
     id("com.android.application")
@@ -7,11 +7,11 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-// 可选：从 gradle.properties 读取版本，便于 CI/脚本统一改版（未定义则用下面 defaultConfig 中的默认值）
+// 鍙€夛細浠?gradle.properties 璇诲彇鐗堟湰锛屼究浜?CI/鑴氭湰缁熶竴鏀圭増锛堟湭瀹氫箟鍒欑敤涓嬮潰 defaultConfig 涓殑榛樿鍊硷級
 val versionCodeOverride: Int? = (project.findProperty("VERSION_CODE") as? String)?.toIntOrNull()
 val versionNameOverride: String? = project.findProperty("VERSION_NAME") as? String
 
-// 可选：release 签名。创建 keystore 后，在项目根目录添加 keystore.properties（不要提交到 Git）：
+// 鍙€夛細release 绛惧悕銆傚垱寤?keystore 鍚庯紝鍦ㄩ」鐩牴鐩綍娣诲姞 keystore.properties锛堜笉瑕佹彁浜ゅ埌 Git锛夛細
 //   storeFile=../timeapk-release.keystore
 //   storePassword=xxx
 //   keyAlias=timeapk
@@ -27,8 +27,8 @@ android {
         applicationId = "com.example.timeapk"
         minSdk = 26
         targetSdk = 35
-        versionCode = versionCodeOverride ?: 7
-        versionName = versionNameOverride ?: "3.3"
+        versionCode = versionCodeOverride ?: 8
+        versionName = versionNameOverride ?: "3.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -63,7 +63,7 @@ android {
     productFlavors {
         create("direct") {
             dimension = "channel"
-            // 官网/直装渠道，使用默认 applicationId
+            // 瀹樼綉/鐩磋娓犻亾锛屼娇鐢ㄩ粯璁?applicationId
         }
         create("play") {
             dimension = "channel"
@@ -72,8 +72,7 @@ android {
         }
     }
     compileOptions {
-        // 使用更高的 Java 版本以消除 JDK 21 对 1.8 的弃用警告
-        sourceCompatibility = JavaVersion.VERSION_17
+        // 浣跨敤鏇撮珮鐨?Java 鐗堟湰浠ユ秷闄?JDK 21 瀵?1.8 鐨勫純鐢ㄨ鍛?        sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions {
@@ -90,8 +89,8 @@ android {
     }
 }
 
-// Release APK 输出名：例如 glimmer-countdown-3-3.apk（版本号中 . 改为 -）
-val versionNameForApk = versionNameOverride ?: "3.3"
+// Release APK 输出名：例如 glimmer-countdown-3-4.apk（版本号中 . 改为 -）
+val versionNameForApk = versionNameOverride ?: "3.4"
 val apkBaseName = "glimmer-countdown-${versionNameForApk.replace(".", "-")}"
 tasks.register("renameDirectReleaseApk") {
     dependsOn("packageDirectRelease")
@@ -135,13 +134,13 @@ dependencies {
     // DataStore
     implementation("androidx.datastore:datastore-preferences:1.0.0")
 
-    // 检查更新：拉取 GitHub Release 信息
+    // 妫€鏌ユ洿鏂帮細鎷夊彇 GitHub Release 淇℃伅
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
-    // 农历、干支（详情页「缘起｜已历｜静候」展示）
+    // 鍐滃巻銆佸共鏀紙璇︽儏椤点€岀紭璧凤綔宸插巻锝滈潤鍊欍€嶅睍绀猴級
     implementation("cn.6tail:lunar:1.7.4")
 
-    // 首页卡片/列表拖拽排序
+    // 棣栭〉鍗＄墖/鍒楄〃鎷栨嫿鎺掑簭
     implementation("org.burnoutcrew.composereorderable:reorderable:0.9.6")
 
     testImplementation("junit:junit:4.13.2")
@@ -152,3 +151,5 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
+
+

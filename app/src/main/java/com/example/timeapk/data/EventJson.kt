@@ -1,5 +1,8 @@
-package com.example.timeapk.data
+﻿package com.example.timeapk.data
 
+import com.example.timeapk.ui.utils.eventDateToLocalDate
+import com.example.timeapk.ui.utils.getNextLunarOccurrence
+import com.example.timeapk.ui.utils.nextOccurrenceDate
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -13,6 +16,7 @@ fun List<Event>.toJsonString(): String {
                 put("date", e.date)
                 put("category", e.category)
                 put("note", e.note)
+                put("tags", e.tags)
                 put("colorHex", e.colorHex ?: JSONObject.NULL)
                 put("repeatType", e.repeatType)
                 put("remindDaysBefore", e.remindDaysBefore)
@@ -33,6 +37,7 @@ fun parseEventsFromJson(json: String): List<Event> {
         val arr = JSONArray(json)
         for (i in 0 until arr.length()) {
             val o = arr.getJSONObject(i)
+            val repeatType = normalizeRepeatType(o.optString("repeatType", REPEAT_NONE))
             list.add(
                 Event(
                     id = 0,
@@ -40,10 +45,11 @@ fun parseEventsFromJson(json: String): List<Event> {
                     date = o.optLong("date", System.currentTimeMillis()),
                     category = o.optString("category", ""),
                     note = o.optString("note", ""),
+                    tags = normalizeTags(o.optString("tags", "")),
                     colorHex = if (o.isNull("colorHex")) null else o.optString("colorHex"),
-                    repeatType = o.optString("repeatType", REPEAT_NONE),
-                    remindDaysBefore = o.optInt("remindDaysBefore", 0),
-                    reminderTimeMinutesOfDay = o.optInt("reminderTimeMinutesOfDay", 480),
+                    repeatType = repeatType,
+                    remindDaysBefore = sanitizeRemindDaysBefore(o.optInt("remindDaysBefore", 0)),
+                    reminderTimeMinutesOfDay = sanitizeReminderTimeMinutesOfDay(o.optInt("reminderTimeMinutesOfDay", 480)),
                     remindEnabled = o.optBoolean("remindEnabled", false),
                     syncToScheduleEnabled = o.optBoolean("syncToScheduleEnabled", true),
                     scheduleEventId = null,
@@ -52,18 +58,34 @@ fun parseEventsFromJson(json: String): List<Event> {
                 )
             )
         }
-    } catch (_: Exception) { }
+    } catch (_: Exception) {
+    }
     return list
+}
+
+private fun normalizeRepeatType(value: String): String {
+    return when (value) {
+        REPEAT_NONE,
+        REPEAT_DAILY,
+        REPEAT_WEEKLY,
+        REPEAT_MONTHLY,
+        REPEAT_HALF_YEARLY,
+        REPEAT_YEARLY -> value
+
+        else -> REPEAT_NONE
+    }
 }
 
 private fun escapeCsvField(s: String): String {
     return if (s.contains(',') || s.contains('"') || s.contains('\n')) {
         "\"" + s.replace("\"", "\"\"") + "\""
-    } else s
+    } else {
+        s
+    }
 }
 
 fun List<Event>.toCsvString(): String {
-    val header = "title,date,category,note,repeatType,remindEnabled"
+    val header = "title,date,category,note,tags,repeatType,remindEnabled"
     val lines = mutableListOf(header)
     for (e in this) {
         lines.add(
@@ -72,6 +94,7 @@ fun List<Event>.toCsvString(): String {
                 e.date.toString(),
                 escapeCsvField(e.category),
                 escapeCsvField(e.note),
+                escapeCsvField(e.tags),
                 e.repeatType,
                 e.remindEnabled.toString()
             ).joinToString(",")
@@ -83,52 +106,20 @@ fun List<Event>.toCsvString(): String {
 fun List<Event>.toPlainTextListString(daysLeftLabel: String, daysPastLabel: String, daysUnit: String): String {
     val today = java.time.LocalDate.now()
     return this.sortedBy { it.date }.map { e ->
-        val targetDate = com.example.timeapk.ui.utils.eventDateToLocalDate(e.date)
+        val targetDate = eventDateToLocalDate(e.date)
         val hasStarted = !targetDate.isAfter(today)
-        var nextTargetDate = targetDate
-
-        when (e.repeatType) {
-            REPEAT_YEARLY -> {
-                if (hasStarted) {
-                    val currentYear = safeWithYearForExport(targetDate, today.year)
-                    if (currentYear != null && currentYear.isBefore(today)) {
-                        nextTargetDate = safeWithYearForExport(targetDate, today.year + 1) ?: targetDate
-                    } else if (currentYear != null) {
-                        nextTargetDate = currentYear
-                    }
-                }
-            }
-            REPEAT_HALF_YEARLY -> {
-                var next = targetDate
-                while (next.isBefore(today)) {
-                    next = next.plusMonths(6)
-                }
-                nextTargetDate = next
-            }
-            REPEAT_MONTHLY -> {
-                var next = targetDate
-                while (next.isBefore(today)) {
-                    next = next.plusMonths(1)
-                }
-                nextTargetDate = next
-            }
-            else -> { /* REPEAT_NONE */ }
+        val nextTargetDate = when {
+            e.repeatType == REPEAT_YEARLY && e.isLunar && hasStarted -> getNextLunarOccurrence(targetDate, today)
+            e.repeatType != REPEAT_NONE && hasStarted -> nextOccurrenceDate(targetDate, today, e.repeatType)
+            else -> targetDate
         }
 
         val days = java.time.temporal.ChronoUnit.DAYS.between(today, nextTargetDate).toInt()
-        val (label, count) = if (days > 0) daysLeftLabel to days else daysPastLabel to -days
+        val (label, count) = if (days > 0) {
+            daysLeftLabel to days
+        } else {
+            daysPastLabel to -days
+        }
         "${e.title}: $label $count $daysUnit"
     }.joinToString("\n")
-}
-
-private fun safeWithYearForExport(date: java.time.LocalDate, year: Int): java.time.LocalDate? {
-    return try {
-        date.withYear(year)
-    } catch (_: Exception) {
-        try {
-            java.time.LocalDate.of(year, date.monthValue, 28)
-        } catch (_: Exception) {
-            null
-        }
-    }
 }

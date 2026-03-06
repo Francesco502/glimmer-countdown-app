@@ -1,4 +1,4 @@
-package com.example.timeapk.ui.settings
+﻿package com.example.timeapk.ui.settings
 
 import android.app.Activity
 import android.content.Context
@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -25,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.input.KeyboardType
 import com.example.timeapk.BuildConfig
 import com.example.timeapk.R
 import com.example.timeapk.TimeApplication
@@ -39,6 +41,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.example.timeapk.ui.utils.findActivity
+import java.util.Locale
 
 @Composable
 fun ClassicalToggle(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
@@ -61,16 +64,13 @@ fun ClassicalToggle(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
 }
 
 private val PRESET_COLOR_HEX = listOf(
-    // 宋代工笔画 (默认) - 统一为更契合宋式美学且能良好适应深浅模式的色彩
-    "#8E354A", "#576E6A", "#C7B398", "#5A7B86", "#8C4B47",
+    // 瀹嬩唬宸ョ瑪鐢?(榛樿) - 缁熶竴涓烘洿濂戝悎瀹嬪紡缇庡涓旇兘鑹ソ閫傚簲娣辨祬妯″紡鐨勮壊褰?    "#8E354A", "#576E6A", "#C7B398", "#5A7B86", "#8C4B47",
     "#4B5054", "#7A6C77", "#B17A7D", "#8C9C9A", "#B09A97",
-    // 港式复古
+    // 娓紡澶嶅彜
     "#D65C5C", "#3F6987", "#FDF4DE", "#141622", "#355D82",
-    // 基础黑白灰
-    "#000000", "#FFFFFF", "#8E8E93", "#1C1C1E", "#F2F2F7",
-    // iOS 系统色
-    "#007AFF", "#FF3B30", "#34C759", "#FF9500", "#AF52DE", "#5856D6", "#FF2D55", "#A2845E",
-    // 莫兰迪/柔和色系
+    // 鍩虹榛戠櫧鐏?    "#000000", "#FFFFFF", "#8E8E93", "#1C1C1E", "#F2F2F7",
+    // iOS 绯荤粺鑹?    "#007AFF", "#FF3B30", "#34C759", "#FF9500", "#AF52DE", "#5856D6", "#FF2D55", "#A2845E",
+    // 鑾叞杩?鏌斿拰鑹茬郴
     "#E0BBE4", "#957DAD", "#D291BC", "#FEC8D8", "#FFDFD3",
     "#8AACFF", "#6EC6FF", "#99E6E6", "#CFFFFF", "#F0F8FF"
 )
@@ -326,9 +326,21 @@ fun DisplaySettingsContent(
     val showMilestone by prefs.showMilestoneFlow.collectAsState(initial = true)
     val milestoneRemindEnabled by prefs.milestoneRemindEnabledFlow.collectAsState(initial = false)
     val milestoneRemindDaysAhead by prefs.milestoneRemindDaysAheadFlow.collectAsState(initial = 7)
+    val milestoneRemindTimeMinutesOfDay by prefs.milestoneRemindTimeMinutesOfDayFlow.collectAsState(initial = 480)
     val customMilestones by prefs.customMilestonesFlow.collectAsState(initial = DEFAULT_MILESTONE_DAYS)
     val dateFormatMode by prefs.dateFormatModeFlow.collectAsState(initial = 0)
     var newMilestoneInput by remember { mutableStateOf("") }
+    var customMilestoneRemindDaysInput by remember { mutableStateOf(milestoneRemindDaysAhead.toString()) }
+    var customMilestoneRemindTimeInput by remember { mutableStateOf(formatMinutesOfDay(milestoneRemindTimeMinutesOfDay)) }
+    var customMilestoneRemindTimeError by remember { mutableStateOf(false) }
+
+    LaunchedEffect(milestoneRemindDaysAhead) {
+        customMilestoneRemindDaysInput = milestoneRemindDaysAhead.toString()
+    }
+    LaunchedEffect(milestoneRemindTimeMinutesOfDay) {
+        customMilestoneRemindTimeInput = formatMinutesOfDay(milestoneRemindTimeMinutesOfDay)
+        customMilestoneRemindTimeError = false
+    }
 
     Column(
         modifier = modifier
@@ -533,6 +545,113 @@ fun DisplaySettingsContent(
                     )
                 }
             }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = customMilestoneRemindDaysInput,
+                    onValueChange = {
+                        customMilestoneRemindDaysInput = it.filter { c -> c.isDigit() }
+                    },
+                    label = { Text(stringResource(R.string.settings_milestone_remind_days_custom_hint)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(4.dp)
+                )
+                OutlinedButton(
+                    onClick = {
+                        val parsed = customMilestoneRemindDaysInput.toIntOrNull() ?: return@OutlinedButton
+                        scope.launch {
+                            prefs.setMilestoneRemindDaysAhead(parsed)
+                            rescheduleMilestoneReminders(app)
+                        }
+                    },
+                    enabled = customMilestoneRemindDaysInput.isNotBlank(),
+                    shape = RoundedCornerShape(4.dp)
+                ) {
+                    Text(stringResource(R.string.action_apply))
+                }
+            }
+            Text(
+                text = stringResource(R.string.settings_milestone_remind_time_title),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf(
+                    stringResource(R.string.reminder_time_6) to 360,
+                    stringResource(R.string.reminder_time_8) to 480,
+                    stringResource(R.string.reminder_time_9) to 540,
+                    stringResource(R.string.reminder_time_12) to 720,
+                    stringResource(R.string.reminder_time_18) to 1080
+                ).forEach { (label, minutes) ->
+                    FilterChip(
+                        selected = milestoneRemindTimeMinutesOfDay == minutes,
+                        onClick = {
+                            scope.launch {
+                                prefs.setMilestoneRemindTimeMinutesOfDay(minutes)
+                                rescheduleMilestoneReminders(app)
+                            }
+                        },
+                        label = { Text(label) },
+                        shape = RoundedCornerShape(4.dp)
+                    )
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = customMilestoneRemindTimeInput,
+                    onValueChange = {
+                        customMilestoneRemindTimeInput = it.filter { c -> c.isDigit() || c == ':' }.take(5)
+                        customMilestoneRemindTimeError = false
+                    },
+                    label = { Text(stringResource(R.string.settings_milestone_remind_time_hint)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    isError = customMilestoneRemindTimeError,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(4.dp)
+                )
+                OutlinedButton(
+                    onClick = {
+                        val parsed = parseReminderTimeInput(customMilestoneRemindTimeInput)
+                        if (parsed == null) {
+                            customMilestoneRemindTimeError = true
+                        } else {
+                            scope.launch {
+                                customMilestoneRemindTimeError = false
+                                prefs.setMilestoneRemindTimeMinutesOfDay(parsed)
+                                rescheduleMilestoneReminders(app)
+                            }
+                        }
+                    },
+                    enabled = customMilestoneRemindTimeInput.isNotBlank(),
+                    shape = RoundedCornerShape(4.dp)
+                ) {
+                    Text(stringResource(R.string.action_apply))
+                }
+            }
+            if (customMilestoneRemindTimeError) {
+                Text(
+                    text = stringResource(R.string.custom_reminder_time_invalid),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
 
@@ -681,6 +800,85 @@ fun DataSettingsContent(
     var importJsonText by remember { mutableStateOf("") }
     var importResultMessage by remember { mutableStateOf<String?>(null) }
 
+    suspend fun importEvents(events: List<Event>): Triple<Int, Int, Int> {
+        if (events.isEmpty()) return Triple(0, 0, 0)
+        var successCount = 0
+        var failedCount = 0
+        var warningCount = 0
+
+        events.forEach { sourceEvent ->
+            val event = sourceEvent.sanitizedReminderConfig()
+            val newId = try {
+                repository.insertEvent(event)
+            } catch (_: Exception) {
+                failedCount += 1
+                return@forEach
+            }
+            val savedEvent = event.copy(id = newId.toInt(), scheduleEventId = null)
+
+            var hasWarning = false
+            if (savedEvent.remindEnabled) {
+                try {
+                    scheduleReminder(context, savedEvent)
+                } catch (_: Exception) {
+                    hasWarning = true
+                }
+
+                if (savedEvent.syncToScheduleEnabled) {
+                    val scheduleId = try {
+                        ScheduleSyncManager.insertScheduleReminder(context, savedEvent)
+                    } catch (_: Exception) {
+                        hasWarning = true
+                        null
+                    }
+
+                    if (scheduleId != null) {
+                        try {
+                            repository.updateEvent(savedEvent.copy(scheduleEventId = scheduleId))
+                        } catch (_: Exception) {
+                            hasWarning = true
+                        }
+                    } else {
+                        hasWarning = true
+                    }
+                }
+            }
+
+            successCount += 1
+            if (hasWarning) {
+                warningCount += 1
+            }
+        }
+
+        if (successCount > 0) {
+            try {
+                rescheduleMilestoneReminders(app)
+            } catch (_: Exception) {
+                warningCount += 1
+            }
+            try {
+                WidgetUpdater.refreshCountdownWidgets(context)
+            } catch (_: Exception) {
+                warningCount += 1
+            }
+        }
+
+        return Triple(successCount, failedCount, warningCount)
+    }
+
+    fun importResultText(successCount: Int, failedCount: Int, warningCount: Int): String {
+        return when {
+            successCount <= 0 -> context.getString(R.string.import_error)
+            failedCount > 0 || warningCount > 0 -> context.getString(
+                R.string.import_partial_summary,
+                successCount,
+                failedCount,
+                warningCount
+            )
+            else -> context.getString(R.string.import_success, successCount)
+        }
+    }
+
     val importFromFileLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri ?: return@rememberLauncherForActivityResult
         val text = try {
@@ -694,25 +892,8 @@ fun DataSettingsContent(
         }
         scope.launch {
             val list = parseEventsFromJson(text)
-            if (list.isEmpty()) {
-                importResultMessage = context.getString(R.string.import_error)
-            } else {
-                list.forEach { event ->
-                    val newId = repository.insertEvent(event)
-                    val savedEvent = event.copy(id = newId.toInt())
-                    if (savedEvent.remindEnabled) {
-                        scheduleReminder(context, savedEvent)
-                        if (savedEvent.syncToScheduleEnabled) {
-                            val scheduleId = ScheduleSyncManager.insertScheduleReminder(context, savedEvent)
-                            if (scheduleId != null) {
-                                repository.updateEvent(savedEvent.copy(scheduleEventId = scheduleId))
-                            }
-                        }
-                    }
-                }
-                WidgetUpdater.refreshCountdownWidgets(context)
-                importResultMessage = context.getString(R.string.import_success, list.size)
-            }
+            val (successCount, failedCount, warningCount) = importEvents(list)
+            importResultMessage = importResultText(successCount, failedCount, warningCount)
         }
     }
 
@@ -755,25 +936,8 @@ fun DataSettingsContent(
                 TextButton(onClick = {
                     scope.launch {
                         val list = parseEventsFromJson(importJsonText)
-                        if (list.isEmpty()) {
-                            importResultMessage = context.getString(R.string.import_error)
-                        } else {
-                            for (event in list) {
-                                val newId = repository.insertEvent(event)
-                                val savedEvent = event.copy(id = newId.toInt())
-                                if (savedEvent.remindEnabled) {
-                                    scheduleReminder(context, savedEvent)
-                                    if (savedEvent.syncToScheduleEnabled) {
-                                        val scheduleId = ScheduleSyncManager.insertScheduleReminder(context, savedEvent)
-                                        if (scheduleId != null) {
-                                            repository.updateEvent(savedEvent.copy(scheduleEventId = scheduleId))
-                                        }
-                                    }
-                                }
-                            }
-                            WidgetUpdater.refreshCountdownWidgets(context)
-                            importResultMessage = context.getString(R.string.import_success, list.size)
-                        }
+                        val (successCount, failedCount, warningCount) = importEvents(list)
+            importResultMessage = importResultText(successCount, failedCount, warningCount)
                     }
                 }) {
                     Text(stringResource(R.string.import_events), color = MaterialTheme.colorScheme.primary)
@@ -784,7 +948,10 @@ fun DataSettingsContent(
                     showImportDialog = false
                     importResultMessage = null
                 }) {
-                    Text(stringResource(R.string.delete_confirm_cancel), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+                    Text(
+                        stringResource(R.string.delete_confirm_cancel),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    )
                 }
             }
         )
@@ -798,7 +965,6 @@ fun DataSettingsContent(
     ) {
         SettingsGroupHeader(title = stringResource(R.string.export_import))
 
-        // Export JSON
         SettingsPressableRow(
             onClick = {
                 scope.launch {
@@ -821,7 +987,6 @@ fun DataSettingsContent(
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
 
-        // Export CSV
         SettingsPressableRow(
             onClick = {
                 scope.launch {
@@ -844,7 +1009,6 @@ fun DataSettingsContent(
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
 
-        // Export Plain Text
         SettingsPressableRow(
             onClick = {
                 scope.launch {
@@ -871,7 +1035,6 @@ fun DataSettingsContent(
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
 
-        // Import
         SettingsPressableRow(
             onClick = {
                 showImportDialog = true
@@ -1025,7 +1188,7 @@ fun AboutSettingsContent(
             )
             if (updateCheckInProgress) {
                 Text(
-                    text = " …",
+                    text = "...",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(start = 4.dp)
@@ -1035,3 +1198,61 @@ fun AboutSettingsContent(
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+private fun formatMinutesOfDay(minutesOfDay: Int): String {
+    val safe = sanitizeReminderTimeMinutesOfDay(minutesOfDay)
+    val hour = safe / 60
+    val minute = safe % 60
+    return String.format(Locale.US, "%02d:%02d", hour, minute)
+}
+
+private fun parseReminderTimeInput(input: String): Int? {
+    val raw = input.trim()
+    if (raw.isBlank()) return null
+
+    val parsed = if (raw.contains(":")) {
+        val parts = raw.split(":")
+        if (parts.size != 2) return null
+        val hour = parts[0].toIntOrNull() ?: return null
+        val minute = parts[1].toIntOrNull() ?: return null
+        hour to minute
+    } else {
+        val digits = raw.filter { it.isDigit() }
+        when (digits.length) {
+            1, 2 -> (digits.toIntOrNull() ?: return null) to 0
+            3 -> {
+                val hour = digits.substring(0, 1).toIntOrNull() ?: return null
+                val minute = digits.substring(1, 3).toIntOrNull() ?: return null
+                hour to minute
+            }
+            4 -> {
+                val hour = digits.substring(0, 2).toIntOrNull() ?: return null
+                val minute = digits.substring(2, 4).toIntOrNull() ?: return null
+                hour to minute
+            }
+            else -> return null
+        }
+    }
+
+    val (hour, minute) = parsed
+    if (hour !in 0..23 || minute !in 0..59) return null
+    return hour * 60 + minute
+}
+
+
+

@@ -7,12 +7,12 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Test
 import java.time.LocalDate
-import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
 
 class EventUiStateTest {
     private fun epochMillisOf(localDate: LocalDate): Long {
-        return localDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        return localDate.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
     }
 
     @Test
@@ -20,9 +20,9 @@ class EventUiStateTest {
         val today = LocalDate.now()
         val birthday = LocalDate.of(1998, 5, 2)
         val event = Event(
-            title = "生日",
+            title = "birthday",
             date = epochMillisOf(birthday),
-            category = "生日",
+            category = "birthday",
             repeatType = REPEAT_YEARLY
         )
 
@@ -43,9 +43,9 @@ class EventUiStateTest {
         val today = LocalDate.now()
         val future = today.plusYears(2).plusDays(10)
         val event = Event(
-            title = "未来纪念日",
+            title = "future anniversary",
             date = epochMillisOf(future),
-            category = "纪念日",
+            category = "anniversary",
             repeatType = REPEAT_YEARLY
         )
 
@@ -61,9 +61,9 @@ class EventUiStateTest {
         val today = LocalDate.now()
         val future = today.plusDays(10)
         val event = Event(
-            title = "未来每月事件",
+            title = "future monthly",
             date = epochMillisOf(future),
-            category = "其他",
+            category = "other",
             repeatType = REPEAT_MONTHLY
         )
 
@@ -74,4 +74,3 @@ class EventUiStateTest {
         assertEquals(ChronoUnit.DAYS.between(today, future), state.daysRemaining)
     }
 }
-

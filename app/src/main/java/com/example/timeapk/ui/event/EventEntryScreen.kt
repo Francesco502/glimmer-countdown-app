@@ -1,4 +1,4 @@
-package com.example.timeapk.ui.event
+﻿package com.example.timeapk.ui.event
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
@@ -11,6 +11,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.material.icons.Icons
@@ -32,6 +33,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -40,10 +42,14 @@ import com.example.timeapk.TimeApplication
 import com.example.timeapk.data.CATEGORY_ANNIVERSARY
 import com.example.timeapk.data.CATEGORY_BIRTHDAY
 import com.example.timeapk.data.CATEGORY_OTHER
+import com.example.timeapk.data.REPEAT_DAILY
 import com.example.timeapk.data.REPEAT_HALF_YEARLY
 import com.example.timeapk.data.REPEAT_MONTHLY
 import com.example.timeapk.data.REPEAT_NONE
+import com.example.timeapk.data.REPEAT_WEEKLY
 import com.example.timeapk.data.REPEAT_YEARLY
+import com.example.timeapk.data.sanitizeRemindDaysBefore
+import com.example.timeapk.data.sanitizeReminderTimeMinutesOfDay
 import com.example.timeapk.ui.AppViewModelProvider
 import com.example.timeapk.ui.components.BottomSheetDatePicker
 import com.example.timeapk.ui.theme.AnimationSpecs
@@ -55,18 +61,19 @@ import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZoneOffset
+import java.util.Locale
 
 private val PRESET_COLORS = listOf(
-    // 宋代美学颜色：用户指定默认色 + 补充色
-    "#4A4933", // 沉香
-    "#457080", // 景泰蓝
-    "#5F856B", // 汁绿
-    "#AF4E31", // 丹罽
-    "#AC8F62", // 秋香
-    "#86351C", // 栗壳
-    "#5B8E79", // 蟹壳青
-    "#3A4550", // 铁灰
-    "#785B64"  // 绛紫
+    // 瀹嬩唬缇庡棰滆壊锛氱敤鎴锋寚瀹氶粯璁よ壊 + 琛ュ厖鑹?
+    "#4A4933", // 娌夐
+    "#457080", // 鏅嘲钃?
+    "#5F856B", // 姹佺豢
+    "#AF4E31", // 涓圭浇
+    "#AC8F62", // 绉嬮
+    "#86351C", // 鏍楀３
+    "#5B8E79", // 锜瑰３闈?
+    "#3A4550", // 閾佺伆
+    "#785B64"  // 缁涚传
 )
 // CATEGORY_DEFAULT_COLOR map removed as explicit category selection is gone
 
@@ -82,6 +89,10 @@ fun EventEntryScreen(
     val eventUiState by viewModel.eventUiState.collectAsState()
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+    val calendarPermissions = remember {
+        arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR)
+    }
+    var pendingSaveAfterCalendarPermission by remember { mutableStateOf(false) }
     LaunchedEffect(eventId) {
         if (eventId != null && eventId != 0) {
             viewModel.loadEvent(eventId)
@@ -96,6 +107,59 @@ fun EventEntryScreen(
     }
 
     var isSaving by remember { mutableStateOf(false) }
+
+    fun hasCalendarPermission(): Boolean {
+        val readGranted = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.READ_CALENDAR
+        ) == PackageManager.PERMISSION_GRANTED
+        val writeGranted = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.WRITE_CALENDAR
+        ) == PackageManager.PERMISSION_GRANTED
+        return readGranted && writeGranted
+    }
+
+    fun launchSave() {
+        coroutineScope.launch {
+            when (val result = viewModel.saveEvent()) {
+                is SaveEventResult.Success -> navigateBack()
+                is SaveEventResult.PartialSuccess -> {
+                    isSaving = false
+                    snackbarHostState.showSnackbar(result.message)
+                }
+                is SaveEventResult.Failure -> {
+                    isSaving = false
+                    snackbarHostState.showSnackbar(result.message)
+                }
+            }
+        }
+    }
+
+    val calendarPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { grantResults ->
+        val granted =
+            grantResults[Manifest.permission.READ_CALENDAR] == true &&
+                grantResults[Manifest.permission.WRITE_CALENDAR] == true
+
+        if (!pendingSaveAfterCalendarPermission) {
+            return@rememberLauncherForActivityResult
+        }
+
+        pendingSaveAfterCalendarPermission = false
+        if (granted) {
+            launchSave()
+        } else {
+            isSaving = false
+            coroutineScope.launch {
+                snackbarHostState.showSnackbar(
+                    context.getString(R.string.calendar_permission_required_for_sync)
+                )
+            }
+        }
+    }
+
     val isEditing = eventId != null && eventId != 0
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -132,11 +196,18 @@ fun EventEntryScreen(
             isSaving = isSaving,
             onSaveClick = {
                 if (isSaving) return@EventEntryBody
-                isSaving = true
-                coroutineScope.launch {
-                    val ok = viewModel.saveEvent()
-                    if (ok) navigateBack() else isSaving = false
+
+                val details = eventUiState.eventDetails
+                val shouldCheckCalendarPermission = details.syncToScheduleEnabled
+                if (shouldCheckCalendarPermission && !hasCalendarPermission()) {
+                    isSaving = true
+                    pendingSaveAfterCalendarPermission = true
+                    calendarPermissionLauncher.launch(calendarPermissions)
+                    return@EventEntryBody
                 }
+
+                isSaving = true
+                launchSave()
             },
             modifier = modifier.padding(innerPadding)
         )
@@ -157,11 +228,11 @@ fun EventEntryBody(
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .imePadding()
-            .background(MaterialTheme.colorScheme.background) // 复古纯色背景
+            .background(MaterialTheme.colorScheme.background) // 澶嶅彜绾壊鑳屾櫙
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        // 表单区域：与页面背景同色，不再使用 surfaceVariant 大面积主色
+        // 琛ㄥ崟鍖哄煙锛氫笌椤甸潰鑳屾櫙鍚岃壊锛屼笉鍐嶄娇鐢?surfaceVariant 澶ч潰绉富鑹?
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(4.dp),
@@ -180,7 +251,7 @@ fun EventEntryBody(
             }
         }
         
-        // 底部保存按钮：废弃实心色块，改为纯文字/印章风格
+        // 搴曢儴淇濆瓨鎸夐挳锛氬簾寮冨疄蹇冭壊鍧楋紝鏀逛负绾枃瀛?鍗扮珷椋庢牸
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.End
@@ -214,7 +285,14 @@ fun EventInputForm(
     val calendarPermissions = arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR)
     val calendarPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { _ -> }
+    ) { grantResults ->
+        val granted =
+            grantResults[Manifest.permission.READ_CALENDAR] == true &&
+                grantResults[Manifest.permission.WRITE_CALENDAR] == true
+        if (!granted && eventDetails.syncToScheduleEnabled) {
+            onValueChange(eventDetails.copy(syncToScheduleEnabled = false))
+        }
+    }
     val dateFormatMode by (context.applicationContext as TimeApplication).userPrefs.dateFormatModeFlow.collectAsState(initial = 0)
     val dateFormatter = remember(dateFormatMode) { getDisplayDateFormatter(dateFormatMode) }
     var showDatePicker by remember { mutableStateOf(false) }
@@ -255,6 +333,17 @@ fun EventInputForm(
         )
     }
 
+    var customRemindDaysInput by remember { mutableStateOf(eventDetails.remindDaysBefore.toString()) }
+    var customRemindTimeInput by remember { mutableStateOf(formatMinutesOfDay(eventDetails.reminderTimeMinutesOfDay)) }
+    var customRemindTimeError by remember { mutableStateOf(false) }
+
+    LaunchedEffect(eventDetails.remindDaysBefore) {
+        customRemindDaysInput = eventDetails.remindDaysBefore.toString()
+    }
+    LaunchedEffect(eventDetails.reminderTimeMinutesOfDay) {
+        customRemindTimeInput = formatMinutesOfDay(eventDetails.reminderTimeMinutesOfDay)
+    }
+
     val titleTouched = remember { mutableStateOf(false) }
     val showTitleError = titleTouched.value && eventDetails.title.isBlank()
 
@@ -276,7 +365,7 @@ fun EventInputForm(
             colors = textFieldColors
         )
 
-        // 分类：生日 / 纪念日 / 其他
+        // 鍒嗙被锛氱敓鏃?/ 绾康鏃?/ 鍏朵粬
         Text(
             text = stringResource(R.string.field_category),
             style = MaterialTheme.typography.labelMedium,
@@ -308,7 +397,7 @@ fun EventInputForm(
             }
         }
         
-        // 备注输入
+        // 澶囨敞杈撳叆
         TextField(
             value = eventDetails.note,
             onValueChange = { onValueChange(eventDetails.copy(note = it)) },
@@ -320,7 +409,18 @@ fun EventInputForm(
             colors = textFieldColors
         )
 
-        // 日期选择：公历 / 农历 显示
+        TextField(
+            value = eventDetails.tags,
+            onValueChange = { onValueChange(eventDetails.copy(tags = it)) },
+            label = { Text(stringResource(R.string.field_tags)) },
+            placeholder = { Text(stringResource(R.string.field_tags_hint)) },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            shape = RoundedCornerShape(0.dp),
+            colors = textFieldColors
+        )
+
+        // 鏃ユ湡閫夋嫨锛氬叕鍘?/ 鍐滃巻 鏄剧ず
         val baseDate = eventDateToLocalDate(eventDetails.date)
         val dateString = if (eventDetails.isLunar) {
             formatLunarDateString(baseDate)
@@ -328,8 +428,8 @@ fun EventInputForm(
             baseDate.format(dateFormatter)
         }
 
-        // 整个日期输入框可点击打开日期选择器，去掉右侧图标
-        // 使用上层透明点击层，避免 TextField 自身消费点击事件
+        // 鏁翠釜鏃ユ湡杈撳叆妗嗗彲鐐瑰嚮鎵撳紑鏃ユ湡閫夋嫨鍣紝鍘绘帀鍙充晶鍥炬爣
+        // 浣跨敤涓婂眰閫忔槑鐐瑰嚮灞傦紝閬垮厤 TextField 鑷韩娑堣垂鐐瑰嚮浜嬩欢
         Box(modifier = Modifier.fillMaxWidth()) {
             TextField(
                 value = dateString,
@@ -352,7 +452,7 @@ fun EventInputForm(
             )
         }
 
-        // 重复设置
+        // 閲嶅璁剧疆
         Text(
             text = stringResource(R.string.field_repeat),
             style = MaterialTheme.typography.labelMedium,
@@ -372,9 +472,11 @@ fun EventInputForm(
         ) {
             listOf(
                 stringResource(R.string.repeat_none) to REPEAT_NONE,
-                stringResource(R.string.repeat_yearly) to REPEAT_YEARLY,
+                stringResource(R.string.repeat_daily) to REPEAT_DAILY,
+                stringResource(R.string.repeat_weekly) to REPEAT_WEEKLY,
+                stringResource(R.string.repeat_monthly) to REPEAT_MONTHLY,
                 stringResource(R.string.repeat_half_yearly) to REPEAT_HALF_YEARLY,
-                stringResource(R.string.repeat_monthly) to REPEAT_MONTHLY
+                stringResource(R.string.repeat_yearly) to REPEAT_YEARLY
             ).forEach { (label, value) ->
                 FilterChip(
                     selected = eventDetails.repeatType == value,
@@ -386,7 +488,7 @@ fun EventInputForm(
             }
         }
         
-        // 提醒设置
+        // 鎻愰啋璁剧疆
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -404,10 +506,10 @@ fun EventInputForm(
             )
         }
         if (eventDetails.remindEnabled) {
-            // ... (内部 Chip 同样应用 shape = 4.dp，此处略过细节代码重复，仅做逻辑替换)
-            // 实际代码中需要把内部的 FilterChip 也都加上 shape = RoundedCornerShape(4.dp)
-            // 为节省篇幅，假设下方 Chip 也已同样处理，或由 default style 覆盖（如果能全局覆盖的话，但 Chip 通常需要显式指定）
-            // 这里我们显式写几个关键的
+            // ... (鍐呴儴 Chip 鍚屾牱搴旂敤 shape = 4.dp锛屾澶勭暐杩囩粏鑺備唬鐮侀噸澶嶏紝浠呭仛閫昏緫鏇挎崲)
+            // 瀹為檯浠ｇ爜涓渶瑕佹妸鍐呴儴鐨?FilterChip 涔熼兘鍔犱笂 shape = RoundedCornerShape(4.dp)
+            // 涓鸿妭鐪佺瘒骞咃紝鍋囪涓嬫柟 Chip 涔熷凡鍚屾牱澶勭悊锛屾垨鐢?default style 瑕嗙洊锛堝鏋滆兘鍏ㄥ眬瑕嗙洊鐨勮瘽锛屼絾 Chip 閫氬父闇€瑕佹樉寮忔寚瀹氾級
+            // 杩欓噷鎴戜滑鏄惧紡鍐欏嚑涓叧閿殑
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -429,6 +531,37 @@ fun EventInputForm(
                     )
                 }
             }
+            Text(
+                text = stringResource(R.string.custom_remind_days_label),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = customRemindDaysInput,
+                    onValueChange = { customRemindDaysInput = it.filter { c -> c.isDigit() } },
+                    label = { Text(stringResource(R.string.custom_remind_days_hint)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(4.dp)
+                )
+                OutlinedButton(
+                    onClick = {
+                        val parsed = customRemindDaysInput.toIntOrNull() ?: return@OutlinedButton
+                        onValueChange(eventDetails.copy(remindDaysBefore = sanitizeRemindDaysBefore(parsed)))
+                    },
+                    enabled = customRemindDaysInput.isNotBlank(),
+                    shape = RoundedCornerShape(4.dp)
+                ) {
+                    Text(stringResource(R.string.action_apply))
+                }
+            }
+
              Text(
                 text = stringResource(R.string.reminder_time),
                 style = MaterialTheme.typography.labelMedium,
@@ -457,6 +590,57 @@ fun EventInputForm(
                     )
                 }
             }
+            Text(
+                text = stringResource(R.string.custom_reminder_time_label),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = customRemindTimeInput,
+                    onValueChange = {
+                        customRemindTimeInput = it.filter { c -> c.isDigit() || c == ':' }.take(5)
+                        customRemindTimeError = false
+                    },
+                    label = { Text(stringResource(R.string.custom_reminder_time_hint)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    isError = customRemindTimeError,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(4.dp)
+                )
+                OutlinedButton(
+                    onClick = {
+                        val parsed = parseReminderTimeInput(customRemindTimeInput)
+                        if (parsed == null) {
+                            customRemindTimeError = true
+                        } else {
+                            customRemindTimeError = false
+                            onValueChange(
+                                eventDetails.copy(
+                                    reminderTimeMinutesOfDay = sanitizeReminderTimeMinutesOfDay(parsed)
+                                )
+                            )
+                        }
+                    },
+                    enabled = customRemindTimeInput.isNotBlank(),
+                    shape = RoundedCornerShape(4.dp)
+                ) {
+                    Text(stringResource(R.string.action_apply))
+                }
+            }
+            if (customRemindTimeError) {
+                Text(
+                    text = stringResource(R.string.custom_reminder_time_invalid),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -478,7 +662,15 @@ fun EventInputForm(
                     checked = eventDetails.syncToScheduleEnabled,
                     onCheckedChange = { enabled ->
                         onValueChange(eventDetails.copy(syncToScheduleEnabled = enabled))
-                        if (enabled && (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_CALENDAR) != PackageManager.PERMISSION_GRANTED)) {
+                        val readGranted = ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.READ_CALENDAR
+                        ) == PackageManager.PERMISSION_GRANTED
+                        val writeGranted = ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.WRITE_CALENDAR
+                        ) == PackageManager.PERMISSION_GRANTED
+                        if (enabled && (!readGranted || !writeGranted)) {
                             calendarPermissionLauncher.launch(calendarPermissions)
                         }
                     }
@@ -486,7 +678,7 @@ fun EventInputForm(
             }
         }
         
-        // 颜色选择
+        // 棰滆壊閫夋嫨
         Text(
             text = stringResource(R.string.field_card_color),
             style = MaterialTheme.typography.labelMedium,
@@ -539,6 +731,46 @@ fun EventInputForm(
             )
         }
     }
+}
+
+private fun formatMinutesOfDay(minutesOfDay: Int): String {
+    val safe = sanitizeReminderTimeMinutesOfDay(minutesOfDay)
+    val hour = safe / 60
+    val minute = safe % 60
+    return String.format(Locale.US, "%02d:%02d", hour, minute)
+}
+
+private fun parseReminderTimeInput(input: String): Int? {
+    val raw = input.trim()
+    if (raw.isBlank()) return null
+
+    val parsed = if (raw.contains(":")) {
+        val parts = raw.split(":")
+        if (parts.size != 2) return null
+        val hour = parts[0].toIntOrNull() ?: return null
+        val minute = parts[1].toIntOrNull() ?: return null
+        hour to minute
+    } else {
+        val digits = raw.filter { it.isDigit() }
+        when (digits.length) {
+            1, 2 -> (digits.toIntOrNull() ?: return null) to 0
+            3 -> {
+                val hour = digits.substring(0, 1).toIntOrNull() ?: return null
+                val minute = digits.substring(1, 3).toIntOrNull() ?: return null
+                hour to minute
+            }
+            4 -> {
+                val hour = digits.substring(0, 2).toIntOrNull() ?: return null
+                val minute = digits.substring(2, 4).toIntOrNull() ?: return null
+                hour to minute
+            }
+            else -> return null
+        }
+    }
+
+    val (hour, minute) = parsed
+    if (hour !in 0..23 || minute !in 0..59) return null
+    return hour * 60 + minute
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -672,3 +904,21 @@ fun CustomColorDialog(
         }
     )
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

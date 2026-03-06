@@ -1,4 +1,4 @@
-package com.example.timeapk.ui.home
+﻿package com.example.timeapk.ui.home
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedContent
@@ -15,11 +15,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
@@ -27,6 +29,9 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.ViewModule
 import androidx.compose.material3.*
@@ -49,9 +54,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.LifecycleOwner
 import com.example.timeapk.data.REPEAT_NONE
 import com.example.timeapk.ui.utils.findActivity
 import com.example.timeapk.data.REPEAT_YEARLY
@@ -66,6 +68,7 @@ import com.example.timeapk.ui.utils.getAvailableDisplayModes
 import java.time.format.DateTimeFormatter
 import java.time.Instant
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import com.example.timeapk.R
@@ -74,6 +77,7 @@ import com.example.timeapk.data.Event
 import com.example.timeapk.data.CATEGORY_ANNIVERSARY
 import com.example.timeapk.data.CATEGORY_BIRTHDAY
 import com.example.timeapk.data.CATEGORY_OTHER
+import com.example.timeapk.data.tagsList
 import com.example.timeapk.ui.theme.AnimationSpecs
 
 import androidx.compose.foundation.LocalOverscrollConfiguration
@@ -107,20 +111,7 @@ fun HomeScreen(
     val homeUiState by viewModel.homeUiState.collectAsState()
     val context = LocalContext.current
     val prefs = (context.applicationContext as TimeApplication).userPrefs
-    var today by remember { mutableStateOf(LocalDate.now()) }
-    val activity = context.findActivity()
-    val lifecycle = (activity as? LifecycleOwner)?.lifecycle
-    DisposableEffect(lifecycle) {
-        if (lifecycle != null) {
-            val observer = LifecycleEventObserver { _, event ->
-                if (event == Lifecycle.Event.ON_START) today = LocalDate.now()
-            }
-            lifecycle.addObserver(observer)
-            onDispose { lifecycle.removeObserver(observer) }
-        } else {
-            onDispose { }
-        }
-    }
+    val today = LocalDate.now()
     val scope = rememberCoroutineScope()
     val savedFilter by prefs.filterTypeFlow.collectAsState(initial = 0)
     val savedSort by prefs.sortTypeFlow.collectAsState(initial = 0)
@@ -138,7 +129,23 @@ fun HomeScreen(
     var filterType by remember(savedFilter) { mutableStateOf(FilterType.entries.getOrNull(savedFilter) ?: FilterType.All) }
     var sortType by remember(savedSort) { mutableStateOf(SortType.entries.getOrNull(savedSort) ?: SortType.ByDays) }
     var showSortMenu by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedTag by remember { mutableStateOf<String?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
+
+    val availableTags = remember(homeUiState) {
+        homeUiState
+            .flatMap { it.event.tagsList() }
+            .distinctBy { it.lowercase() }
+            .sortedBy { it.lowercase() }
+    }
+
+    LaunchedEffect(availableTags, selectedTag) {
+        val selected = selectedTag ?: return@LaunchedEffect
+        if (availableTags.none { it.equals(selected, ignoreCase = true) }) {
+            selectedTag = null
+        }
+    }
 
     LaunchedEffect(filterType) {
         prefs.setFilterType(filterType.ordinal)
@@ -150,28 +157,51 @@ fun HomeScreen(
         prefs.setHomeDisplayMode(homeDisplayMode)
     }
 
-    val displayedList = remember(homeUiState, filterType, sortType, homeDisplayMode, customEventOrderIds, pinnedEventIds) {
+    val displayedList = remember(
+        homeUiState,
+        filterType,
+        sortType,
+        searchQuery,
+        selectedTag,
+        customEventOrderIds,
+        pinnedEventIds
+    ) {
         var list = when (filterType) {
             FilterType.All -> homeUiState
             FilterType.Birthday -> homeUiState.filter { it.event.category == CATEGORY_BIRTHDAY }
             FilterType.Anniversary -> homeUiState.filter { it.event.category == CATEGORY_ANNIVERSARY }
             FilterType.Other -> homeUiState.filter { it.event.category == CATEGORY_OTHER }
         }
-        val effectiveSort = sortType
-        list = when (effectiveSort) {
+
+        selectedTag?.let { tag ->
+            list = list.filter { state ->
+                state.event.tagsList().any { it.equals(tag, ignoreCase = true) }
+            }
+        }
+
+        val query = searchQuery.trim().lowercase()
+        if (query.isNotBlank()) {
+            list = list.filter { state ->
+                state.event.title.lowercase().contains(query) ||
+                    state.event.note.lowercase().contains(query) ||
+                    state.event.category.lowercase().contains(query) ||
+                    state.event.tagsList().any { it.lowercase().contains(query) }
+            }
+        }
+
+        list = when (sortType) {
             SortType.ByDays -> list.sortedBy { it.daysRemaining }
             SortType.ByDate -> list.sortedBy { it.event.date }
             SortType.ByCreated -> list.sortedByDescending { it.event.createdAt }
         }
-        // 仅在选择“按创建时间”时应用拖拽产生的自定义顺序；
-        // 其余排序模式下，显式排序优先生效，避免看起来“排序按钮没反应”。
+
         if (customEventOrderIds.isNotEmpty() && sortType == SortType.ByCreated) {
-            list = list.sortedBy { id ->
-                val i = customEventOrderIds.indexOf(id.event.id)
+            list = list.sortedBy { item ->
+                val i = customEventOrderIds.indexOf(item.event.id)
                 if (i < 0) Int.MAX_VALUE else i
             }
         }
-        // 置顶事件始终排在最前，顺序按 pinnedEventIds
+
         if (pinnedEventIds.isNotEmpty()) {
             val pinnedSet = pinnedEventIds.toSet()
             val pinned = pinnedEventIds.mapNotNull { id -> list.find { it.event.id == id } }
@@ -181,32 +211,31 @@ fun HomeScreen(
         list
     }
 
-    // ── 拖拽排序列表 ──
-    // 必须在 composition 阶段同步填充，不能用 LaunchedEffect（会延迟一帧导致全部卡片同时飞入）
+    // 鈹€鈹€ 鎷栨嫿鎺掑簭鍒楄〃 鈹€鈹€
+    // 蹇呴』鍦?composition 闃舵鍚屾濉厖锛屼笉鑳界敤 LaunchedEffect锛堜細寤惰繜涓€甯у鑷村叏閮ㄥ崱鐗囧悓鏃堕鍏ワ級
     val orderedList = remember { mutableStateListOf<EventUiState>() }
-    // 标记是否完成过首次初始化，用于跳过首次 animateItemPlacement
+    // 鏍囪鏄惁瀹屾垚杩囬娆″垵濮嬪寲锛岀敤浜庤烦杩囬娆?animateItemPlacement
     var listInitialized by remember { mutableStateOf(false) }
 
-    // 同步初始化：在 composition 阶段立即填充，确保 LazyColumn 首帧就有数据
-    // 不在此处设置 listInitialized，避免从详情返回时首帧触发 animateItemPlacement 产生拖动动画
+    // 鍚屾鍒濆鍖栵細鍦?composition 闃舵绔嬪嵆濉厖锛岀‘淇?LazyColumn 棣栧抚灏辨湁鏁版嵁
+    // 涓嶅湪姝ゅ璁剧疆 listInitialized锛岄伩鍏嶄粠璇︽儏杩斿洖鏃堕甯цЕ鍙?animateItemPlacement 浜х敓鎷栧姩鍔ㄧ敾
     if (orderedList.isEmpty() && displayedList.isNotEmpty()) {
         orderedList.addAll(displayedList)
     }
 
-    // 后续数据变化（增删/筛选/排序/数据刷新）在 LaunchedEffect 增量同步
+    // 鍚庣画鏁版嵁鍙樺寲锛堝鍒?绛涢€?鎺掑簭/鏁版嵁鍒锋柊锛夊湪 LaunchedEffect 澧為噺鍚屾
     LaunchedEffect(displayedList) {
         if (orderedList.isEmpty()) return@LaunchedEffect
         val targetIds = displayedList.map { it.event.id }
         val currentIds = orderedList.map { it.event.id }
         if (targetIds == currentIds) {
-            // 仅数据更新（如天数变化），就地替换，不触发位移动画
             displayedList.forEachIndexed { i, newItem ->
                 if (i < orderedList.size && orderedList[i] != newItem) {
                     orderedList[i] = newItem
                 }
             }
         } else {
-            // 结构变化（增删/排序变更）：全量替换
+            // 缁撴瀯鍙樺寲锛堝鍒?鎺掑簭鍙樻洿锛夛細鍏ㄩ噺鏇挎崲
             orderedList.clear()
             orderedList.addAll(displayedList)
         }
@@ -319,6 +348,18 @@ fun HomeScreen(
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
         ) {
+            // Search + category/tag filter + view mode
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                placeholder = { Text(stringResource(R.string.search_hint)) },
+                singleLine = true,
+                shape = RoundedCornerShape(6.dp)
+            )
+
             // Filter chips and view mode toggle
             Row(
                 modifier = Modifier
@@ -361,27 +402,73 @@ fun HomeScreen(
                     colors = chipColors
                 )
                 Spacer(modifier = Modifier.weight(1f))
-                // 单一视图切换按钮：在卡片/列表模式之间切换
-                val isCardMode = homeDisplayMode == 0
+                val nextMode = (homeDisplayMode + 1) % 3
                 IconButton(
-                    onClick = {
-                        homeDisplayMode = if (isCardMode) 1 else 0
-                    },
+                    onClick = { homeDisplayMode = nextMode },
                     modifier = Modifier.size(40.dp)
                 ) {
                     Icon(
-                        imageVector = if (isCardMode) Icons.AutoMirrored.Filled.ViewList else Icons.Default.ViewModule,
-                        contentDescription = if (isCardMode) {
-                            stringResource(R.string.display_mode_list)
-                        } else {
-                            stringResource(R.string.display_mode_card)
+                        imageVector = when (nextMode) {
+                            0 -> Icons.Default.ViewModule
+                            1 -> Icons.AutoMirrored.Filled.ViewList
+                            else -> Icons.Default.CalendarMonth
+                        },
+                        contentDescription = when (nextMode) {
+                            0 -> stringResource(R.string.display_mode_card)
+                            1 -> stringResource(R.string.display_mode_list)
+                            else -> stringResource(R.string.display_mode_calendar)
                         },
                         tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f)
                     )
                 }
             }
 
-            // Event list
+            if (availableTags.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val tagChipColors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primary,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                        containerColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f),
+                        labelColor = MaterialTheme.colorScheme.onBackground
+                    )
+                    FilterChip(
+                        selected = selectedTag == null,
+                        onClick = { selectedTag = null },
+                        label = { Text(stringResource(R.string.filter_all_tags)) },
+                        shape = RoundedCornerShape(4.dp),
+                        colors = tagChipColors
+                    )
+                    availableTags.forEach { tag ->
+                        FilterChip(
+                            selected = selectedTag?.equals(tag, ignoreCase = true) == true,
+                            onClick = { selectedTag = tag },
+                            label = { Text("#$tag") },
+                            shape = RoundedCornerShape(4.dp),
+                            colors = tagChipColors
+                        )
+                    }
+                }
+            }
+            // Event list / month view
+            if (homeDisplayMode == 2) {
+                if (displayedList.isEmpty()) {
+                    EmptyState(modifier = Modifier.fillMaxSize())
+                } else {
+                    MonthCalendarView(
+                        events = displayedList,
+                        selectedDate = today,
+                        onEventClick = { navigateToDetail(it) },
+                        onEventLongClick = { navigateToEdit(it) },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            } else {
             AnimatedContent(
                 targetState = displayedList.isEmpty(),
                 transitionSpec = {
@@ -417,7 +504,6 @@ fun HomeScreen(
                             val showDetail = homeDensityMode == 1
                             if (homeDisplayMode == 0) {
                                 val persistedMode = perEventDateDeltaModes[eventState.event.id] ?: dateDeltaDisplayMode
-                                // 本地 UI 状态：确保点击后立即切换显示，即便偏好存储有延迟
                                 var cardDisplayMode by remember(eventState.event.id, persistedMode) {
                                     mutableStateOf(persistedMode)
                                 }
@@ -478,6 +564,7 @@ fun HomeScreen(
     }
     }
 }
+}
 
 @Composable
 private fun EmptyState(modifier: Modifier = Modifier) {
@@ -527,7 +614,6 @@ fun EventCard(
         fallback = MaterialTheme.colorScheme.primary
     )
 
-    // 交互动画：在缩放的基础上增加轻微的透明度反馈
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -549,17 +635,16 @@ fun EventCard(
         label = "dragElevation"
     )
 
-    // 原始首页卡片：使用事件色大面积铺色（降低透明度，加深颜色实感）
-    val juanbenTint = if (isPast) 0.85f else 1.0f // 过期颜色微降，保持整体色彩浓郁
+    val juanbenTint = if (isPast) 0.85f else 1.0f
     val cardContainerColor = baseCardColor.copy(alpha = juanbenTint)
 
-    // 内容文字颜色：绝对清晰的高对比度宋式用色
+    // 鍐呭鏂囧瓧棰滆壊锛氱粷瀵规竻鏅扮殑楂樺姣斿害瀹嬪紡鐢ㄨ壊
     val isLight = cardContainerColor.luminance() > 0.45f
     val cardContentColor = if (isLight) {
-        // 浅色底：用极深的焦墨色，带一点点原色倾向
+        // 娴呰壊搴曪細鐢ㄦ瀬娣辩殑鐒﹀ⅷ鑹诧紝甯︿竴鐐圭偣鍘熻壊鍊惧悜
         lerp(Color(0xFF141618), baseCardColor, 0.1f)
     } else {
-        // 深色底：用带暖调的宣纸霜白，防刺眼且极其清晰
+        // 娣辫壊搴曪細鐢ㄥ甫鏆栬皟鐨勫绾搁湝鐧斤紝闃插埡鐪间笖鏋佸叾娓呮櫚
         lerp(Color(0xFFF9F7F2), baseCardColor, 0.05f)
     }
 
@@ -651,17 +736,16 @@ fun EventCard(
                 scaleY = scale
                 alpha = cardAlpha
             }
-            // 整张卡片可点击进入详情，避免只有标题区域有点击效果
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
                 onClick = onClick
             )
             .semantics(mergeDescendants = true) { contentDescription = cardDescription },
-        shape = RoundedCornerShape(2.dp), // 极小圆角，模拟纸张折叠
+        shape = RoundedCornerShape(2.dp),
         colors = CardDefaults.cardColors(containerColor = cardContainerColor),
         border = BorderStroke(
-            width = 0.5.dp, // 极细淡墨边框
+            width = 0.5.dp, // 鏋佺粏娣″ⅷ杈规
             color = baseCardColor.copy(alpha = if (isPast) 0.3f else 0.8f)
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
@@ -670,13 +754,13 @@ fun EventCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .fillMaxHeight()
-                .padding(24.dp), // 增加留白，更显疏朗
+                .padding(24.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Left color indicator dot - Removed to let the whole card color speak
             // Instead, we use the whole card background as the indicator
             
-            // 标题与日期区域：不再单独处理点击，交由整卡片的 clickable 统一处理
+            // 鏍囬涓庢棩鏈熷尯鍩燂細涓嶅啀鍗曠嫭澶勭悊鐐瑰嚮锛屼氦鐢辨暣鍗＄墖鐨?clickable 缁熶竴澶勭悊
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -704,7 +788,6 @@ fun EventCard(
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            // 已历/剩余时间区域：仅此处点击切换「xx天」/「x年x月x天」，热区不小于 48dp 便于点击；靠右对齐使「已经/剩余」多卡对齐
             val timeColor = if (isPast) cardContentColor.copy(alpha = 0.85f) else cardContentColor
             Box(
                 modifier = Modifier
@@ -885,7 +968,6 @@ private fun EventListItem(
                 shape = RoundedCornerShape(2.dp)
             )
             .padding(horizontal = 24.dp, vertical = 0.dp)
-            // 整行列表项可点击进入详情，避免只有文字区域可点
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -894,7 +976,7 @@ private fun EventListItem(
             .semantics(mergeDescendants = true) { contentDescription = itemDescription },
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 标题与日期区域：点击行为由整行 Row 统一处理
+        // 鏍囬涓庢棩鏈熷尯鍩燂細鐐瑰嚮琛屼负鐢辨暣琛?Row 缁熶竴澶勭悊
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -918,7 +1000,7 @@ private fun EventListItem(
             )
         }
 
-        // 已历/剩余时间区域：仅此处点击切换显示模式，热区不小于 48dp
+        // 宸插巻/鍓╀綑鏃堕棿鍖哄煙锛氫粎姝ゅ鐐瑰嚮鍒囨崲鏄剧ず妯″紡锛岀儹鍖轰笉灏忎簬 48dp
         Column(
             modifier = Modifier
                 .fillMaxHeight()
@@ -933,9 +1015,9 @@ private fun EventListItem(
         ) {
             val isLightSurface = MaterialTheme.colorScheme.surface.luminance() > 0.5f
             val displayColor = if (isLightSurface) {
-                lerp(eventColor, Color.Black, 0.4f) // 在浅色模式下加深主题色以确保显示清晰
+                lerp(eventColor, Color.Black, 0.4f) // 鍦ㄦ祬鑹叉ā寮忎笅鍔犳繁涓婚鑹蹭互纭繚鏄剧ず娓呮櫚
             } else {
-                lerp(eventColor, Color.White, 0.4f) // 在深色模式下提亮主题色
+                lerp(eventColor, Color.White, 0.4f) // 鍦ㄦ繁鑹叉ā寮忎笅鎻愪寒涓婚鑹?
             }
             Text(
                 text = daysDisplay,
@@ -954,3 +1036,208 @@ private fun EventListItem(
         }
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun MonthCalendarView(
+    events: List<EventUiState>,
+    selectedDate: LocalDate,
+    onEventClick: (Int) -> Unit,
+    onEventLongClick: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var currentMonth by remember(selectedDate) { mutableStateOf(YearMonth.from(selectedDate)) }
+    var pickedDate by remember(selectedDate) { mutableStateOf(selectedDate) }
+
+    val monthFormatter = remember { DateTimeFormatter.ofPattern("yyyy.MM") }
+    val eventsByDate = remember(events) { events.groupBy { it.nextOccurrenceDate } }
+
+    val daysInMonth = currentMonth.lengthOfMonth()
+    val monthStart = currentMonth.atDay(1)
+    val firstDayOffset = monthStart.dayOfWeek.value - 1 // Monday = 0
+    val cells = remember(currentMonth) {
+        buildList {
+            repeat(firstDayOffset.coerceAtLeast(0)) { add(null) }
+            for (day in 1..daysInMonth) {
+                add(currentMonth.atDay(day))
+            }
+            while (size % 7 != 0) {
+                add(null)
+            }
+        }
+    }
+
+    if (YearMonth.from(pickedDate) != currentMonth) {
+        pickedDate = currentMonth.atDay(1)
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = { currentMonth = currentMonth.minusMonths(1) }) {
+                Icon(Icons.Default.KeyboardArrowLeft, contentDescription = stringResource(R.string.calendar_prev_month))
+            }
+            Text(
+                text = currentMonth.atDay(1).format(monthFormatter),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            IconButton(onClick = { currentMonth = currentMonth.plusMonths(1) }) {
+                Icon(Icons.Default.KeyboardArrowRight, contentDescription = stringResource(R.string.calendar_next_month))
+            }
+        }
+
+        Row(modifier = Modifier.fillMaxWidth()) {
+            listOf(
+                R.string.weekday_mon,
+                R.string.weekday_tue,
+                R.string.weekday_wed,
+                R.string.weekday_thu,
+                R.string.weekday_fri,
+                R.string.weekday_sat,
+                R.string.weekday_sun
+            ).forEach { labelRes ->
+                Text(
+                    text = stringResource(labelRes),
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        cells.chunked(7).forEach { week ->
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                week.forEach { date ->
+                    val dayEvents = date?.let { eventsByDate[it] }.orEmpty()
+                    val isSelected = date != null && date == pickedDate
+                    val isToday = date != null && date == selectedDate
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(56.dp)
+                            .clickable(enabled = date != null) { if (date != null) pickedDate = date },
+                        shape = RoundedCornerShape(6.dp),
+                        color = if (isSelected) {
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
+                        } else {
+                            MaterialTheme.colorScheme.surface
+                        },
+                        border = BorderStroke(
+                            width = if (isToday) 1.dp else 0.5.dp,
+                            color = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
+                        )
+                    ) {
+                        if (date != null) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                                verticalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = date.dayOfMonth.toString(),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                if (dayEvents.isNotEmpty()) {
+                                    Text(
+                                        text = dayEvents.size.toString(),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Text(
+            text = stringResource(R.string.calendar_selected_date_events, pickedDate.toString()),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+
+        val selectedEvents = eventsByDate[pickedDate].orEmpty().sortedBy { it.daysRemaining }
+        if (selectedEvents.isEmpty()) {
+            Text(
+                text = stringResource(R.string.calendar_no_events),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                contentPadding = PaddingValues(bottom = 8.dp)
+            ) {
+                items(selectedEvents, key = { it.event.id }) { state ->
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .combinedClickable(
+                                onClick = { onEventClick(state.event.id) },
+                                onLongClick = { onEventLongClick(state.event.id) }
+                            ),
+                        shape = RoundedCornerShape(6.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = state.event.title,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
+                            )
+                            if (state.event.tags.isNotBlank()) {
+                                Text(
+                                    text = "#" + state.event.tagsList().firstOrNull().orEmpty(),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+

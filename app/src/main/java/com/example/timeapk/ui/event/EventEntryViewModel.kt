@@ -1,26 +1,35 @@
-package com.example.timeapk.ui.event
+﻿package com.example.timeapk.ui.event
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.timeapk.data.Event
-import com.example.timeapk.notifications.rescheduleMilestoneReminders
-import com.example.timeapk.notifications.scheduleReminder
-import com.example.timeapk.notifications.ScheduleSyncManager
-import com.example.timeapk.notifications.cancelReminder
-import com.example.timeapk.widget.WidgetUpdater
+import androidx.room.withTransaction
+import com.example.timeapk.R
+import com.example.timeapk.TimeApplication
 import com.example.timeapk.data.CATEGORY_ANNIVERSARY
 import com.example.timeapk.data.CATEGORY_BIRTHDAY
 import com.example.timeapk.data.CATEGORY_OTHER
-import com.example.timeapk.data.REPEAT_NONE
+import com.example.timeapk.data.Event
 import com.example.timeapk.data.EventRepository
-import kotlinx.coroutines.NonCancellable
+import com.example.timeapk.data.REPEAT_NONE
+import com.example.timeapk.data.normalizeTags
+import com.example.timeapk.data.sanitizedReminderConfig
+import com.example.timeapk.notifications.ScheduleSyncManager
+import com.example.timeapk.notifications.cancelReminder
+import com.example.timeapk.notifications.rescheduleMilestoneReminders
+import com.example.timeapk.notifications.scheduleReminder
+import com.example.timeapk.widget.WidgetUpdater
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+
+sealed class SaveEventResult {
+    object Success : SaveEventResult()
+    data class PartialSuccess(val message: String) : SaveEventResult()
+    data class Failure(val message: String) : SaveEventResult()
+}
 
 class EventEntryViewModel(
     private val application: Application,
@@ -52,36 +61,89 @@ class EventEntryViewModel(
         }
     }
 
-    suspend fun saveEvent(): Boolean {
+    suspend fun saveEvent(): SaveEventResult {
         val details = _eventUiState.value.eventDetails
-        if (!validateInput(details)) return false
-        return try {
-            withContext(NonCancellable) {
-                var event = details.toEvent()
+        if (!validateInput(details)) {
+            return SaveEventResult.Failure(application.getString(R.string.save_event_failed))
+        }
+
+        val app = application as? TimeApplication
+            ?: return SaveEventResult.Failure(application.getString(R.string.save_event_failed))
+
+        val persistedEvent = try {
+            var event = details.toEvent().sanitizedReminderConfig()
+            app.database.withTransaction {
                 if (event.id != 0) {
                     repository.updateEvent(event)
-                    cancelReminder(application, event.id)
-                    ScheduleSyncManager.removeScheduleReminder(application, event.scheduleEventId)
-                    scheduleReminder(application, event)
                 } else {
                     val generatedId = repository.insertEvent(event)
-                    event = event.copy(id = generatedId.toInt())
-                    scheduleReminder(application, event)
+                    event = event.copy(id = generatedId.toInt(), scheduleEventId = null)
                 }
-                if (event.remindEnabled && event.syncToScheduleEnabled) {
-                    val scheduleId = ScheduleSyncManager.insertScheduleReminder(application, event)
-                    if (scheduleId != null) {
-                        repository.updateEvent(event.copy(scheduleEventId = scheduleId))
-                    }
-                } else if (event.scheduleEventId != null) {
-                    repository.updateEvent(event.copy(scheduleEventId = null))
-                }
-                rescheduleMilestoneReminders(application)
-                WidgetUpdater.refreshCountdownWidgets(application)
             }
-            true
+            event
         } catch (_: Exception) {
-            false
+            return SaveEventResult.Failure(application.getString(R.string.save_event_failed))
+        }
+
+        var hasSideEffectFailure = false
+
+        try {
+            cancelReminder(application, persistedEvent.id)
+        } catch (_: Exception) {
+            hasSideEffectFailure = true
+        }
+
+        try {
+            ScheduleSyncManager.removeScheduleReminder(application, persistedEvent.scheduleEventId)
+        } catch (_: Exception) {
+            hasSideEffectFailure = true
+        }
+
+        if (persistedEvent.remindEnabled) {
+            try {
+                scheduleReminder(application, persistedEvent)
+            } catch (_: Exception) {
+                hasSideEffectFailure = true
+            }
+        }
+
+        val newScheduleId = if (persistedEvent.remindEnabled && persistedEvent.syncToScheduleEnabled) {
+            try {
+                ScheduleSyncManager.insertScheduleReminder(application, persistedEvent).also {
+                    if (it == null) hasSideEffectFailure = true
+                }
+            } catch (_: Exception) {
+                hasSideEffectFailure = true
+                null
+            }
+        } else {
+            null
+        }
+
+        if (newScheduleId != persistedEvent.scheduleEventId) {
+            try {
+                repository.updateEvent(persistedEvent.copy(scheduleEventId = newScheduleId))
+            } catch (_: Exception) {
+                hasSideEffectFailure = true
+            }
+        }
+
+        try {
+            rescheduleMilestoneReminders(application)
+        } catch (_: Exception) {
+            hasSideEffectFailure = true
+        }
+
+        try {
+            WidgetUpdater.refreshCountdownWidgets(application)
+        } catch (_: Exception) {
+            hasSideEffectFailure = true
+        }
+
+        return if (hasSideEffectFailure) {
+            SaveEventResult.PartialSuccess(application.getString(R.string.save_event_partial_warning))
+        } else {
+            SaveEventResult.Success
         }
     }
 
@@ -102,6 +164,7 @@ data class EventDetails(
     val date: Long = System.currentTimeMillis(),
     val category: String = CATEGORY_OTHER,
     val note: String = "",
+    val tags: String = "",
     val colorHex: String? = null,
     val repeatType: String = REPEAT_NONE,
     val remindDaysBefore: Int = 0,
@@ -117,8 +180,10 @@ fun EventDetails.toEvent(): Event = Event(
     id = id,
     title = title,
     date = date,
-    category = category.takeIf { it in listOf(CATEGORY_BIRTHDAY, CATEGORY_ANNIVERSARY, CATEGORY_OTHER) } ?: CATEGORY_OTHER,
+    category = category.takeIf { it in listOf(CATEGORY_BIRTHDAY, CATEGORY_ANNIVERSARY, CATEGORY_OTHER) }
+        ?: CATEGORY_OTHER,
     note = note,
+    tags = normalizeTags(tags),
     colorHex = colorHex,
     repeatType = repeatType,
     remindDaysBefore = remindDaysBefore,
@@ -136,6 +201,7 @@ fun Event.toEventDetails(): EventDetails = EventDetails(
     date = date,
     category = category,
     note = note,
+    tags = tags,
     colorHex = colorHex,
     repeatType = repeatType,
     remindDaysBefore = remindDaysBefore,
