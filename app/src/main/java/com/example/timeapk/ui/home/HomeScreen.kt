@@ -23,12 +23,14 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -48,6 +50,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -56,7 +59,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.platform.LocalContext
+import com.example.timeapk.data.CATEGORY_ANNIVERSARY
+import com.example.timeapk.data.CATEGORY_BIRTHDAY
+import com.example.timeapk.data.CATEGORY_OTHER
 import com.example.timeapk.data.REPEAT_NONE
+import com.example.timeapk.data.REPEAT_DAILY
+import com.example.timeapk.data.REPEAT_HALF_YEARLY
+import com.example.timeapk.data.REPEAT_MONTHLY
+import com.example.timeapk.data.REPEAT_WEEKLY
 import com.example.timeapk.data.REPEAT_YEARLY
 import com.example.timeapk.ui.utils.formatDays
 import com.example.timeapk.ui.utils.formatBetweenAsYMD
@@ -155,18 +165,6 @@ fun HomeScreen(
         listInitialized = true
     }
 
-    val reorderState = rememberReorderableLazyListState(
-        onMove = { from, to ->
-            val fromIdx = from.index
-            val toIdx = to.index
-            if (fromIdx in orderedList.indices && toIdx in orderedList.indices && fromIdx != toIdx) {
-                val item = orderedList.removeAt(fromIdx)
-                orderedList.add(toIdx, item)
-                scope.launch { prefs.setCustomEventOrder(orderedList.map { it.event.id }) }
-            }
-        }
-    )
-
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -180,42 +178,14 @@ fun HomeScreen(
                 },
                 actions = {
                     IconButton(
-                        onClick = navigateToSettings
+                        onClick = navigateToSettings,
+                        modifier = Modifier.size(40.dp)
                     ) {
-                        Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.settings_title))
-                    }
-                    Box {
-                        IconButton(
-                            onClick = { showSortMenu = true }
-                        ) {
-                            Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = stringResource(R.string.sort_menu))
-                        }
-                        DropdownMenu(
-                            expanded = showSortMenu,
-                            onDismissRequest = { showSortMenu = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.sort_by_days)) },
-                                onClick = {
-                                    viewModel.updateSortType(SortType.ByDays)
-                                    showSortMenu = false
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.sort_by_date)) },
-                                onClick = {
-                                    viewModel.updateSortType(SortType.ByDate)
-                                    showSortMenu = false
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.sort_by_created)) },
-                                onClick = {
-                                    viewModel.updateSortType(SortType.ByCreated)
-                                    showSortMenu = false
-                                }
-                            )
-                        }
+                        Icon(
+                            Icons.Default.Settings,
+                            contentDescription = stringResource(R.string.settings_title),
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
@@ -270,36 +240,104 @@ fun HomeScreen(
             val nextMode = (homeDisplayMode + 1) % 3
             val hasActiveFilter = filterType != FilterType.All || selectedTag != null
             var showFilterPanel by remember { mutableStateOf(hasActiveFilter) }
+            var showSearchBar by remember { mutableStateOf(searchQuery.isNotBlank()) }
             LaunchedEffect(hasActiveFilter) {
                 if (hasActiveFilter) showFilterPanel = true
             }
-
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = viewModel::updateSearchQuery,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                placeholder = { Text(stringResource(R.string.search_hint)) },
-                singleLine = true,
-                shape = RoundedCornerShape(6.dp)
-            )
+            LaunchedEffect(searchQuery) {
+                if (searchQuery.isNotBlank()) showSearchBar = true
+            }
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 2.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    .padding(horizontal = 12.dp, vertical = 2.dp)
+                    .wrapContentWidth(Alignment.End),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (hasActiveFilter) {
-                    val activeLabel = when {
-                        selectedTag != null -> "#$selectedTag"
-                        filterType == FilterType.Birthday -> stringResource(R.string.category_birthday)
-                        filterType == FilterType.Anniversary -> stringResource(R.string.category_anniversary)
-                        filterType == FilterType.Other -> stringResource(R.string.category_other)
-                        else -> stringResource(R.string.filter_all)
+                InlineActionIconButton(
+                    icon = Icons.Default.Search,
+                    contentDescription = stringResource(R.string.search_hint),
+                    active = showSearchBar || searchQuery.isNotBlank(),
+                    onClick = {
+                        if (showSearchBar && searchQuery.isBlank()) {
+                            showSearchBar = false
+                        } else {
+                            showSearchBar = !showSearchBar
+                        }
                     }
+                )
+                InlineActionIconButton(
+                    icon = Icons.Default.Tune,
+                    contentDescription = stringResource(R.string.home_filter_panel_toggle),
+                    active = hasActiveFilter || showFilterPanel,
+                    onClick = { showFilterPanel = !showFilterPanel }
+                )
+                Box {
+                    InlineActionIconButton(
+                        icon = Icons.AutoMirrored.Filled.Sort,
+                        contentDescription = stringResource(R.string.sort_menu),
+                        active = sortType != SortType.ByDays || showSortMenu,
+                        onClick = { showSortMenu = true }
+                    )
+                    DropdownMenu(
+                        expanded = showSortMenu,
+                        onDismissRequest = { showSortMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.sort_by_days)) },
+                            onClick = {
+                                viewModel.updateSortType(SortType.ByDays)
+                                showSortMenu = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.sort_by_date)) },
+                            onClick = {
+                                viewModel.updateSortType(SortType.ByDate)
+                                showSortMenu = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.sort_by_created)) },
+                            onClick = {
+                                viewModel.updateSortType(SortType.ByCreated)
+                                showSortMenu = false
+                            }
+                        )
+                    }
+                }
+                InlineActionIconButton(
+                    icon = when (nextMode) {
+                        0 -> Icons.Default.ViewModule
+                        1 -> Icons.AutoMirrored.Filled.ViewList
+                        else -> Icons.Default.CalendarMonth
+                    },
+                    contentDescription = when (nextMode) {
+                        0 -> stringResource(R.string.display_mode_card)
+                        1 -> stringResource(R.string.display_mode_list)
+                        else -> stringResource(R.string.display_mode_calendar)
+                    },
+                    active = homeDisplayMode == 2,
+                    onClick = { homeDisplayMode = nextMode }
+                )
+            }
+
+            if (hasActiveFilter) {
+                val activeLabel = when {
+                    selectedTag != null -> "#$selectedTag"
+                    filterType == FilterType.Birthday -> stringResource(R.string.category_birthday)
+                    filterType == FilterType.Anniversary -> stringResource(R.string.category_anniversary)
+                    filterType == FilterType.Other -> stringResource(R.string.category_other)
+                    else -> stringResource(R.string.filter_all)
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 2.dp),
+                    horizontalArrangement = Arrangement.Start
+                ) {
                     AssistChip(
                         onClick = { showFilterPanel = true },
                         label = { Text(activeLabel) },
@@ -309,35 +347,19 @@ fun HomeScreen(
                         )
                     )
                 }
-                Spacer(modifier = Modifier.weight(1f))
-                IconButton(
-                    onClick = { showFilterPanel = !showFilterPanel },
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Tune,
-                        contentDescription = stringResource(R.string.home_filter_panel_toggle),
-                        tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f)
-                    )
-                }
-                IconButton(
-                    onClick = { homeDisplayMode = nextMode },
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        imageVector = when (nextMode) {
-                            0 -> Icons.Default.ViewModule
-                            1 -> Icons.AutoMirrored.Filled.ViewList
-                            else -> Icons.Default.CalendarMonth
-                        },
-                        contentDescription = when (nextMode) {
-                            0 -> stringResource(R.string.display_mode_card)
-                            1 -> stringResource(R.string.display_mode_list)
-                            else -> stringResource(R.string.display_mode_calendar)
-                        },
-                        tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f)
-                    )
-                }
+            }
+
+            AnimatedVisibility(visible = showSearchBar) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = viewModel::updateSearchQuery,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    placeholder = { Text(stringResource(R.string.search_hint)) },
+                    singleLine = true,
+                    shape = RoundedCornerShape(6.dp)
+                )
             }
 
             AnimatedVisibility(visible = showFilterPanel) {
@@ -430,101 +452,140 @@ fun HomeScreen(
                     )
                 }
             } else {
-            AnimatedContent(
-                targetState = displayedList.isEmpty(),
-                transitionSpec = {
-                    (fadeIn(animationSpec = AnimationSpecs.mediumTween()) + slideInVertically(animationSpec = AnimationSpecs.mediumTweenIntOffset()) { it / 8 })
-                        .togetherWith(
-                            fadeOut(animationSpec = AnimationSpecs.mediumTween()) + slideOutVertically(animationSpec = AnimationSpecs.mediumTweenIntOffset()) { -it / 8 }
-                        )
-                },
-                label = "listOrEmpty"
-            ) { isEmpty ->
-                if (isEmpty) {
-                    EmptyState(modifier = Modifier.fillMaxSize())
-                } else {
-                    CompositionLocalProvider(LocalOverscrollConfiguration provides null) {
-                        LazyColumn(
-                            state = reorderState.listState,
-                            modifier = Modifier
-                                .reorderable(reorderState)
-                                .detectReorderAfterLongPress(reorderState),
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-                            verticalArrangement = Arrangement.spacedBy(if (homeDisplayMode == 0) 12.dp else 6.dp)
-                        ) {
-                        items(orderedList, key = { it.event.id }) { eventState ->
-                            ReorderableItem(reorderState, key = eventState.event.id) { isDragging ->
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .then(
-                                        if (listInitialized) Modifier.animateItemPlacement(animationSpec = AnimationSpecs.springItemPlacement)
-                                        else Modifier
-                                    )
-                            ) {
-                            val showDetail = homeDensityMode == 1
-                            if (homeDisplayMode == 0) {
-                                val persistedMode = perEventDateDeltaModes[eventState.event.id] ?: dateDeltaDisplayMode
-                                var cardDisplayMode by remember(eventState.event.id, persistedMode) {
-                                    mutableStateOf(persistedMode)
-                                }
-                                EventCard(
-                                    eventState = eventState,
-                                    today = today,
-                                    dateFormatter = dateFormatter,
-                                    dateDeltaDisplayMode = cardDisplayMode,
-                                    onToggleDateDeltaDisplayMode = {
-                                        val availableModes = getAvailableDisplayModes(eventState, showMilestone = true)
-                                        val currentModeIndex = availableModes.indexOf(cardDisplayMode)
-                                        val nextModeIndex = (if (currentModeIndex != -1) currentModeIndex + 1 else 1) % availableModes.size
-                                        val nextMode = availableModes[nextModeIndex]
-                                        cardDisplayMode = nextMode
-                                        scope.launch {
-                                            prefs.setDateDeltaDisplayModeForEvent(eventState.event.id, nextMode)
-                                        }
-                                    },
-                                    onClick = { navigateToDetail(eventState.event.id) },
-                                    onLongClick = { navigateToEdit(eventState.event.id) },
-                                    showHours = showHours,
-                                    showMilestone = showMilestone,
-                                    showDetail = showDetail,
-                                    isDragging = isDragging
-                                )
-                            } else {
-                                val persistedMode = perEventDateDeltaModes[eventState.event.id] ?: dateDeltaDisplayMode
-                                var itemDisplayMode by remember(eventState.event.id, persistedMode) {
-                                    mutableStateOf(persistedMode)
-                                }
-                                EventListItem(
-                                    eventState = eventState,
-                                    today = today,
-                                    dateFormatter = dateFormatter,
-                                    dateDeltaDisplayMode = itemDisplayMode,
-                                    onToggleDateDeltaDisplayMode = {
-                                        val availableModes = getAvailableDisplayModes(eventState, showMilestone = true)
-                                        val currentModeIndex = availableModes.indexOf(itemDisplayMode)
-                                        val nextModeIndex = (if (currentModeIndex != -1) currentModeIndex + 1 else 1) % availableModes.size
-                                        val nextMode = availableModes[nextModeIndex]
-                                        itemDisplayMode = nextMode
-                                        scope.launch {
-                                            prefs.setDateDeltaDisplayModeForEvent(eventState.event.id, nextMode)
-                                        }
-                                    },
-                                    onClick = { navigateToDetail(eventState.event.id) },
-                                    onLongClick = { navigateToEdit(eventState.event.id) },
-                                    isDragging = isDragging
-                                )
-                            }
+                key(homeDisplayMode) {
+                    val reorderState = rememberReorderableLazyListState(
+                        onMove = { from, to ->
+                            val fromIdx = from.index
+                            val toIdx = to.index
+                            if (fromIdx in orderedList.indices && toIdx in orderedList.indices && fromIdx != toIdx) {
+                                val item = orderedList.removeAt(fromIdx)
+                                orderedList.add(toIdx, item)
+                                scope.launch { prefs.setCustomEventOrder(orderedList.map { it.event.id }) }
                             }
                         }
-                    }
+                    )
+
+                    AnimatedContent(
+                        targetState = displayedList.isEmpty(),
+                        transitionSpec = {
+                            (fadeIn(animationSpec = AnimationSpecs.mediumTween()) + slideInVertically(animationSpec = AnimationSpecs.mediumTweenIntOffset()) { it / 8 })
+                                .togetherWith(
+                                    fadeOut(animationSpec = AnimationSpecs.mediumTween()) + slideOutVertically(animationSpec = AnimationSpecs.mediumTweenIntOffset()) { -it / 8 }
+                                )
+                        },
+                        label = "listOrEmpty"
+                    ) { isEmpty ->
+                        if (isEmpty) {
+                            EmptyState(modifier = Modifier.fillMaxSize())
+                        } else {
+                            CompositionLocalProvider(LocalOverscrollConfiguration provides null) {
+                                LazyColumn(
+                                    state = reorderState.listState,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .reorderable(reorderState)
+                                        .detectReorderAfterLongPress(reorderState),
+                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(if (homeDisplayMode == 0) 12.dp else 0.dp)
+                                ) {
+                                    items(orderedList, key = { it.event.id }) { eventState ->
+                                        ReorderableItem(reorderState, key = eventState.event.id) { isDragging ->
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .then(
+                                                        if (listInitialized) Modifier.animateItemPlacement(animationSpec = AnimationSpecs.springItemPlacement)
+                                                        else Modifier
+                                                    )
+                                            ) {
+                                                val showDetail = homeDensityMode == 1
+                                                if (homeDisplayMode == 0) {
+                                                    val persistedMode = perEventDateDeltaModes[eventState.event.id] ?: dateDeltaDisplayMode
+                                                    var cardDisplayMode by remember(eventState.event.id, persistedMode) {
+                                                        mutableStateOf(persistedMode)
+                                                    }
+                                                    EventCard(
+                                                        eventState = eventState,
+                                                        today = today,
+                                                        dateFormatter = dateFormatter,
+                                                        dateDeltaDisplayMode = cardDisplayMode,
+                                                        onToggleDateDeltaDisplayMode = {
+                                                            val availableModes = getAvailableDisplayModes(eventState, showMilestone = true)
+                                                            val currentModeIndex = availableModes.indexOf(cardDisplayMode)
+                                                            val nextModeIndex = (if (currentModeIndex != -1) currentModeIndex + 1 else 1) % availableModes.size
+                                                            val nextMode = availableModes[nextModeIndex]
+                                                            cardDisplayMode = nextMode
+                                                            scope.launch {
+                                                                prefs.setDateDeltaDisplayModeForEvent(eventState.event.id, nextMode)
+                                                            }
+                                                        },
+                                                        onClick = { navigateToDetail(eventState.event.id) },
+                                                        onLongClick = { navigateToEdit(eventState.event.id) },
+                                                        showHours = showHours,
+                                                        showMilestone = showMilestone,
+                                                        showDetail = showDetail,
+                                                        isDragging = isDragging
+                                                    )
+                                                } else {
+                                                    val persistedMode = perEventDateDeltaModes[eventState.event.id] ?: dateDeltaDisplayMode
+                                                    var itemDisplayMode by remember(eventState.event.id, persistedMode) {
+                                                        mutableStateOf(persistedMode)
+                                                    }
+                                                    EventListItem(
+                                                        eventState = eventState,
+                                                        today = today,
+                                                        dateFormatter = dateFormatter,
+                                                        dateDeltaDisplayMode = itemDisplayMode,
+                                                        onToggleDateDeltaDisplayMode = {
+                                                            val availableModes = getAvailableDisplayModes(eventState, showMilestone = true)
+                                                            val currentModeIndex = availableModes.indexOf(itemDisplayMode)
+                                                            val nextModeIndex = (if (currentModeIndex != -1) currentModeIndex + 1 else 1) % availableModes.size
+                                                            val nextMode = availableModes[nextModeIndex]
+                                                            itemDisplayMode = nextMode
+                                                            scope.launch {
+                                                                prefs.setDateDeltaDisplayModeForEvent(eventState.event.id, nextMode)
+                                                            }
+                                                        },
+                                                        onClick = { navigateToDetail(eventState.event.id) },
+                                                        onLongClick = { navigateToEdit(eventState.event.id) },
+                                                        isDragging = isDragging
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
     }
-    }
 }
+
+@Composable
+private fun InlineActionIconButton(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+    active: Boolean = false
+) {
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier.size(34.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = if (active) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onBackground.copy(alpha = 0.76f)
+            },
+            modifier = Modifier.size(18.dp)
+        )
+    }
 }
 
 @Composable
@@ -693,10 +754,11 @@ fun EventCard(
                 scaleY = scale
                 alpha = cardAlpha
             }
-            .clickable(
+            .combinedClickable(
                 interactionSource = interactionSource,
                 indication = LocalIndication.current,
-                onClick = onClick
+                onClick = onClick,
+                onLongClick = onLongClick
             )
             .semantics(mergeDescendants = true) { contentDescription = cardDescription },
         shape = RoundedCornerShape(2.dp),
@@ -896,99 +958,164 @@ private fun EventListItem(
         hex = eventState.event.colorHex,
         fallback = MaterialTheme.colorScheme.primary
     )
+    val categoryLabel = when (eventState.event.category) {
+        CATEGORY_BIRTHDAY -> stringResource(R.string.category_birthday)
+        CATEGORY_ANNIVERSARY -> stringResource(R.string.category_anniversary)
+        else -> stringResource(R.string.category_other)
+    }
+    val repeatLabel = when (eventState.event.repeatType) {
+        REPEAT_DAILY -> stringResource(R.string.repeat_daily)
+        REPEAT_WEEKLY -> stringResource(R.string.repeat_weekly)
+        REPEAT_MONTHLY -> stringResource(R.string.repeat_monthly)
+        REPEAT_HALF_YEARLY -> stringResource(R.string.repeat_half_yearly)
+        REPEAT_YEARLY -> stringResource(R.string.repeat_yearly)
+        else -> null
+    }
+    val firstTag = eventState.event.tagsList().firstOrNull()
+    val metaLine = buildList {
+        add(targetLocalDate.format(dateFormatter))
+        add(categoryLabel)
+        if (eventState.event.isLunar) add(stringResource(R.string.lunar_calendar))
+        repeatLabel?.let(::add)
+    }.joinToString(" · ")
+    val supportLine = buildList {
+        firstTag?.let { add("#$it") }
+        if (eventState.event.remindEnabled) add(stringResource(R.string.field_remind))
+        if (eventState.event.syncToScheduleEnabled) add(stringResource(R.string.sync_to_schedule))
+    }.joinToString(" · ")
     val itemDescription = buildString {
         append(eventState.event.title)
         append(", ")
         if (isToday) append(todayLabel)
         else append(labelText).append(" ").append(daysDisplay)
     }
+    val isLightSurface = MaterialTheme.colorScheme.surface.luminance() > 0.5f
+    val displayColor = if (isLightSurface) {
+        lerp(eventColor, Color.Black, 0.4f)
+    } else {
+        lerp(eventColor, Color.White, 0.4f)
+    }
+    val rowBackground = when {
+        isDragging -> MaterialTheme.colorScheme.surface.copy(alpha = 0.96f)
+        isPressed -> MaterialTheme.colorScheme.primary.copy(alpha = 0.05f)
+        else -> Color.Transparent
+    }
 
-    Row(
+    Column(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = 68.dp)
-            .shadow(listDragElevation, RoundedCornerShape(2.dp), spotColor = Color.Black.copy(alpha = 0.2f))
+            .shadow(listDragElevation, RoundedCornerShape(2.dp), spotColor = Color.Black.copy(alpha = 0.18f))
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
                 alpha = itemAlpha
             }
-            .background(
-                color = MaterialTheme.colorScheme.surface,
-                shape = RoundedCornerShape(2.dp)
-            )
-            .border(
-                width = 0.5.dp,
-                color = eventColor.copy(alpha = if (isPast) 0.3f else 0.8f),
-                shape = RoundedCornerShape(2.dp)
-            )
-            .padding(horizontal = 24.dp, vertical = 0.dp)
-            .clickable(
+            .background(color = rowBackground, shape = RoundedCornerShape(2.dp))
+            .combinedClickable(
                 interactionSource = interactionSource,
                 indication = LocalIndication.current,
-                onClick = onClick
+                onClick = onClick,
+                onLongClick = onLongClick
             )
-            .semantics(mergeDescendants = true) { contentDescription = itemDescription },
-        verticalAlignment = Alignment.CenterVertically
+            .semantics(mergeDescendants = true) { contentDescription = itemDescription }
     ) {
-        // 鏍囬涓庢棩鏈熷尯鍩燂細鐐瑰嚮琛屼负鐢辨暣琛?Row 缁熶竴澶勭悊
-        Column(
+        Row(
             modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight(),
-            verticalArrangement = Arrangement.Center
+                .fillMaxWidth()
+                .heightIn(min = 72.dp)
+                .padding(horizontal = 4.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = eventState.event.title,
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
-                    letterSpacing = 0.5.sp
-                ),
-                color = itemContentColor.copy(alpha = if (isPast) 0.85f else 1.0f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+            Box(
+                modifier = Modifier
+                    .width(3.dp)
+                    .height(40.dp)
+                    .background(
+                        color = eventColor.copy(alpha = if (isPast) 0.45f else 0.85f),
+                        shape = RoundedCornerShape(2.dp)
+                    )
             )
-            Text(
-                text = targetLocalDate.format(dateFormatter),
-                style = MaterialTheme.typography.bodySmall,
-                color = itemContentColor.copy(alpha = 0.7f)
-            )
-        }
-
-        // 宸插巻/鍓╀綑鏃堕棿鍖哄煙锛氫粎姝ゅ鐐瑰嚮鍒囨崲鏄剧ず妯″紡锛岀儹鍖轰笉灏忎簬 48dp
-        Column(
-            modifier = Modifier
-                .fillMaxHeight()
-                .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = LocalIndication.current,
-                    onClick = onToggleDateDeltaDisplayMode
-                ),
-            horizontalAlignment = Alignment.End,
-            verticalArrangement = Arrangement.Center
-        ) {
-            val isLightSurface = MaterialTheme.colorScheme.surface.luminance() > 0.5f
-            val displayColor = if (isLightSurface) {
-                lerp(eventColor, Color.Black, 0.4f) // 鍦ㄦ祬鑹叉ā寮忎笅鍔犳繁涓婚鑹蹭互纭繚鏄剧ず娓呮櫚
-            } else {
-                lerp(eventColor, Color.White, 0.4f) // 鍦ㄦ繁鑹叉ā寮忎笅鎻愪寒涓婚鑹?
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = eventState.event.title,
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                        letterSpacing = 0.3.sp
+                    ),
+                    color = itemContentColor.copy(alpha = if (isPast) 0.84f else 1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = metaLine,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = itemContentColor.copy(alpha = 0.72f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (supportLine.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = supportLine,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = eventColor.copy(alpha = if (isPast) 0.68f else 0.9f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
-            Text(
-                text = daysDisplay,
-                style = if (daysDisplay.length > 5)
-                    MaterialTheme.typography.titleMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
-                else
-                    MaterialTheme.typography.titleLarge.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
-                color = if (isPast) displayColor.copy(alpha = 0.85f) else displayColor
+            Spacer(modifier = Modifier.width(12.dp))
+            VerticalDivider(
+                modifier = Modifier.height(34.dp),
+                thickness = 0.6.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.18f)
             )
-            Text(
-                text = labelText,
-                style = MaterialTheme.typography.labelSmall,
-                color = itemContentColor.copy(alpha = 0.7f),
-                letterSpacing = 1.sp
-            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(
+                modifier = Modifier
+                    .widthIn(min = 78.dp, max = 108.dp)
+                    .sizeIn(minHeight = 48.dp)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = LocalIndication.current,
+                        onClick = onToggleDateDeltaDisplayMode
+                    ),
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = daysDisplay,
+                    style = if (daysDisplay.length > 6) {
+                        MaterialTheme.typography.titleMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                    } else {
+                        MaterialTheme.typography.titleLarge.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                    },
+                    color = if (isPast) displayColor.copy(alpha = 0.82f) else displayColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (labelText.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = labelText,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = itemContentColor.copy(alpha = 0.64f),
+                        letterSpacing = 0.6.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
         }
+        HorizontalDivider(
+            thickness = 0.6.dp,
+            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f)
+        )
     }
 }
 
@@ -1099,20 +1226,38 @@ private fun MonthCalendarView(
                     val dayEvents = date?.let { eventsByDate[it] }.orEmpty()
                     val isSelected = date != null && date == pickedDate
                     val isToday = date != null && date == selectedDate
+                    val hasEvents = dayEvents.isNotEmpty()
+                    val dayPreview = if (dayEvents.isEmpty()) {
+                        ""
+                    } else {
+                        val firstTitle = dayEvents.first().event.title
+                        if (dayEvents.size > 1) "$firstTitle +${dayEvents.size - 1}" else firstTitle
+                    }
                     Surface(
                         modifier = Modifier
                             .weight(1f)
-                            .height(60.dp)
+                            .height(62.dp)
                             .clickable(enabled = date != null) { if (date != null) pickedDate = date },
                         shape = RoundedCornerShape(8.dp),
                         color = if (isSelected) {
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                        } else if (hasEvents) {
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
                         } else {
                             MaterialTheme.colorScheme.surface
                         },
                         border = BorderStroke(
-                            width = if (isToday) 1.dp else 0.6.dp,
-                            color = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
+                            width = when {
+                                isSelected || isToday -> 1.dp
+                                hasEvents -> 0.8.dp
+                                else -> 0.6.dp
+                            },
+                            color = when {
+                                isSelected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)
+                                isToday -> MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                                hasEvents -> MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                                else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
+                            }
                         )
                     ) {
                         if (date != null) {
@@ -1125,14 +1270,35 @@ private fun MonthCalendarView(
                                 Text(
                                     text = date.dayOfMonth.toString(),
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    color = if (hasEvents) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurface
+                                    }
                                 )
-                                if (dayEvents.isNotEmpty()) {
-                                    Text(
-                                        text = dayEvents.size.toString(),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
+                                if (hasEvents) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(4.dp)
+                                                .background(
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    shape = CircleShape
+                                                )
+                                        )
+                                        Text(
+                                            text = dayPreview,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    }
                                 }
                             }
                         }

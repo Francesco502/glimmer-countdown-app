@@ -28,3 +28,5 @@ Thumbs.db
 
 # 内部/临时规划（不提交）
 .trae/
+.cursor/
+.gradle-user-home/

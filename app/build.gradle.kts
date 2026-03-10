@@ -21,12 +21,12 @@ val hasSigningConfig = keystorePropertiesFile.exists()
 
 android {
     namespace = "com.example.timeapk"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.example.timeapk"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = versionCodeOverride ?: 8
         versionName = versionNameOverride ?: "3.4"
 
@@ -85,6 +85,11 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
+    bundle {
+        language {
+            enableSplit = false
         }
     }
 }
