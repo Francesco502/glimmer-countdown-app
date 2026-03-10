@@ -54,6 +54,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -971,9 +972,14 @@ private fun EventListItem(
         REPEAT_YEARLY -> stringResource(R.string.repeat_yearly)
         else -> null
     }
+    val dateLine = targetLocalDate.format(dateFormatter)
+    val dateLineStyle = if (dateLine.length > 12) {
+        MaterialTheme.typography.labelSmall
+    } else {
+        MaterialTheme.typography.bodySmall
+    }
     val firstTag = eventState.event.tagsList().firstOrNull()
     val metaLine = buildList {
-        add(targetLocalDate.format(dateFormatter))
         add(categoryLabel)
         if (eventState.event.isLunar) add(stringResource(R.string.lunar_calendar))
         repeatLabel?.let(::add)
@@ -981,7 +987,6 @@ private fun EventListItem(
     val supportLine = buildList {
         firstTag?.let { add("#$it") }
         if (eventState.event.remindEnabled) add(stringResource(R.string.field_remind))
-        if (eventState.event.syncToScheduleEnabled) add(stringResource(R.string.sync_to_schedule))
     }.joinToString(" · ")
     val itemDescription = buildString {
         append(eventState.event.title)
@@ -1052,18 +1057,28 @@ private fun EventListItem(
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = metaLine,
-                    style = MaterialTheme.typography.bodySmall,
+                    text = dateLine,
+                    style = dateLineStyle,
                     color = itemContentColor.copy(alpha = 0.72f),
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Clip
                 )
+                if (metaLine.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = metaLine,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = eventColor.copy(alpha = if (isPast) 0.68f else 0.9f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
                 if (supportLine.isNotBlank()) {
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = supportLine,
                         style = MaterialTheme.typography.labelSmall,
-                        color = eventColor.copy(alpha = if (isPast) 0.68f else 0.9f),
+                        color = itemContentColor.copy(alpha = 0.6f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -1078,7 +1093,7 @@ private fun EventListItem(
             Spacer(modifier = Modifier.width(12.dp))
             Column(
                 modifier = Modifier
-                    .widthIn(min = 78.dp, max = 108.dp)
+                    .width(96.dp)
                     .sizeIn(minHeight = 48.dp)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
@@ -1090,14 +1105,16 @@ private fun EventListItem(
             ) {
                 Text(
                     text = daysDisplay,
-                    style = if (daysDisplay.length > 6) {
-                        MaterialTheme.typography.titleMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                    style = if (daysDisplay.length > 8) {
+                        MaterialTheme.typography.bodyMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
                     } else {
-                        MaterialTheme.typography.titleLarge.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                        MaterialTheme.typography.titleMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
                     },
                     color = if (isPast) displayColor.copy(alpha = 0.82f) else displayColor,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    maxLines = 2,
+                    overflow = TextOverflow.Clip,
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.fillMaxWidth()
                 )
                 if (labelText.isNotBlank()) {
                     Spacer(modifier = Modifier.height(2.dp))
@@ -1107,7 +1124,9 @@ private fun EventListItem(
                         color = itemContentColor.copy(alpha = 0.64f),
                         letterSpacing = 0.6.sp,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.End,
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }

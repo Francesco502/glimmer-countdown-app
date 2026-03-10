@@ -54,7 +54,7 @@ object ScheduleSyncManager {
     ): Long? {
         return try {
             val sanitizedEvent = event.sanitizedReminderConfig()
-            if (!sanitizedEvent.remindEnabled || !sanitizedEvent.syncToScheduleEnabled) {
+            if (!sanitizedEvent.syncToScheduleEnabled) {
                 removeScheduleReminder(context, currentScheduleEventId)
                 removeScheduleReminderByEventId(context, sanitizedEvent.id)
                 return null

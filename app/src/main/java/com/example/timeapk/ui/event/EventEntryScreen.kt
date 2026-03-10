@@ -548,7 +548,17 @@ fun EventInputForm(
             }
         }
         
-        // Reminder settings
+        // Reminder & schedule settings
+        Text(
+            text = stringResource(R.string.reminder_and_calendar_title),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Text(
+            text = stringResource(R.string.reminder_and_calendar_summary),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -568,6 +578,41 @@ fun EventInputForm(
                         notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                     } else {
                         onValueChange(eventDetails.copy(remindEnabled = enabled))
+                    }
+                }
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.sync_to_schedule),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Text(
+                    text = stringResource(R.string.sync_to_schedule_summary),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Switch(
+                checked = eventDetails.syncToScheduleEnabled,
+                onCheckedChange = { enabled ->
+                    onValueChange(eventDetails.copy(syncToScheduleEnabled = enabled))
+                    val readGranted = ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.READ_CALENDAR
+                    ) == PackageManager.PERMISSION_GRANTED
+                    val writeGranted = ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.WRITE_CALENDAR
+                    ) == PackageManager.PERMISSION_GRANTED
+                    if (enabled && (!readGranted || !writeGranted)) {
+                        calendarPermissionLauncher.launch(calendarPermissions)
                     }
                 }
             )
@@ -704,41 +749,6 @@ fun EventInputForm(
                 )
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.sync_to_schedule),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-                    Text(
-                        text = stringResource(R.string.sync_to_schedule_summary),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(
-                    checked = eventDetails.syncToScheduleEnabled,
-                    onCheckedChange = { enabled ->
-                        onValueChange(eventDetails.copy(syncToScheduleEnabled = enabled))
-                        val readGranted = ContextCompat.checkSelfPermission(
-                            context,
-                            Manifest.permission.READ_CALENDAR
-                        ) == PackageManager.PERMISSION_GRANTED
-                        val writeGranted = ContextCompat.checkSelfPermission(
-                            context,
-                            Manifest.permission.WRITE_CALENDAR
-                        ) == PackageManager.PERMISSION_GRANTED
-                        if (enabled && (!readGranted || !writeGranted)) {
-                            calendarPermissionLauncher.launch(calendarPermissions)
-                        }
-                    }
-                )
-            }
         }
         
         // 棰滆壊閫夋嫨

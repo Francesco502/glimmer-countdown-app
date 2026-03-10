@@ -74,6 +74,8 @@
     <string name="reminder_time_9">9:00</string>
     <string name="reminder_time_12">12:00</string>
     <string name="reminder_time_18">18:00</string>
+    <string name="reminder_and_calendar_title">提醒与系统日历</string>
+    <string name="reminder_and_calendar_summary">可分别开启应用提醒与系统日历同步，保存后自动生效。</string>
     <string name="sync_to_schedule">同步到系统日程</string>
     <string name="sync_to_schedule_summary">在系统日历/日程中创建提醒，到点由系统通知栏提醒</string>
     <string name="schedule_reminder_title_format">距离「%1$s」还有 %2$d 天</string>
@@ -112,6 +114,7 @@
     <string name="detail_note">备注</string>
     <string name="detail_note_empty">无</string>
     <string name="button_edit">编辑</string>
+    <string name="button_reminder_calendar">提醒/日历</string>
     <string name="button_delete">删除</string>
     <string name="button_share">分享</string>
     <string name="button_pin">置顶</string>

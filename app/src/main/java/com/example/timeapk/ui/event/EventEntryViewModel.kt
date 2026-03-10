@@ -101,7 +101,7 @@ class EventEntryViewModel(
             }
         }
 
-        val newScheduleId = if (persistedEvent.remindEnabled && persistedEvent.syncToScheduleEnabled) {
+        val newScheduleId = if (persistedEvent.syncToScheduleEnabled) {
             try {
                 ScheduleSyncManager.upsertScheduleReminder(
                     context = application,

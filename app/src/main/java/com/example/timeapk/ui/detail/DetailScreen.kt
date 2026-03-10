@@ -614,6 +614,8 @@ fun DetailScreen(
             // 搴曢儴鎿嶄綔鍖猴細鏂瑰舰鎸夐挳锛堝甫鎸夊帇缂╂斁鍙嶉锛?
             DetailActionButtons(
                 isPinned = eventState.event.id in pinnedEventIds,
+                isReminderOrScheduleEnabled = eventState.event.remindEnabled || eventState.event.syncToScheduleEnabled,
+                onReminderCalendarClick = onEditClick,
                 onPinClick = { scope.launch { prefs.togglePinnedEventId(eventState.event.id) } },
                 onEditClick = onEditClick,
                 onDeleteClick = { showDeleteConfirm = true },
@@ -643,19 +645,24 @@ fun DetailScreen(
 @Composable
 private fun DetailActionButtons(
     isPinned: Boolean,
+    isReminderOrScheduleEnabled: Boolean,
+    onReminderCalendarClick: () -> Unit,
     onPinClick: () -> Unit,
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit,
     onShareClick: () -> Unit
 ) {
+    val reminderInteractionSource = remember { MutableInteractionSource() }
     val pinInteractionSource = remember { MutableInteractionSource() }
     val editInteractionSource = remember { MutableInteractionSource() }
     val deleteInteractionSource = remember { MutableInteractionSource() }
     val shareInteractionSource = remember { MutableInteractionSource() }
+    val reminderPressed by reminderInteractionSource.collectIsPressedAsState()
     val pinPressed by pinInteractionSource.collectIsPressedAsState()
     val editPressed by editInteractionSource.collectIsPressedAsState()
     val deletePressed by deleteInteractionSource.collectIsPressedAsState()
     val sharePressed by shareInteractionSource.collectIsPressedAsState()
+    val scaleReminder by animateFloatAsState(if (reminderPressed) 0.96f else 1f, AnimationSpecs.springButton, label = "reminder")
     val scalePin by animateFloatAsState(if (pinPressed) 0.96f else 1f, AnimationSpecs.springButton, label = "pin")
     val scaleEdit by animateFloatAsState(if (editPressed) 0.96f else 1f, AnimationSpecs.springButton, label = "edit")
     val scaleDelete by animateFloatAsState(if (deletePressed) 0.96f else 1f, AnimationSpecs.springButton, label = "delete")
@@ -668,6 +675,38 @@ private fun DetailActionButtons(
         horizontalArrangement = Arrangement.SpaceEvenly, // 姘村钩鍒嗘暎瀵归綈
         verticalAlignment = Alignment.CenterVertically
     ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .clickable(
+                    interactionSource = reminderInteractionSource,
+                    indication = LocalIndication.current,
+                    onClick = onReminderCalendarClick
+                )
+                .graphicsLayer { scaleX = scaleReminder; scaleY = scaleReminder }
+                .padding(8.dp)
+        ) {
+            Icon(
+                Icons.Default.Notifications,
+                contentDescription = stringResource(R.string.button_reminder_calendar),
+                modifier = Modifier.size(24.dp),
+                tint = if (isReminderOrScheduleEnabled) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                }
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                stringResource(R.string.button_reminder_calendar),
+                style = MaterialTheme.typography.labelSmall,
+                color = if (isReminderOrScheduleEnabled) {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                } else {
+                    MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
+                }
+            )
+        }
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier

@@ -82,6 +82,8 @@
     <string name="reminder_time_9">9:00</string>
     <string name="reminder_time_12">12:00</string>
     <string name="reminder_time_18">18:00</string>
+    <string name="reminder_and_calendar_title">Reminders &amp; system calendar</string>
+    <string name="reminder_and_calendar_summary">You can enable app reminders and system calendar sync independently.</string>
     <string name="sync_to_schedule">Sync to system schedule</string>
     <string name="sync_to_schedule_summary">Add to calendar/agenda so the system notifies you at the set time</string>
     <string name="schedule_reminder_title_format">%2$d day(s) until \"%1$s\"</string>
@@ -130,6 +132,7 @@
     <string name="detail_note">Note</string>
     <string name="detail_note_empty">None</string>
     <string name="button_edit">Edit</string>
+    <string name="button_reminder_calendar">Reminder/Calendar</string>
     <string name="button_delete">Delete</string>
     <string name="button_share">Share</string>
     <string name="button_pin">Pin</string>
