@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -43,6 +44,8 @@ private val MILESTONE_REMIND_DAYS_AHEAD = intPreferencesKey("milestone_remind_da
 private val MILESTONE_REMIND_TIME_MINUTES_OF_DAY = intPreferencesKey("milestone_remind_time_minutes_of_day")
 private val SMART_MILESTONES_ENABLED = booleanPreferencesKey("smart_milestones_enabled")
 private val REDUCE_MOTION_ENABLED = booleanPreferencesKey("reduce_motion_enabled")
+private val SCHEDULE_TARGET_CALENDAR_ID = longPreferencesKey("schedule_target_calendar_id")
+private val SCHEDULE_USE_RRULE_SYNC = booleanPreferencesKey("schedule_use_rrule_sync")
 
 private const val APP_BASE_FONT_SCALE_MIN = 0.85f
 private const val APP_BASE_FONT_SCALE_MAX = 1.30f
@@ -106,6 +109,12 @@ class UserPreferencesRepository(private val context: Context) {
     }
     val reduceMotionEnabledFlow: Flow<Boolean> = context.dataStore.data.map {
         it[REDUCE_MOTION_ENABLED] ?: false
+    }
+    val scheduleTargetCalendarIdFlow: Flow<Long?> = context.dataStore.data.map {
+        it[SCHEDULE_TARGET_CALENDAR_ID]
+    }
+    val scheduleUseRRuleSyncFlow: Flow<Boolean> = context.dataStore.data.map {
+        it[SCHEDULE_USE_RRULE_SYNC] ?: true
     }
 
     private fun parseCustomEventOrder(raw: String): List<Int> {
@@ -260,6 +269,20 @@ class UserPreferencesRepository(private val context: Context) {
 
     suspend fun setReduceMotionEnabled(enabled: Boolean) {
         context.dataStore.edit { it[REDUCE_MOTION_ENABLED] = enabled }
+    }
+
+    suspend fun setScheduleTargetCalendarId(calendarId: Long?) {
+        context.dataStore.edit { prefs ->
+            if (calendarId == null) {
+                prefs.remove(SCHEDULE_TARGET_CALENDAR_ID)
+            } else {
+                prefs[SCHEDULE_TARGET_CALENDAR_ID] = calendarId
+            }
+        }
+    }
+
+    suspend fun setScheduleUseRRuleSync(enabled: Boolean) {
+        context.dataStore.edit { it[SCHEDULE_USE_RRULE_SYNC] = enabled }
     }
 
     private fun sanitizeAppBaseFontScale(scale: Float): Float {

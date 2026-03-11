@@ -1,8 +1,10 @@
 ﻿package com.example.timeapk.ui.settings
 
+import android.Manifest
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -27,22 +29,30 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.core.content.ContextCompat
+import androidx.core.graphics.toColorInt
 import com.example.timeapk.BuildConfig
 import com.example.timeapk.R
 import com.example.timeapk.TimeApplication
 import com.example.timeapk.data.*
+import com.example.timeapk.notifications.RescheduleAllWorker
 import com.example.timeapk.notifications.rescheduleMilestoneReminders
 import com.example.timeapk.notifications.scheduleReminder
 import com.example.timeapk.notifications.ScheduleSyncManager
+import com.example.timeapk.ui.components.SnapWheelPicker
 import com.example.timeapk.widget.WidgetUpdater
 import com.example.timeapk.update.CheckUpdateResult
 import com.example.timeapk.update.UpdateInstaller
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.example.timeapk.ui.theme.ColorContrastGuardrail
 import com.example.timeapk.ui.theme.SongDesignTokens
 import com.example.timeapk.ui.utils.findActivity
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -203,7 +213,7 @@ fun AppearanceSettingsContent(
             val isValidHex = remember(customHexInput) {
                 try {
                     if (customHexInput.startsWith("#") && (customHexInput.length == 7 || customHexInput.length == 9)) {
-                        android.graphics.Color.parseColor(customHexInput)
+                        customHexInput.toColorInt()
                         true
                     } else {
                         false
@@ -248,7 +258,7 @@ fun AppearanceSettingsContent(
                                         Box(
                                             modifier = Modifier
                                                 .size(36.dp)
-                                                .background(Color(android.graphics.Color.parseColor(hex)), CircleShape)
+                                                .background(Color(hex.toColorInt()), CircleShape)
                                                 .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), CircleShape)
                                                 .clickable {
                                                     tryApplyColor(hex)
@@ -274,7 +284,7 @@ fun AppearanceSettingsContent(
                                     Box(
                                         modifier = Modifier
                                             .size(24.dp)
-                                            .background(Color(android.graphics.Color.parseColor(customHexInput)), CircleShape)
+                                            .background(Color(customHexInput.toColorInt()), CircleShape)
                                             .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
                                     )
                                 }
@@ -430,7 +440,7 @@ fun AppearanceSettingsContent(
     }
 }
 @Composable
-fun DisplaySettingsContent(
+fun LegacyDisplaySettingsContent(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -965,6 +975,768 @@ fun DisplaySettingsContent(
 }
 
 @Composable
+fun DisplaySettingsContent(
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val app = context.applicationContext as? TimeApplication
+    if (app == null) return
+    val prefs = app.userPrefs
+    val scope = rememberCoroutineScope()
+    val activity = context.findActivity()
+
+    val languageMode by prefs.languageModeFlow.collectAsState(initial = LANG_ZH)
+    val showHours by prefs.showHoursFlow.collectAsState(initial = true)
+    val homeDensityMode by prefs.homeDensityModeFlow.collectAsState(initial = 1)
+    val reduceMotionEnabled by prefs.reduceMotionEnabledFlow.collectAsState(initial = false)
+    val dateFormatMode by prefs.dateFormatModeFlow.collectAsState(initial = 0)
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp)
+    ) {
+        SettingsGroupHeader(title = stringResource(R.string.settings_category_display_title))
+
+        Text(
+            text = stringResource(R.string.language_title),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(top = 8.dp, bottom = 8.dp)
+        )
+
+        listOf(
+            LANG_ZH to stringResource(R.string.language_zh),
+            LANG_EN to stringResource(R.string.language_en)
+        ).forEach { (value, label) ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        scope.launch {
+                            prefs.setLanguageMode(value)
+                            withContext(Dispatchers.Main) { activity?.recreate() }
+                        }
+                    }
+                    .padding(vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RadioButton(
+                    selected = languageMode == value,
+                    onClick = {
+                        scope.launch {
+                            prefs.setLanguageMode(value)
+                            withContext(Dispatchers.Main) { activity?.recreate() }
+                        }
+                    }
+                )
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(start = 8.dp),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+        }
+
+        SettingsGroupHeader(
+            title = stringResource(R.string.home_density_title),
+            modifier = Modifier.padding(top = 20.dp)
+        )
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = stringResource(R.string.settings_show_hours_summary),
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.weight(1f),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            ClassicalToggle(
+                checked = showHours,
+                onCheckedChange = { scope.launch { prefs.setShowHours(it) } }
+            )
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.settings_reduce_motion_title),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = stringResource(R.string.settings_reduce_motion_summary),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            ClassicalToggle(
+                checked = reduceMotionEnabled,
+                onCheckedChange = { scope.launch { prefs.setReduceMotionEnabled(it) } }
+            )
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+
+        listOf(
+            Triple(0, R.string.home_density_compact, R.string.home_density_compact_summary),
+            Triple(1, R.string.home_density_detailed, R.string.home_density_detailed_summary)
+        ).forEach { (value, titleRes, summaryRes) ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { scope.launch { prefs.setHomeDensityMode(value) } }
+                    .padding(vertical = 9.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RadioButton(
+                    selected = homeDensityMode == value,
+                    onClick = { scope.launch { prefs.setHomeDensityMode(value) } }
+                )
+                Text(
+                    text = stringResource(titleRes),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(start = 8.dp),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                Text(
+                    text = stringResource(summaryRes),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+
+        SettingsGroupHeader(
+            title = stringResource(R.string.date_format_title),
+            modifier = Modifier.padding(top = 20.dp)
+        )
+
+        listOf(
+            0 to R.string.date_format_dot,
+            1 to R.string.date_format_dash
+        ).forEach { (value, labelRes) ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { scope.launch { prefs.setDateFormatMode(value) } }
+                    .padding(vertical = 9.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RadioButton(
+                    selected = dateFormatMode == value,
+                    onClick = { scope.launch { prefs.setDateFormatMode(value) } }
+                )
+                Text(
+                    text = stringResource(labelRes),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(start = 8.dp),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun MilestoneSettingsContent(
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val app = context.applicationContext as? TimeApplication
+    if (app == null) return
+    val prefs = app.userPrefs
+    val scope = rememberCoroutineScope()
+
+    val showMilestone by prefs.showMilestoneFlow.collectAsState(initial = true)
+    val smartMilestonesEnabled by prefs.smartMilestonesEnabledFlow.collectAsState(initial = true)
+    val milestoneRemindEnabled by prefs.milestoneRemindEnabledFlow.collectAsState(initial = false)
+    val milestoneRemindDaysAhead by prefs.milestoneRemindDaysAheadFlow.collectAsState(initial = 7)
+    val milestoneRemindTimeMinutesOfDay by prefs.milestoneRemindTimeMinutesOfDayFlow.collectAsState(initial = 480)
+    val customMilestones by prefs.customMilestonesFlow.collectAsState(initial = DEFAULT_MILESTONE_DAYS)
+    val scheduleTargetCalendarId by prefs.scheduleTargetCalendarIdFlow.collectAsState(initial = null)
+    val scheduleUseRRuleSync by prefs.scheduleUseRRuleSyncFlow.collectAsState(initial = true)
+
+    var newMilestoneInput by remember { mutableStateOf("") }
+    val remindDayOptions = remember { (0..3650).toList() }
+    val remindHourOptions = remember { (0..23).toList() }
+    val remindMinuteOptions = remember { (0..59).toList() }
+
+    var writableCalendars by remember { mutableStateOf<List<ScheduleSyncManager.CalendarOption>>(emptyList()) }
+    var latestScheduleSyncEvent by remember { mutableStateOf<Event?>(null) }
+    var syncStatusLoading by remember { mutableStateOf(false) }
+    val calendarPermissions = remember {
+        arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR)
+    }
+
+    fun hasCalendarPermission(): Boolean {
+        val readGranted = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.READ_CALENDAR
+        ) == PackageManager.PERMISSION_GRANTED
+        val writeGranted = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.WRITE_CALENDAR
+        ) == PackageManager.PERMISSION_GRANTED
+        return readGranted && writeGranted
+    }
+
+    val refreshScheduleSyncStatus: suspend () -> Unit = {
+        syncStatusLoading = true
+        latestScheduleSyncEvent = withContext(Dispatchers.IO) {
+            app.repository.getLatestScheduleSyncEvent()
+        }
+        writableCalendars = if (hasCalendarPermission()) {
+            withContext(Dispatchers.IO) {
+                ScheduleSyncManager.getWritableCalendars(context)
+            }
+        } else {
+            emptyList()
+        }
+        syncStatusLoading = false
+    }
+
+    val calendarPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) {
+        scope.launch {
+            refreshScheduleSyncStatus()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        refreshScheduleSyncStatus()
+    }
+
+    LaunchedEffect(writableCalendars, scheduleTargetCalendarId) {
+        if (!hasCalendarPermission()) return@LaunchedEffect
+        val selected = scheduleTargetCalendarId
+        if (selected != null && writableCalendars.none { it.id == selected }) {
+            prefs.setScheduleTargetCalendarId(null)
+        }
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp)
+    ) {
+        SettingsGroupHeader(title = stringResource(R.string.settings_milestone_entry_title))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.settings_show_milestone),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = stringResource(R.string.settings_show_milestone_summary),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            ClassicalToggle(
+                checked = showMilestone,
+                onCheckedChange = { scope.launch { prefs.setShowMilestone(it) } }
+            )
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.settings_smart_milestones_title),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = stringResource(R.string.settings_smart_milestones_summary),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            ClassicalToggle(
+                checked = smartMilestonesEnabled,
+                onCheckedChange = {
+                    scope.launch {
+                        prefs.setSmartMilestonesEnabled(it)
+                        rescheduleMilestoneReminders(app)
+                    }
+                }
+            )
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.settings_milestone_remind_title),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = stringResource(R.string.settings_milestone_remind_summary),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            ClassicalToggle(
+                checked = milestoneRemindEnabled,
+                onCheckedChange = {
+                    scope.launch {
+                        prefs.setMilestoneRemindEnabled(it)
+                        RescheduleAllWorker.enqueue(context, "milestone_remind_toggle")
+                    }
+                }
+            )
+        }
+        if (milestoneRemindEnabled) {
+            val selectedDays = milestoneRemindDaysAhead.coerceIn(
+                remindDayOptions.first(),
+                remindDayOptions.last()
+            )
+            val selectedHour = (milestoneRemindTimeMinutesOfDay / 60).coerceIn(0, 23)
+            val selectedMinute = (milestoneRemindTimeMinutesOfDay % 60).coerceIn(0, 59)
+
+            Text(
+                text = stringResource(R.string.settings_milestone_remind_days_title),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
+            )
+            Text(
+                text = if (selectedDays == 0) {
+                    stringResource(R.string.remind_same_day)
+                } else {
+                    context.resources.getQuantityString(
+                        R.plurals.remind_days_before_format,
+                        selectedDays,
+                        selectedDays
+                    )
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            SnapWheelPicker(
+                items = remindDayOptions,
+                selectedItem = selectedDays,
+                onItemSelected = { days ->
+                    if (days != milestoneRemindDaysAhead) {
+                        scope.launch {
+                            prefs.setMilestoneRemindDaysAhead(days)
+                            RescheduleAllWorker.enqueue(context, "milestone_remind_days_changed")
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                itemLabel = { days ->
+                    if (days == 0) {
+                        context.getString(R.string.remind_same_day)
+                    } else {
+                        context.resources.getQuantityString(
+                            R.plurals.remind_days_before_format,
+                            days,
+                            days
+                        )
+                    }
+                }
+            )
+
+            Text(
+                text = stringResource(R.string.settings_milestone_remind_time_title),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+            )
+            Text(
+                text = formatMinutesOfDay(milestoneRemindTimeMinutesOfDay),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.reminder_time_hour),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    SnapWheelPicker(
+                        items = remindHourOptions,
+                        selectedItem = selectedHour,
+                        onItemSelected = { hour ->
+                            val updatedMinutes = hour * 60 + selectedMinute
+                            if (updatedMinutes != milestoneRemindTimeMinutesOfDay) {
+                                scope.launch {
+                                    prefs.setMilestoneRemindTimeMinutesOfDay(updatedMinutes)
+                                    RescheduleAllWorker.enqueue(context, "milestone_remind_time_changed")
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        itemLabel = { value -> String.format(Locale.US, "%02d", value) }
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.reminder_time_minute),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    SnapWheelPicker(
+                        items = remindMinuteOptions,
+                        selectedItem = selectedMinute,
+                        onItemSelected = { minute ->
+                            val updatedMinutes = selectedHour * 60 + minute
+                            if (updatedMinutes != milestoneRemindTimeMinutesOfDay) {
+                                scope.launch {
+                                    prefs.setMilestoneRemindTimeMinutesOfDay(updatedMinutes)
+                                    RescheduleAllWorker.enqueue(context, "milestone_remind_time_changed")
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        itemLabel = { value -> String.format(Locale.US, "%02d", value) }
+                    )
+                }
+            }
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+
+        SettingsGroupHeader(
+            title = stringResource(R.string.settings_schedule_sync_title),
+            modifier = Modifier.padding(top = 12.dp)
+        )
+        Text(
+            text = stringResource(R.string.settings_schedule_sync_summary),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 8.dp)
+        )
+
+        Text(
+            text = stringResource(R.string.settings_schedule_target_calendar_title),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 12.dp)
+        )
+        val calendarPermissionGranted = hasCalendarPermission()
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                    if (!calendarPermissionGranted) {
+                        calendarPermissionLauncher.launch(calendarPermissions)
+                    } else {
+                        scope.launch {
+                            prefs.setScheduleTargetCalendarId(null)
+                            RescheduleAllWorker.enqueue(context, "schedule_target_calendar_changed")
+                        }
+                    }
+                }
+                .padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            RadioButton(
+                selected = scheduleTargetCalendarId == null,
+                onClick = {
+                    if (!calendarPermissionGranted) {
+                        calendarPermissionLauncher.launch(calendarPermissions)
+                    } else {
+                        scope.launch {
+                            prefs.setScheduleTargetCalendarId(null)
+                            RescheduleAllWorker.enqueue(context, "schedule_target_calendar_changed")
+                        }
+                    }
+                }
+            )
+            Text(
+                text = stringResource(R.string.settings_schedule_calendar_auto),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(start = 8.dp)
+            )
+        }
+
+        if (!calendarPermissionGranted) {
+            Text(
+                text = stringResource(R.string.calendar_permission_required_for_sync),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(vertical = 4.dp)
+            )
+            OutlinedButton(
+                onClick = { calendarPermissionLauncher.launch(calendarPermissions) },
+                modifier = Modifier.padding(vertical = 4.dp)
+            ) {
+                Text(stringResource(R.string.settings_schedule_request_calendar_permission))
+            }
+        } else if (writableCalendars.isEmpty()) {
+            Text(
+                text = stringResource(R.string.settings_schedule_calendar_no_writable),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(vertical = 4.dp)
+            )
+        } else {
+            writableCalendars.forEach { calendar ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            if (!calendarPermissionGranted) {
+                                calendarPermissionLauncher.launch(calendarPermissions)
+                            } else {
+                                scope.launch {
+                                    prefs.setScheduleTargetCalendarId(calendar.id)
+                                    RescheduleAllWorker.enqueue(context, "schedule_target_calendar_changed")
+                                }
+                            }
+                        }
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = scheduleTargetCalendarId == calendar.id,
+                        onClick = {
+                            if (!calendarPermissionGranted) {
+                                calendarPermissionLauncher.launch(calendarPermissions)
+                            } else {
+                                scope.launch {
+                                    prefs.setScheduleTargetCalendarId(calendar.id)
+                                    RescheduleAllWorker.enqueue(context, "schedule_target_calendar_changed")
+                                }
+                            }
+                        }
+                    )
+                    Text(
+                        text = calendar.label,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                }
+            }
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.settings_schedule_rrule_title),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = stringResource(R.string.settings_schedule_rrule_summary),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            ClassicalToggle(
+                checked = scheduleUseRRuleSync,
+                onCheckedChange = { enabled ->
+                    scope.launch {
+                        prefs.setScheduleUseRRuleSync(enabled)
+                        RescheduleAllWorker.enqueue(context, "schedule_rrule_changed")
+                    }
+                }
+            )
+        }
+
+        Text(
+            text = stringResource(R.string.settings_schedule_status_title),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 12.dp)
+        )
+
+        val lastSyncText = latestScheduleSyncEvent?.lastScheduleSyncAt?.let {
+            formatScheduleSyncTime(it)
+        } ?: stringResource(R.string.settings_schedule_status_never)
+        Text(
+            text = stringResource(R.string.settings_schedule_status_last_sync, lastSyncText),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+        val targetCalendarText = latestScheduleSyncEvent?.targetCalendarId?.let { calendarId ->
+            writableCalendars.firstOrNull { it.id == calendarId }?.label ?: calendarId.toString()
+        } ?: stringResource(R.string.settings_schedule_calendar_auto)
+        Text(
+            text = stringResource(R.string.settings_schedule_status_calendar_format, targetCalendarText),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 2.dp)
+        )
+        val lastSyncError = latestScheduleSyncEvent?.lastScheduleSyncError
+        Text(
+            text = if (lastSyncError.isNullOrBlank()) {
+                stringResource(R.string.settings_schedule_status_ok)
+            } else {
+                stringResource(R.string.settings_schedule_status_error_format, lastSyncError)
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = if (lastSyncError.isNullOrBlank()) {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            } else {
+                MaterialTheme.colorScheme.error
+            },
+            modifier = Modifier.padding(top = 2.dp)
+        )
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OutlinedButton(
+                onClick = { RescheduleAllWorker.enqueue(context, "manual_settings_reschedule_all") },
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(stringResource(R.string.settings_schedule_rebuild_now))
+            }
+            OutlinedButton(
+                onClick = { scope.launch { refreshScheduleSyncStatus() } },
+                enabled = !syncStatusLoading,
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(stringResource(R.string.settings_schedule_refresh_status))
+            }
+        }
+
+        Text(
+            text = stringResource(R.string.settings_custom_milestones_title),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(top = 12.dp, bottom = 8.dp)
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = newMilestoneInput,
+                onValueChange = { newMilestoneInput = it.filter { c -> c.isDigit() } },
+                placeholder = { Text(stringResource(R.string.settings_custom_milestones_add_hint)) },
+                modifier = Modifier.weight(1f)
+            )
+            OutlinedButton(
+                onClick = {
+                    val v = newMilestoneInput.trim().toLongOrNull()
+                    if (v != null && v > 0) {
+                        scope.launch {
+                            prefs.setCustomMilestones(customMilestones + v)
+                            newMilestoneInput = ""
+                            RescheduleAllWorker.enqueue(context, "custom_milestones_changed")
+                        }
+                    }
+                }
+            ) {
+                Text(stringResource(R.string.settings_custom_milestones_add))
+            }
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp)
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            customMilestones.forEach { days ->
+                Row(
+                    modifier = Modifier
+                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "$days",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    IconButton(
+                        onClick = {
+                            scope.launch {
+                                prefs.setCustomMilestones(customMilestones.filter { it != days })
+                                RescheduleAllWorker.enqueue(context, "custom_milestones_changed")
+                            }
+                        },
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+        OutlinedButton(
+            onClick = {
+                scope.launch {
+                    prefs.setCustomMilestones(DEFAULT_MILESTONE_DAYS)
+                    RescheduleAllWorker.enqueue(context, "custom_milestones_reset")
+                }
+            },
+            modifier = Modifier.padding(top = 8.dp)
+        ) {
+            Text(stringResource(R.string.settings_custom_milestones_restore))
+        }
+    }
+}
+
+@Composable
 fun DataSettingsContent(
     snackbarHostState: SnackbarHostState,
     modifier: Modifier = Modifier
@@ -984,6 +1756,8 @@ fun DataSettingsContent(
         var successCount = 0
         var failedCount = 0
         var warningCount = 0
+        val preferredCalendarId = app.userPrefs.scheduleTargetCalendarIdFlow.first()
+        val useRRuleSync = app.userPrefs.scheduleUseRRuleSyncFlow.first()
 
         events.forEach { sourceEvent ->
             val event = sourceEvent.sanitizedReminderConfig()
@@ -1002,28 +1776,43 @@ fun DataSettingsContent(
                 } catch (_: Exception) {
                     hasWarning = true
                 }
+            }
 
+            val syncResult = try {
                 if (savedEvent.syncToScheduleEnabled) {
-                    val scheduleId = try {
-                        ScheduleSyncManager.upsertScheduleReminder(
-                            context = context,
-                            event = savedEvent,
-                            currentScheduleEventId = savedEvent.scheduleEventId
-                        )
-                    } catch (_: Exception) {
-                        hasWarning = true
-                        null
-                    }
+                    ScheduleSyncManager.syncReminderSeries(
+                        context = context,
+                        event = savedEvent,
+                        preferredCalendarId = preferredCalendarId,
+                        useRRuleSync = useRRuleSync
+                    )
+                } else {
+                    ScheduleSyncManager.removeScheduleReminderByEventId(context, savedEvent.id)
+                    ScheduleSyncManager.ScheduleSyncResult(
+                        primaryScheduleEventId = null,
+                        targetCalendarId = null,
+                        lastSyncAt = System.currentTimeMillis(),
+                        error = null
+                    )
+                }
+            } catch (_: Exception) {
+                hasWarning = true
+                null
+            }
 
-                    if (scheduleId != null) {
-                        try {
-                            repository.updateEvent(savedEvent.copy(scheduleEventId = scheduleId))
-                        } catch (_: Exception) {
-                            hasWarning = true
-                        }
-                    } else {
-                        hasWarning = true
-                    }
+            if (syncResult != null) {
+                if (syncResult.error != null) hasWarning = true
+                try {
+                    repository.updateEvent(
+                        savedEvent.copy(
+                            scheduleEventId = syncResult.primaryScheduleEventId,
+                            targetCalendarId = syncResult.targetCalendarId,
+                            lastScheduleSyncAt = syncResult.lastSyncAt,
+                            lastScheduleSyncError = syncResult.error
+                        )
+                    )
+                } catch (_: Exception) {
+                    hasWarning = true
                 }
             }
 
@@ -1058,7 +1847,11 @@ fun DataSettingsContent(
                 failedCount,
                 warningCount
             )
-            else -> context.getString(R.string.import_success, successCount)
+            else -> context.resources.getQuantityString(
+                R.plurals.import_success,
+                successCount,
+                successCount
+            )
         }
     }
 
@@ -1320,7 +2113,7 @@ fun AboutSettingsContent(
             .verticalScroll(rememberScrollState())
             .padding(24.dp)
     ) {
-        SettingsGroupHeader(title = stringResource(R.string.settings_title))
+        SettingsGroupHeader(title = stringResource(R.string.settings_about_entry_title))
         
         Row(
             modifier = Modifier
@@ -1404,6 +2197,13 @@ private fun formatMinutesOfDay(minutesOfDay: Int): String {
     return String.format(Locale.US, "%02d:%02d", hour, minute)
 }
 
+private fun formatScheduleSyncTime(millis: Long): String {
+    val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm", Locale.getDefault())
+    return Instant.ofEpochMilli(millis)
+        .atZone(ZoneId.systemDefault())
+        .format(formatter)
+}
+
 private fun parseReminderTimeInput(input: String): Int? {
     val raw = input.trim()
     if (raw.isBlank()) return null
@@ -1439,7 +2239,7 @@ private fun parseReminderTimeInput(input: String): Int? {
 
 private fun parseHexColor(hex: String): Color? {
     return try {
-        Color(android.graphics.Color.parseColor(hex))
+        Color(hex.toColorInt())
     } catch (_: Exception) {
         null
     }

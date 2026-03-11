@@ -1,0 +1,122 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 10,
+    "identityHash": "448091604b06326a91336232600db5bb",
+    "entities": [
+      {
+        "tableName": "events",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `title` TEXT NOT NULL, `date` INTEGER NOT NULL, `category` TEXT NOT NULL, `note` TEXT NOT NULL, `colorHex` TEXT, `repeatType` TEXT NOT NULL, `remindDaysBefore` INTEGER NOT NULL, `reminderTimeMinutesOfDay` INTEGER NOT NULL, `remindEnabled` INTEGER NOT NULL, `syncToScheduleEnabled` INTEGER NOT NULL, `scheduleEventId` INTEGER, `targetCalendarId` INTEGER, `lastScheduleSyncAt` INTEGER, `lastScheduleSyncError` TEXT, `createdAt` INTEGER NOT NULL, `isLunar` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "date",
+            "columnName": "date",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "category",
+            "columnName": "category",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "note",
+            "columnName": "note",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "colorHex",
+            "columnName": "colorHex",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "repeatType",
+            "columnName": "repeatType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "remindDaysBefore",
+            "columnName": "remindDaysBefore",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "reminderTimeMinutesOfDay",
+            "columnName": "reminderTimeMinutesOfDay",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "remindEnabled",
+            "columnName": "remindEnabled",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "syncToScheduleEnabled",
+            "columnName": "syncToScheduleEnabled",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "scheduleEventId",
+            "columnName": "scheduleEventId",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "targetCalendarId",
+            "columnName": "targetCalendarId",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "lastScheduleSyncAt",
+            "columnName": "lastScheduleSyncAt",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "lastScheduleSyncError",
+            "columnName": "lastScheduleSyncError",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isLunar",
+            "columnName": "isLunar",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '448091604b06326a91336232600db5bb')"
+    ]
+  }
+}

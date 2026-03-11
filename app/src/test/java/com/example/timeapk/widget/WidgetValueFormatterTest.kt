@@ -8,6 +8,28 @@ import org.junit.Test
 class WidgetValueFormatterTest {
 
     @Test
+    fun semanticValue_prefersTextWhenItFits() {
+        val text = WidgetValueFormatter.semanticValueOrFallback(
+            preferredText = "还有12天",
+            fallbackText = "12",
+            maxChars = 8
+        )
+
+        assertEquals("还有12天", text)
+    }
+
+    @Test
+    fun semanticValue_fallsBackWhenTextIsTooLong() {
+        val text = WidgetValueFormatter.semanticValueOrFallback(
+            preferredText = "已经1年2个月3天",
+            fallbackText = "-428",
+            maxChars = 8
+        )
+
+        assertEquals("-428", text)
+    }
+
+    @Test
     fun smallMode_todayAlwaysShowsZero() {
         val text = WidgetValueFormatter.numericValueForSmall(
             mode = DisplayModes.UNTIL_DAYS,

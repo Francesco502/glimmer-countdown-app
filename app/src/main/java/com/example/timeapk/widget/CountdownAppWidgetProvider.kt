@@ -6,10 +6,10 @@ import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
-import android.net.Uri
 import android.os.Bundle
 import android.widget.RemoteViews
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import com.example.timeapk.MainActivity
 import com.example.timeapk.R
 
@@ -45,7 +45,7 @@ class CountdownAppWidgetProvider : AppWidgetProvider() {
         val serviceIntent = Intent(context, CountdownWidgetService::class.java).apply {
             putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
             putExtra(WidgetSizeBucket.EXTRA_SIZE_BUCKET, sizeBucket)
-            data = Uri.parse(toUri(Intent.URI_INTENT_SCHEME))
+            data = toUri(Intent.URI_INTENT_SCHEME).toUri()
         }
 
         val views = RemoteViews(context.packageName, R.layout.widget_countdown).apply {
@@ -73,10 +73,7 @@ class CountdownAppWidgetProvider : AppWidgetProvider() {
 
     private fun resolveSizeBucket(options: Bundle): Int {
         val minWidthDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 110)
-        return when {
-            minWidthDp < 150 -> WidgetSizeBucket.SMALL
-            minWidthDp < 250 -> WidgetSizeBucket.MEDIUM
-            else -> WidgetSizeBucket.LARGE
-        }
+        val maxWidthDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, minWidthDp)
+        return WidgetSizeBucket.resolve(minWidthDp, maxWidthDp)
     }
 }

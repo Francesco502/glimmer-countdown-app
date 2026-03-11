@@ -12,12 +12,13 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -35,10 +36,10 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.content.ContextCompat
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.core.graphics.toColorInt
 import com.example.timeapk.R
 import com.example.timeapk.TimeApplication
 import com.example.timeapk.data.CATEGORY_ANNIVERSARY
@@ -50,10 +51,10 @@ import com.example.timeapk.data.REPEAT_MONTHLY
 import com.example.timeapk.data.REPEAT_NONE
 import com.example.timeapk.data.REPEAT_WEEKLY
 import com.example.timeapk.data.REPEAT_YEARLY
-import com.example.timeapk.data.sanitizeRemindDaysBefore
 import com.example.timeapk.data.sanitizeReminderTimeMinutesOfDay
 import com.example.timeapk.ui.AppViewModelProvider
 import com.example.timeapk.ui.components.BottomSheetDatePicker
+import com.example.timeapk.ui.components.SnapWheelPicker
 import com.example.timeapk.ui.theme.AnimationSpecs
 import com.example.timeapk.ui.utils.eventDateToLocalDate
 import com.example.timeapk.ui.utils.getDisplayDateFormatter
@@ -396,19 +397,160 @@ fun EventInputForm(
         )
     }
 
-    var customRemindDaysInput by remember { mutableStateOf(eventDetails.remindDaysBefore.toString()) }
-    var customRemindTimeInput by remember { mutableStateOf(formatMinutesOfDay(eventDetails.reminderTimeMinutesOfDay)) }
-    var customRemindTimeError by remember { mutableStateOf(false) }
-
-    LaunchedEffect(eventDetails.remindDaysBefore) {
-        customRemindDaysInput = eventDetails.remindDaysBefore.toString()
-    }
-    LaunchedEffect(eventDetails.reminderTimeMinutesOfDay) {
-        customRemindTimeInput = formatMinutesOfDay(eventDetails.reminderTimeMinutesOfDay)
-    }
-
     val titleTouched = remember { mutableStateOf(false) }
     val showTitleError = titleTouched.value && eventDetails.title.isBlank()
+    val reminderDayOptions = remember { (0..3650).toList() }
+    val reminderHourOptions = remember { (0..23).toList() }
+    val reminderMinuteOptions = remember { (0..59).toList() }
+    val selectedRemindDays = eventDetails.remindDaysBefore.coerceIn(
+        reminderDayOptions.first(),
+        reminderDayOptions.last()
+    )
+    val selectedRemindHour = (eventDetails.reminderTimeMinutesOfDay / 60).coerceIn(0, 23)
+    val selectedRemindMinute = (eventDetails.reminderTimeMinutesOfDay % 60).coerceIn(0, 59)
+    val repeatOptions = listOf(
+        REPEAT_NONE to stringResource(R.string.repeat_none),
+        REPEAT_YEARLY to stringResource(R.string.repeat_yearly),
+        REPEAT_HALF_YEARLY to stringResource(R.string.repeat_half_yearly),
+        REPEAT_MONTHLY to stringResource(R.string.repeat_monthly),
+        REPEAT_WEEKLY to stringResource(R.string.repeat_weekly),
+        REPEAT_DAILY to stringResource(R.string.repeat_daily)
+    )
+    var reminderSettingsExpanded by remember { mutableStateOf(false) }
+    var showCustomRepeatPicker by remember { mutableStateOf(false) }
+    var showCustomRemindDaysPicker by remember { mutableStateOf(false) }
+    var showCustomRemindTimePicker by remember { mutableStateOf(false) }
+
+    if (showCustomRepeatPicker) {
+        var draftRepeat by remember(eventDetails.repeatType) {
+            mutableStateOf(
+                repeatOptions.firstOrNull { it.first == eventDetails.repeatType }?.first ?: REPEAT_NONE
+            )
+        }
+        AlertDialog(
+            onDismissRequest = { showCustomRepeatPicker = false },
+            title = { Text(stringResource(R.string.category_custom)) },
+            text = {
+                SnapWheelPicker(
+                    items = repeatOptions.map { it.first },
+                    selectedItem = draftRepeat,
+                    onItemSelected = { draftRepeat = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    itemLabel = { value ->
+                        repeatOptions.firstOrNull { it.first == value }?.second ?: value
+                    }
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onValueChange(eventDetails.copy(repeatType = draftRepeat))
+                        showCustomRepeatPicker = false
+                    }
+                ) {
+                    Text(stringResource(R.string.date_picker_ok))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCustomRepeatPicker = false }) {
+                    Text(stringResource(R.string.date_picker_cancel))
+                }
+            }
+        )
+    }
+
+    if (showCustomRemindDaysPicker) {
+        var draftDays by remember(eventDetails.remindDaysBefore) { mutableStateOf(selectedRemindDays) }
+        AlertDialog(
+            onDismissRequest = { showCustomRemindDaysPicker = false },
+            title = { Text(stringResource(R.string.custom_remind_days_label)) },
+            text = {
+                SnapWheelPicker(
+                    items = reminderDayOptions,
+                    selectedItem = draftDays,
+                    onItemSelected = { draftDays = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    itemLabel = { days ->
+                        if (days == 0) {
+                            context.getString(R.string.remind_same_day)
+                        } else {
+                            context.resources.getQuantityString(
+                                R.plurals.remind_days_before_format,
+                                days,
+                                days
+                            )
+                        }
+                    }
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onValueChange(eventDetails.copy(remindDaysBefore = draftDays))
+                        showCustomRemindDaysPicker = false
+                    }
+                ) {
+                    Text(stringResource(R.string.date_picker_ok))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCustomRemindDaysPicker = false }) {
+                    Text(stringResource(R.string.date_picker_cancel))
+                }
+            }
+        )
+    }
+
+    if (showCustomRemindTimePicker) {
+        var draftHour by remember(eventDetails.reminderTimeMinutesOfDay) {
+            mutableStateOf(selectedRemindHour)
+        }
+        var draftMinute by remember(eventDetails.reminderTimeMinutesOfDay) {
+            mutableStateOf(selectedRemindMinute)
+        }
+        AlertDialog(
+            onDismissRequest = { showCustomRemindTimePicker = false },
+            title = { Text(stringResource(R.string.custom_reminder_time_label)) },
+            text = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    SnapWheelPicker(
+                        items = reminderHourOptions,
+                        selectedItem = draftHour,
+                        onItemSelected = { draftHour = it },
+                        modifier = Modifier.weight(1f),
+                        itemLabel = { value -> String.format(Locale.US, "%02d", value) }
+                    )
+                    SnapWheelPicker(
+                        items = reminderMinuteOptions,
+                        selectedItem = draftMinute,
+                        onItemSelected = { draftMinute = it },
+                        modifier = Modifier.weight(1f),
+                        itemLabel = { value -> String.format(Locale.US, "%02d", value) }
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onValueChange(
+                            eventDetails.copy(reminderTimeMinutesOfDay = draftHour * 60 + draftMinute)
+                        )
+                        showCustomRemindTimePicker = false
+                    }
+                ) {
+                    Text(stringResource(R.string.date_picker_ok))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCustomRemindTimePicker = false }) {
+                    Text(stringResource(R.string.date_picker_cancel))
+                }
+            }
+        )
+    }
 
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
         TextField(
@@ -460,29 +602,6 @@ fun EventInputForm(
             }
         }
         
-        // 澶囨敞杈撳叆
-        TextField(
-            value = eventDetails.note,
-            onValueChange = { onValueChange(eventDetails.copy(note = it)) },
-            label = { Text(stringResource(R.string.field_note)) },
-            modifier = Modifier.fillMaxWidth(),
-            minLines = 2,
-            maxLines = 4,
-            shape = RoundedCornerShape(0.dp),
-            colors = textFieldColors
-        )
-
-        TextField(
-            value = eventDetails.tags,
-            onValueChange = { onValueChange(eventDetails.copy(tags = it)) },
-            label = { Text(stringResource(R.string.field_tags)) },
-            placeholder = { Text(stringResource(R.string.field_tags_hint)) },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            shape = RoundedCornerShape(0.dp),
-            colors = textFieldColors
-        )
-
         // 鏃ユ湡閫夋嫨锛氬叕鍘?/ 鍐滃巻 鏄剧ず
         val baseDate = eventDateToLocalDate(eventDetails.date)
         val dateString = if (eventDetails.isLunar) {
@@ -512,6 +631,17 @@ fun EventInputForm(
             )
         }
 
+        TextField(
+            value = eventDetails.note,
+            onValueChange = { onValueChange(eventDetails.copy(note = it)) },
+            label = { Text(stringResource(R.string.field_note)) },
+            modifier = Modifier.fillMaxWidth(),
+            minLines = 2,
+            maxLines = 4,
+            shape = RoundedCornerShape(0.dp),
+            colors = textFieldColors
+        )
+
         // 閲嶅璁剧疆
         Text(
             text = stringResource(R.string.field_repeat),
@@ -530,14 +660,7 @@ fun EventInputForm(
                 .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            listOf(
-                stringResource(R.string.repeat_none) to REPEAT_NONE,
-                stringResource(R.string.repeat_daily) to REPEAT_DAILY,
-                stringResource(R.string.repeat_weekly) to REPEAT_WEEKLY,
-                stringResource(R.string.repeat_monthly) to REPEAT_MONTHLY,
-                stringResource(R.string.repeat_half_yearly) to REPEAT_HALF_YEARLY,
-                stringResource(R.string.repeat_yearly) to REPEAT_YEARLY
-            ).forEach { (label, value) ->
+            repeatOptions.forEach { (value, label) ->
                 FilterChip(
                     selected = eventDetails.repeatType == value,
                     onClick = { onValueChange(eventDetails.copy(repeatType = value)) },
@@ -546,209 +669,210 @@ fun EventInputForm(
                     colors = formChipColors
                 )
             }
+            OutlinedButton(
+                onClick = { showCustomRepeatPicker = true },
+                shape = RoundedCornerShape(4.dp)
+            ) {
+                Text(stringResource(R.string.category_custom))
+            }
         }
         
-        // Reminder & schedule settings
-        Text(
-            text = stringResource(R.string.reminder_and_calendar_title),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-        Text(
-            text = stringResource(R.string.reminder_and_calendar_summary),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        // Reminder & schedule settings (collapsed secondary section)
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = stringResource(R.string.field_remind),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-            Spacer(modifier = Modifier.weight(1f))
-            Switch(
-                checked = eventDetails.remindEnabled,
-                onCheckedChange = { enabled ->
-                    if (enabled && !hasNotificationPermission()) {
-                        pendingReminderEnableAfterPermission = true
-                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    } else {
-                        onValueChange(eventDetails.copy(remindEnabled = enabled))
-                    }
-                }
-            )
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { reminderSettingsExpanded = !reminderSettingsExpanded },
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = stringResource(R.string.sync_to_schedule),
-                    style = MaterialTheme.typography.labelMedium,
+                    text = stringResource(R.string.reminder_and_calendar_title),
+                    style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onBackground
                 )
                 Text(
-                    text = stringResource(R.string.sync_to_schedule_summary),
+                    text = stringResource(R.string.reminder_and_calendar_summary),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            Switch(
-                checked = eventDetails.syncToScheduleEnabled,
-                onCheckedChange = { enabled ->
-                    onValueChange(eventDetails.copy(syncToScheduleEnabled = enabled))
-                    val readGranted = ContextCompat.checkSelfPermission(
-                        context,
-                        Manifest.permission.READ_CALENDAR
-                    ) == PackageManager.PERMISSION_GRANTED
-                    val writeGranted = ContextCompat.checkSelfPermission(
-                        context,
-                        Manifest.permission.WRITE_CALENDAR
-                    ) == PackageManager.PERMISSION_GRANTED
-                    if (enabled && (!readGranted || !writeGranted)) {
-                        calendarPermissionLauncher.launch(calendarPermissions)
-                    }
-                }
+            Icon(
+                imageVector = if (reminderSettingsExpanded) {
+                    Icons.Default.KeyboardArrowUp
+                } else {
+                    Icons.Default.KeyboardArrowDown
+                },
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        if (eventDetails.remindEnabled) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                 listOf(
-                    stringResource(R.string.remind_same_day) to 0,
-                    stringResource(R.string.remind_1_day) to 1,
-                    stringResource(R.string.remind_3_days) to 3,
-                    stringResource(R.string.remind_7_days) to 7
-                ).forEach { (label, days) ->
-                    FilterChip(
-                        selected = eventDetails.remindDaysBefore == days,
-                        onClick = { onValueChange(eventDetails.copy(remindDaysBefore = days)) },
-                        label = { Text(label) },
-                        shape = RoundedCornerShape(4.dp),
-                        colors = formChipColors
-                    )
-                }
-            }
-            Text(
-                text = stringResource(R.string.custom_remind_days_label),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedTextField(
-                    value = customRemindDaysInput,
-                    onValueChange = { customRemindDaysInput = it.filter { c -> c.isDigit() } },
-                    label = { Text(stringResource(R.string.custom_remind_days_hint)) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(4.dp)
-                )
-                OutlinedButton(
-                    onClick = {
-                        val parsed = customRemindDaysInput.toIntOrNull() ?: return@OutlinedButton
-                        onValueChange(eventDetails.copy(remindDaysBefore = sanitizeRemindDaysBefore(parsed)))
-                    },
-                    enabled = customRemindDaysInput.isNotBlank(),
-                    shape = RoundedCornerShape(4.dp)
-                ) {
-                    Text(stringResource(R.string.action_apply))
-                }
-            }
 
-             Text(
-                text = stringResource(R.string.reminder_time),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                listOf(
-                    stringResource(R.string.reminder_time_0) to 0,
-                    stringResource(R.string.reminder_time_6) to 360,
-                    stringResource(R.string.reminder_time_8) to 480,
-                    stringResource(R.string.reminder_time_9) to 540,
-                    stringResource(R.string.reminder_time_12) to 720,
-                    stringResource(R.string.reminder_time_18) to 1080
-                ).forEach { (label, minutes) ->
-                    FilterChip(
-                        selected = eventDetails.reminderTimeMinutesOfDay == minutes,
-                        onClick = { onValueChange(eventDetails.copy(reminderTimeMinutesOfDay = minutes)) },
-                        label = { Text(label) },
-                        shape = RoundedCornerShape(4.dp),
-                        colors = formChipColors
-                    )
-                }
-            }
-            Text(
-                text = stringResource(R.string.custom_reminder_time_label),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onBackground
-            )
+        if (reminderSettingsExpanded) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                OutlinedTextField(
-                    value = customRemindTimeInput,
-                    onValueChange = {
-                        customRemindTimeInput = it.filter { c -> c.isDigit() || c == ':' }.take(5)
-                        customRemindTimeError = false
-                    },
-                    label = { Text(stringResource(R.string.custom_reminder_time_hint)) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    isError = customRemindTimeError,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(4.dp)
-                )
-                OutlinedButton(
-                    onClick = {
-                        val parsed = parseReminderTimeInput(customRemindTimeInput)
-                        if (parsed == null) {
-                            customRemindTimeError = true
-                        } else {
-                            customRemindTimeError = false
-                            onValueChange(
-                                eventDetails.copy(
-                                    reminderTimeMinutesOfDay = sanitizeReminderTimeMinutesOfDay(parsed)
-                                )
-                            )
-                        }
-                    },
-                    enabled = customRemindTimeInput.isNotBlank(),
-                    shape = RoundedCornerShape(4.dp)
-                ) {
-                    Text(stringResource(R.string.action_apply))
-                }
-            }
-            if (customRemindTimeError) {
                 Text(
-                    text = stringResource(R.string.custom_reminder_time_invalid),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error
+                    text = stringResource(R.string.field_remind),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                Switch(
+                    checked = eventDetails.remindEnabled,
+                    onCheckedChange = { enabled ->
+                        if (enabled && !hasNotificationPermission()) {
+                            pendingReminderEnableAfterPermission = true
+                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        } else {
+                            onValueChange(eventDetails.copy(remindEnabled = enabled))
+                        }
+                    }
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.sync_to_schedule),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    Text(
+                        text = stringResource(R.string.sync_to_schedule_summary),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = eventDetails.syncToScheduleEnabled,
+                    onCheckedChange = { enabled ->
+                        onValueChange(eventDetails.copy(syncToScheduleEnabled = enabled))
+                        val readGranted = ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.READ_CALENDAR
+                        ) == PackageManager.PERMISSION_GRANTED
+                        val writeGranted = ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.WRITE_CALENDAR
+                        ) == PackageManager.PERMISSION_GRANTED
+                        if (enabled && (!readGranted || !writeGranted)) {
+                            calendarPermissionLauncher.launch(calendarPermissions)
+                        }
+                    }
                 )
             }
 
+            if (eventDetails.remindEnabled) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf(
+                        stringResource(R.string.remind_same_day) to 0,
+                        stringResource(R.string.remind_1_day) to 1,
+                        stringResource(R.string.remind_3_days) to 3,
+                        stringResource(R.string.remind_7_days) to 7
+                    ).forEach { (label, days) ->
+                        FilterChip(
+                            selected = eventDetails.remindDaysBefore == days,
+                            onClick = { onValueChange(eventDetails.copy(remindDaysBefore = days)) },
+                            label = { Text(label) },
+                            shape = RoundedCornerShape(4.dp),
+                            colors = formChipColors
+                        )
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.custom_remind_days_label),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        Text(
+                            text = if (selectedRemindDays == 0) {
+                                stringResource(R.string.remind_same_day)
+                            } else {
+                                context.resources.getQuantityString(
+                                    R.plurals.remind_days_before_format,
+                                    selectedRemindDays,
+                                    selectedRemindDays
+                                )
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    OutlinedButton(
+                        onClick = { showCustomRemindDaysPicker = true },
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Text(stringResource(R.string.category_custom))
+                    }
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf(
+                        stringResource(R.string.reminder_time_0) to 0,
+                        stringResource(R.string.reminder_time_6) to 360,
+                        stringResource(R.string.reminder_time_8) to 480,
+                        stringResource(R.string.reminder_time_9) to 540,
+                        stringResource(R.string.reminder_time_12) to 720,
+                        stringResource(R.string.reminder_time_18) to 1080
+                    ).forEach { (label, minutes) ->
+                        FilterChip(
+                            selected = eventDetails.reminderTimeMinutesOfDay == minutes,
+                            onClick = { onValueChange(eventDetails.copy(reminderTimeMinutesOfDay = minutes)) },
+                            label = { Text(label) },
+                            shape = RoundedCornerShape(4.dp),
+                            colors = formChipColors
+                        )
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.custom_reminder_time_label),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        Text(
+                            text = formatMinutesOfDay(eventDetails.reminderTimeMinutesOfDay),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    OutlinedButton(
+                        onClick = { showCustomRemindTimePicker = true },
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Text(stringResource(R.string.category_custom))
+                    }
+                }
+            }
         }
         
         // 棰滆壊閫夋嫨
@@ -765,7 +889,7 @@ fun EventInputForm(
             verticalAlignment = Alignment.CenterVertically
         ) {
             PRESET_COLORS.forEach { hex ->
-                val color = try { Color(android.graphics.Color.parseColor(hex)) } catch (_: Exception) { Color.Gray }
+                val color = try { Color(hex.toColorInt()) } catch (_: Exception) { Color.Gray }
                 val selected = eventDetails.colorHex?.uppercase() == hex.uppercase()
                 ColorChip(
                     color = color,
@@ -778,7 +902,7 @@ fun EventInputForm(
             val isCustomSelected = eventDetails.colorHex != null && !PRESET_COLORS.any { it.equals(eventDetails.colorHex, ignoreCase = true) }
             if (isCustomSelected) {
                 val hex = eventDetails.colorHex!!
-                val color = try { Color(android.graphics.Color.parseColor(hex)) } catch (_: Exception) { Color.Gray }
+                val color = try { Color(hex.toColorInt()) } catch (_: Exception) { Color.Gray }
                 ColorChip(
                     color = color,
                     selected = true,
@@ -811,39 +935,6 @@ private fun formatMinutesOfDay(minutesOfDay: Int): String {
     val hour = safe / 60
     val minute = safe % 60
     return String.format(Locale.US, "%02d:%02d", hour, minute)
-}
-
-private fun parseReminderTimeInput(input: String): Int? {
-    val raw = input.trim()
-    if (raw.isBlank()) return null
-
-    val parsed = if (raw.contains(":")) {
-        val parts = raw.split(":")
-        if (parts.size != 2) return null
-        val hour = parts[0].toIntOrNull() ?: return null
-        val minute = parts[1].toIntOrNull() ?: return null
-        hour to minute
-    } else {
-        val digits = raw.filter { it.isDigit() }
-        when (digits.length) {
-            1, 2 -> (digits.toIntOrNull() ?: return null) to 0
-            3 -> {
-                val hour = digits.substring(0, 1).toIntOrNull() ?: return null
-                val minute = digits.substring(1, 3).toIntOrNull() ?: return null
-                hour to minute
-            }
-            4 -> {
-                val hour = digits.substring(0, 2).toIntOrNull() ?: return null
-                val minute = digits.substring(2, 4).toIntOrNull() ?: return null
-                hour to minute
-            }
-            else -> return null
-        }
-    }
-
-    val (hour, minute) = parsed
-    if (hour !in 0..23 || minute !in 0..59) return null
-    return hour * 60 + minute
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -934,7 +1025,7 @@ fun CustomColorDialog(
     LaunchedEffect(hexCode) {
         isError = try {
             if (hexCode.length == 6 || hexCode.length == 8) {
-                android.graphics.Color.parseColor("#$hexCode")
+                "#$hexCode".toColorInt()
                 false
             } else true
         } catch (e: Exception) {
@@ -960,7 +1051,7 @@ fun CustomColorDialog(
                 onClick = {
                     val fullHex = "#$hexCode"
                     try {
-                        android.graphics.Color.parseColor(fullHex)
+                        fullHex.toColorInt()
                         onColorSelected(fullHex)
                     } catch (e: Exception) {
                     }

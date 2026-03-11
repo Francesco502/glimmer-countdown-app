@@ -16,7 +16,6 @@ fun List<Event>.toJsonString(): String {
                 put("date", e.date)
                 put("category", e.category)
                 put("note", e.note)
-                put("tags", e.tags)
                 put("colorHex", e.colorHex ?: JSONObject.NULL)
                 put("repeatType", e.repeatType)
                 put("remindDaysBefore", e.remindDaysBefore)
@@ -38,14 +37,14 @@ fun parseEventsFromJson(json: String): List<Event> {
         for (i in 0 until arr.length()) {
             val o = arr.getJSONObject(i)
             val repeatType = normalizeRepeatType(o.optString("repeatType", REPEAT_NONE))
+            val category = o.optString("category", "")
             list.add(
                 Event(
                     id = 0,
                     title = o.optString("title", ""),
                     date = o.optLong("date", System.currentTimeMillis()),
-                    category = o.optString("category", ""),
+                    category = category,
                     note = o.optString("note", ""),
-                    tags = normalizeTags(o.optString("tags", "")),
                     colorHex = if (o.isNull("colorHex")) null else o.optString("colorHex"),
                     repeatType = repeatType,
                     remindDaysBefore = sanitizeRemindDaysBefore(o.optInt("remindDaysBefore", 0)),
@@ -53,6 +52,9 @@ fun parseEventsFromJson(json: String): List<Event> {
                     remindEnabled = o.optBoolean("remindEnabled", false),
                     syncToScheduleEnabled = o.optBoolean("syncToScheduleEnabled", true),
                     scheduleEventId = null,
+                    targetCalendarId = null,
+                    lastScheduleSyncAt = null,
+                    lastScheduleSyncError = null,
                     createdAt = o.optLong("createdAt", System.currentTimeMillis()),
                     isLunar = o.optBoolean("isLunar", false)
                 )
@@ -85,7 +87,7 @@ private fun escapeCsvField(s: String): String {
 }
 
 fun List<Event>.toCsvString(): String {
-    val header = "title,date,category,note,tags,repeatType,remindEnabled"
+    val header = "title,date,category,note,repeatType,remindEnabled"
     val lines = mutableListOf(header)
     for (e in this) {
         lines.add(
@@ -94,7 +96,6 @@ fun List<Event>.toCsvString(): String {
                 e.date.toString(),
                 escapeCsvField(e.category),
                 escapeCsvField(e.note),
-                escapeCsvField(e.tags),
                 e.repeatType,
                 e.remindEnabled.toString()
             ).joinToString(",")

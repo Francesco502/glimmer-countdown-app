@@ -4,6 +4,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.core.graphics.toColorInt
 
 /**
  * 解析事件颜色，如果无效则返回回退颜色
@@ -11,7 +12,7 @@ import androidx.compose.ui.graphics.luminance
 fun parseEventColorOrFallback(hex: String?, fallback: Color): Color {
     if (hex.isNullOrBlank()) return fallback
     return try {
-        Color(android.graphics.Color.parseColor(hex))
+        Color(hex.toColorInt())
     } catch (_: Exception) {
         fallback
     }

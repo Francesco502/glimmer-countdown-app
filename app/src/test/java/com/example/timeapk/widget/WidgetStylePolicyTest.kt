@@ -7,11 +7,11 @@ import org.junit.Test
 class WidgetStylePolicyTest {
 
     @Test
-    fun smallBucket_usesNumericFriendlyBoundsAtMaxScale() {
+    fun smallBucket_reservesRoomForSemanticWidgetCopy() {
         val style = WidgetStylePolicy.resolve(WidgetSizeBucket.SMALL, 1.60f)
-        assertEquals(16.0f, style.titleSp, 0.01f)
-        assertEquals(16.0f, style.valueSp, 0.01f)
-        assertEquals(6, style.valueMaxEms)
+        assertEquals(15.2f, style.titleSp, 0.01f)
+        assertEquals(15.2f, style.valueSp, 0.01f)
+        assertEquals(8, style.valueMaxEms)
     }
 
     @Test

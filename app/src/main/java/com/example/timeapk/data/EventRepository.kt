@@ -12,6 +12,8 @@ class EventRepository(private val eventDao: EventDao) {
 
     fun getEventFlow(id: Int): Flow<Event?> = eventDao.getEventByIdFlow(id)
 
+    suspend fun getLatestScheduleSyncEvent(): Event? = eventDao.getLatestScheduleSyncEvent()
+
     suspend fun insertEvent(event: Event): Long = eventDao.insertEvent(event)
 
     suspend fun deleteEvent(event: Event) = eventDao.deleteEvent(event)

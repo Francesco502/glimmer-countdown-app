@@ -12,13 +12,12 @@ import com.example.timeapk.data.EventRepository
 import com.example.timeapk.data.REPEAT_NONE
 import com.example.timeapk.data.REPEAT_YEARLY
 import com.example.timeapk.data.UserPreferencesRepository
-import com.example.timeapk.data.hasTag
-import com.example.timeapk.data.structuredTags
 import com.example.timeapk.notifications.ScheduleSyncManager
 import com.example.timeapk.notifications.cancelMilestoneReminders
 import com.example.timeapk.notifications.cancelReminder
 import com.example.timeapk.notifications.rescheduleMilestoneReminders
 import com.example.timeapk.notifications.scheduleReminder
+import com.example.timeapk.notifications.syncMilestoneReminderForEvent
 import com.example.timeapk.ui.utils.eventDateToLocalDate
 import com.example.timeapk.ui.utils.getNextLunarOccurrence
 import com.example.timeapk.ui.utils.getPreviousLunarOccurrence
@@ -32,6 +31,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -221,10 +221,8 @@ class HomeViewModel(
     }
 
     private val _searchQuery = MutableStateFlow("")
-    private val _selectedTag = MutableStateFlow<String?>(null)
 
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
-    val selectedTag: StateFlow<String?> = _selectedTag.asStateFlow()
 
     val filterType: StateFlow<FilterType> = userPrefs.filterTypeFlow
         .map { FilterType.entries.getOrNull(it) ?: FilterType.All }
@@ -259,20 +257,10 @@ class HomeViewModel(
         initialValue = emptyList()
     )
 
-    val availableTags: StateFlow<List<String>> = baseHomeUiState
-        .map { states ->
-            states
-                .flatMap { it.event.structuredTags().map { tag -> tag.label } }
-                .distinctBy { it.lowercase() }
-                .sortedBy { it.lowercase() }
-        }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
     private data class FilterInput(
         val filterType: FilterType,
         val sortType: SortType,
-        val query: String,
-        val selectedTag: String?
+        val query: String
     )
 
     private data class OrderInput(
@@ -283,14 +271,12 @@ class HomeViewModel(
     private val filterInputFlow: Flow<FilterInput> = combine(
         filterType,
         sortType,
-        searchQuery,
-        selectedTag
-    ) { filter, sort, query, tag ->
+        searchQuery
+    ) { filter, sort, query ->
         FilterInput(
             filterType = filter,
             sortType = sort,
-            query = query,
-            selectedTag = tag
+            query = query
         )
     }
 
@@ -316,18 +302,12 @@ class HomeViewModel(
             FilterType.Other -> base.filter { it.event.category == CATEGORY_OTHER }
         }
 
-        val selectedTagKey = filterInput.selectedTag?.trim()?.lowercase()?.takeIf { it.isNotBlank() }
-        if (selectedTagKey != null) {
-            list = list.filter { state -> state.event.hasTag(selectedTagKey) }
-        }
-
         val q = filterInput.query.trim().lowercase()
         if (q.isNotBlank()) {
             list = list.filter { state ->
                 state.event.title.lowercase().contains(q) ||
                     state.event.note.lowercase().contains(q) ||
-                    state.event.category.lowercase().contains(q) ||
-                    state.event.structuredTags().any { it.normalized.contains(q) }
+                    state.event.category.lowercase().contains(q)
             }
         }
 
@@ -358,24 +338,8 @@ class HomeViewModel(
         initialValue = emptyList()
     )
 
-    init {
-        viewModelScope.launch {
-            combine(availableTags, selectedTag) { tags, selected ->
-                selected != null && tags.none { it.equals(selected, ignoreCase = true) }
-            }.collect { invalid ->
-                if (invalid) {
-                    _selectedTag.value = null
-                }
-            }
-        }
-    }
-
     fun updateSearchQuery(query: String) {
         _searchQuery.value = query
-    }
-
-    fun updateSelectedTag(tag: String?) {
-        _selectedTag.value = tag?.takeIf { it.isNotBlank() }
     }
 
     fun updateFilterType(type: FilterType) {
@@ -394,10 +358,10 @@ class HomeViewModel(
         viewModelScope.launch {
             cancelReminder(application, event.id)
             cancelMilestoneReminders(application, event.id)
+            ScheduleSyncManager.clearMilestoneScheduleRemindersByEventId(application, event.id)
             ScheduleSyncManager.removeScheduleReminder(application, event.scheduleEventId)
             ScheduleSyncManager.removeScheduleReminderByEventId(application, event.id)
             repository.deleteEvent(event)
-            rescheduleMilestoneReminders(application)
             WidgetUpdater.refreshCountdownWidgets(application)
         }
     }
@@ -408,18 +372,32 @@ class HomeViewModel(
                 val newId = repository.insertEvent(event)
                 val savedEvent = event.copy(id = newId.toInt())
                 scheduleReminder(application, savedEvent)
-                val scheduleId = if (savedEvent.remindEnabled && savedEvent.syncToScheduleEnabled) {
-                    ScheduleSyncManager.upsertScheduleReminder(
+                val updatedEvent = if (savedEvent.syncToScheduleEnabled) {
+                    val preferredCalendarId = userPrefs.scheduleTargetCalendarIdFlow.first()
+                    val useRRuleSync = userPrefs.scheduleUseRRuleSyncFlow.first()
+                    val syncResult = ScheduleSyncManager.syncReminderSeries(
                         context = application,
                         event = savedEvent,
-                        currentScheduleEventId = savedEvent.scheduleEventId
+                        preferredCalendarId = preferredCalendarId,
+                        useRRuleSync = useRRuleSync
+                    )
+                    savedEvent.copy(
+                        scheduleEventId = syncResult.primaryScheduleEventId,
+                        targetCalendarId = syncResult.targetCalendarId,
+                        lastScheduleSyncAt = syncResult.lastSyncAt,
+                        lastScheduleSyncError = syncResult.error
                     )
                 } else {
                     ScheduleSyncManager.removeScheduleReminderByEventId(application, savedEvent.id)
-                    null
+                    savedEvent.copy(
+                        scheduleEventId = null,
+                        targetCalendarId = null,
+                        lastScheduleSyncAt = System.currentTimeMillis(),
+                        lastScheduleSyncError = null
+                    )
                 }
-                repository.updateEvent(savedEvent.copy(scheduleEventId = scheduleId))
-                rescheduleMilestoneReminders(application)
+                repository.updateEvent(updatedEvent)
+                syncMilestoneReminderForEvent(application, updatedEvent)
                 WidgetUpdater.refreshCountdownWidgets(application)
             } catch (_: Exception) {
                 // Ignore duplicate key or persistence failures during restore.

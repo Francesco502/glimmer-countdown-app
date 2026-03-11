@@ -109,7 +109,13 @@ fun getUntilLabel(context: Context, eventState: EventUiState): String {
                 if (months > 0) return context.getString(R.string.until_month_anniversary_label, months)
             } else if (repeatType == REPEAT_HALF_YEARLY) {
                 val halfYears = ChronoUnit.MONTHS.between(originDate.withDayOfMonth(1), nextDate.withDayOfMonth(1)) / 6
-                if (halfYears > 0) return context.getString(R.string.until_half_year_anniversary_label, halfYears)
+                if (halfYears > 0) {
+                    return context.resources.getQuantityString(
+                        R.plurals.until_half_year_anniversary_label,
+                        halfYears.toInt(),
+                        halfYears.toInt()
+                    )
+                }
             }
         }
         CATEGORY_BIRTHDAY -> {
@@ -122,9 +128,17 @@ fun getUntilLabel(context: Context, eventState: EventUiState): String {
                 }
                 if (years > 0) {
                     return if (isLunar) {
-                        context.getString(R.string.until_lunar_birthday_label, years)
+                        context.resources.getQuantityString(
+                            R.plurals.until_lunar_birthday_label,
+                            years,
+                            years
+                        )
                     } else {
-                        context.getString(R.string.until_birthday_label, years)
+                        context.resources.getQuantityString(
+                            R.plurals.until_birthday_label,
+                            years,
+                            years
+                        )
                     }
                 }
             }

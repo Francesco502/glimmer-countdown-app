@@ -16,11 +16,11 @@ object WidgetStylePolicy {
         val scale = fontScale.coerceIn(FontScaleMin, FontScaleMax)
         return when (sizeBucket) {
             WidgetSizeBucket.SMALL -> WidgetTextStyle(
-                titleSp = 10f * scale,
-                valueSp = 10f * scale,
+                titleSp = 9.5f * scale,
+                valueSp = 9.5f * scale,
                 paddingHorizontalDp = 4,
                 paddingVerticalDp = 1,
-                valueMaxEms = 6
+                valueMaxEms = 8
             )
 
             WidgetSizeBucket.LARGE -> WidgetTextStyle(

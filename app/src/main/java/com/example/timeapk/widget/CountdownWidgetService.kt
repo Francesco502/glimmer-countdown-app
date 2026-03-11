@@ -93,7 +93,7 @@ class CountdownRemoteViewsFactory(
 
         val state = items[position]
         val views = RemoteViews(context.packageName, R.layout.widget_countdown_item)
-        applySizeStyle(views)
+        val textStyle = applySizeStyle(views)
 
         val isDark = (context.resources.configuration.uiMode and
             android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
@@ -113,7 +113,15 @@ class CountdownRemoteViewsFactory(
         }
 
         val valueText = when (widgetSizeBucket) {
-            WidgetSizeBucket.SMALL -> buildNumericValueText(state, mode, isRepeating, isToday)
+            WidgetSizeBucket.SMALL -> buildAdaptiveSmallValueText(
+                state = state,
+                mode = mode,
+                targetLocalDate = targetLocalDate,
+                today = today,
+                isRepeating = isRepeating,
+                isToday = isToday,
+                maxChars = textStyle.valueMaxEms
+            )
             WidgetSizeBucket.LARGE -> buildVerboseValueText(state, mode, targetLocalDate, today, isRepeating, isToday)
             else -> buildCompactValueText(state, mode, targetLocalDate, today, isRepeating, isToday)
         }
@@ -136,7 +144,7 @@ class CountdownRemoteViewsFactory(
         return views
     }
 
-    private fun applySizeStyle(views: RemoteViews) {
+    private fun applySizeStyle(views: RemoteViews): WidgetTextStyle {
         val style = WidgetStylePolicy.resolve(widgetSizeBucket, widgetFontScale)
         views.setTextViewTextSize(R.id.widget_item_title, TypedValue.COMPLEX_UNIT_SP, style.titleSp)
         views.setTextViewTextSize(R.id.widget_item_value, TypedValue.COMPLEX_UNIT_SP, style.valueSp)
@@ -148,6 +156,33 @@ class CountdownRemoteViewsFactory(
             dp(style.paddingVerticalDp)
         )
         views.setInt(R.id.widget_item_value, "setMaxEms", style.valueMaxEms)
+        return style
+    }
+
+    private fun buildAdaptiveSmallValueText(
+        state: EventUiState,
+        mode: Int,
+        targetLocalDate: LocalDate,
+        today: LocalDate,
+        isRepeating: Boolean,
+        isToday: Boolean,
+        maxChars: Int
+    ): String {
+        val preferred = buildCompactValueText(
+            state = state,
+            mode = mode,
+            targetLocalDate = targetLocalDate,
+            today = today,
+            isRepeating = isRepeating,
+            isToday = isToday
+        )
+        val fallback = buildNumericValueText(
+            state = state,
+            mode = mode,
+            isRepeating = isRepeating,
+            isToday = isToday
+        )
+        return WidgetValueFormatter.semanticValueOrFallback(preferred, fallback, maxChars)
     }
 
     private fun buildNumericValueText(
@@ -182,18 +217,18 @@ class CountdownRemoteViewsFactory(
         return when (mode) {
             DisplayModes.PAST_DAYS -> {
                 val days = if (isRepeating) state.daysPassed else state.daysElapsed
-                context.getString(R.string.widget_past_days_compact, formatDays(days))
+                context.getString(R.string.widget_past_days_semantic, formatDays(days))
             }
             DisplayModes.PAST_YMD -> {
-                context.getString(R.string.widget_past_ymd_compact, formatBetweenAsYMD(targetLocalDate, today, locale))
+                context.getString(R.string.widget_past_ymd_semantic, formatBetweenAsYMD(targetLocalDate, today, locale))
             }
             DisplayModes.UNTIL_DAYS -> {
                 val days = if (isRepeating) state.daysLeft else state.daysRemaining
-                context.getString(R.string.widget_until_days_compact, formatDays(days))
+                context.getString(R.string.widget_until_days_semantic, formatDays(days))
             }
             DisplayModes.UNTIL_YMD -> {
                 val days = if (isRepeating) state.daysLeft else state.daysRemaining
-                context.getString(R.string.widget_until_ymd_compact, formatBetweenAsYMD(today, today.plusDays(days), locale))
+                context.getString(R.string.widget_until_ymd_semantic, formatBetweenAsYMD(today, today.plusDays(days), locale))
             }
             else -> ""
         }
@@ -213,18 +248,26 @@ class CountdownRemoteViewsFactory(
         return when (mode) {
             DisplayModes.PAST_DAYS -> {
                 val days = if (isRepeating) state.daysPassed else state.daysElapsed
-                context.getString(R.string.days_elapsed_format, days.toDisplayInt())
+                context.resources.getQuantityString(
+                    R.plurals.days_elapsed_format,
+                    days.toDisplayInt(),
+                    days.toDisplayInt()
+                )
             }
             DisplayModes.PAST_YMD -> {
-                context.getString(R.string.widget_past_ymd_compact, formatBetweenAsYMD(targetLocalDate, today, locale))
+                context.getString(R.string.widget_past_ymd_semantic, formatBetweenAsYMD(targetLocalDate, today, locale))
             }
             DisplayModes.UNTIL_DAYS -> {
                 val days = if (isRepeating) state.daysLeft else state.daysRemaining
-                context.getString(R.string.notification_days_left, days.toDisplayInt())
+                context.resources.getQuantityString(
+                    R.plurals.notification_days_left,
+                    days.toDisplayInt(),
+                    days.toDisplayInt()
+                )
             }
             DisplayModes.UNTIL_YMD -> {
                 val days = if (isRepeating) state.daysLeft else state.daysRemaining
-                context.getString(R.string.widget_until_ymd_compact, formatBetweenAsYMD(today, today.plusDays(days), locale))
+                context.getString(R.string.widget_until_ymd_semantic, formatBetweenAsYMD(today, today.plusDays(days), locale))
             }
             else -> ""
         }

@@ -26,7 +26,7 @@
 -keep class okio.** { *; }
 
 # ─── 农历 cn.6tail:lunar（详情页通过反射调用） ───
--keep class cn.6tail.lunar.** { *; }
+-keep class com.nlf.calendar.** { *; }
 
 # ─── DataStore ───
 -keep class androidx.datastore.** { *; }

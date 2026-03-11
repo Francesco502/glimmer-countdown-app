@@ -23,7 +23,6 @@ data class Event(
     val date: Long,
     val category: String,
     val note: String = "",
-    val tags: String = "",
     val colorHex: String? = null,
     /** 閲嶅绫诲瀷锛歊EPEAT_* */
     val repeatType: String = REPEAT_NONE,
@@ -37,6 +36,12 @@ data class Event(
     val syncToScheduleEnabled: Boolean = true,
     /** 宸插啓鍏ョ郴缁熸棩绋嬫椂瀵瑰簲鐨勪簨浠?ID锛岀敤浜庢洿鏂?鍒犻櫎 */
     val scheduleEventId: Long? = null,
+    /** 鐩爣绯荤粺鏃ュ巻 ID锛堜负 null 鏃朵娇鐢ㄩ粯璁ゅ彲鍐欐棩鍘嗭級 */
+    val targetCalendarId: Long? = null,
+    /** 鏈€杩戜竴娆℃棩绋嬪悓姝ユ椂闂达紙姣锛? */
+    val lastScheduleSyncAt: Long? = null,
+    /** 鏈€杩戜竴娆℃棩绋嬪悓姝ラ敊璇俊鎭紝null 琛ㄧず姝ｅ父 */
+    val lastScheduleSyncError: String? = null,
     /** 鍒涘缓鏃堕棿锛岀敤浜庢帓搴忎笌杩佺Щ */
     val createdAt: Long = System.currentTimeMillis(),
     /** 鏄惁涓哄啘鍘嗘棩鏈?*/

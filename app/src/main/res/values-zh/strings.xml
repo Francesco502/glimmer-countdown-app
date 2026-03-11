@@ -3,25 +3,25 @@
     <string name="app_name">拾光</string>
     <string name="home_empty_title">空空如也，待录佳期</string>
     <string name="home_empty_subtitle">点击下方 + 添加第一个</string>
-    <string name="fab_add_event">添加事件</string>
-    <string name="fab_add_anniversary">添加纪念日</string>
     <string name="days_left">天</string>
     <string name="days_left_label">剩余</string>
     <string name="days_until_label">还有</string>
     <string name="until_anniversary_label">距离 %d 周年</string>
     <string name="until_month_anniversary_label">距离 %d 个月</string>
-    <string name="until_half_year_anniversary_label">距离 %d 个半年</string>
-    <string name="until_birthday_label">距离 %d 岁</string>
-    <string name="until_lunar_birthday_label">距离 农历%1$d岁生日</string>
+    <plurals name="until_half_year_anniversary_label">
+        <item quantity="other">距离 %d 个半年</item>
+    </plurals>
+    <plurals name="until_birthday_label">
+        <item quantity="other">距离 %d 岁</item>
+    </plurals>
+    <plurals name="until_lunar_birthday_label">
+        <item quantity="other">距离 农历%1$d岁生日</item>
+    </plurals>
     <string name="days_today_label">正当此时</string>
     <string name="days_past_label">已经</string>
-    <string name="days_elapsed_format">已经 %d 天</string>
-    <string name="days_both_summary">已经 %1$d 天 · 剩余 %2$d 天</string>
-    <string name="days_both_summary_ymd">已经 %1$s · 剩余 %2$d 天</string>
-    <string name="birthday_in_days">距离生日还有 %d 天</string>
-    <string name="days_birthday_summary">已经 %1$d 天 · 距离生日还有 %2$d 天</string>
-    <string name="days_birthday_summary_ymd">已经 %1$s · 距离生日还有 %2$d 天</string>
-    <string name="milestone_in_days">距离 %1$s 还有 %2$d 天</string>
+    <plurals name="days_elapsed_format">
+        <item quantity="other">已经 %d 天</item>
+    </plurals>
     <string name="milestone_7">7 天</string>
     <string name="milestone_30">30 天</string>
     <string name="milestone_100">100 天</string>
@@ -31,8 +31,6 @@
     <string name="milestone_days_format">%d 天</string>
     <string name="milestone_label_prefix">距离 %1$s</string>
     <string name="filter_all">全部</string>
-    <string name="filter_upcoming">即将到来</string>
-    <string name="filter_past">已过期</string>
     <string name="sort_by_days">按剩余天数</string>
     <string name="sort_by_date">按目标日期</string>
     <string name="sort_by_created">按创建时间</string>
@@ -54,10 +52,7 @@
     <string name="detail_birthday_lunar">农历</string>
     <string name="detail_birthday_age">岁数</string>
     <string name="detail_birthday_zodiac">属相</string>
-    <string name="detail_birthday_bazi">八字</string>
-    <string name="detail_birthday_wuxing">五行</string>
     <string name="detail_birthday_constellation">星座</string>
-    <string name="detail_birthday_age_format">%d 岁</string>
     <string name="detail_birthday_age_format_ymd">%1$d岁%2$d月%3$d日</string>
     <string name="repeat_half_yearly">每半年</string>
     <string name="repeat_monthly">每月</string>
@@ -67,7 +62,11 @@
     <string name="remind_1_day">提前 1 天</string>
     <string name="remind_3_days">提前 3 天</string>
     <string name="remind_7_days">提前 7 天</string>
-    <string name="reminder_time">提醒时间</string>
+    <plurals name="remind_days_before_format">
+        <item quantity="other">提前 %1$d 天</item>
+    </plurals>
+    <string name="reminder_time_hour">小时</string>
+    <string name="reminder_time_minute">分钟</string>
     <string name="reminder_time_0">0:00</string>
     <string name="reminder_time_6">6:00</string>
     <string name="reminder_time_8">8:00</string>
@@ -78,12 +77,12 @@
     <string name="reminder_and_calendar_summary">可分别开启应用提醒与系统日历同步，保存后自动生效。</string>
     <string name="sync_to_schedule">同步到系统日程</string>
     <string name="sync_to_schedule_summary">在系统日历/日程中创建提醒，到点由系统通知栏提醒</string>
-    <string name="schedule_reminder_title_format">距离「%1$s」还有 %2$d 天</string>
+    <plurals name="schedule_reminder_title_format">
+        <item quantity="other">距离「%1$s」还有 %2$d 天</item>
+    </plurals>
     <string name="schedule_reminder_title_today">「%1$s」— 今天</string>
     <string name="category_birthday">生日</string>
     <string name="category_anniversary">纪念日</string>
-    <string name="category_exam">考试</string>
-    <string name="category_holiday">节日</string>
     <string name="category_other">其他</string>
     <string name="category_custom">自定义</string>
     <string name="search_hint">搜索标题、分类、备注</string>
@@ -92,10 +91,11 @@
     <string name="import_events">导入事件</string>
     <string name="import_hint">粘贴 JSON 或从文件导入</string>
     <string name="import_from_file">从文件选择</string>
-    <string name="export_success">已导出</string>
     <string name="export_csv">导出 CSV</string>
     <string name="export_plain_text">分享为纯文本</string>
-    <string name="import_success">已导入 %d 条</string>
+    <plurals name="import_success">
+        <item quantity="other">已导入 %d 条</item>
+    </plurals>
     <string name="import_error">导入失败</string>
     <string name="title_new_event">新建事件</string>
     <string name="title_edit_event">编辑事件</string>
@@ -107,12 +107,7 @@
     <string name="button_save_event">保存</string>
     <string name="date_picker_ok">确定</string>
     <string name="date_picker_cancel">取消</string>
-    <string name="select_date">选择日期</string>
     <string name="detail_title">事件详情</string>
-    <string name="detail_category">分类</string>
-    <string name="detail_target_date">目标日期</string>
-    <string name="detail_note">备注</string>
-    <string name="detail_note_empty">无</string>
     <string name="button_edit">编辑</string>
     <string name="button_reminder_calendar">提醒/日历</string>
     <string name="button_delete">删除</string>
@@ -123,20 +118,19 @@
     <string name="delete_confirm_message">确定要删除「%1$s」吗？</string>
     <string name="delete_confirm_ok">删除</string>
     <string name="delete_confirm_cancel">取消</string>
-    <string name="deleted_snackbar">已删除</string>
-    <string name="undo">撤销</string>
-    <string name="share_text_countdown">距离 %1$s 还有 %2$d 天</string>
+    <plurals name="share_text_countdown">
+        <item quantity="other">距离 %1$s 还有 %2$d 天</item>
+    </plurals>
     <string name="share_text_today">%1$s — 正当此时！</string>
-    <string name="share_text_past">%1$s 已经 %2$d 天</string>
+    <plurals name="share_text_past">
+        <item quantity="other">%1$s 已经 %2$d 天</item>
+    </plurals>
     <string name="share_chooser_title">分享倒计时</string>
     <string name="nav_back">返回</string>
     <string name="cd_add_event">添加事件</string>
-    <string name="cd_select_date">选择日期</string>
-    <string name="cd_event_card">事件卡片</string>
-    <string name="hint_swipe_delete">左滑可删除，支持撤销</string>
     <string name="date_format_title">日期格式</string>
     <string name="date_format_dot">2025.01.01</string>
-    <string name="date_format_dash">2025-01-01</string>
+    <string name="date_format_dash">2025‐01‐01</string>
     <string name="cd_edit">编辑</string>
     <string name="cd_delete">删除</string>
     <string name="cd_share">分享</string>
@@ -152,7 +146,7 @@
     <string name="update_later">稍后</string>
     <string name="update_release_notes">更新说明</string>
     <string name="update_downloading">正在下载…</string>
-    <string name="settings_check_update_loading">检查中...</string>
+    <string name="settings_check_update_loading">检查中…</string>
     <string name="update_download_failed">下载失败</string>
     <string name="update_open_browser">在浏览器中打开</string>
     <string name="theme_title">主题</string>
@@ -168,7 +162,6 @@
     <string name="custom_color_pick">选择</string>
     <string name="custom_color_hex_hint">十六进制颜色 (#RRGGBB)</string>
     <string name="custom_color_accessibility_hint">如果自定义颜色过浅或过暗，可能会影响文字可读性。</string>
-    <string name="hours_remaining">%1$d 小时</string>
     <string name="settings_show_hours">显示小时</string>
     <string name="settings_show_hours_summary">在卡片上显示剩余小时数（当天内）</string>
     <string name="settings_show_milestone">显示重大节点</string>
@@ -182,27 +175,23 @@
     <string name="font_title">字体</string>
     <string name="font_default">默认</string>
     <string name="font_serif">衬线 (Serif)</string>
-    <string name="font_cursive">手写 (Cursive)</string>
-    <string name="font_mono">等宽 (Monospace)</string>
     <string name="font_slender_gold">瘦金体 (Slender Gold)</string>
     <string name="language_title">语言</string>
     <string name="language_zh">中文</string>
     <string name="language_en">English</string>
     <string name="settings_category_display_title">显示与语言</string>
-    <string name="widget_tag_past">已经</string>
-    <string name="widget_tag_soon">临近</string>
     <string name="widget_today_compact">今天</string>
-    <string name="widget_until_days_compact">剩%1$s天</string>
-    <string name="widget_past_days_compact">过%1$s天</string>
-    <string name="widget_until_ymd_compact">剩%1$s</string>
-    <string name="widget_past_ymd_compact">过%1$s</string>
     <string name="widget_lunar_prefix">农·%1$s</string>
     <string name="notification_channel_name">倒计时提醒</string>
     <string name="notification_today">正当此时！</string>
-    <string name="notification_days_left">还有 %1$d 天</string>
+    <plurals name="notification_days_left">
+        <item quantity="other">还有 %1$d 天</item>
+    </plurals>
     <string name="notification_title_prefix">倒计时提醒</string>
     <string name="milestone_notification_title_prefix">节点提醒</string>
-    <string name="milestone_notification_content">距离 %1$s 还有 %2$d 天</string>
+    <plurals name="milestone_notification_content">
+        <item quantity="other">距离 %1$s 还有 %2$d 天</item>
+    </plurals>
     <string name="settings_milestone_remind_title">节点临近提醒</string>
     <string name="settings_milestone_remind_summary">在临近重大时间节点时发送通知</string>
     <string name="settings_milestone_remind_days_title">提前天数</string>
@@ -210,11 +199,24 @@
     <string name="settings_milestone_remind_days_3">提前 3 天</string>
     <string name="settings_milestone_remind_days_7">提前 7 天</string>
     <string name="settings_milestone_remind_days_14">提前 14 天</string>
+    <string name="settings_schedule_sync_title">系统日程同步</string>
+    <string name="settings_schedule_sync_summary">可设置目标日历、RRULE 策略，并查看最近一次同步状态。</string>
+    <string name="settings_schedule_target_calendar_title">目标日历</string>
+    <string name="settings_schedule_calendar_auto">自动选择可写日历</string>
+    <string name="settings_schedule_calendar_no_writable">未找到可写日历，请检查权限与日历账户。</string>
+    <string name="settings_schedule_request_calendar_permission">授权日历权限</string>
+    <string name="settings_schedule_rrule_title">启用 RRULE 策略</string>
+    <string name="settings_schedule_rrule_summary">对周/月/年重复且当天提醒的事件，优先使用 RRULE 同步。</string>
+    <string name="settings_schedule_status_title">同步状态</string>
+    <string name="settings_schedule_status_last_sync">最近同步：%1$s</string>
+    <string name="settings_schedule_status_never">尚未同步</string>
+    <string name="settings_schedule_status_calendar_format">日历 ID：%1$s</string>
+    <string name="settings_schedule_status_ok">状态：正常</string>
+    <string name="settings_schedule_status_error_format">状态：%1$s</string>
+    <string name="settings_schedule_rebuild_now">统一重建提醒与日程</string>
+    <string name="settings_schedule_refresh_status">刷新同步状态</string>
     <string name="lunar_calendar">农历</string>
-    <string name="lunar_date_prefix">农历</string>
     <string name="days_unit">天</string>
-    <string name="hours_remaining_short">%d 小时</string>
-    <string name="milestone_in_days_short">%1$d 周年 · %2$d 天</string>
     <string name="splash_tagline">白驹过隙，拾光留痕</string>
     <string name="splash_subtitle">Time flies, casting shadows.</string>
     <string name="toggle_on">开</string>
@@ -250,21 +252,18 @@
     <string name="notification_permission_required_for_reminder">需要通知权限才能启用提醒。</string>
     <string name="action_apply">应用</string>
     <string name="custom_remind_days_label">自定义提前天数</string>
-    <string name="custom_remind_days_hint">例如 30</string>
     <string name="custom_reminder_time_label">自定义提醒时间</string>
-    <string name="custom_reminder_time_hint">HH:mm（例如 08:30）</string>
     <string name="custom_reminder_time_invalid">请输入 24 小时制时间（如 08:30 或 0830）</string>
     <string name="settings_milestone_remind_days_custom_hint">自定义天数（例如 30）</string>
     <string name="schedule_milestone_reminder_title_today_format">%1$s：%2$s就在今天</string>
-    <string name="schedule_milestone_reminder_title_format">%1$s：距离%2$s还有%3$d天</string>
-    <string name="field_tags">标签</string>
-    <string name="field_tags_hint">例如 生日, 家庭, 工作</string>
+    <plurals name="schedule_milestone_reminder_title_format">
+        <item quantity="other">%1$s：距离%2$s还有%3$d天</item>
+    </plurals>
     <string name="save_event_failed">保存失败，请重试。</string>
     <string name="save_event_partial_warning">事件已保存，但部分提醒/同步操作失败，请检查权限与系统设置。</string>
     <string name="import_partial_summary">导入完成：成功%1$d，失败%2$d，警告%3$d</string>
     <string name="settings_milestone_remind_time_title">里程碑提醒时间</string>
     <string name="settings_milestone_remind_time_hint">HH:mm（例如 08:30）</string>
-    <string name="filter_all_tags">全部标签</string>
     <string name="display_mode_calendar">月历</string>
     <string name="calendar_prev_month">上个月</string>
     <string name="calendar_next_month">下个月</string>
@@ -280,17 +279,20 @@
     <string name="settings_reduce_motion_title">弱动效模式</string>
     <string name="settings_reduce_motion_summary">降低位移动效与动画强度，减少视觉干扰</string>
     <string name="ganzhi_year_format">岁次%1$s</string>
-    <string name="wuxing_element_metal">金</string>
-    <string name="wuxing_element_wood">木</string>
-    <string name="wuxing_element_water">水</string>
-    <string name="wuxing_element_fire">火</string>
-    <string name="wuxing_element_earth">土</string>
-    <string name="wuxing_complete">五行俱全</string>
-    <string name="wuxing_missing_format">缺%1$s</string>
-    <string name="wuxing_master_format">属%1$s（%2$s）</string>
-    <string name="wuxing_summary_format">%1$s（%2$s）</string>
     <string name="calendar_month_title_pattern">yyyy年MM月</string>
     <string name="calendar_selected_date_pattern">yyyy年M月d日</string>
     <string name="lunar_date_full_format">岁次 %1$s %2$s%3$s %4$s</string>
     <string name="lunar_date_fallback_format">农历 %1$d-%2$d-%3$d</string>
+    <string name="widget_until_days_semantic">还有%1$s天</string>
+    <string name="widget_past_days_semantic">已经%1$s天</string>
+    <string name="widget_until_ymd_semantic">还有%1$s</string>
+    <string name="widget_past_ymd_semantic">已经%1$s</string>
+    <string name="settings_overview_hint">按功能分组设置，入口更清晰，便于快速定位。</string>
+    <string name="settings_entry_appearance_desc">主题、配色、字体与字号</string>
+    <string name="settings_entry_display_desc">语言、显示密度、日期格式与动效</string>
+    <string name="settings_milestone_entry_title">里程碑与提醒</string>
+    <string name="settings_entry_milestone_desc">节点展示、预设里程碑与提醒时间</string>
+    <string name="settings_entry_data_desc">导入导出与数据迁移</string>
+    <string name="settings_about_entry_title">关于与更新</string>
+    <string name="settings_entry_about_desc">版本信息与检查更新</string>
 </resources>

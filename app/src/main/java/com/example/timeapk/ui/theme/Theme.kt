@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.core.graphics.toColorInt
 import androidx.core.view.WindowCompat
 import com.example.timeapk.ui.utils.findActivity
 
@@ -50,7 +51,7 @@ private val LightColorScheme = lightColorScheme(
 private fun parseHexOrNull(hex: String?): Color? {
     if (hex.isNullOrBlank()) return null
     return try {
-        Color(android.graphics.Color.parseColor(hex))
+        Color(hex.toColorInt())
     } catch (_: Exception) {
         null
     }

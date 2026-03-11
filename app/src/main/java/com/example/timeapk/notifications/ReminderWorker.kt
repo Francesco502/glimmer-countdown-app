@@ -15,7 +15,7 @@ import androidx.work.WorkerParameters
 import com.example.timeapk.MainActivity
 import com.example.timeapk.R
 import com.example.timeapk.TimeApplication
-import com.example.timeapk.data.REPEAT_NONE
+import kotlinx.coroutines.flow.first
 
 class ReminderWorker(
     context: Context,
@@ -33,7 +33,11 @@ class ReminderWorker(
             val content = if (daysLeft == 0) {
                 applicationContext.getString(R.string.notification_today)
             } else {
-                applicationContext.getString(R.string.notification_days_left, daysLeft)
+                applicationContext.resources.getQuantityString(
+                    R.plurals.notification_days_left,
+                    daysLeft,
+                    daysLeft
+                )
             }
             val intent = Intent(applicationContext, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
@@ -70,7 +74,6 @@ class ReminderWorker(
     }
 
     private fun ensureChannel(channelId: String) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val nm = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (nm.getNotificationChannel(channelId) == null) {
             nm.createNotificationChannel(
@@ -87,37 +90,41 @@ class ReminderWorker(
         val app = applicationContext as? TimeApplication ?: return
         val repository = app.repository
         val event = repository.getEvent(eventId) ?: return
+        val preferredCalendarId = app.userPrefs.scheduleTargetCalendarIdFlow.first()
+        val useRRuleSync = app.userPrefs.scheduleUseRRuleSyncFlow.first()
 
-        if (!event.remindEnabled) {
-            ScheduleSyncManager.removeScheduleReminder(applicationContext, event.scheduleEventId)
-            ScheduleSyncManager.removeScheduleReminderByEventId(applicationContext, event.id)
-            repository.updateEvent(event.copy(scheduleEventId = null))
-            return
+        if (event.remindEnabled) {
+            scheduleReminder(applicationContext, event)
+        } else {
+            cancelReminder(applicationContext, event.id)
         }
 
-        if (event.repeatType == REPEAT_NONE) {
+        val updatedEvent = if (event.syncToScheduleEnabled) {
+            val syncResult = ScheduleSyncManager.syncReminderSeries(
+                context = applicationContext,
+                event = event,
+                preferredCalendarId = preferredCalendarId,
+                useRRuleSync = useRRuleSync
+            )
+            event.copy(
+                scheduleEventId = syncResult.primaryScheduleEventId,
+                targetCalendarId = syncResult.targetCalendarId,
+                lastScheduleSyncAt = syncResult.lastSyncAt,
+                lastScheduleSyncError = syncResult.error
+            )
+        } else {
             ScheduleSyncManager.removeScheduleReminder(applicationContext, event.scheduleEventId)
             ScheduleSyncManager.removeScheduleReminderByEventId(applicationContext, event.id)
-            repository.updateEvent(event.copy(scheduleEventId = null))
-            return
+            event.copy(
+                scheduleEventId = null,
+                targetCalendarId = null,
+                lastScheduleSyncAt = System.currentTimeMillis(),
+                lastScheduleSyncError = null
+            )
         }
 
-        scheduleReminder(applicationContext, event)
-
-        if (!event.syncToScheduleEnabled) {
-            ScheduleSyncManager.removeScheduleReminder(applicationContext, event.scheduleEventId)
-            ScheduleSyncManager.removeScheduleReminderByEventId(applicationContext, event.id)
-            repository.updateEvent(event.copy(scheduleEventId = null))
-            return
-        }
-
-        val newScheduleId = ScheduleSyncManager.upsertScheduleReminder(
-            context = applicationContext,
-            event = event,
-            currentScheduleEventId = event.scheduleEventId
-        )
-        if (newScheduleId != event.scheduleEventId) {
-            repository.updateEvent(event.copy(scheduleEventId = newScheduleId))
+        if (updatedEvent != event) {
+            repository.updateEvent(updatedEvent)
         }
     }
 

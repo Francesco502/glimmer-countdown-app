@@ -5,6 +5,16 @@ import java.util.Locale
 
 object WidgetValueFormatter {
 
+    fun semanticValueOrFallback(
+        preferredText: String,
+        fallbackText: String,
+        maxChars: Int
+    ): String {
+        if (preferredText.isBlank()) return fallbackText
+        val visibleLength = preferredText.count { !it.isWhitespace() }
+        return if (visibleLength <= maxChars) preferredText else fallbackText
+    }
+
     fun numericValueForSmall(
         mode: Int,
         isPast: Boolean,

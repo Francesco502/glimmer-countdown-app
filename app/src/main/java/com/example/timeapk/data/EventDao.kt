@@ -20,6 +20,16 @@ interface EventDao {
     @Query("SELECT * FROM events WHERE id = :id")
     fun getEventByIdFlow(id: Int): Flow<Event?>
 
+    @Query(
+        """
+        SELECT * FROM events
+        WHERE lastScheduleSyncAt IS NOT NULL
+        ORDER BY lastScheduleSyncAt DESC
+        LIMIT 1
+        """
+    )
+    suspend fun getLatestScheduleSyncEvent(): Event?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertEvent(event: Event): Long
 

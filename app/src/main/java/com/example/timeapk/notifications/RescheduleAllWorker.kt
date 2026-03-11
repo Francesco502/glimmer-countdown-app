@@ -1,0 +1,317 @@
+package com.example.timeapk.notifications
+
+import android.content.Context
+import android.content.Intent
+import android.util.Log
+import androidx.core.content.edit
+import androidx.work.CoroutineWorker
+import androidx.work.Data
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.WorkerParameters
+import androidx.work.workDataOf
+import com.example.timeapk.TimeApplication
+import com.example.timeapk.data.Event
+import com.example.timeapk.widget.WidgetUpdater
+import kotlinx.coroutines.flow.first
+import org.json.JSONObject
+import java.security.MessageDigest
+
+class RescheduleAllWorker(
+    context: Context,
+    params: WorkerParameters
+) : CoroutineWorker(context, params) {
+
+    override suspend fun doWork(): Result {
+        val app = applicationContext as? TimeApplication ?: return Result.success()
+        val repository = app.repository
+        val prefs = app.userPrefs
+        val reason = inputData.getString(KEY_REASON) ?: "unknown"
+
+        return try {
+            val preferredCalendarId = prefs.scheduleTargetCalendarIdFlow.first()
+            val useRRuleSync = prefs.scheduleUseRRuleSyncFlow.first()
+            val milestoneEnabled = prefs.milestoneRemindEnabledFlow.first()
+            val milestoneRemindDaysAhead = prefs.milestoneRemindDaysAheadFlow.first()
+            val milestoneRemindTime = prefs.milestoneRemindTimeMinutesOfDayFlow.first()
+            val customMilestones = prefs.customMilestonesFlow.first()
+            val smartMilestonesEnabled = prefs.smartMilestonesEnabledFlow.first()
+            val events = repository.getAllEventsSnapshot()
+
+            val state = loadState(applicationContext)
+            val preferencesFingerprint = fingerprint(
+                listOf(
+                    preferredCalendarId?.toString() ?: "auto_calendar",
+                    useRRuleSync.toString(),
+                    milestoneEnabled.toString(),
+                    milestoneRemindDaysAhead.toString(),
+                    milestoneRemindTime.toString(),
+                    smartMilestonesEnabled.toString(),
+                    customMilestones.sorted().joinToString(",")
+                ).joinToString("|")
+            )
+            val eventFingerprints = events.associate { event -> event.id to fingerprintEvent(event) }
+
+            val forceFullReschedule = shouldForceFullReschedule(
+                reason = reason,
+                previous = state,
+                preferencesFingerprint = preferencesFingerprint
+            )
+            val removedEventIds = state.eventFingerprints.keys - eventFingerprints.keys
+            val targetEvents = if (forceFullReschedule) {
+                events
+            } else {
+                events.filter { event ->
+                    state.eventFingerprints[event.id] != eventFingerprints[event.id]
+                }
+            }
+
+            var shouldRetry = false
+
+            removedEventIds.forEach { removedId ->
+                try {
+                    cancelReminder(applicationContext, removedId)
+                    cancelMilestoneReminders(applicationContext, removedId)
+                    ScheduleSyncManager.removeScheduleReminderByEventId(applicationContext, removedId)
+                    ScheduleSyncManager.clearMilestoneScheduleRemindersByEventId(applicationContext, removedId)
+                } catch (t: Throwable) {
+                    shouldRetry = true
+                    Log.w(TAG, "Failed to cleanup removed event $removedId", t)
+                }
+            }
+
+            targetEvents.forEach { event ->
+                val updatedEvent = processEvent(
+                    app = app,
+                    event = event,
+                    preferredCalendarId = preferredCalendarId,
+                    useRRuleSync = useRRuleSync,
+                    milestoneEnabled = milestoneEnabled
+                ) { throwable ->
+                    shouldRetry = true
+                    Log.w(TAG, "Reschedule failed for eventId=${event.id}", throwable)
+                }
+                if (updatedEvent != null && updatedEvent != event) {
+                    try {
+                        repository.updateEvent(updatedEvent)
+                    } catch (t: Throwable) {
+                        shouldRetry = true
+                        Log.w(TAG, "Failed to persist event sync state for eventId=${event.id}", t)
+                    }
+                }
+            }
+
+            if (!milestoneEnabled && (forceFullReschedule || removedEventIds.isNotEmpty() || targetEvents.isNotEmpty())) {
+                try {
+                    cancelAllMilestoneReminders(applicationContext)
+                    ScheduleSyncManager.clearAllMilestoneScheduleReminders(applicationContext)
+                } catch (t: Throwable) {
+                    shouldRetry = true
+                    Log.w(TAG, "Failed to clear all milestone reminders", t)
+                }
+            }
+
+            try {
+                WidgetUpdater.refreshCountdownWidgets(applicationContext)
+            } catch (t: Throwable) {
+                shouldRetry = true
+                Log.w(TAG, "Failed to refresh widgets after reschedule", t)
+            }
+
+            if (shouldRetry) {
+                Result.retry()
+            } else {
+                saveState(
+                    context = applicationContext,
+                    state = RescheduleState(
+                        preferencesFingerprint = preferencesFingerprint,
+                        eventFingerprints = eventFingerprints,
+                        lastSuccessAt = System.currentTimeMillis()
+                    )
+                )
+                Result.success()
+            }
+        } catch (t: Throwable) {
+            Log.w(TAG, "RescheduleAllWorker failed unexpectedly (reason=$reason)", t)
+            Result.retry()
+        }
+    }
+
+    private suspend fun processEvent(
+        app: TimeApplication,
+        event: Event,
+        preferredCalendarId: Long?,
+        useRRuleSync: Boolean,
+        milestoneEnabled: Boolean,
+        onFailure: (Throwable) -> Unit
+    ): Event? {
+        var updatedEvent = event
+
+        try {
+            cancelReminder(applicationContext, event.id)
+            if (event.remindEnabled) {
+                scheduleReminder(applicationContext, event)
+            }
+        } catch (t: Throwable) {
+            onFailure(t)
+        }
+
+        updatedEvent = if (event.syncToScheduleEnabled) {
+            val syncResult = ScheduleSyncManager.syncReminderSeries(
+                context = applicationContext,
+                event = event,
+                preferredCalendarId = preferredCalendarId,
+                useRRuleSync = useRRuleSync
+            )
+            val stateChanged =
+                syncResult.primaryScheduleEventId != event.scheduleEventId ||
+                    syncResult.targetCalendarId != event.targetCalendarId ||
+                    syncResult.error != event.lastScheduleSyncError
+            event.copy(
+                scheduleEventId = syncResult.primaryScheduleEventId,
+                targetCalendarId = syncResult.targetCalendarId,
+                lastScheduleSyncAt = if (stateChanged || !syncResult.error.isNullOrBlank()) {
+                    syncResult.lastSyncAt
+                } else {
+                    event.lastScheduleSyncAt
+                },
+                lastScheduleSyncError = syncResult.error
+            )
+        } else {
+            try {
+                ScheduleSyncManager.removeScheduleReminder(applicationContext, event.scheduleEventId)
+                ScheduleSyncManager.removeScheduleReminderByEventId(applicationContext, event.id)
+            } catch (t: Throwable) {
+                onFailure(t)
+            }
+            val cleanedAnyState =
+                event.scheduleEventId != null ||
+                    event.targetCalendarId != null ||
+                    !event.lastScheduleSyncError.isNullOrBlank()
+            event.copy(
+                scheduleEventId = null,
+                targetCalendarId = null,
+                lastScheduleSyncAt = if (cleanedAnyState) System.currentTimeMillis() else event.lastScheduleSyncAt,
+                lastScheduleSyncError = null
+            )
+        }
+
+        try {
+            if (milestoneEnabled) {
+                syncMilestoneReminderForEvent(app, updatedEvent)
+            } else {
+                cancelMilestoneReminders(applicationContext, event.id)
+                ScheduleSyncManager.clearMilestoneScheduleRemindersByEventId(applicationContext, event.id)
+            }
+        } catch (t: Throwable) {
+            onFailure(t)
+        }
+        return updatedEvent
+    }
+
+    private fun shouldForceFullReschedule(
+        reason: String,
+        previous: RescheduleState,
+        preferencesFingerprint: String
+    ): Boolean {
+        if (reason in SYSTEM_REBUILD_REASONS) return true
+        if (reason.startsWith("manual_")) return true
+        if (previous.preferencesFingerprint.isBlank()) return true
+        if (previous.preferencesFingerprint != preferencesFingerprint) return true
+        if (reason == REASON_COLD_START && previous.lastSuccessAt <= 0L) return true
+        return false
+    }
+
+    private fun fingerprintEvent(event: Event): String {
+        val base = listOf(
+            event.id.toString(),
+            event.title,
+            event.date.toString(),
+            event.category,
+            event.note,
+            event.repeatType,
+            event.isLunar.toString(),
+            event.remindEnabled.toString(),
+            event.remindDaysBefore.toString(),
+            event.reminderTimeMinutesOfDay.toString(),
+            event.syncToScheduleEnabled.toString(),
+            event.colorHex.orEmpty()
+        ).joinToString("|")
+        return fingerprint(base)
+    }
+
+    private fun fingerprint(input: String): String {
+        val digest = MessageDigest.getInstance("SHA-256").digest(input.toByteArray(Charsets.UTF_8))
+        return digest.joinToString("") { "%02x".format(it) }
+    }
+
+    private fun loadState(context: Context): RescheduleState {
+        val sp = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val preferencesFingerprint = sp.getString(KEY_PREFS_FINGERPRINT, "") ?: ""
+        val lastSuccessAt = sp.getLong(KEY_LAST_SUCCESS_AT, 0L)
+        val json = sp.getString(KEY_EVENT_FINGERPRINTS, "{}") ?: "{}"
+        val map = mutableMapOf<Int, String>()
+        runCatching {
+            val obj = JSONObject(json)
+            obj.keys().forEach { key ->
+                key.toIntOrNull()?.let { id ->
+                    map[id] = obj.optString(key, "")
+                }
+            }
+        }
+        return RescheduleState(
+            preferencesFingerprint = preferencesFingerprint,
+            eventFingerprints = map,
+            lastSuccessAt = lastSuccessAt
+        )
+    }
+
+    private fun saveState(context: Context, state: RescheduleState) {
+        val sp = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val obj = JSONObject()
+        state.eventFingerprints.forEach { (id, fp) ->
+            obj.put(id.toString(), fp)
+        }
+        sp.edit {
+            putString(KEY_PREFS_FINGERPRINT, state.preferencesFingerprint)
+            putString(KEY_EVENT_FINGERPRINTS, obj.toString())
+            putLong(KEY_LAST_SUCCESS_AT, state.lastSuccessAt)
+        }
+    }
+
+    companion object {
+        private const val TAG = "RescheduleAllWorker"
+        private const val UNIQUE_WORK_NAME = "reschedule_all_work"
+        private const val KEY_REASON = "reason"
+        private const val PREFS_NAME = "reschedule_all_worker_state"
+        private const val KEY_PREFS_FINGERPRINT = "prefs_fingerprint"
+        private const val KEY_EVENT_FINGERPRINTS = "event_fingerprints"
+        private const val KEY_LAST_SUCCESS_AT = "last_success_at"
+        private const val REASON_COLD_START = "cold_start"
+        private val SYSTEM_REBUILD_REASONS = setOf(
+            Intent.ACTION_BOOT_COMPLETED,
+            Intent.ACTION_TIME_CHANGED,
+            Intent.ACTION_TIMEZONE_CHANGED,
+            Intent.ACTION_MY_PACKAGE_REPLACED
+        )
+
+        fun enqueue(context: Context, reason: String) {
+            val input: Data = workDataOf(KEY_REASON to reason)
+            val request = OneTimeWorkRequestBuilder<RescheduleAllWorker>()
+                .setInputData(input)
+                .build()
+            WorkManager.getInstance(context).enqueueUniqueWork(
+                UNIQUE_WORK_NAME,
+                ExistingWorkPolicy.REPLACE,
+                request
+            )
+        }
+    }
+}
+
+private data class RescheduleState(
+    val preferencesFingerprint: String,
+    val eventFingerprints: Map<Int, String>,
+    val lastSuccessAt: Long
+)

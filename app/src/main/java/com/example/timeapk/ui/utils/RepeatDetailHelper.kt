@@ -2,6 +2,7 @@ package com.example.timeapk.ui.utils
 
 import android.content.Context
 import com.example.timeapk.R
+import com.nlf.calendar.Solar
 import com.example.timeapk.data.REPEAT_DAILY
 import com.example.timeapk.data.REPEAT_HALF_YEARLY
 import com.example.timeapk.data.REPEAT_MONTHLY
@@ -46,14 +47,8 @@ fun formatGanZhiYear(year: Int, context: Context? = null): String {
 
 fun formatLunarMonthDay(date: LocalDate): String? {
     return try {
-        val clazz = Class.forName("com.nlf.calendar.Solar")
-        val ctor = clazz.getConstructor(Int::class.javaPrimitiveType, Int::class.javaPrimitiveType, Int::class.javaPrimitiveType)
-        val solar = ctor.newInstance(date.year, date.monthValue, date.dayOfMonth)
-        val lunar = clazz.getMethod("getLunar").invoke(solar) ?: return null
-        val lunarClass = lunar.javaClass
-        val month = lunarClass.getMethod("getMonthInChinese").invoke(lunar) as? String ?: return null
-        val day = lunarClass.getMethod("getDayInChinese").invoke(lunar) as? String ?: return null
-        "$month$day"
+        val lunar = Solar.fromYmd(date.year, date.monthValue, date.dayOfMonth).lunar
+        "${lunar.monthInChinese}${lunar.dayInChinese}"
     } catch (_: Throwable) {
         null
     }

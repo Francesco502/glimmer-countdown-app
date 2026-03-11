@@ -64,8 +64,6 @@ import com.example.timeapk.ui.utils.ageInYears
 import com.example.timeapk.ui.utils.agePeriod
 import com.example.timeapk.ui.utils.constellationFromDate
 import com.example.timeapk.ui.utils.zodiacAnimalFromDate
-import com.example.timeapk.ui.utils.baziFromDate
-import com.example.timeapk.ui.utils.wuxingFromDate
 import com.example.timeapk.ui.utils.eventDateToLocalDate
 import com.example.timeapk.ui.utils.DisplayModes
 import com.example.timeapk.ui.utils.getAvailableDisplayModes
@@ -563,7 +561,7 @@ fun DetailScreen(
                         }
                     }
 
-                    // 鐢熸棩锛氬啘鍘嗐€佸瞾鏁般€佸睘鐩搞€佸叓瀛椼€佷簲琛屻€佹槦搴?
+                    // 鐢熸棩锛氬啘鍘嗐€佸瞾鏁般€佸睘鐩搞€佹槦搴?
                     if (effectiveCategory == CATEGORY_BIRTHDAY) {
                         Spacer(modifier = Modifier.height(24.dp))
                         val lunarLine = formatLunarDateString(targetLocalDate, context)
@@ -575,8 +573,6 @@ fun DetailScreen(
                             period.days
                         )
                         val zodiac = zodiacAnimalFromDate(targetLocalDate)
-                        val bazi = baziFromDate(targetLocalDate)
-                        val wuxing = wuxingFromDate(targetLocalDate, context)
                         val constellation = constellationFromDate(targetLocalDate, context)
                         Column(
                             modifier = Modifier
@@ -587,8 +583,6 @@ fun DetailScreen(
                             DetailLabelRow(stringResource(R.string.detail_birthday_lunar), lunarLine, detailContentColor)
                             DetailLabelRow(stringResource(R.string.detail_birthday_age), ageYmd, detailContentColor)
                             if (zodiac != null) DetailLabelRow(stringResource(R.string.detail_birthday_zodiac), zodiac, detailContentColor)
-                            if (bazi != null) DetailLabelRow(stringResource(R.string.detail_birthday_bazi), bazi, detailContentColor)
-                            if (wuxing != null) DetailLabelRow(stringResource(R.string.detail_birthday_wuxing), wuxing, detailContentColor)
                             DetailLabelRow(stringResource(R.string.detail_birthday_constellation), constellation, detailContentColor)
                         }
                     }
@@ -622,12 +616,26 @@ fun DetailScreen(
                 onShareClick = {
                     val isYearlyShare = eventState.event.repeatType == REPEAT_YEARLY
                     val text = when {
-                        eventState.isPast ->
-                            context.getString(R.string.share_text_past, eventState.event.title, if (isYearlyShare) eventState.daysPassed else eventState.daysElapsed)
+                        eventState.isPast -> {
+                            val elapsedDays = if (isYearlyShare) eventState.daysPassed else eventState.daysElapsed
+                            context.resources.getQuantityString(
+                                R.plurals.share_text_past,
+                                elapsedDays.toInt(),
+                                eventState.event.title,
+                                elapsedDays.toInt()
+                            )
+                        }
                         eventState.daysRemaining == 0L ->
                             context.getString(R.string.share_text_today, eventState.event.title)
-                        else ->
-                            context.getString(R.string.share_text_countdown, eventState.event.title, eventState.daysRemaining)
+                        else -> {
+                            val remainingDays = eventState.daysRemaining.toInt()
+                            context.resources.getQuantityString(
+                                R.plurals.share_text_countdown,
+                                remainingDays,
+                                eventState.event.title,
+                                remainingDays
+                            )
+                        }
                     }
                     val sendIntent = Intent().apply {
                         action = Intent.ACTION_SEND

@@ -12,16 +12,18 @@ import com.example.timeapk.data.CATEGORY_OTHER
 import com.example.timeapk.data.Event
 import com.example.timeapk.data.EventRepository
 import com.example.timeapk.data.REPEAT_NONE
-import com.example.timeapk.data.normalizeTags
+import com.example.timeapk.data.REPEAT_YEARLY
 import com.example.timeapk.data.sanitizedReminderConfig
 import com.example.timeapk.notifications.ScheduleSyncManager
+import com.example.timeapk.notifications.cancelMilestoneReminders
 import com.example.timeapk.notifications.cancelReminder
-import com.example.timeapk.notifications.rescheduleMilestoneReminders
 import com.example.timeapk.notifications.scheduleReminder
+import com.example.timeapk.notifications.syncMilestoneReminderForEvent
 import com.example.timeapk.widget.WidgetUpdater
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -87,32 +89,44 @@ class EventEntryViewModel(
 
         var hasSideEffectFailure = false
 
+        var updatedEvent = persistedEvent
+
         try {
             cancelReminder(application, persistedEvent.id)
+            if (persistedEvent.remindEnabled) {
+                scheduleReminder(application, persistedEvent)
+            }
         } catch (_: Exception) {
             hasSideEffectFailure = true
         }
 
-        if (persistedEvent.remindEnabled) {
+        updatedEvent = if (persistedEvent.syncToScheduleEnabled) {
             try {
-                scheduleReminder(application, persistedEvent)
-            } catch (_: Exception) {
-                hasSideEffectFailure = true
-            }
-        }
-
-        val newScheduleId = if (persistedEvent.syncToScheduleEnabled) {
-            try {
-                ScheduleSyncManager.upsertScheduleReminder(
+                val preferredCalendarId = app.userPrefs.scheduleTargetCalendarIdFlow.first()
+                val useRRuleSync = app.userPrefs.scheduleUseRRuleSyncFlow.first()
+                val syncResult = ScheduleSyncManager.syncReminderSeries(
                     context = application,
                     event = persistedEvent,
-                    currentScheduleEventId = persistedEvent.scheduleEventId
-                ).also {
-                    if (it == null) hasSideEffectFailure = true
+                    preferredCalendarId = preferredCalendarId,
+                    useRRuleSync = useRRuleSync
+                )
+                if (syncResult.error != null) {
+                    hasSideEffectFailure = true
                 }
+                persistedEvent.copy(
+                    scheduleEventId = syncResult.primaryScheduleEventId,
+                    targetCalendarId = syncResult.targetCalendarId,
+                    lastScheduleSyncAt = syncResult.lastSyncAt,
+                    lastScheduleSyncError = syncResult.error
+                )
             } catch (_: Exception) {
                 hasSideEffectFailure = true
-                null
+                persistedEvent.copy(
+                    scheduleEventId = null,
+                    targetCalendarId = null,
+                    lastScheduleSyncAt = System.currentTimeMillis(),
+                    lastScheduleSyncError = "Schedule sync failed"
+                )
             }
         } else {
             try {
@@ -121,19 +135,28 @@ class EventEntryViewModel(
             } catch (_: Exception) {
                 hasSideEffectFailure = true
             }
-            null
+            persistedEvent.copy(
+                scheduleEventId = null,
+                targetCalendarId = null,
+                lastScheduleSyncAt = System.currentTimeMillis(),
+                lastScheduleSyncError = null
+            )
         }
 
-        if (newScheduleId != persistedEvent.scheduleEventId) {
+        if (updatedEvent != persistedEvent) {
             try {
-                repository.updateEvent(persistedEvent.copy(scheduleEventId = newScheduleId))
+                repository.updateEvent(updatedEvent)
             } catch (_: Exception) {
                 hasSideEffectFailure = true
             }
         }
 
         try {
-            rescheduleMilestoneReminders(application)
+            syncMilestoneReminderForEvent(application, updatedEvent)
+            if (updatedEvent.repeatType != REPEAT_YEARLY && updatedEvent.repeatType != REPEAT_NONE) {
+                cancelMilestoneReminders(application, updatedEvent.id)
+                ScheduleSyncManager.clearMilestoneScheduleRemindersByEventId(application, updatedEvent.id)
+            }
         } catch (_: Exception) {
             hasSideEffectFailure = true
         }
@@ -168,7 +191,6 @@ data class EventDetails(
     val date: Long = System.currentTimeMillis(),
     val category: String = CATEGORY_OTHER,
     val note: String = "",
-    val tags: String = "",
     val colorHex: String? = null,
     val repeatType: String = REPEAT_NONE,
     val remindDaysBefore: Int = 0,
@@ -176,6 +198,9 @@ data class EventDetails(
     val remindEnabled: Boolean = false,
     val syncToScheduleEnabled: Boolean = true,
     val scheduleEventId: Long? = null,
+    val targetCalendarId: Long? = null,
+    val lastScheduleSyncAt: Long? = null,
+    val lastScheduleSyncError: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val isLunar: Boolean = false
 )
@@ -187,7 +212,6 @@ fun EventDetails.toEvent(): Event = Event(
     category = category.takeIf { it in listOf(CATEGORY_BIRTHDAY, CATEGORY_ANNIVERSARY, CATEGORY_OTHER) }
         ?: CATEGORY_OTHER,
     note = note,
-    tags = normalizeTags(tags),
     colorHex = colorHex,
     repeatType = repeatType,
     remindDaysBefore = remindDaysBefore,
@@ -195,6 +219,9 @@ fun EventDetails.toEvent(): Event = Event(
     remindEnabled = remindEnabled,
     syncToScheduleEnabled = syncToScheduleEnabled,
     scheduleEventId = scheduleEventId,
+    targetCalendarId = targetCalendarId,
+    lastScheduleSyncAt = lastScheduleSyncAt,
+    lastScheduleSyncError = lastScheduleSyncError,
     createdAt = createdAt,
     isLunar = isLunar
 )
@@ -205,7 +232,6 @@ fun Event.toEventDetails(): EventDetails = EventDetails(
     date = date,
     category = category,
     note = note,
-    tags = tags,
     colorHex = colorHex,
     repeatType = repeatType,
     remindDaysBefore = remindDaysBefore,
@@ -213,6 +239,9 @@ fun Event.toEventDetails(): EventDetails = EventDetails(
     remindEnabled = remindEnabled,
     syncToScheduleEnabled = syncToScheduleEnabled,
     scheduleEventId = scheduleEventId,
+    targetCalendarId = targetCalendarId,
+    lastScheduleSyncAt = lastScheduleSyncAt,
+    lastScheduleSyncError = lastScheduleSyncError,
     createdAt = createdAt,
     isLunar = isLunar
 )

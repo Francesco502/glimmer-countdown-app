@@ -2,6 +2,7 @@
 
 import com.example.timeapk.data.REPEAT_HALF_YEARLY
 import com.example.timeapk.data.REPEAT_MONTHLY
+import com.nlf.calendar.Solar
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.time.LocalDate
@@ -36,5 +37,13 @@ class RepeatDetailHelperTest {
         val next = nextOccurrenceDate(origin, today, REPEAT_HALF_YEARLY)
 
         assertEquals(today, next)
+    }
+
+    @Test
+    fun formatLunarMonthDay_matchesLunarLibraryValue() {
+        val date = LocalDate.of(2024, 2, 10)
+        val lunar = Solar.fromYmd(date.year, date.monthValue, date.dayOfMonth).lunar
+
+        assertEquals("${lunar.monthInChinese}${lunar.dayInChinese}", formatLunarMonthDay(date))
     }
 }

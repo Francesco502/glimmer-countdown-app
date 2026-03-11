@@ -87,7 +87,6 @@ import java.util.Locale
 import com.example.timeapk.R
 import com.example.timeapk.TimeApplication
 import com.example.timeapk.data.Event
-import com.example.timeapk.data.tagsList
 import com.example.timeapk.ui.theme.AnimationSpecs
 
 import androidx.compose.foundation.LocalOverscrollConfiguration
@@ -123,8 +122,6 @@ fun HomeScreen(
     val filterType by viewModel.filterType.collectAsState()
     val sortType by viewModel.sortType.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
-    val selectedTag by viewModel.selectedTag.collectAsState()
-    val availableTags by viewModel.availableTags.collectAsState()
     val showHours by prefs.showHoursFlow.collectAsState(initial = true)
     val showMilestone by prefs.showMilestoneFlow.collectAsState(initial = true)
     val homeDensityMode by prefs.homeDensityModeFlow.collectAsState(initial = 1)
@@ -239,7 +236,7 @@ fun HomeScreen(
                 labelColor = MaterialTheme.colorScheme.onBackground
             )
             val nextMode = (homeDisplayMode + 1) % 3
-            val hasActiveFilter = filterType != FilterType.All || selectedTag != null
+            val hasActiveFilter = filterType != FilterType.All
             var showFilterPanel by remember { mutableStateOf(hasActiveFilter) }
             var showSearchBar by remember { mutableStateOf(searchQuery.isNotBlank()) }
             LaunchedEffect(hasActiveFilter) {
@@ -327,7 +324,6 @@ fun HomeScreen(
 
             if (hasActiveFilter) {
                 val activeLabel = when {
-                    selectedTag != null -> "#$selectedTag"
                     filterType == FilterType.Birthday -> stringResource(R.string.category_birthday)
                     filterType == FilterType.Anniversary -> stringResource(R.string.category_anniversary)
                     filterType == FilterType.Other -> stringResource(R.string.category_other)
@@ -405,38 +401,6 @@ fun HomeScreen(
                             colors = chipColors
                         )
                     }
-
-                    if (availableTags.isNotEmpty()) {
-                        val tagChipColors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primary,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-                            containerColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f),
-                            labelColor = MaterialTheme.colorScheme.onBackground
-                        )
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            FilterChip(
-                                selected = selectedTag == null,
-                                onClick = { viewModel.updateSelectedTag(null) },
-                                label = { Text(stringResource(R.string.filter_all_tags)) },
-                                shape = RoundedCornerShape(4.dp),
-                                colors = tagChipColors
-                            )
-                            availableTags.forEach { tag ->
-                                FilterChip(
-                                    selected = selectedTag?.equals(tag, ignoreCase = true) == true,
-                                    onClick = { viewModel.updateSelectedTag(tag) },
-                                    label = { Text("#$tag") },
-                                    shape = RoundedCornerShape(4.dp),
-                                    colors = tagChipColors
-                                )
-                            }
-                        }
-                    }
                 }
             }
             // Event list / month view
@@ -454,14 +418,17 @@ fun HomeScreen(
                 }
             } else {
                 key(homeDisplayMode) {
+                    val dragEnabled = sortType == SortType.ByCreated
                     val reorderState = rememberReorderableLazyListState(
                         onMove = { from, to ->
-                            val fromIdx = from.index
-                            val toIdx = to.index
-                            if (fromIdx in orderedList.indices && toIdx in orderedList.indices && fromIdx != toIdx) {
-                                val item = orderedList.removeAt(fromIdx)
-                                orderedList.add(toIdx, item)
-                                scope.launch { prefs.setCustomEventOrder(orderedList.map { it.event.id }) }
+                            if (dragEnabled) {
+                                val fromIdx = from.index
+                                val toIdx = to.index
+                                if (fromIdx in orderedList.indices && toIdx in orderedList.indices && fromIdx != toIdx) {
+                                    val item = orderedList.removeAt(fromIdx)
+                                    orderedList.add(toIdx, item)
+                                    scope.launch { prefs.setCustomEventOrder(orderedList.map { it.event.id }) }
+                                }
                             }
                         }
                     )
@@ -484,8 +451,15 @@ fun HomeScreen(
                                     state = reorderState.listState,
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .reorderable(reorderState)
-                                        .detectReorderAfterLongPress(reorderState),
+                                        .then(
+                                            if (dragEnabled) {
+                                                Modifier
+                                                    .reorderable(reorderState)
+                                                    .detectReorderAfterLongPress(reorderState)
+                                            } else {
+                                                Modifier
+                                            }
+                                        ),
                                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                                     verticalArrangement = Arrangement.spacedBy(if (homeDisplayMode == 0) 12.dp else 0.dp)
                                 ) {
@@ -978,14 +952,12 @@ private fun EventListItem(
     } else {
         MaterialTheme.typography.bodySmall
     }
-    val firstTag = eventState.event.tagsList().firstOrNull()
     val metaLine = buildList {
         add(categoryLabel)
         if (eventState.event.isLunar) add(stringResource(R.string.lunar_calendar))
         repeatLabel?.let(::add)
     }.joinToString(" · ")
     val supportLine = buildList {
-        firstTag?.let { add("#$it") }
         if (eventState.event.remindEnabled) add(stringResource(R.string.field_remind))
     }.joinToString(" · ")
     val itemDescription = buildString {
@@ -1373,13 +1345,6 @@ private fun MonthCalendarView(
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f)
                             )
-                            if (state.event.tags.isNotBlank()) {
-                                Text(
-                                    text = "#" + state.event.tagsList().firstOrNull().orEmpty(),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
                         }
                     }
                 }

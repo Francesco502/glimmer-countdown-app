@@ -8,6 +8,7 @@ import android.content.res.Configuration
 import com.example.timeapk.data.AppDatabase
 import com.example.timeapk.data.EventRepository
 import com.example.timeapk.data.UserPreferencesRepository
+import com.example.timeapk.notifications.RescheduleAllWorker
 import com.example.timeapk.update.GitHubReleaseUpdateChecker
 import com.example.timeapk.update.UpdateChecker
 import com.example.timeapk.R
@@ -26,6 +27,7 @@ class TimeApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         lastUiModeNight = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+        RescheduleAllWorker.enqueue(this, "cold_start")
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {

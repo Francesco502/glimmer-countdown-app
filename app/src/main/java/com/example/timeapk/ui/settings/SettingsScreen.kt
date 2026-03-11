@@ -2,8 +2,11 @@ package com.example.timeapk.ui.settings
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -110,6 +113,9 @@ fun SettingsScreen(
                 SettingsCategory.DISPLAY -> DisplaySettingsContent(
                     modifier = baseModifier
                 )
+                SettingsCategory.MILESTONE -> MilestoneSettingsContent(
+                    modifier = baseModifier
+                )
                 SettingsCategory.DATA -> DataSettingsContent(
                     snackbarHostState = snackbarHostState,
                     modifier = baseModifier
@@ -129,16 +135,23 @@ fun SettingsCategoryList(
     onCategoryClick: (SettingsCategory) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier) {
+    Column(
+        modifier = modifier.padding(vertical = 18.dp),
+        verticalArrangement = Arrangement.Top
+    ) {
+        Text(
+            text = stringResource(R.string.settings_overview_hint),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 14.dp)
+        )
         SettingsCategory.entries.forEach { category ->
             SettingsCategoryRow(
                 category = category,
-                onClick = { onCategoryClick(category) }
+                onClick = { onCategoryClick(category) },
+                modifier = Modifier.padding(horizontal = 20.dp)
             )
-            androidx.compose.material3.HorizontalDivider(
-                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f),
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
+            Spacer(modifier = Modifier.height(10.dp))
         }
     }
 }

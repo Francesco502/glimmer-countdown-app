@@ -14,6 +14,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.example.timeapk.MainActivity
 import com.example.timeapk.R
+import com.example.timeapk.TimeApplication
 
 /**
  * Milestone reminder worker.
@@ -32,8 +33,9 @@ class MilestoneReminderWorker(
 
         if (canPostNotifications()) {
             ensureChannel(channelId)
-            val content = applicationContext.getString(
-                R.string.milestone_notification_content,
+            val content = applicationContext.resources.getQuantityString(
+                R.plurals.milestone_notification_content,
+                daysLeft,
                 milestoneLabel,
                 daysLeft
             )
@@ -73,7 +75,6 @@ class MilestoneReminderWorker(
     }
 
     private fun ensureChannel(channelId: String) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val nm = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (nm.getNotificationChannel(channelId) == null) {
             nm.createNotificationChannel(
@@ -87,8 +88,10 @@ class MilestoneReminderWorker(
     }
 
     private suspend fun rescheduleMilestoneChain() {
-        val app = applicationContext as? android.app.Application ?: return
-        rescheduleMilestoneReminders(app)
+        val app = applicationContext as? TimeApplication ?: return
+        val eventId = inputData.getInt(KEY_EVENT_ID, 0)
+        val event = app.repository.getEvent(eventId) ?: return
+        syncMilestoneReminderForEvent(app, event)
     }
 
     companion object {
