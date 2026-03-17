@@ -1,4 +1,4 @@
-﻿package com.example.timeapk.ui.detail
+package com.example.timeapk.ui.detail
 
 import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
@@ -191,7 +191,7 @@ fun DetailScreen(
                     width = 1.dp, // 鍔犳繁涓€鐐硅竟妗?
                     color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
                 ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp) // 澧炲姞闃村奖浠ュ寮鸿儗鏅姣?
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column(
                     modifier = Modifier.padding(32.dp), // 澧炲姞鍐呴儴鐣欑櫧
@@ -229,7 +229,6 @@ fun DetailScreen(
                                 Text(
                                     text = categoryName,
                                     style = MaterialTheme.typography.labelMedium.copy(
-                                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                                         letterSpacing = 2.sp
                                     ),
                                     color = detailBaseColor
@@ -279,7 +278,6 @@ fun DetailScreen(
                     Text(
                         text = eventState.event.title,
                         style = MaterialTheme.typography.displayMedium.copy(
-                            fontWeight = androidx.compose.ui.text.font.FontWeight.Normal,
                             letterSpacing = 2.sp
                         ),
                         textAlign = TextAlign.Center,

@@ -1,4 +1,4 @@
-﻿package com.example.timeapk.ui.event
+package com.example.timeapk.ui.event
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
@@ -26,11 +26,57 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.ZoneOffset
+import kotlin.random.Random
 
 sealed class SaveEventResult {
     object Success : SaveEventResult()
     data class PartialSuccess(val message: String) : SaveEventResult()
     data class Failure(val message: String) : SaveEventResult()
+}
+
+private val MIN_SUPPORTED_EVENT_DATE_MILLIS: Long = LocalDate.of(1900, 1, 1)
+    .atStartOfDay(ZoneOffset.UTC)
+    .toInstant()
+    .toEpochMilli()
+
+// 事件卡片默认颜色（与编辑页预设颜色保持一致）
+private val DEFAULT_EVENT_COLOR_HEX = listOf(
+    "#4A4933",
+    "#457080",
+    "#5F856B",
+    "#AF4E31",
+    "#AC8F62",
+    "#86351C",
+    "#5B8E79",
+    "#3A4550",
+    "#785B64"
+)
+
+internal fun isEventDateValid(dateMillis: Long): Boolean = dateMillis >= MIN_SUPPORTED_EVENT_DATE_MILLIS
+
+internal fun sanitizeRepeatTypeForLunar(isLunar: Boolean, repeatType: String): String {
+    if (!isLunar) return repeatType
+    return when (repeatType) {
+        REPEAT_NONE, REPEAT_YEARLY -> repeatType
+        else -> REPEAT_NONE
+    }
+}
+
+internal fun supportedRepeatTypes(isLunar: Boolean): List<String> {
+    return if (isLunar) {
+        listOf(REPEAT_NONE, REPEAT_YEARLY)
+    } else {
+        listOf(
+            REPEAT_NONE,
+            REPEAT_YEARLY,
+            com.example.timeapk.data.REPEAT_HALF_YEARLY,
+            com.example.timeapk.data.REPEAT_MONTHLY,
+            com.example.timeapk.data.REPEAT_WEEKLY,
+            com.example.timeapk.data.REPEAT_DAILY
+        )
+    }
 }
 
 class EventEntryViewModel(
@@ -64,7 +110,13 @@ class EventEntryViewModel(
     }
 
     suspend fun saveEvent(): SaveEventResult {
-        val details = _eventUiState.value.eventDetails
+        val rawDetails = _eventUiState.value.eventDetails
+        val details = if (rawDetails.id == 0 && rawDetails.colorHex.isNullOrBlank()) {
+            // 新建事件且未选择卡片颜色时，在默认颜色中随机选一个
+            rawDetails.copy(colorHex = DEFAULT_EVENT_COLOR_HEX.random())
+        } else {
+            rawDetails
+        }
         if (!validateInput(details)) {
             return SaveEventResult.Failure(application.getString(R.string.save_event_failed))
         }
@@ -175,7 +227,7 @@ class EventEntryViewModel(
     }
 
     private fun validateInput(uiState: EventDetails = _eventUiState.value.eventDetails): Boolean {
-        return uiState.title.isNotBlank() && uiState.date > 0
+        return uiState.title.isNotBlank() && isEventDateValid(uiState.date)
     }
 }
 
@@ -213,7 +265,7 @@ fun EventDetails.toEvent(): Event = Event(
         ?: CATEGORY_OTHER,
     note = note,
     colorHex = colorHex,
-    repeatType = repeatType,
+    repeatType = sanitizeRepeatTypeForLunar(isLunar = isLunar, repeatType = repeatType),
     remindDaysBefore = remindDaysBefore,
     reminderTimeMinutesOfDay = reminderTimeMinutesOfDay,
     remindEnabled = remindEnabled,
@@ -233,7 +285,7 @@ fun Event.toEventDetails(): EventDetails = EventDetails(
     category = category,
     note = note,
     colorHex = colorHex,
-    repeatType = repeatType,
+    repeatType = sanitizeRepeatTypeForLunar(isLunar = isLunar, repeatType = repeatType),
     remindDaysBefore = remindDaysBefore,
     reminderTimeMinutesOfDay = reminderTimeMinutesOfDay,
     remindEnabled = remindEnabled,

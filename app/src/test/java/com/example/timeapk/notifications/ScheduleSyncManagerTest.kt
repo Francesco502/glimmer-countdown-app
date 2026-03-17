@@ -3,6 +3,7 @@ package com.example.timeapk.notifications
 import com.example.timeapk.data.CATEGORY_OTHER
 import com.example.timeapk.data.Event
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -33,5 +34,17 @@ class ScheduleSyncManagerTest {
         val desc = ScheduleSyncManager.buildMarkedDescriptionForTest(marker, "sample note")
         assertTrue(desc.startsWith(marker))
         assertTrue(desc.contains("sample note"))
+    }
+
+    @Test
+    fun isManagedReminderMetadataKind_excludesMilestoneEntries() {
+        assertFalse(isManagedReminderMetadataKind("milestone_v2"))
+    }
+
+    @Test
+    fun isManagedReminderMetadataKind_acceptsReminderAndLegacyEntries() {
+        assertTrue(isManagedReminderMetadataKind(null))
+        assertTrue(isManagedReminderMetadataKind("reminder_v2"))
+        assertTrue(isManagedReminderMetadataKind("reminder_rrule_v2"))
     }
 }

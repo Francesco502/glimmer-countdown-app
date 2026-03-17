@@ -1,4 +1,4 @@
-﻿package com.example.timeapk.ui.settings
+package com.example.timeapk.ui.settings
 
 import androidx.annotation.StringRes
 import androidx.compose.foundation.LocalIndication
@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.graphics.toColorInt
 import com.example.timeapk.R
 import com.example.timeapk.ui.components.rememberPressScale
+import com.example.timeapk.ui.theme.SongDesignTokens
 
 enum class SettingsCategory(
     val titleRes: Int,
@@ -85,12 +86,12 @@ fun SettingsCategoryRow(
             .fillMaxWidth()
             .border(
                 width = 1.dp,
-                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.28f),
-                shape = RoundedCornerShape(10.dp)
+                color = MaterialTheme.colorScheme.outline.copy(alpha = SongDesignTokens.BorderAlphaSoft),
+                shape = RoundedCornerShape(8.dp)
             )
             .background(
                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.62f),
-                shape = RoundedCornerShape(10.dp)
+                shape = RoundedCornerShape(8.dp)
             )
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 13.dp),

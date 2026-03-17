@@ -27,6 +27,11 @@ private val SMART_MILESTONE_REMIND_VALUES = listOf(
     1L, 3L, 7L, 14L, 30L, 60L, 90L, 100L, 180L, 365L, 520L, 730L, 1000L
 )
 
+internal data class MilestoneReminderPlan(
+    val milestoneValue: Long,
+    val remindAtMillis: Long
+)
+
 fun cancelMilestoneReminders(context: android.content.Context, eventId: Int) {
     val wm = WorkManager.getInstance(context)
     wm.cancelUniqueWork("$MILESTONE_WORK_PREFIX$eventId")
@@ -109,15 +114,81 @@ private fun scheduleMilestoneReminderForEvent(
     smartMilestonesEnabled: Boolean,
     targetCalendarId: Long?
 ): ScheduleSyncManager.MilestoneScheduleSyncResult? {
+    val plan = computeNextMilestoneReminderPlan(
+        event = event,
+        milestones = milestones,
+        remindDaysAhead = remindDaysAhead,
+        remindMinuteOfDay = remindMinuteOfDay,
+        smartMilestonesEnabled = smartMilestonesEnabled
+    ) ?: return null
+
+    val delayMillis = plan.remindAtMillis - System.currentTimeMillis()
+    if (delayMillis <= 0) return null
+
+    val milestoneLabel = getMilestoneLabel(context, plan.milestoneValue)
+    val data: Data = workDataOf(
+        MilestoneReminderWorker.KEY_TITLE to event.title,
+        MilestoneReminderWorker.KEY_EVENT_ID to event.id,
+        MilestoneReminderWorker.KEY_MILESTONE_LABEL to milestoneLabel,
+        MilestoneReminderWorker.KEY_DAYS_LEFT to remindDaysAhead
+    )
+    val request = OneTimeWorkRequestBuilder<MilestoneReminderWorker>()
+        .setInitialDelay(delayMillis, TimeUnit.MILLISECONDS)
+        .setInputData(data)
+        .addTag(MILESTONE_REMIND_TAG)
+        .addTag("${MILESTONE_REMIND_TAG}_${event.id}")
+        .build()
+    WorkManager.getInstance(context).enqueueUniqueWork(
+        "$MILESTONE_WORK_PREFIX${event.id}",
+        ExistingWorkPolicy.REPLACE,
+        request
+    )
+
+    var milestoneScheduleResult: ScheduleSyncManager.MilestoneScheduleSyncResult? = null
+    if (event.syncToScheduleEnabled) {
+        val scheduleTitle = if (remindDaysAhead == 0) {
+            context.getString(
+                R.string.schedule_milestone_reminder_title_today_format,
+                event.title,
+                milestoneLabel
+            )
+        } else {
+            context.resources.getQuantityString(
+                R.plurals.schedule_milestone_reminder_title_format,
+                remindDaysAhead,
+                event.title,
+                milestoneLabel,
+                remindDaysAhead
+            )
+        }
+        milestoneScheduleResult = ScheduleSyncManager.insertMilestoneScheduleReminderWithStatus(
+            context = context,
+            eventId = event.id,
+            title = scheduleTitle,
+            description = event.note,
+            triggerAtMillis = plan.remindAtMillis,
+            targetCalendarId = targetCalendarId
+        )
+    }
+    return milestoneScheduleResult
+}
+
+internal fun computeNextMilestoneReminderPlan(
+    event: Event,
+    milestones: List<Long>,
+    remindDaysAhead: Int,
+    remindMinuteOfDay: Int,
+    smartMilestonesEnabled: Boolean,
+    today: LocalDate = LocalDate.now(),
+    nowMillis: Long = System.currentTimeMillis(),
+    zoneId: ZoneId = ZoneId.systemDefault()
+): MilestoneReminderPlan? {
     if (event.repeatType != REPEAT_YEARLY && event.repeatType != REPEAT_NONE) return null
 
     val list = buildMilestonePool(milestones, smartMilestonesEnabled)
     if (list.isEmpty()) return null
 
-    val today = LocalDate.now()
     val targetDate = eventDateToLocalDate(event.date)
-    if (targetDate.isAfter(today)) return null
-
     val daysSinceEvent = ChronoUnit.DAYS.between(targetDate, today)
     for (milestoneValue in list) {
         if (milestoneValue <= daysSinceEvent) continue
@@ -125,59 +196,16 @@ private fun scheduleMilestoneReminderForEvent(
         val milestoneDate = targetDate.plusDays(milestoneValue)
         val remindDate = milestoneDate.minusDays(remindDaysAhead.toLong())
         val remindAt = remindDate
-            .atStartOfDay(ZoneId.systemDefault())
+            .atStartOfDay(zoneId)
             .plusMinutes(remindMinuteOfDay.toLong())
             .toInstant()
             .toEpochMilli()
-        val delayMillis = remindAt - System.currentTimeMillis()
-        if (delayMillis <= 0) continue
+        if (remindAt <= nowMillis) continue
 
-        val milestoneLabel = getMilestoneLabel(context, milestoneValue)
-        val data: Data = workDataOf(
-            MilestoneReminderWorker.KEY_TITLE to event.title,
-            MilestoneReminderWorker.KEY_EVENT_ID to event.id,
-            MilestoneReminderWorker.KEY_MILESTONE_LABEL to milestoneLabel,
-            MilestoneReminderWorker.KEY_DAYS_LEFT to remindDaysAhead
+        return MilestoneReminderPlan(
+            milestoneValue = milestoneValue,
+            remindAtMillis = remindAt
         )
-        val request = OneTimeWorkRequestBuilder<MilestoneReminderWorker>()
-            .setInitialDelay(delayMillis, TimeUnit.MILLISECONDS)
-            .setInputData(data)
-            .addTag(MILESTONE_REMIND_TAG)
-            .addTag("${MILESTONE_REMIND_TAG}_${event.id}")
-            .build()
-        WorkManager.getInstance(context).enqueueUniqueWork(
-            "$MILESTONE_WORK_PREFIX${event.id}",
-            ExistingWorkPolicy.REPLACE,
-            request
-        )
-
-        var milestoneScheduleResult: ScheduleSyncManager.MilestoneScheduleSyncResult? = null
-        if (event.syncToScheduleEnabled) {
-            val scheduleTitle = if (remindDaysAhead == 0) {
-                context.getString(
-                    R.string.schedule_milestone_reminder_title_today_format,
-                    event.title,
-                    milestoneLabel
-                )
-            } else {
-                context.resources.getQuantityString(
-                    R.plurals.schedule_milestone_reminder_title_format,
-                    remindDaysAhead,
-                    event.title,
-                    milestoneLabel,
-                    remindDaysAhead
-                )
-            }
-            milestoneScheduleResult = ScheduleSyncManager.insertMilestoneScheduleReminderWithStatus(
-                context = context,
-                eventId = event.id,
-                title = scheduleTitle,
-                description = event.note,
-                triggerAtMillis = remindAt,
-                targetCalendarId = targetCalendarId
-            )
-        }
-        return milestoneScheduleResult
     }
     return null
 }

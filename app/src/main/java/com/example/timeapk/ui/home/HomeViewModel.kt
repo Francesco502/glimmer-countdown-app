@@ -1,4 +1,4 @@
-﻿package com.example.timeapk.ui.home
+package com.example.timeapk.ui.home
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
@@ -222,6 +222,12 @@ class HomeViewModel(
 
     private val _searchQuery = MutableStateFlow("")
 
+    init {
+        viewModelScope.launch {
+            userPrefs.migrateHomeSortToCustomIfNeeded()
+        }
+    }
+
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
     val filterType: StateFlow<FilterType> = userPrefs.filterTypeFlow
@@ -229,8 +235,8 @@ class HomeViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), FilterType.All)
 
     val sortType: StateFlow<SortType> = userPrefs.sortTypeFlow
-        .map { SortType.entries.getOrNull(it) ?: SortType.ByDays }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SortType.ByDays)
+        .map { SortType.entries.getOrNull(it) ?: SortType.Custom }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SortType.Custom)
 
     val smartMilestonesEnabled: StateFlow<Boolean> = userPrefs.smartMilestonesEnabledFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
@@ -311,27 +317,12 @@ class HomeViewModel(
             }
         }
 
-        list = when (filterInput.sortType) {
-            SortType.ByDays -> list.sortedBy { it.daysRemaining }
-            SortType.ByDate -> list.sortedBy { it.event.date }
-            SortType.ByCreated -> list.sortedByDescending { it.event.createdAt }
-        }
-
-        if (orderInput.customEventOrderIds.isNotEmpty() && filterInput.sortType == SortType.ByCreated) {
-            list = list.sortedBy { item ->
-                val index = orderInput.customEventOrderIds.indexOf(item.event.id)
-                if (index < 0) Int.MAX_VALUE else index
-            }
-        }
-
-        if (orderInput.pinnedEventIds.isNotEmpty()) {
-            val pinnedSet = orderInput.pinnedEventIds.toSet()
-            val pinned = orderInput.pinnedEventIds.mapNotNull { id -> list.find { it.event.id == id } }
-            val unpinned = list.filter { it.event.id !in pinnedSet }
-            list = pinned + unpinned
-        }
-
-        list
+        applyHomeSort(
+            list = list,
+            sortType = filterInput.sortType,
+            customEventOrderIds = orderInput.customEventOrderIds,
+            pinnedEventIds = orderInput.pinnedEventIds
+        )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),

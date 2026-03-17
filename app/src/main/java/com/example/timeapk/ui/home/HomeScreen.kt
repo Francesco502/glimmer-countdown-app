@@ -1,9 +1,12 @@
-﻿package com.example.timeapk.ui.home
+package com.example.timeapk.ui.home
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -60,6 +63,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import com.example.timeapk.data.CATEGORY_ANNIVERSARY
 import com.example.timeapk.data.CATEGORY_BIRTHDAY
 import com.example.timeapk.data.CATEGORY_OTHER
@@ -207,7 +212,7 @@ fun HomeScreen(
                 modifier = Modifier
                     .size(48.dp)
                     .graphicsLayer { scaleX = fabScale; scaleY = fabScale },
-                shape = androidx.compose.foundation.shape.CircleShape,
+                shape = RoundedCornerShape(12.dp),
                 color = MaterialTheme.colorScheme.surface,
                 border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)),
                 shadowElevation = 2.dp
@@ -276,13 +281,20 @@ fun HomeScreen(
                     InlineActionIconButton(
                         icon = Icons.AutoMirrored.Filled.Sort,
                         contentDescription = stringResource(R.string.sort_menu),
-                        active = sortType != SortType.ByDays || showSortMenu,
+                        active = sortType != SortType.Custom || showSortMenu,
                         onClick = { showSortMenu = true }
                     )
                     DropdownMenu(
                         expanded = showSortMenu,
                         onDismissRequest = { showSortMenu = false }
                     ) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.sort_by_created)) },
+                            onClick = {
+                                viewModel.updateSortType(SortType.Custom)
+                                showSortMenu = false
+                            }
+                        )
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.sort_by_days)) },
                             onClick = {
@@ -294,13 +306,6 @@ fun HomeScreen(
                             text = { Text(stringResource(R.string.sort_by_date)) },
                             onClick = {
                                 viewModel.updateSortType(SortType.ByDate)
-                                showSortMenu = false
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.sort_by_created)) },
-                            onClick = {
-                                viewModel.updateSortType(SortType.ByCreated)
                                 showSortMenu = false
                             }
                         )
@@ -355,7 +360,7 @@ fun HomeScreen(
                         .padding(horizontal = 16.dp, vertical = 6.dp),
                     placeholder = { Text(stringResource(R.string.search_hint)) },
                     singleLine = true,
-                    shape = RoundedCornerShape(6.dp)
+                    shape = RoundedCornerShape(4.dp)
                 )
             }
 
@@ -412,13 +417,17 @@ fun HomeScreen(
                         events = displayedList,
                         selectedDate = today,
                         onEventClick = { navigateToDetail(it) },
-                        onEventLongClick = { navigateToEdit(it) },
+                        onEventLongClick = null,
                         modifier = Modifier.fillMaxSize()
                     )
                 }
             } else {
                 key(homeDisplayMode) {
-                    val dragEnabled = sortType == SortType.ByCreated
+                    val dragEnabled = homeCardDragSortEnabled(sortType)
+                    val longPressEditEnabled = homeCardLongPressEditEnabled(sortType)
+                    val tapOnlyInteraction = homeCardUsesTapOnlyInteraction(sortType)
+                    val tapNavigationEnabled = homeCardTapNavigationEnabled(sortType)
+                    val useListLevelReorderDetection = homeUsesListLevelReorderDetection(sortType)
                     val reorderState = rememberReorderableLazyListState(
                         onMove = { from, to ->
                             if (dragEnabled) {
@@ -427,8 +436,12 @@ fun HomeScreen(
                                 if (fromIdx in orderedList.indices && toIdx in orderedList.indices && fromIdx != toIdx) {
                                     val item = orderedList.removeAt(fromIdx)
                                     orderedList.add(toIdx, item)
-                                    scope.launch { prefs.setCustomEventOrder(orderedList.map { it.event.id }) }
                                 }
+                            }
+                        },
+                        onDragEnd = { _, _ ->
+                            if (dragEnabled) {
+                                scope.launch { prefs.setCustomEventOrder(orderedList.map { it.event.id }) }
                             }
                         }
                     )
@@ -452,10 +465,13 @@ fun HomeScreen(
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .then(
-                                            if (dragEnabled) {
+                                            if (dragEnabled && useListLevelReorderDetection) {
                                                 Modifier
                                                     .reorderable(reorderState)
                                                     .detectReorderAfterLongPress(reorderState)
+                                            } else if (dragEnabled) {
+                                                Modifier
+                                                    .reorderable(reorderState)
                                             } else {
                                                 Modifier
                                             }
@@ -465,9 +481,22 @@ fun HomeScreen(
                                 ) {
                                     items(orderedList, key = { it.event.id }) { eventState ->
                                         ReorderableItem(reorderState, key = eventState.event.id) { isDragging ->
+                                            val haptic = LocalHapticFeedback.current
+                                            LaunchedEffect(isDragging) {
+                                                if (isDragging) {
+                                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                }
+                                            }
                                             Box(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
+                                                    .then(
+                                                        if (dragEnabled && !useListLevelReorderDetection) {
+                                                            Modifier.detectReorderAfterLongPress(reorderState)
+                                                        } else {
+                                                            Modifier
+                                                        }
+                                                    )
                                                     .then(
                                                         if (listInitialized) Modifier.animateItemPlacement(animationSpec = AnimationSpecs.springItemPlacement)
                                                         else Modifier
@@ -495,7 +524,13 @@ fun HomeScreen(
                                                             }
                                                         },
                                                         onClick = { navigateToDetail(eventState.event.id) },
-                                                        onLongClick = { navigateToEdit(eventState.event.id) },
+                                                        onLongClick = if (longPressEditEnabled) {
+                                                            { navigateToEdit(eventState.event.id) }
+                                                        } else {
+                                                            null
+                                                        },
+                                                        tapOnlyInteraction = tapOnlyInteraction,
+                                                        tapNavigationEnabled = tapNavigationEnabled,
                                                         showHours = showHours,
                                                         showMilestone = showMilestone,
                                                         showDetail = showDetail,
@@ -522,7 +557,13 @@ fun HomeScreen(
                                                             }
                                                         },
                                                         onClick = { navigateToDetail(eventState.event.id) },
-                                                        onLongClick = { navigateToEdit(eventState.event.id) },
+                                                        onLongClick = if (longPressEditEnabled) {
+                                                            { navigateToEdit(eventState.event.id) }
+                                                        } else {
+                                                            null
+                                                        },
+                                                        tapOnlyInteraction = tapOnlyInteraction,
+                                                        tapNavigationEnabled = tapNavigationEnabled,
                                                         isDragging = isDragging
                                                     )
                                                 }
@@ -598,7 +639,9 @@ fun EventCard(
     dateDeltaDisplayMode: Int,
     onToggleDateDeltaDisplayMode: () -> Unit,
     onClick: () -> Unit,
-    onLongClick: () -> Unit,
+    onLongClick: (() -> Unit)?,
+    tapOnlyInteraction: Boolean = false,
+    tapNavigationEnabled: Boolean = true,
     showHours: Boolean = true,
     showMilestone: Boolean = true,
     showDetail: Boolean = true,
@@ -614,18 +657,18 @@ fun EventCard(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.98f else 1f,
-        animationSpec = AnimationSpecs.springButton,
+        targetValue = if (isDragging) 1.02f else if (isPressed) 0.98f else 1f,
+        animationSpec = spring(dampingRatio = 0.7f, stiffness = 200f),
         label = "cardScale"
     )
     val cardAlpha by animateFloatAsState(
-        targetValue = if (isPressed) 0.92f else 1f,
-        animationSpec = AnimationSpecs.microTween(),
+        targetValue = if (isDragging) 0.85f else if (isPressed) 0.92f else 1f,
+        animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
         label = "cardAlpha"
     )
     val dragElevation by animateDpAsState(
-        targetValue = if (isDragging) 12.dp else 0.dp,
-        animationSpec = AnimationSpecs.smallTweenDp(),
+        targetValue = if (isDragging) 16.dp else 0.dp,
+        animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
         label = "dragElevation"
     )
 
@@ -634,10 +677,11 @@ fun EventCard(
 
     // Keep high contrast for readability on both light and dark card colors.
     val isLight = cardContainerColor.luminance() > 0.45f
+    val onBgColor = MaterialTheme.colorScheme.onBackground
     val cardContentColor = if (isLight) {
-        lerp(Color(0xFF141618), baseCardColor, 0.1f)
+        lerp(onBgColor, baseCardColor, 0.1f)
     } else {
-        lerp(Color(0xFFF9F7F2), baseCardColor, 0.05f)
+        lerp(onBgColor, baseCardColor, 0.05f)
     }
 
     val view = androidx.compose.ui.platform.LocalView.current
@@ -723,24 +767,41 @@ fun EventCard(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = 110.dp)
-            .shadow(dragElevation, RoundedCornerShape(2.dp), spotColor = Color.Black.copy(alpha = 0.25f))
+            .shadow(
+                elevation = dragElevation, 
+                shape = RoundedCornerShape(2.dp), 
+                spotColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f),
+                ambientColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f)
+            )
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
                 alpha = cardAlpha
             }
-            .combinedClickable(
-                interactionSource = interactionSource,
-                indication = LocalIndication.current,
-                onClick = onClick,
-                onLongClick = onLongClick
+            .then(
+                if (!tapNavigationEnabled) {
+                    Modifier
+                } else if (tapOnlyInteraction) {
+                    Modifier.clickable(
+                        interactionSource = interactionSource,
+                        indication = LocalIndication.current,
+                        onClick = onClick
+                    )
+                } else {
+                    Modifier.combinedClickable(
+                        interactionSource = interactionSource,
+                        indication = LocalIndication.current,
+                        onClick = onClick,
+                        onLongClick = onLongClick
+                    )
+                }
             )
             .semantics(mergeDescendants = true) { contentDescription = cardDescription },
         shape = RoundedCornerShape(2.dp),
         colors = CardDefaults.cardColors(containerColor = cardContainerColor),
         border = BorderStroke(
-            width = 0.5.dp, // 鏋佺粏娣″ⅷ杈规
-            color = baseCardColor.copy(alpha = if (isPast) 0.3f else 0.8f)
+            width = if (isDragging) 1.dp else 0.5.dp, // 拖拽时边框加粗
+            color = if (isDragging) MaterialTheme.colorScheme.primary.copy(alpha = 0.6f) else baseCardColor.copy(alpha = if (isPast) 0.3f else 0.8f)
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -765,17 +826,24 @@ fun EventCard(
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
                         text = eventState.event.title,
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = androidx.compose.ui.text.font.FontWeight.Normal
-                        ),
+                        style = MaterialTheme.typography.titleMedium,
                         color = cardContentColor.copy(alpha = if (isPast) 0.8f else 1.0f),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
+
+                    val dateLine = targetLocalDate.format(dateFormatter)
+                    val dateLineStyle = if (dateLine.length > 12) {
+                        MaterialTheme.typography.labelSmall
+                    } else {
+                        MaterialTheme.typography.bodySmall
+                    }
                     Text(
-                        text = targetLocalDate.format(dateFormatter),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = cardContentColor.copy(alpha = 0.8f)
+                        text = dateLine,
+                        style = dateLineStyle,
+                        color = cardContentColor.copy(alpha = 0.8f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -788,10 +856,16 @@ fun EventCard(
                     .fillMaxHeight()
                     .widthIn(min = 72.dp)
                     .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = LocalIndication.current,
-                        onClick = onToggleDateDeltaDisplayMode
+                    .then(
+                        if (tapNavigationEnabled) {
+                            Modifier.clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = LocalIndication.current,
+                                onClick = onToggleDateDeltaDisplayMode
+                            )
+                        } else {
+                            Modifier
+                        }
                     ),
                 contentAlignment = Alignment.CenterEnd
             ) {
@@ -804,12 +878,10 @@ fun EventCard(
                         verticalAlignment = Alignment.Bottom,
                         horizontalArrangement = Arrangement.End
                     ) {
-                        Text(
-                            text = displayContent,
-                            style = MaterialTheme.typography.displaySmall.copy(
-                                fontWeight = androidx.compose.ui.text.font.FontWeight.Normal
-                            ),
-                            color = timeColor,
+                            Text(
+                                text = displayContent,
+                                style = MaterialTheme.typography.displaySmall,
+                                color = timeColor,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -845,25 +917,27 @@ private fun EventListItem(
     dateDeltaDisplayMode: Int,
     onToggleDateDeltaDisplayMode: () -> Unit,
     onClick: () -> Unit,
-    onLongClick: () -> Unit,
+    onLongClick: (() -> Unit)?,
+    tapOnlyInteraction: Boolean = false,
+    tapNavigationEnabled: Boolean = true,
     isDragging: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.98f else 1f,
-        animationSpec = AnimationSpecs.springButton,
+        targetValue = if (isDragging) 1.02f else if (isPressed) 0.98f else 1f,
+        animationSpec = spring(dampingRatio = 0.7f, stiffness = 200f),
         label = "listItemScale"
     )
     val itemAlpha by animateFloatAsState(
-        targetValue = if (isPressed) 0.92f else 1f,
-        animationSpec = AnimationSpecs.microTween(),
+        targetValue = if (isDragging) 0.85f else if (isPressed) 0.92f else 1f,
+        animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
         label = "listItemAlpha"
     )
     val listDragElevation by animateDpAsState(
-        targetValue = if (isDragging) 8.dp else 0.dp,
-        animationSpec = AnimationSpecs.smallTweenDp(),
+        targetValue = if (isDragging) 12.dp else 0.dp,
+        animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
         label = "listDragElevation"
     )
     val isPast = eventState.isPast
@@ -968,12 +1042,12 @@ private fun EventListItem(
     }
     val isLightSurface = MaterialTheme.colorScheme.surface.luminance() > 0.5f
     val displayColor = if (isLightSurface) {
-        lerp(eventColor, Color.Black, 0.4f)
+        lerp(eventColor, MaterialTheme.colorScheme.onBackground, 0.4f)
     } else {
-        lerp(eventColor, Color.White, 0.4f)
+        lerp(eventColor, MaterialTheme.colorScheme.onBackground, 0.4f)
     }
     val rowBackground = when {
-        isDragging -> MaterialTheme.colorScheme.surface.copy(alpha = 0.96f)
+        isDragging -> MaterialTheme.colorScheme.surface
         isPressed -> MaterialTheme.colorScheme.primary.copy(alpha = 0.05f)
         else -> Color.Transparent
     }
@@ -981,18 +1055,39 @@ private fun EventListItem(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(listDragElevation, RoundedCornerShape(2.dp), spotColor = Color.Black.copy(alpha = 0.18f))
+            .shadow(
+                elevation = listDragElevation, 
+                shape = RoundedCornerShape(2.dp), 
+                spotColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f),
+                ambientColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f)
+            )
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
                 alpha = itemAlpha
             }
             .background(color = rowBackground, shape = RoundedCornerShape(2.dp))
-            .combinedClickable(
-                interactionSource = interactionSource,
-                indication = LocalIndication.current,
-                onClick = onClick,
-                onLongClick = onLongClick
+            .then(
+                if (isDragging) Modifier.border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), RoundedCornerShape(2.dp))
+                else Modifier
+            )
+            .then(
+                if (!tapNavigationEnabled) {
+                    Modifier
+                } else if (tapOnlyInteraction) {
+                    Modifier.clickable(
+                        interactionSource = interactionSource,
+                        indication = LocalIndication.current,
+                        onClick = onClick
+                    )
+                } else {
+                    Modifier.combinedClickable(
+                        interactionSource = interactionSource,
+                        indication = LocalIndication.current,
+                        onClick = onClick,
+                        onLongClick = onLongClick
+                    )
+                }
             )
             .semantics(mergeDescendants = true) { contentDescription = itemDescription }
     ) {
@@ -1020,7 +1115,6 @@ private fun EventListItem(
                 Text(
                     text = eventState.event.title,
                     style = MaterialTheme.typography.bodyLarge.copy(
-                        fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
                         letterSpacing = 0.3.sp
                     ),
                     color = itemContentColor.copy(alpha = if (isPast) 0.84f else 1f),
@@ -1067,10 +1161,16 @@ private fun EventListItem(
                 modifier = Modifier
                     .width(96.dp)
                     .sizeIn(minHeight = 48.dp)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = LocalIndication.current,
-                        onClick = onToggleDateDeltaDisplayMode
+                    .then(
+                        if (tapNavigationEnabled) {
+                            Modifier.clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = LocalIndication.current,
+                                onClick = onToggleDateDeltaDisplayMode
+                            )
+                        } else {
+                            Modifier
+                        }
                     ),
                 horizontalAlignment = Alignment.End,
                 verticalArrangement = Arrangement.Center
@@ -1078,9 +1178,9 @@ private fun EventListItem(
                 Text(
                     text = daysDisplay,
                     style = if (daysDisplay.length > 8) {
-                        MaterialTheme.typography.bodyMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                        MaterialTheme.typography.bodyMedium
                     } else {
-                        MaterialTheme.typography.titleMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                        MaterialTheme.typography.titleMedium
                     },
                     color = if (isPast) displayColor.copy(alpha = 0.82f) else displayColor,
                     maxLines = 2,
@@ -1131,7 +1231,7 @@ private fun MonthCalendarView(
     events: List<EventUiState>,
     selectedDate: LocalDate,
     onEventClick: (Int) -> Unit,
-    onEventLongClick: (Int) -> Unit,
+    onEventLongClick: ((Int) -> Unit)?,
     modifier: Modifier = Modifier
 ) {
     var currentMonth by remember(selectedDate) { mutableStateOf(YearMonth.from(selectedDate)) }
@@ -1278,7 +1378,7 @@ private fun MonthCalendarView(
                                                 .size(4.dp)
                                                 .background(
                                                     color = MaterialTheme.colorScheme.primary,
-                                                    shape = CircleShape
+                                                    shape = RoundedCornerShape(4.dp)
                                                 )
                                         )
                                         Text(
@@ -1322,9 +1422,15 @@ private fun MonthCalendarView(
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .combinedClickable(
-                                onClick = { onEventClick(state.event.id) },
-                                onLongClick = { onEventLongClick(state.event.id) }
+                            .then(
+                                if (onEventLongClick != null) {
+                                    Modifier.combinedClickable(
+                                        onClick = { onEventClick(state.event.id) },
+                                        onLongClick = { onEventLongClick(state.event.id) }
+                                    )
+                                } else {
+                                    Modifier.clickable { onEventClick(state.event.id) }
+                                }
                             ),
                         shape = RoundedCornerShape(8.dp),
                         color = MaterialTheme.colorScheme.surface,

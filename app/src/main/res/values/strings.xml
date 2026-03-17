@@ -33,7 +33,7 @@
     <string name="filter_all">全部</string>
     <string name="sort_by_days">按剩余天数</string>
     <string name="sort_by_date">按目标日期</string>
-    <string name="sort_by_created">按创建时间</string>
+    <string name="sort_by_created">自定义排序</string>
     <string name="sort_menu">排序</string>
     <string name="display_mode_card">卡片</string>
     <string name="display_mode_list">列表</string>

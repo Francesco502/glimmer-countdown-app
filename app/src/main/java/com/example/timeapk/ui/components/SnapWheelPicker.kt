@@ -1,6 +1,8 @@
 package com.example.timeapk.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -25,14 +27,74 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlin.math.abs
 
 private const val DEFAULT_VISIBLE_COUNT = 5
 
+internal data class WheelVisibleItemInfo(
+    val index: Int,
+    val offset: Int,
+    val size: Int
+)
+
+internal fun centeredVisibleItemIndex(
+    viewportStartOffset: Int,
+    viewportEndOffset: Int,
+    visibleItems: List<WheelVisibleItemInfo>
+): Int? {
+    if (visibleItems.isEmpty()) return null
+    val center = (viewportStartOffset + viewportEndOffset) / 2
+    return visibleItems.minByOrNull { info ->
+        abs((info.offset + info.size / 2) - center)
+    }?.index
+}
+
+internal fun itemIndexFromVisibleIndex(
+    visibleIndex: Int,
+    paddingCount: Int,
+    itemCount: Int
+): Int {
+    if (itemCount <= 0) return 0
+    return (visibleIndex - paddingCount).coerceIn(0, itemCount - 1)
+}
+
+internal fun shouldSyncToSelectedItem(
+    currentCenteredVisibleIndex: Int?,
+    targetItemIndex: Int,
+    paddingCount: Int,
+    itemCount: Int
+): Boolean {
+    if (itemCount <= 0) return false
+    if (currentCenteredVisibleIndex == null) return true
+    return itemIndexFromVisibleIndex(
+        visibleIndex = currentCenteredVisibleIndex,
+        paddingCount = paddingCount,
+        itemCount = itemCount
+    ) != targetItemIndex.coerceIn(0, itemCount - 1)
+}
+
+private fun centeredVisibleItemIndex(listState: LazyListState): Int? {
+    return centeredVisibleItemIndex(
+        viewportStartOffset = listState.layoutInfo.viewportStartOffset,
+        viewportEndOffset = listState.layoutInfo.viewportEndOffset,
+        visibleItems = listState.layoutInfo.visibleItemsInfo.map { info ->
+            WheelVisibleItemInfo(
+                index = info.index,
+                offset = info.offset,
+                size = info.size
+            )
+        }
+    )
+}
+
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 fun <T> SnapWheelPicker(
     items: List<T>,
     selectedItem: T,
     onItemSelected: (T) -> Unit,
+    onScrollStateChanged: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
     visibleCount: Int = DEFAULT_VISIBLE_COUNT,
     itemHeight: Dp = 36.dp,
@@ -47,24 +109,27 @@ fun <T> SnapWheelPicker(
     LaunchedEffect(items, selectedItem) {
         if (items.isEmpty()) return@LaunchedEffect
         val targetIndex = items.indexOf(selectedItem).coerceAtLeast(0)
-        val currentCenterIndex = state.firstVisibleItemIndex + paddingCount
-        if (currentCenterIndex != targetIndex) {
+        val currentCenteredVisibleIndex = centeredVisibleItemIndex(state)
+        if (shouldSyncToSelectedItem(
+                currentCenteredVisibleIndex = currentCenteredVisibleIndex,
+                targetItemIndex = targetIndex,
+                paddingCount = paddingCount,
+                itemCount = items.size
+            )
+        ) {
             isProgrammaticScroll = true
             state.animateScrollToItem(targetIndex)
             isProgrammaticScroll = false
         }
     }
 
-    WheelSnapEffect(
-        listState = state,
-        enabled = !isProgrammaticScroll
-    )
     WheelSelectionEffect(
         listState = state,
         items = items,
         paddingCount = paddingCount,
         enabled = !isProgrammaticScroll,
-        onItemSelected = onItemSelected
+        onItemSelected = onItemSelected,
+        onScrollStateChanged = onScrollStateChanged
     )
 
     Box(
@@ -74,7 +139,8 @@ fun <T> SnapWheelPicker(
         val totalCount = items.size + paddingCount * 2
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            state = state
+            state = state,
+            flingBehavior = rememberSnapFlingBehavior(lazyListState = state)
         ) {
             items(totalCount) { index ->
                 val itemIndex = index - paddingCount
@@ -132,37 +198,40 @@ fun <T> SnapWheelPicker(
 }
 
 @Composable
-private fun WheelSnapEffect(
-    listState: LazyListState,
-    enabled: Boolean
-) {
-    LaunchedEffect(listState.isScrollInProgress, enabled) {
-        if (!enabled || listState.isScrollInProgress) return@LaunchedEffect
-        val itemSize = listState.layoutInfo.visibleItemsInfo.firstOrNull()?.size ?: 0
-        if (itemSize == 0) return@LaunchedEffect
-
-        val firstIndex = listState.firstVisibleItemIndex
-        val firstOffset = listState.firstVisibleItemScrollOffset
-        val targetIndex = if (firstOffset > itemSize / 2) firstIndex + 1 else firstIndex
-        listState.animateScrollToItem(targetIndex)
-    }
-}
-
-@Composable
 private fun <T> WheelSelectionEffect(
     listState: LazyListState,
     items: List<T>,
     paddingCount: Int,
     enabled: Boolean,
-    onItemSelected: (T) -> Unit
+    onItemSelected: (T) -> Unit,
+    onScrollStateChanged: (Boolean) -> Unit
 ) {
     LaunchedEffect(listState, items, enabled) {
         if (!enabled) return@LaunchedEffect
-        snapshotFlow { listState.firstVisibleItemIndex + paddingCount }
-            .collectLatest { index ->
-                if (items.isEmpty()) return@collectLatest
-                val itemIndex = (index - paddingCount).coerceIn(0, items.lastIndex)
+        snapshotFlow {
+            listState.isScrollInProgress to centeredVisibleItemIndex(listState)
+        }
+            .distinctUntilChanged()
+            .collectLatest { (isScrolling, visibleIndex) ->
+                if (items.isEmpty()) {
+                    onScrollStateChanged(false)
+                    return@collectLatest
+                }
+                if (isScrolling) {
+                    onScrollStateChanged(true)
+                    return@collectLatest
+                }
+                val safeIndex = visibleIndex ?: run {
+                    onScrollStateChanged(false)
+                    return@collectLatest
+                }
+                val itemIndex = itemIndexFromVisibleIndex(
+                    visibleIndex = safeIndex,
+                    paddingCount = paddingCount,
+                    itemCount = items.size
+                )
                 onItemSelected(items[itemIndex])
+                onScrollStateChanged(false)
             }
     }
 }

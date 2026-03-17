@@ -1,8 +1,9 @@
-﻿package com.example.timeapk.ui.components
+package com.example.timeapk.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -329,7 +330,11 @@ fun BottomSheetDatePicker(
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
-        dragHandle = null
+        dragHandle = null,
+        shape = RoundedCornerShape(
+            topStart = com.example.timeapk.ui.theme.SongDesignTokens.RadiusLg.dp,
+            topEnd = com.example.timeapk.ui.theme.SongDesignTokens.RadiusLg.dp
+        )
     ) {
         Column(
             modifier = modifier

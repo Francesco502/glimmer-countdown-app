@@ -1,4 +1,4 @@
-﻿import java.util.Properties
+import java.util.Properties
 
 plugins {
     id("com.android.application")
@@ -31,8 +31,8 @@ android {
         applicationId = "com.example.timeapk"
         minSdk = 26
         targetSdk = 36
-        versionCode = versionCodeOverride ?: 9
-        versionName = versionNameOverride ?: "3.5"
+        versionCode = versionCodeOverride ?: 10
+        versionName = versionNameOverride ?: "3.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -100,8 +100,8 @@ android {
     }
 }
 
-// Release APK 输出名：例如 glimmer-countdown-3-5.apk（版本号中 . 改为 -）
-val versionNameForApk = versionNameOverride ?: "3.5"
+// Release APK 输出名：例如 glimmer-countdown-3-6.apk（版本号中 . 改为 -）
+val versionNameForApk = versionNameOverride ?: "3.6"
 val apkBaseName = "glimmer-countdown-${versionNameForApk.replace(".", "-")}"
 tasks.register("renameDirectReleaseApk") {
     dependsOn("packageDirectRelease")

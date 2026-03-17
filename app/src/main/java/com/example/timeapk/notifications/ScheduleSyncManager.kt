@@ -16,6 +16,10 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.util.TimeZone
 
+internal fun isManagedReminderMetadataKind(kind: String?): Boolean {
+    return kind == null || kind == "reminder_v2" || kind == "reminder_rrule_v2"
+}
+
 object ScheduleSyncManager {
 
     data class CalendarOption(
@@ -545,9 +549,10 @@ object ScheduleSyncManager {
         idsByMeta.forEach { id ->
             if (entries.any { it.calendarEventId == id }) return@forEach
             val props = readExtendedProperties(context, id)
+            val kind = props[META_NAME_KIND]
+            if (!isManagedReminderMetadataKind(kind)) return@forEach
             val occ = props[META_NAME_OCC_EPOCH_DAY]?.toLongOrNull()
             val days = props[META_NAME_DAYS_LEFT]?.toIntOrNull()
-            val kind = props[META_NAME_KIND]
             val key = if (occ != null && days != null) {
                 buildReminderEntryKey(
                     occurrenceEpochDay = occ,
@@ -566,6 +571,9 @@ object ScheduleSyncManager {
     private fun findManagedReminderEventIds(context: Context, eventId: Int): Set<Long> {
         val ids = mutableSetOf<Long>()
         ids += findEventIdsByExtendedProperty(context, META_NAME_EVENT_ID, eventId.toString())
+            .filter { id ->
+                isManagedReminderMetadataKind(readExtendedProperties(context, id)[META_NAME_KIND])
+            }
         context.contentResolver.query(
             CalendarContract.Events.CONTENT_URI,
             arrayOf(CalendarContract.Events._ID),

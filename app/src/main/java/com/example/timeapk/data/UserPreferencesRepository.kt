@@ -1,4 +1,4 @@
-﻿package com.example.timeapk.data
+package com.example.timeapk.data
 
 import android.content.Context
 import androidx.datastore.core.DataStore
@@ -20,6 +20,7 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 private val THEME_MODE = intPreferencesKey("theme_mode")
 private val FILTER_TYPE = intPreferencesKey("filter_type")
 private val SORT_TYPE = intPreferencesKey("sort_type")
+private val HAS_MIGRATED_HOME_SORT_TO_CUSTOM = booleanPreferencesKey("has_migrated_home_sort_to_custom")
 private val SHOW_HOURS = booleanPreferencesKey("show_hours")
 private val SHOW_MILESTONE = booleanPreferencesKey("show_milestone")
 private val HOME_DISPLAY_MODE = intPreferencesKey("home_display_mode")
@@ -59,12 +60,46 @@ const val THEME_DARK = 2
 const val LANG_ZH = 0
 const val LANG_EN = 1
 
+internal const val HOME_SORT_BY_DAYS = 0
+internal const val HOME_SORT_BY_DATE = 1
+internal const val HOME_SORT_CUSTOM = 2
+
 val DEFAULT_MILESTONE_DAYS = listOf(100L, 200L, 300L, 400L, 500L, 600L, 700L, 800L, 900L, 1000L)
+
+internal fun resolveHomeSortPreference(storedSortType: Int?, hasMigratedToCustomSort: Boolean): Int {
+    if (!hasMigratedToCustomSort) return HOME_SORT_CUSTOM
+    return when (storedSortType) {
+        HOME_SORT_BY_DAYS,
+        HOME_SORT_BY_DATE,
+        HOME_SORT_CUSTOM -> storedSortType
+        else -> HOME_SORT_CUSTOM
+    }
+}
+
+internal data class HomeSortSelectionUpdate(
+    val sortType: Int,
+    val hasMigratedToCustomSort: Boolean
+)
+
+internal fun resolveHomeSortSelectionUpdate(selectedSortType: Int): HomeSortSelectionUpdate {
+    return HomeSortSelectionUpdate(
+        sortType = resolveHomeSortPreference(
+            storedSortType = selectedSortType,
+            hasMigratedToCustomSort = true
+        ),
+        hasMigratedToCustomSort = true
+    )
+}
 
 class UserPreferencesRepository(private val context: Context) {
     val themeModeFlow: Flow<Int> = context.dataStore.data.map { it[THEME_MODE] ?: THEME_FOLLOW_SYSTEM }
     val filterTypeFlow: Flow<Int> = context.dataStore.data.map { it[FILTER_TYPE] ?: 0 }
-    val sortTypeFlow: Flow<Int> = context.dataStore.data.map { it[SORT_TYPE] ?: 0 }
+    val sortTypeFlow: Flow<Int> = context.dataStore.data.map { prefs ->
+        resolveHomeSortPreference(
+            storedSortType = prefs[SORT_TYPE],
+            hasMigratedToCustomSort = prefs[HAS_MIGRATED_HOME_SORT_TO_CUSTOM] ?: false
+        )
+    }
     val showHoursFlow: Flow<Boolean> = context.dataStore.data.map { it[SHOW_HOURS] ?: true }
     val showMilestoneFlow: Flow<Boolean> = context.dataStore.data.map { it[SHOW_MILESTONE] ?: true }
     val homeDisplayModeFlow: Flow<Int> = context.dataStore.data.map { (it[HOME_DISPLAY_MODE] ?: 0).coerceIn(0, 2) }
@@ -158,7 +193,21 @@ class UserPreferencesRepository(private val context: Context) {
     }
 
     suspend fun setSortType(type: Int) {
-        context.dataStore.edit { it[SORT_TYPE] = type }
+        context.dataStore.edit { prefs ->
+            val update = resolveHomeSortSelectionUpdate(type)
+            prefs[SORT_TYPE] = update.sortType
+            prefs[HAS_MIGRATED_HOME_SORT_TO_CUSTOM] = update.hasMigratedToCustomSort
+        }
+    }
+
+    suspend fun migrateHomeSortToCustomIfNeeded() {
+        context.dataStore.edit { prefs ->
+            val hasMigrated = prefs[HAS_MIGRATED_HOME_SORT_TO_CUSTOM] ?: false
+            if (!hasMigrated) {
+                prefs[SORT_TYPE] = HOME_SORT_CUSTOM
+                prefs[HAS_MIGRATED_HOME_SORT_TO_CUSTOM] = true
+            }
+        }
     }
 
     suspend fun setShowHours(show: Boolean) {

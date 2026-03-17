@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Glimmer</string>
 
@@ -41,7 +41,7 @@
     <string name="filter_all">All</string>
     <string name="sort_by_days">By days left</string>
     <string name="sort_by_date">By target date</string>
-    <string name="sort_by_created">By created</string>
+    <string name="sort_by_created">Custom order</string>
     <string name="sort_menu">Sort</string>
     <string name="display_mode_card">Cards</string>
     <string name="display_mode_list">List</string>

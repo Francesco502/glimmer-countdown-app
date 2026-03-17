@@ -8,5 +8,7 @@ data class CheckUpdateResult(
     val hasUpdate: Boolean,
     val versionName: String? = null,
     val downloadUrl: String? = null,
-    val releaseNotes: String? = null
+    val releaseNotes: String? = null,
+    val checkFailed: Boolean = false,
+    val errorMessage: String? = null
 )

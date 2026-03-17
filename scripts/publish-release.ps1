@@ -1,4 +1,4 @@
-﻿# Publish Release APK to GitHub Release. Requires env GITHUB_TOKEN (repo scope).
+# Publish Release APK to GitHub Release. Requires env GITHUB_TOKEN (repo scope).
 # Run from project root: .\scripts\publish-release.ps1
 
 $ErrorActionPreference = 'Stop'
@@ -8,7 +8,7 @@ $tag = $null
 $releaseName = $null
 $rootDir = Split-Path $PSScriptRoot -Parent
 $gradleProps = Join-Path $rootDir 'gradle.properties'
-$versionName = '3.5'
+$versionName = '3.6'
 if (Test-Path $gradleProps) {
     $line = Get-Content $gradleProps | Where-Object { $_ -match '^\s*VERSION_NAME\s*=\s*(.+)$' } | Select-Object -First 1
     if ($line -match 'VERSION_NAME\s*=\s*(.+)') { $versionName = $Matches[1].Trim() }

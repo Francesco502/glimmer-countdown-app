@@ -1,4 +1,4 @@
-﻿package com.example.timeapk.ui.event
+package com.example.timeapk.ui.event
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.LocalIndication
@@ -368,7 +368,13 @@ fun EventInputForm(
             title = stringResource(R.string.field_date),
             onDismissRequest = { showDatePicker = false },
             onConfirm = { millis, isLunar ->
-                onValueChange(eventDetails.copy(date = millis, isLunar = isLunar))
+                onValueChange(
+                    eventDetails.copy(
+                        date = millis,
+                        isLunar = isLunar,
+                        repeatType = sanitizeRepeatTypeForLunar(isLunar, eventDetails.repeatType)
+                    )
+                )
             }
         )
     }
@@ -408,14 +414,17 @@ fun EventInputForm(
     )
     val selectedRemindHour = (eventDetails.reminderTimeMinutesOfDay / 60).coerceIn(0, 23)
     val selectedRemindMinute = (eventDetails.reminderTimeMinutesOfDay % 60).coerceIn(0, 59)
-    val repeatOptions = listOf(
-        REPEAT_NONE to stringResource(R.string.repeat_none),
-        REPEAT_YEARLY to stringResource(R.string.repeat_yearly),
-        REPEAT_HALF_YEARLY to stringResource(R.string.repeat_half_yearly),
-        REPEAT_MONTHLY to stringResource(R.string.repeat_monthly),
-        REPEAT_WEEKLY to stringResource(R.string.repeat_weekly),
-        REPEAT_DAILY to stringResource(R.string.repeat_daily)
-    )
+    val repeatOptions = supportedRepeatTypes(eventDetails.isLunar).map { repeatType ->
+        repeatType to when (repeatType) {
+            REPEAT_NONE -> stringResource(R.string.repeat_none)
+            REPEAT_YEARLY -> stringResource(R.string.repeat_yearly)
+            REPEAT_HALF_YEARLY -> stringResource(R.string.repeat_half_yearly)
+            REPEAT_MONTHLY -> stringResource(R.string.repeat_monthly)
+            REPEAT_WEEKLY -> stringResource(R.string.repeat_weekly)
+            REPEAT_DAILY -> stringResource(R.string.repeat_daily)
+            else -> repeatType
+        }
+    }
     var reminderSettingsExpanded by remember { mutableStateOf(false) }
     var showCustomRepeatPicker by remember { mutableStateOf(false) }
     var showCustomRemindDaysPicker by remember { mutableStateOf(false) }
@@ -427,6 +436,7 @@ fun EventInputForm(
                 repeatOptions.firstOrNull { it.first == eventDetails.repeatType }?.first ?: REPEAT_NONE
             )
         }
+        var isRepeatPickerScrolling by remember { mutableStateOf(false) }
         AlertDialog(
             onDismissRequest = { showCustomRepeatPicker = false },
             title = { Text(stringResource(R.string.category_custom)) },
@@ -435,6 +445,7 @@ fun EventInputForm(
                     items = repeatOptions.map { it.first },
                     selectedItem = draftRepeat,
                     onItemSelected = { draftRepeat = it },
+                    onScrollStateChanged = { isRepeatPickerScrolling = it },
                     modifier = Modifier.fillMaxWidth(),
                     itemLabel = { value ->
                         repeatOptions.firstOrNull { it.first == value }?.second ?: value
@@ -446,7 +457,8 @@ fun EventInputForm(
                     onClick = {
                         onValueChange(eventDetails.copy(repeatType = draftRepeat))
                         showCustomRepeatPicker = false
-                    }
+                    },
+                    enabled = !isRepeatPickerScrolling
                 ) {
                     Text(stringResource(R.string.date_picker_ok))
                 }
@@ -461,6 +473,7 @@ fun EventInputForm(
 
     if (showCustomRemindDaysPicker) {
         var draftDays by remember(eventDetails.remindDaysBefore) { mutableStateOf(selectedRemindDays) }
+        var isDaysPickerScrolling by remember { mutableStateOf(false) }
         AlertDialog(
             onDismissRequest = { showCustomRemindDaysPicker = false },
             title = { Text(stringResource(R.string.custom_remind_days_label)) },
@@ -469,6 +482,7 @@ fun EventInputForm(
                     items = reminderDayOptions,
                     selectedItem = draftDays,
                     onItemSelected = { draftDays = it },
+                    onScrollStateChanged = { isDaysPickerScrolling = it },
                     modifier = Modifier.fillMaxWidth(),
                     itemLabel = { days ->
                         if (days == 0) {
@@ -488,7 +502,8 @@ fun EventInputForm(
                     onClick = {
                         onValueChange(eventDetails.copy(remindDaysBefore = draftDays))
                         showCustomRemindDaysPicker = false
-                    }
+                    },
+                    enabled = !isDaysPickerScrolling
                 ) {
                     Text(stringResource(R.string.date_picker_ok))
                 }
@@ -508,6 +523,8 @@ fun EventInputForm(
         var draftMinute by remember(eventDetails.reminderTimeMinutesOfDay) {
             mutableStateOf(selectedRemindMinute)
         }
+        var isHourPickerScrolling by remember { mutableStateOf(false) }
+        var isMinutePickerScrolling by remember { mutableStateOf(false) }
         AlertDialog(
             onDismissRequest = { showCustomRemindTimePicker = false },
             title = { Text(stringResource(R.string.custom_reminder_time_label)) },
@@ -520,6 +537,7 @@ fun EventInputForm(
                         items = reminderHourOptions,
                         selectedItem = draftHour,
                         onItemSelected = { draftHour = it },
+                        onScrollStateChanged = { isHourPickerScrolling = it },
                         modifier = Modifier.weight(1f),
                         itemLabel = { value -> String.format(Locale.US, "%02d", value) }
                     )
@@ -527,6 +545,7 @@ fun EventInputForm(
                         items = reminderMinuteOptions,
                         selectedItem = draftMinute,
                         onItemSelected = { draftMinute = it },
+                        onScrollStateChanged = { isMinutePickerScrolling = it },
                         modifier = Modifier.weight(1f),
                         itemLabel = { value -> String.format(Locale.US, "%02d", value) }
                     )
@@ -539,7 +558,8 @@ fun EventInputForm(
                             eventDetails.copy(reminderTimeMinutesOfDay = draftHour * 60 + draftMinute)
                         )
                         showCustomRemindTimePicker = false
-                    }
+                    },
+                    enabled = !isHourPickerScrolling && !isMinutePickerScrolling
                 ) {
                     Text(stringResource(R.string.date_picker_ok))
                 }
@@ -769,30 +789,11 @@ fun EventInputForm(
             }
 
             if (eventDetails.remindEnabled) {
+                // 提前 X 天：点击整行进入滚轮选择
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    listOf(
-                        stringResource(R.string.remind_same_day) to 0,
-                        stringResource(R.string.remind_1_day) to 1,
-                        stringResource(R.string.remind_3_days) to 3,
-                        stringResource(R.string.remind_7_days) to 7
-                    ).forEach { (label, days) ->
-                        FilterChip(
-                            selected = eventDetails.remindDaysBefore == days,
-                            onClick = { onValueChange(eventDetails.copy(remindDaysBefore = days)) },
-                            label = { Text(label) },
-                            shape = RoundedCornerShape(4.dp),
-                            colors = formChipColors
-                        )
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
+                        .clickable { showCustomRemindDaysPicker = true },
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -816,40 +817,13 @@ fun EventInputForm(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    OutlinedButton(
-                        onClick = { showCustomRemindDaysPicker = true },
-                        shape = RoundedCornerShape(4.dp)
-                    ) {
-                        Text(stringResource(R.string.category_custom))
-                    }
                 }
 
+                // 提醒时间（小时/分钟）：点击整行进入双列滚轮选择
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    listOf(
-                        stringResource(R.string.reminder_time_0) to 0,
-                        stringResource(R.string.reminder_time_6) to 360,
-                        stringResource(R.string.reminder_time_8) to 480,
-                        stringResource(R.string.reminder_time_9) to 540,
-                        stringResource(R.string.reminder_time_12) to 720,
-                        stringResource(R.string.reminder_time_18) to 1080
-                    ).forEach { (label, minutes) ->
-                        FilterChip(
-                            selected = eventDetails.reminderTimeMinutesOfDay == minutes,
-                            onClick = { onValueChange(eventDetails.copy(reminderTimeMinutesOfDay = minutes)) },
-                            label = { Text(label) },
-                            shape = RoundedCornerShape(4.dp),
-                            colors = formChipColors
-                        )
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
+                        .clickable { showCustomRemindTimePicker = true },
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -864,12 +838,6 @@ fun EventInputForm(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                    }
-                    OutlinedButton(
-                        onClick = { showCustomRemindTimePicker = true },
-                        shape = RoundedCornerShape(4.dp)
-                    ) {
-                        Text(stringResource(R.string.category_custom))
                     }
                 }
             }
@@ -997,7 +965,7 @@ private fun ColorChip(
             .background(color, RoundedCornerShape(4.dp))
             .then(
                 if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp))
-                else Modifier.border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
+                else Modifier.border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong), RoundedCornerShape(4.dp))
             )
             .clickable(interactionSource = interactionSource, indication = LocalIndication.current, onClick = onClick),
         contentAlignment = Alignment.Center
@@ -1007,7 +975,7 @@ private fun ColorChip(
                 imageVector = icon,
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),
-                tint = if (color.luminance() > 0.5f) Color.Black.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.8f)
+                tint = if (color.luminance() > 0.5f) MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
             )
         }
     }

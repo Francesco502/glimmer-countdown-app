@@ -1,6 +1,6 @@
 # TimeAPK 发布与更新指引
 
-本文档说明当前 `3.5` 版本如何完成签名、构建、发布，以及如何复用 GitHub Release 作为后续更新源。
+本文档说明当前 `3.6` 版本如何完成签名、构建、发布，以及如何复用 GitHub Release 作为后续更新源。
 
 ## 一、当前状态
 
@@ -10,7 +10,7 @@
 | 最低 / 目标 SDK | `minSdk 26` / `targetSdk 36` |
 | Release 构建 | 已启用 `release` buildType，开启 `minify` 与 `shrinkResources` |
 | Release 签名 | 已支持从 `keystore.properties` 读取 |
-| APK 命名 | 已自动重命名为 `glimmer-countdown-3-5.apk` |
+| APK 命名 | 已自动重命名为 `glimmer-countdown-3-6.apk` |
 | 更新检查预留 | 已有 GitHub Release 检查器与设置入口 |
 | 渠道包 | 已支持 `direct` / `play` flavor |
 
@@ -36,10 +36,10 @@ keyPassword=xxx
 
 当前版本：
 
-- `VERSION_NAME=3.5`
-- `VERSION_CODE=9`
+- `VERSION_NAME=3.6`
+- `VERSION_CODE=10`
 
-如果仅进行 `3.5` 的最终发布，不需要改动版本号；如果后续继续发修订包，应先递增 `versionCode`。
+如果仅进行 `3.6` 的最终发布，不需要改动版本号；如果后续继续发修订包，应先递增 `versionCode`。
 
 ## 三、构建命令
 
@@ -51,7 +51,7 @@ keyPassword=xxx
 
 APK 路径：
 
-- `app/build/outputs/apk/direct/release/glimmer-countdown-3-5.apk`
+- `app/build/outputs/apk/direct/release/glimmer-countdown-3-6.apk`
 
 ## 四、GitHub 发布
 
@@ -59,15 +59,15 @@ APK 路径：
 
 ```bash
 git add app gradle.properties README.md CHANGELOG.md docs
-git commit -m "release: finalize v3.5 notes and fixes"
+git commit -m "release: finalize v3.6 notes and fixes"
 git push origin main
 ```
 
 ### 2. 推送标签
 
 ```bash
-git tag -a v3.5 -m "Release v3.5"
-git push origin v3.5
+git tag -a v3.6 -m "Release v3.6"
+git push origin v3.6
 ```
 
 ### 3. 创建 Release
@@ -82,7 +82,7 @@ $env:GITHUB_TOKEN = "your_token"
 脚本会：
 
 - 读取当前版本号
-- 提取 `CHANGELOG.md` 中 `3.5` 小节作为说明
+- 提取 `CHANGELOG.md` 中 `3.6` 小节作为说明
 - 调用 GitHub Releases API
 - 上传 Release APK
 

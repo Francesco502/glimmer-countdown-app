@@ -1,4 +1,4 @@
-﻿package com.example.timeapk.ui.settings
+package com.example.timeapk.ui.settings
 
 import android.Manifest
 import android.app.Activity
@@ -66,7 +66,7 @@ fun ClassicalToggle(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
             .clickable { onCheckedChange(!checked) }
             .border(
                 width = 0.5.dp,
-                color = if (checked) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
+                color = if (checked) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurface.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaSoft),
                 shape = RoundedCornerShape(2.dp)
             )
             .padding(horizontal = 12.dp, vertical = 4.dp)
@@ -139,7 +139,7 @@ fun AppearanceSettingsContent(
                     color = MaterialTheme.colorScheme.onSurface
                 )
             }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
         }
 
         SettingsGroupHeader(
@@ -154,7 +154,7 @@ fun AppearanceSettingsContent(
             onPick = { colorPickerKey = "background" },
             onReset = { scope.launch { prefs.setCustomBackgroundHex(null) } }
         )
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
 
         CustomColorRow(
             label = stringResource(R.string.custom_color_surface),
@@ -163,7 +163,7 @@ fun AppearanceSettingsContent(
             onPick = { colorPickerKey = "surface" },
             onReset = { scope.launch { prefs.setCustomSurfaceHex(null) } }
         )
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
 
         CustomColorRow(
             label = stringResource(R.string.custom_color_primary),
@@ -172,7 +172,7 @@ fun AppearanceSettingsContent(
             onPick = { colorPickerKey = "primary" },
             onReset = { scope.launch { prefs.setCustomPrimaryHex(null) } }
         )
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
 
         CustomColorRow(
             label = stringResource(R.string.custom_color_on_background),
@@ -182,7 +182,7 @@ fun AppearanceSettingsContent(
             onPick = { colorPickerKey = "on_background" },
             onReset = { scope.launch { prefs.setCustomOnBackgroundHex(null) } }
         )
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
 
         Text(
             text = stringResource(R.string.custom_color_accessibility_hint),
@@ -258,8 +258,8 @@ fun AppearanceSettingsContent(
                                         Box(
                                             modifier = Modifier
                                                 .size(36.dp)
-                                                .background(Color(hex.toColorInt()), CircleShape)
-                                                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), CircleShape)
+                                                .background(Color(hex.toColorInt()), RoundedCornerShape(8.dp))
+                                                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaSoft), RoundedCornerShape(8.dp))
                                                 .clickable {
                                                     tryApplyColor(hex)
                                                 }
@@ -268,7 +268,7 @@ fun AppearanceSettingsContent(
                                 }
                             }
                         }
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
                         OutlinedTextField(
                             value = customHexInput,
                             onValueChange = {
@@ -284,8 +284,8 @@ fun AppearanceSettingsContent(
                                     Box(
                                         modifier = Modifier
                                             .size(24.dp)
-                                            .background(Color(customHexInput.toColorInt()), CircleShape)
-                                            .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                                            .background(Color(customHexInput.toColorInt()), RoundedCornerShape(4.dp))
+                                            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(4.dp))
                                     )
                                 }
                             },
@@ -357,7 +357,7 @@ fun AppearanceSettingsContent(
                     color = MaterialTheme.colorScheme.onSurface
                 )
             }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
         }
 
         Text(
@@ -395,7 +395,7 @@ fun AppearanceSettingsContent(
             Text(stringResource(R.string.settings_font_scale_reset))
         }
 
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
 
         Text(
             text = stringResource(R.string.settings_widget_font_scale_title),
@@ -515,7 +515,7 @@ fun LegacyDisplaySettingsContent(
                     color = MaterialTheme.colorScheme.onSurface
                 )
             }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
         }
 
         // Display Section
@@ -542,7 +542,7 @@ fun LegacyDisplaySettingsContent(
                 onCheckedChange = { scope.launch { prefs.setShowHours(it) } }
             )
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
 
         Row(
             modifier = Modifier
@@ -568,7 +568,7 @@ fun LegacyDisplaySettingsContent(
                 onCheckedChange = { scope.launch { prefs.setReduceMotionEnabled(it) } }
             )
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
 
         Text(
             text = stringResource(R.string.home_density_title),
@@ -624,7 +624,7 @@ fun LegacyDisplaySettingsContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
 
         Row(
             modifier = Modifier
@@ -655,7 +655,7 @@ fun LegacyDisplaySettingsContent(
                 }
             )
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
 
         Row(
             modifier = Modifier
@@ -675,7 +675,7 @@ fun LegacyDisplaySettingsContent(
                 onCheckedChange = { scope.launch { prefs.setShowMilestone(it) } }
             )
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
 
         Row(
             modifier = Modifier
@@ -842,7 +842,7 @@ fun LegacyDisplaySettingsContent(
                 )
             }
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
 
         Text(
             text = stringResource(R.string.settings_custom_milestones_title),
@@ -927,7 +927,7 @@ fun LegacyDisplaySettingsContent(
         ) {
             Text(stringResource(R.string.settings_custom_milestones_restore))
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), modifier = Modifier.padding(top = 12.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong), modifier = Modifier.padding(top = 12.dp))
 
         Text(
             text = stringResource(R.string.date_format_title),
@@ -1038,7 +1038,7 @@ fun DisplaySettingsContent(
                     color = MaterialTheme.colorScheme.onSurface
                 )
             }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
         }
 
         SettingsGroupHeader(
@@ -1064,7 +1064,7 @@ fun DisplaySettingsContent(
                 onCheckedChange = { scope.launch { prefs.setShowHours(it) } }
             )
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
 
         Row(
             modifier = Modifier
@@ -1090,7 +1090,7 @@ fun DisplaySettingsContent(
                 onCheckedChange = { scope.launch { prefs.setReduceMotionEnabled(it) } }
             )
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
 
         listOf(
             Triple(0, R.string.home_density_compact, R.string.home_density_compact_summary),
@@ -1121,7 +1121,7 @@ fun DisplaySettingsContent(
                 )
             }
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
 
         SettingsGroupHeader(
             title = stringResource(R.string.date_format_title),
@@ -1264,7 +1264,7 @@ fun MilestoneSettingsContent(
                 onCheckedChange = { scope.launch { prefs.setShowMilestone(it) } }
             )
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
 
         Row(
             modifier = Modifier
@@ -1295,7 +1295,7 @@ fun MilestoneSettingsContent(
                 }
             )
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
 
         Row(
             modifier = Modifier
@@ -1439,7 +1439,7 @@ fun MilestoneSettingsContent(
                 }
             }
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
 
         SettingsGroupHeader(
             title = stringResource(R.string.settings_schedule_sync_title),
@@ -1961,7 +1961,7 @@ fun DataSettingsContent(
                 color = MaterialTheme.colorScheme.onSurface
             )
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
 
         SettingsPressableRow(
             onClick = {
@@ -1983,7 +1983,7 @@ fun DataSettingsContent(
                 color = MaterialTheme.colorScheme.onSurface
             )
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
 
         SettingsPressableRow(
             onClick = {
@@ -2009,7 +2009,7 @@ fun DataSettingsContent(
                 color = MaterialTheme.colorScheme.onSurface
             )
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
 
         SettingsPressableRow(
             onClick = {
@@ -2024,7 +2024,7 @@ fun DataSettingsContent(
                 color = MaterialTheme.colorScheme.onSurface
             )
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
     }
 }
 
@@ -2127,7 +2127,7 @@ fun AboutSettingsContent(
                 color = MaterialTheme.colorScheme.onSurface
             )
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
         
         SettingsPressableRow(
             onClick = {
@@ -2147,7 +2147,12 @@ fun AboutSettingsContent(
                     withContext(Dispatchers.Main) {
                         updateCheckInProgress = false
                         updateResult = result
-                        if (!result.hasUpdate) {
+                        if (result.checkFailed) {
+                            snackbarHostState.showSnackbar(
+                                context.getString(R.string.update_error),
+                                withDismissAction = true
+                            )
+                        } else if (!result.hasUpdate) {
                             snackbarHostState.showSnackbar(
                                 context.getString(R.string.update_latest),
                                 withDismissAction = true
@@ -2171,7 +2176,7 @@ fun AboutSettingsContent(
                 )
             }
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
     }
 }
 

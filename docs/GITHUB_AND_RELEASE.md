@@ -1,13 +1,13 @@
-# GitHub 提交与发布流程（v3.5）
+# GitHub 提交与发布流程（v3.6）
 
-本文档用于当前 `3.5` 版本的代码提交、推送与 GitHub Release 操作。
+本文档用于当前 `3.6` 版本的代码提交、推送与 GitHub Release 操作。
 
 ## 1. 本地提交
 
 ```bash
 git status
 git add app gradle.properties README.md CHANGELOG.md docs
-git commit -m "release: finalize v3.5 notes and fixes"
+git commit -m "release: finalize v3.6 notes and fixes"
 ```
 
 说明：
@@ -24,8 +24,8 @@ git push origin main
 ## 3. 打标签
 
 ```bash
-git tag -a v3.5 -m "Release v3.5"
-git push origin v3.5
+git tag -a v3.6 -m "Release v3.6"
+git push origin v3.6
 ```
 
 ## 4. 构建 Release APK
@@ -36,7 +36,7 @@ git push origin v3.5
 
 产物路径：
 
-- `app/build/outputs/apk/direct/release/glimmer-countdown-3-5.apk`
+- `app/build/outputs/apk/direct/release/glimmer-countdown-3-6.apk`
 
 ## 5. 创建 GitHub Release
 
@@ -50,13 +50,13 @@ $env:GITHUB_TOKEN = "your_token"
 脚本行为：
 
 - 自动读取 `gradle.properties` 的 `VERSION_NAME`
-- 自动从 `CHANGELOG.md` 提取 `3.5` 小节作为 Release Notes
-- 自动创建或复用 `v3.5` Release
+- 自动从 `CHANGELOG.md` 提取 `3.6` 小节作为 Release Notes
+- 自动创建或复用 `v3.6` Release
 - 自动上传 APK 资产
 
 ## 6. 发布后核对
 
-- Release 标题、标签与说明是否对应 `v3.5`
-- 上传的 APK 文件名是否为 `glimmer-countdown-3-5.apk`
-- 手机安装后，“设置 > 关于”中版本显示为 `3.5`
+- Release 标题、标签与说明是否对应 `v3.6`
+- 上传的 APK 文件名是否为 `glimmer-countdown-3-6.apk`
+- 手机安装后，“设置 > 关于”中版本显示为 `3.6`
 - 抽检提醒、系统日历同步、首页表格模式、小组件字号与月历视图
