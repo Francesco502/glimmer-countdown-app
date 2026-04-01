@@ -1,4 +1,4 @@
-﻿package com.example.timeapk.widget
+package com.example.timeapk.widget
 
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
@@ -6,9 +6,8 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
-import android.util.TypedValue
-import android.view.View
 import android.widget.RemoteViews
 import androidx.core.content.ContextCompat
 import com.example.timeapk.MainActivity
@@ -48,86 +47,31 @@ class CountdownAppWidgetProvider : AppWidgetProvider() {
             themeSnapshot: WidgetThemeSnapshot
         ) {
             val sizeBucket = resolveSizeBucket(appWidgetManager.getAppWidgetOptions(appWidgetId))
-            val contentSnapshot = WidgetContentResolver.load(context, sizeBucket)
+            val openAppPendingIntent = createOpenAppPendingIntent(context, appWidgetId)
+            val backgroundColor = ContextCompat.getColor(
+                context,
+                if (themeSnapshot.isDark) R.color.widget_background_dark else R.color.widget_background_light
+            )
+            val textColor = ContextCompat.getColor(
+                context,
+                if (themeSnapshot.isDark) R.color.widget_text_dark else R.color.widget_text_light
+            )
 
-            val views = RemoteViews(context.packageName, R.layout.widget_countdown_static).apply {
-                val isDark = themeSnapshot.isDark
-                val bgColorRes = if (isDark) R.color.widget_background_dark else R.color.widget_background_light
-                val textColorRes = if (isDark) R.color.widget_text_dark else R.color.widget_text_light
-                val backgroundColor = ContextCompat.getColor(context, bgColorRes)
-                val textColor = ContextCompat.getColor(context, textColorRes)
+            val views = RemoteViews(context.packageName, R.layout.widget_countdown).apply {
+                setWidgetListRemoteAdapter(
+                    createRemoteAdapterIntent(context, appWidgetId, sizeBucket, themeSnapshot)
+                )
+                setEmptyView(R.id.widget_list, R.id.widget_empty)
+                setPendingIntentTemplate(R.id.widget_list, openAppPendingIntent)
+                setOnClickPendingIntent(R.id.widget_root, openAppPendingIntent)
+                setOnClickPendingIntent(R.id.widget_empty, openAppPendingIntent)
                 setInt(R.id.widget_root, "setBackgroundColor", backgroundColor)
                 setInt(R.id.widget_empty, "setBackgroundColor", backgroundColor)
                 setTextColor(R.id.widget_empty, textColor)
-                setOnClickPendingIntent(
-                    R.id.widget_root,
-                    createOpenAppPendingIntent(context, appWidgetId)
-                )
-
-                if (contentSnapshot.items.isEmpty()) {
-                    setViewVisibility(R.id.widget_empty, View.VISIBLE)
-                    ROW_IDS.forEach { rowId ->
-                        setViewVisibility(rowId, View.GONE)
-                    }
-                    setOnClickPendingIntent(
-                        R.id.widget_empty,
-                        createOpenAppPendingIntent(context, appWidgetId)
-                    )
-                } else {
-                    setViewVisibility(R.id.widget_empty, View.GONE)
-                    bindRows(
-                        context = context,
-                        appWidgetId = appWidgetId,
-                        views = this,
-                        items = contentSnapshot.items,
-                        textStyle = contentSnapshot.textStyle,
-                        textColor = textColor
-                    )
-                }
             }
 
             appWidgetManager.updateAppWidget(appWidgetId, views)
-        }
-
-        private fun bindRows(
-            context: Context,
-            appWidgetId: Int,
-            views: RemoteViews,
-            items: List<WidgetRenderedItem>,
-            textStyle: WidgetTextStyle,
-            textColor: Int
-        ) {
-            ROW_IDS.indices.forEach { index ->
-                val rowId = ROW_IDS[index]
-                val titleId = TITLE_IDS[index]
-                val valueId = VALUE_IDS[index]
-                val item = items.getOrNull(index)
-
-                if (item == null) {
-                    views.setViewVisibility(rowId, View.GONE)
-                    return@forEach
-                }
-
-                views.setViewVisibility(rowId, View.VISIBLE)
-                views.setTextViewText(titleId, item.title)
-                views.setTextViewText(valueId, item.value)
-                views.setTextColor(titleId, textColor)
-                views.setTextColor(valueId, textColor)
-                views.setTextViewTextSize(titleId, TypedValue.COMPLEX_UNIT_SP, textStyle.titleSp)
-                views.setTextViewTextSize(valueId, TypedValue.COMPLEX_UNIT_SP, textStyle.valueSp)
-                views.setViewPadding(
-                    rowId,
-                    dp(context, textStyle.paddingHorizontalDp),
-                    dp(context, textStyle.paddingVerticalDp),
-                    dp(context, textStyle.paddingHorizontalDp),
-                    dp(context, textStyle.paddingVerticalDp)
-                )
-                views.setInt(valueId, "setMaxEms", textStyle.valueMaxEms)
-                views.setOnClickPendingIntent(
-                    rowId,
-                    createOpenEventPendingIntent(context, appWidgetId, item.eventId, index)
-                )
-            }
+            notifyWidgetListChanged(appWidgetManager, appWidgetId)
         }
 
         private fun resolveSizeBucket(options: Bundle): Int {
@@ -149,48 +93,34 @@ class CountdownAppWidgetProvider : AppWidgetProvider() {
             )
         }
 
-        private fun createOpenEventPendingIntent(
+        private fun createRemoteAdapterIntent(
             context: Context,
             appWidgetId: Int,
-            eventId: Int,
-            rowIndex: Int
-        ): PendingIntent {
-            val intent = Intent(context, MainActivity::class.java).apply {
-                putExtra("open_event_id", eventId)
+            sizeBucket: Int,
+            themeSnapshot: WidgetThemeSnapshot
+        ): Intent {
+            return Intent(context, CountdownWidgetService::class.java).apply {
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+                putExtra(WidgetSizeBucket.EXTRA_SIZE_BUCKET, sizeBucket)
+                putExtra(CountdownWidgetService.EXTRA_THEME_IS_DARK, themeSnapshot.isDark)
+                data = Uri.parse(
+                    "glimmer://widget/$appWidgetId?size=$sizeBucket&dark=${if (themeSnapshot.isDark) 1 else 0}"
+                )
             }
-            return PendingIntent.getActivity(
-                context,
-                appWidgetId * 100 + rowIndex + 1,
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
         }
 
-        private fun dp(context: Context, value: Int): Int {
-            val density = context.resources.displayMetrics.density
-            return (value * density).toInt()
+        @Suppress("DEPRECATION")
+        private fun RemoteViews.setWidgetListRemoteAdapter(intent: Intent) {
+            setRemoteAdapter(R.id.widget_list, intent)
         }
 
-        private val ROW_IDS = intArrayOf(
-            R.id.widget_row_0,
-            R.id.widget_row_1,
-            R.id.widget_row_2,
-            R.id.widget_row_3
-        )
-
-        private val TITLE_IDS = intArrayOf(
-            R.id.widget_row_0_title,
-            R.id.widget_row_1_title,
-            R.id.widget_row_2_title,
-            R.id.widget_row_3_title
-        )
-
-        private val VALUE_IDS = intArrayOf(
-            R.id.widget_row_0_value,
-            R.id.widget_row_1_value,
-            R.id.widget_row_2_value,
-            R.id.widget_row_3_value
-        )
+        @Suppress("DEPRECATION")
+        private fun notifyWidgetListChanged(
+            appWidgetManager: AppWidgetManager,
+            appWidgetId: Int
+        ) {
+            appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.widget_list)
+        }
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -217,5 +147,4 @@ class CountdownAppWidgetProvider : AppWidgetProvider() {
         super.onAppWidgetOptionsChanged(context, appWidgetManager, appWidgetId, newOptions)
         refreshWidgets(context, appWidgetManager, intArrayOf(appWidgetId))
     }
-
 }

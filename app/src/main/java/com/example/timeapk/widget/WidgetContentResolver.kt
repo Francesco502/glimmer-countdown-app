@@ -27,10 +27,6 @@ internal data class WidgetContentSnapshot(
 )
 
 internal object WidgetContentResolver {
-    private const val SMALL_VISIBLE_ROWS = 2
-    private const val MEDIUM_VISIBLE_ROWS = 3
-    private const val LARGE_VISIBLE_ROWS = 4
-
     fun load(context: Context, sizeBucket: Int): WidgetContentSnapshot {
         val app = context.applicationContext as? TimeApplication
             ?: return WidgetContentSnapshot(
@@ -54,8 +50,7 @@ internal object WidgetContentResolver {
                 .let(::sortForWidget)
                 .let { applyPinnedOrder(it, pinnedEventIds) }
 
-            val visibleRows = visibleRowsForSizeBucket(sizeBucket)
-            val items = ordered.take(visibleRows).map { state ->
+            val items = ordered.map { state ->
                 buildRenderedItem(
                     context = context,
                     state = state,
@@ -80,14 +75,6 @@ internal object WidgetContentResolver {
     ): Int {
         val availableModes = getAvailableDisplayModes(state, showMilestone)
         return if (preferredMode in availableModes) preferredMode else availableModes.first()
-    }
-
-    private fun visibleRowsForSizeBucket(sizeBucket: Int): Int {
-        return when (sizeBucket) {
-            WidgetSizeBucket.SMALL -> SMALL_VISIBLE_ROWS
-            WidgetSizeBucket.LARGE -> LARGE_VISIBLE_ROWS
-            else -> MEDIUM_VISIBLE_ROWS
-        }
     }
 
     private fun sortForWidget(states: List<EventUiState>): List<EventUiState> {
@@ -115,7 +102,6 @@ internal object WidgetContentResolver {
         showMilestone: Boolean,
         textStyle: WidgetTextStyle
     ): WidgetRenderedItem {
-        val locale = context.resources.configuration.locales[0]
         val targetLocalDate = eventDateToLocalDate(state.event.date)
         val today = LocalDate.now()
         val isRepeating = state.event.repeatType != REPEAT_NONE

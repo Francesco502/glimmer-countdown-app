@@ -1,105 +1,102 @@
-# Changelog
+# 更新日志
 
-This document records version changes for Glimmer.
+本文档记录拾光（Glimmer）各版本变更。
 
 ## [3.7] - 2026-04-01
 
-### Changed
+### 变更
 
-- Bumped the app version to `3.7` (`versionCode=11`).
-- Reworked the home screen widget from a `RemoteViewsService / ListView` collection widget to a static multi-row layout rendered by the provider.
-- Unified app theme settings, widget theme resolution, and widget refresh flow.
-- Updated README, release docs, and release scripts for `3.7`.
+- 升级应用版本至 `3.7`（`versionCode=11`）。
+- 调整桌面小组件主题解析与刷新链路，统一跟随系统、强制浅色、强制深色三种模式的表现。
+- 恢复桌面小组件可滚动列表能力，重新支持显示全部事件，而不是固定行数截断。
+- 同步更新 README、发布文档与发布脚本，支持 `3.7` 同版本重新发布。
 
-### Fixed
+### 修复
 
-- Fixed cases where the widget stayed in the previous light or dark appearance after a system theme change.
-- Fixed cases where the widget became blank or stopped showing content after a theme switch.
-- Fixed missed widget refreshes caused by activity recreation or cancelled UI-scoped jobs.
+- 修复系统日夜模式切换后，小组件偶发停留在旧主题的问题。
+- 修复应用内主题切换过程中，小组件偶发空白或不显示内容的问题。
+- 修复界面重建或界面作用域协程取消后，小组件刷新可能丢失的问题。
+- 修复 `3.7` 首发后小组件只能显示部分事件的问题。
 
 ## [3.6] - 2026-03-17
 
-### Changed
+### 变更
 
-- Bumped the app version to `3.6` (`versionCode=10`).
-- Limited lunar repeat options to `none` and `yearly` so the editor and runtime behavior stay consistent.
-- Switched the home screen default sort mode to custom sort and kept drag and drop only for that mode.
+- 升级应用版本至 `3.6`（`versionCode=10`）。
+- 限制农历事件重复规则为“不重复 / 每年重复”，使编辑页与实际行为保持一致。
+- 首页默认排序改为“自定义排序”，并仅在该模式下允许拖拽。
 
-### Fixed
+### 修复
 
-- Fixed accidental milestone calendar deletions during normal system calendar reminder sync.
-- Fixed missed milestone reminders for future events.
-- Fixed update-check failures incorrectly reporting that the app was already up to date.
-- Fixed release metadata drift in the `3.6` release pipeline.
+- 修复普通系统日历提醒同步时误删里程碑日历项的问题。
+- 修复未来事件里程碑提醒可能漏提醒的问题。
+- 修复更新检查失败时误报“已是最新版本”的问题。
+- 修复 `3.6` 发布链路中版本号、APK 命名与脚本默认值不同步的问题。
 
 ## [3.5] - 2026-03-11
 
-### Added
+### 新增
 
-- Added a unified rebuild flow covering boot, timezone changes, manual time changes, and cold start recovery.
-- Added reminder time and days-before pickers that support writing reminder entries to the system calendar on consecutive days.
+- 新增统一重建链路，覆盖开机、时区变更、手动改时间和冷启动后的恢复场景。
+- 新增提醒时间与提前天数滚轮选择，支持按天连续写入系统日历 / 日程。
 
-### Changed
+### 变更
 
-- Bumped the app version to `3.5` (`versionCode=9`).
-- Reworked the settings information architecture and the event editor order.
-- Updated README and release documents for the `3.5` release.
+- 升级应用版本至 `3.5`（`versionCode=9`）。
+- 重构设置页信息架构与事件编辑顺序。
+- 同步更新 README 与发布文档。
 
-### Fixed
+### 修复
 
-- Fixed a settings crash when calendar permission was not granted.
-- Fixed rebuild jobs swallowing failures and preventing retries.
-- Fixed drag-sort results being overwritten outside custom sort mode.
-- Fixed inconsistent system calendar sync status reporting.
-- Fixed birthday detail and widget text output that could only show plain numeric values.
+- 修复未授予日历权限时设置页刷新同步状态的崩溃问题。
+- 修复重建任务吞异常后无法自动重试的问题。
+- 修复非自定义排序下拖拽结果被刷新覆盖的问题。
+- 修复系统日历同步状态不一致的问题。
 
 ## [3.4] - 2026-03-10
 
-### Added
+### 新增
 
-- Added richer home screen event management with search, combined filters, and calendar view.
-- Added app-wide base font scaling and widget-specific font scaling.
-- Added milestone reminder time configuration and post-import rescheduling.
+- 新增首页搜索、组合筛选与月历视图。
+- 新增全局基础字号缩放与小组件独立字号缩放。
+- 新增里程碑提醒时间配置与导入后自动重排。
 
-### Changed
+### 变更
 
-- Unified `3.4` release docs, README, and release checklist.
-- Reworked table mode and widget display strategy for better readability.
-- Consolidated reminder and system calendar sync entry points.
+- 统一 `3.4` 发布文档、README 与发布检查清单。
+- 重构表格模式与小组件显示策略，提升可读性。
 
-### Fixed
+### 修复
 
-- Fixed expired repeating solar events failing to reschedule reminders and calendar sync.
-- Fixed monthly and half-year repeats skipping incorrectly on same-day transitions.
-- Fixed reminder scheduling gaps for large days-before values.
-- Fixed one-shot reminder worker behavior.
-- Fixed notification permission handling on Android 13 and above.
+- 修复重复事件在过期后无法正确续排提醒的问题。
+- 修复月重复、半年重复在同日切换时跳转错误的问题。
+- 修复 Reminder Worker 仅执行一次的问题。
 
 ## [3.3] - 2026-03-04
 
-- Added the system calendar sync switch and baseline sync capability.
-- Aligned widget sorting semantics with the home screen.
-- Completed the first round of widget copy and layout compression.
+- 上线系统日历同步开关与基础同步能力。
+- 对齐小组件排序语义与首页排序语义。
+- 完成第一轮小组件文案与布局压缩优化。
 
 ## [3.2] - 2026-03-03
 
-- Improved the calendar picker interaction for solar and lunar modes.
-- Improved home screen view switching and small-screen adaptation.
+- 优化日期选择器的公历 / 农历切换与滚轮交互体验。
+- 优化首页视图切换与小屏适配。
 
 ## [3.1] - 2026-03-02
 
-- Added end-to-end support for lunar events.
-- Added lunar indicators on the home screen and in widgets.
+- 完成农历事件的存储、计算、展示与提醒链路支持。
+- 首页与小组件增加农历标识能力。
 
 ## [3.0] - 2025-02-28
 
-- Reworked the theme and visual system.
-- Improved home screen detail interactions and general stability.
+- 重构主题与整体视觉体系。
+- 优化首页详情交互与稳定性。
 
 ## [2.0] - 2025-02-27
 
-- Added the initial in-app update foundation and strengthened widget behavior.
+- 引入应用内更新能力预留与小组件体验增强。
 
 ## [1.0] - 2025-02-26
 
-- Initial release with event management, reminders, themes, and widgets.
+- 初始版本发布，提供事件管理、提醒通知、主题与小组件能力。

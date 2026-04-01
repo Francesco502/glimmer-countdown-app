@@ -5,7 +5,7 @@
     android:targetCellWidth="2"
     android:targetCellHeight="2"
     android:updatePeriodMillis="86400000"
-    android:initialLayout="@layout/widget_countdown_static"
+    android:initialLayout="@layout/widget_countdown"
     android:description="@string/app_name"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen" />

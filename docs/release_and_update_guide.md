@@ -1,24 +1,24 @@
-# TimeAPK Release and Update Guide
+# TimeAPK 发布与更新指引
 
-This document explains how to sign, build, and publish the current `3.7` release and how to keep using GitHub Releases as the update source.
+本文档说明当前 `3.7` 版本如何完成签名、构建、发布，以及如何在保持同版本号时重新发布。
 
-## 1. Current Status
+## 一、当前状态
 
-| Item | Status |
-|------|--------|
-| `applicationId` and versioning | Configured and overridable through `gradle.properties` |
-| Min and target SDK | `minSdk 26` / `targetSdk 36` |
-| Release build | `release` buildType enabled with `minify` and `shrinkResources` |
-| Release signing | Reads signing data from `keystore.properties` |
-| APK naming | Renames output to `glimmer-countdown-3-7.apk` |
-| Update checking | GitHub Release checker and in-app entry already exist |
-| Channels | Supports `direct` and `play` flavors |
+| 项目 | 状态 |
+|------|------|
+| `applicationId` / 版本号 | 已配置，可通过 `gradle.properties` 覆盖 |
+| 最低 / 目标 SDK | `minSdk 26` / `targetSdk 36` |
+| Release 构建 | 已启用 `release` buildType，并开启 `minify` 与 `shrinkResources` |
+| Release 签名 | 从 `keystore.properties` 读取 |
+| APK 命名 | 输出为 `glimmer-countdown-3-7.apk` |
+| 更新检查 | 已具备 GitHub Release 检查器与应用内入口 |
+| 渠道 | 支持 `direct` / `play` flavor |
 
-## 2. Pre-release Preparation
+## 二、发布前准备
 
-### Signing Configuration
+### 1. 签名配置
 
-Create `keystore.properties` in the repo root:
+在仓库根目录准备：
 
 ```properties
 storeFile=timeapk-release.keystore
@@ -27,21 +27,21 @@ keyAlias=timeapk
 keyPassword=xxx
 ```
 
-Make sure these files are never committed:
+确保以下文件不进入仓库：
 
 - `keystore.properties`
 - `*.keystore`
 
-### Version Confirmation
+### 2. 版本确认
 
-Current release values:
+当前版本值：
 
 - `VERSION_NAME=3.7`
 - `VERSION_CODE=11`
 
-For this `3.7` release, the version metadata, APK name, release notes, and release script must stay aligned. Increment `versionCode` before the next follow-up release.
+如果只是修复 `3.7` 中的小问题并重新发布，可以保持 `3.7 / 11` 不变，但需要更新 `v3.7` 标签和 GitHub Release 资产。如果后续要正式发新版本，再递增 `versionCode` 与 `versionName`。
 
-## 3. Build Commands
+## 三、构建命令
 
 ```bash
 ./gradlew test
@@ -49,47 +49,56 @@ For this `3.7` release, the version metadata, APK name, release notes, and relea
 ./gradlew bundlePlayRelease
 ```
 
-Expected APK path:
+APK 路径：
 
 - `app/build/outputs/apk/direct/release/glimmer-countdown-3-7.apk`
 
-## 4. GitHub Release Steps
+## 四、GitHub 发布
 
-### Push Code
+### 1. 推送代码
 
 ```bash
-git add app gradle.properties README.md CHANGELOG.md docs scripts
-git commit -m "release: prepare v3.7"
+git add app gradle.properties README.md CHANGELOG.md docs scripts .gitignore
+git commit -m "release: refresh v3.7 docs and widget fixes"
 git push origin main
 ```
 
-### Push Tag
+### 2. 更新标签
+
+首次发布：
 
 ```bash
 git tag -a v3.7 -m "Release v3.7"
 git push origin v3.7
 ```
 
-### Publish Release
+同版本重新发布：
+
+```bash
+git tag -fa v3.7 -m "Release v3.7"
+git push origin v3.7 --force
+```
+
+### 3. 更新 Release
 
 ```powershell
 $env:GITHUB_TOKEN = "your_token"
 .\scripts\publish-release.ps1
 ```
 
-The script will:
+脚本会：
 
-- read the current version
-- extract the `3.7` section from `CHANGELOG.md`
-- call the GitHub Releases API
-- upload the release APK
+- 读取当前版本号
+- 提取 `CHANGELOG.md` 中 `3.7` 小节作为 Release 说明
+- 自动更新已存在的 Release 说明
+- 自动替换同名 APK 资产
 
-## 5. Relationship to In-app Update Checks
+## 五、与应用内更新的关系
 
-The project already includes:
+当前工程已具备：
 
-- GitHub Release update checking
-- an in-app "Check for updates" entry in settings
-- flavor-aware version display
+- GitHub Release 更新检查能力
+- 设置页中的“检查更新”入口
+- 渠道区分与版本展示能力
 
-If you want to add full download and install support later, extend the existing update module instead of rebuilding the release pipeline.
+后续若要接入完整下载与安装流程，只需要继续扩展现有更新模块，无需重做发布链路。
