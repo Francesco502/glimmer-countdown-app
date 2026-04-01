@@ -1,17 +1,17 @@
-# 签名与密钥（切勿提交）
+# Signing secrets
 keystore.properties
 *.keystore
 *.jks
 
-# 本地配置
+# Local machine config
 local.properties
 
-# Build
+# Build outputs
 build/
 app/build/
 .gradle/
 
-# IDE / Editor
+# IDE and editor files
 .idea/
 .claude/
 *.iml
@@ -19,14 +19,16 @@ app/build/
 *.iws
 .vscode/settings.json
 
-# OS
+# OS files
 .DS_Store
 Thumbs.db
 
-# 堆转储等
+# Crash dumps and heap dumps
 *.hprof
 
-# 内部/临时规划（不提交）
+# Internal and temporary workspace data
 .trae/
 .cursor/
 .gradle-user-home/
+.tmp/
+docs/superpowers/

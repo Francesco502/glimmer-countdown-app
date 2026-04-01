@@ -57,6 +57,17 @@ private fun parseHexOrNull(hex: String?): Color? {
     }
 }
 
+@Suppress("DEPRECATION")
+private fun applyStatusBarStyle(
+    view: android.view.View,
+    backgroundColorArgb: Int,
+    darkTheme: Boolean
+) {
+    val window = view.context.findActivity()?.window ?: return
+    window.statusBarColor = backgroundColorArgb
+    WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+}
+
 @Composable
 fun TimeAPKTheme(
     themeMode: Int = 0,
@@ -102,9 +113,11 @@ fun TimeAPKTheme(
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
-            val window = view.context.findActivity()?.window ?: return@SideEffect
-            window.statusBarColor = colorScheme.background.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !resolvedDark
+            applyStatusBarStyle(
+                view = view,
+                backgroundColorArgb = colorScheme.background.toArgb(),
+                darkTheme = resolvedDark
+            )
         }
     }
 

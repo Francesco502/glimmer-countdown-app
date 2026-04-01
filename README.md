@@ -1,57 +1,56 @@
-# 拾光（Glimmer）
+# Glimmer
 
-`v3.6` 的 Android 倒计时 / 生日 / 纪念日应用，基于 Jetpack Compose + Material 3。
+`v3.7` Android countdown, birthday, and anniversary app built with Jetpack Compose and Material 3.
 
-## 版本信息
+## Version
 
-- `versionName`: `3.6`
-- `versionCode`: `10`
-- 计划发布日期：`2026-03-17`
+- `versionName`: `3.7`
+- `versionCode`: `11`
+- Release date: `2026-04-01`
 
-## 核心能力
+## Core Features
 
-- 倒计时、生日、纪念日等事件管理
-- 公历与农历事件并存，支持农历单次与农历每年重复计算
-- 重复规则支持按天、周、月、半年、年循环
-- 自定义提醒：支持“提前 N 天 + 指定时刻”
-- 系统日历 / 日程同步，包含权限申请、失败提示与同步状态回写
-- 首页支持搜索、分类筛选、自定义排序（默认）、按剩余天数 / 目标日期排序切换、置顶与月历视图
-- 表格模式与桌面小组件支持更完整的中文时间表达
-- 支持 JSON 导入 / 导出与基础数据恢复
+- Manage countdown, birthday, and anniversary events
+- Support both solar and lunar calendar events
+- Repeat rules for day, week, month, half-year, and year
+- Custom reminders with "N days before + fixed time"
+- System calendar sync with permission handling and sync status feedback
+- Search, filters, custom sort, date-based sort, pinned items, and calendar view on the home screen
+- Better Chinese time expressions in table mode and widgets
+- JSON import and export for backup and restore
 
-## 3.6 当前重点更新
+## 3.7 Highlights
 
-- 修复系统日历普通提醒同步误删里程碑日历项的问题
-- 修复未来事件里程碑提醒不能提前建档、导致漏提醒的问题
-- 修复更新检查失败时误报“已是最新版本”的反馈问题
-- 限制农历事件仅支持“不重复 / 每年重复”，使编辑页与实际提醒/展示逻辑保持一致
-- 首页排序改为默认“自定义排序”，仅该模式支持长按拖拽；首页长按编辑下线，置顶在三种排序下都生效；旧用户升级后会一次性重置到默认自定义排序
-- 同步升级默认版本号、APK 命名与发布脚本到 `3.6`
+- Reworked the home screen widget from a `RemoteViewsService + ListView` collection widget to a static multi-row widget rendered directly by the provider.
+- Fixed cases where the widget stayed in the old light or dark appearance after a system theme change.
+- Fixed cases where the widget could become blank or lose its content after theme switching.
+- Unified theme resolution and refresh flow for app theme settings and widgets.
+- Updated version metadata, APK naming, release script, README, and release docs for `3.7`.
 
-## 构建与运行
+## Build and Run
 
 ```bash
-# Debug（直装渠道）
+# Direct debug build
 ./gradlew installDirectDebug
 
-# Debug（Play 渠道）
+# Play debug build
 ./gradlew installPlayDebug
 ```
 
 ```bash
-# Release APK（直装渠道）
+# Direct release APK
 ./gradlew assembleDirectRelease
 
-# Release AAB（Play 渠道）
+# Play release AAB
 ./gradlew bundlePlayRelease
 ```
 
-默认产物路径：
+Default output paths:
 
-- `app/build/outputs/apk/direct/release/glimmer-countdown-3-6.apk`
+- `app/build/outputs/apk/direct/release/glimmer-countdown-3-7.apk`
 - `app/build/outputs/bundle/playRelease/app-play-release.aab`
 
-## 发布文档
+## Release Docs
 
 - [CHANGELOG.md](CHANGELOG.md)
 - [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md)

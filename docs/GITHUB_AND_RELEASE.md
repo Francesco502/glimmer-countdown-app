@@ -1,62 +1,61 @@
-# GitHub 提交与发布流程（v3.6）
+# GitHub Commit and Release Flow (v3.7)
 
-本文档用于当前 `3.6` 版本的代码提交、推送与 GitHub Release 操作。
+This document describes the Git workflow and GitHub Release steps for the `3.7` release.
 
-## 1. 本地提交
+## 1. Commit Locally
 
 ```bash
 git status
-git add app gradle.properties README.md CHANGELOG.md docs
-git commit -m "release: finalize v3.6 notes and fixes"
+git add app gradle.properties README.md CHANGELOG.md docs scripts
+git commit -m "release: prepare v3.7"
 ```
 
-说明：
+Notes:
 
-- 仅提交业务代码与文档
-- 不提交本地缓存目录，如 `.gradle-user-home`、`.cursor`、`build`
+- Commit only app code, version metadata, release scripts, and release docs.
+- Do not commit local cache folders such as `.gradle-user-home`, `.cursor`, `build`, or `.tmp`.
+- If `docs/superpowers/` is only planning material, keep it out of the release commit.
 
-## 2. 推送到远端
+## 2. Push to Remote
 
 ```bash
 git push origin main
 ```
 
-## 3. 打标签
+## 3. Tag the Release
 
 ```bash
-git tag -a v3.6 -m "Release v3.6"
-git push origin v3.6
+git tag -a v3.7 -m "Release v3.7"
+git push origin v3.7
 ```
 
-## 4. 构建 Release APK
+## 4. Build the Release APK
 
 ```bash
 ./gradlew assembleDirectRelease
 ```
 
-产物路径：
+Expected output:
 
-- `app/build/outputs/apk/direct/release/glimmer-countdown-3-6.apk`
+- `app/build/outputs/apk/direct/release/glimmer-countdown-3-7.apk`
 
-## 5. 创建 GitHub Release
-
-当前仓库已提供脚本：
+## 5. Create the GitHub Release
 
 ```powershell
 $env:GITHUB_TOKEN = "your_token"
 .\scripts\publish-release.ps1
 ```
 
-脚本行为：
+The script will:
 
-- 自动读取 `gradle.properties` 的 `VERSION_NAME`
-- 自动从 `CHANGELOG.md` 提取 `3.6` 小节作为 Release Notes
-- 自动创建或复用 `v3.6` Release
-- 自动上传 APK 资产
+- read `VERSION_NAME` from `gradle.properties`
+- extract the `3.7` section from `CHANGELOG.md` as release notes
+- create or reuse the `v3.7` GitHub Release
+- upload the APK asset
 
-## 6. 发布后核对
+## 6. Post-release Checks
 
-- Release 标题、标签与说明是否对应 `v3.6`
-- 上传的 APK 文件名是否为 `glimmer-countdown-3-6.apk`
-- 手机安装后，“设置 > 关于”中版本显示为 `3.6`
-- 抽检提醒、系统日历同步、首页表格模式、小组件字号与月历视图
+- Confirm the title, tag, and notes all reference `v3.7`.
+- Confirm the uploaded asset name is `glimmer-countdown-3-7.apk`.
+- Confirm the app shows version `3.7` in Settings > About.
+- Smoke test app theme switching, widget light/dark behavior, widget content rendering, and update checking.

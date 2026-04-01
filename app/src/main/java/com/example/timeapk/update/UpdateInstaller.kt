@@ -32,11 +32,12 @@ object UpdateInstaller {
         val apkFile = File(dir, "update.apk")
         try {
             val request = Request.Builder().url(downloadUrl).get().build()
-            val response = client.newCall(request).execute()
-            if (!response.isSuccessful || response.body == null) return@withContext false
-            response.body!!.byteStream().use { input ->
-                apkFile.outputStream().use { output ->
-                    input.copyTo(output)
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return@withContext false
+                response.body.byteStream().use { input ->
+                    apkFile.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
                 }
             }
             withContext(Dispatchers.Main) {

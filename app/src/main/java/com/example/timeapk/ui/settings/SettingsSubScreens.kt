@@ -88,6 +88,12 @@ fun AppearanceSettingsContent(
     if (app == null) return
     val prefs = app.userPrefs
     val scope = rememberCoroutineScope()
+    fun launchWidgetSettingsUpdate(update: suspend () -> Unit) {
+        app.launchAppTask {
+            update()
+            WidgetUpdater.refreshCountdownWidgets(app)
+        }
+    }
 
     val themeMode by prefs.themeModeFlow.collectAsState(initial = THEME_FOLLOW_SYSTEM)
     val customBackgroundHex by prefs.customBackgroundHexFlow.collectAsState(initial = null)
@@ -124,13 +130,21 @@ fun AppearanceSettingsContent(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { scope.launch { prefs.setThemeMode(value) } }
+                    .clickable {
+                        launchWidgetSettingsUpdate {
+                            prefs.setThemeMode(value)
+                        }
+                    }
                     .padding(vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 RadioButton(
                     selected = themeMode == value,
-                    onClick = { scope.launch { prefs.setThemeMode(value) } }
+                    onClick = {
+                        launchWidgetSettingsUpdate {
+                            prefs.setThemeMode(value)
+                        }
+                    }
                 )
                 Text(
                     text = label,
@@ -419,9 +433,8 @@ fun AppearanceSettingsContent(
             },
             valueRange = SongDesignTokens.WidgetFontScaleMin..SongDesignTokens.WidgetFontScaleMax,
             onValueChangeFinished = {
-                scope.launch {
+                launchWidgetSettingsUpdate {
                     prefs.setWidgetFontScale(widgetFontScaleDraft)
-                    WidgetUpdater.refreshCountdownWidgets(context)
                 }
             },
             modifier = Modifier.padding(top = 4.dp)
@@ -429,9 +442,8 @@ fun AppearanceSettingsContent(
         TextButton(
             onClick = {
                 widgetFontScaleDraft = 1f
-                scope.launch {
+                launchWidgetSettingsUpdate {
                     prefs.setWidgetFontScale(1f)
-                    WidgetUpdater.refreshCountdownWidgets(context)
                 }
             }
         ) {
@@ -2270,8 +2282,6 @@ private fun evaluateContrastAuditForKey(
         onPrimary = onPrimary
     )
 }
-
-
 
 
 

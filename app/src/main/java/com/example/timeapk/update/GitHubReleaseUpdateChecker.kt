@@ -51,13 +51,13 @@ class GitHubReleaseUpdateChecker(
                     .get()
                     .build()
                 resolvedClient().newCall(request).execute().use { resp ->
-                    if (!resp.isSuccessful || resp.body == null) {
+                    if (!resp.isSuccessful) {
                         ReleaseFetchResult(
                             isSuccessful = false,
                             errorMessage = "HTTP ${resp.code}"
                         )
                     } else {
-                        val json = JSONObject(resp.body!!.string())
+                        val json = JSONObject(resp.body.string())
                         val tagName = json.optString("tag_name", "").trim().removePrefix("v")
                         val body = json.optString("body", "").trim()
                         val assets = json.optJSONArray("assets")
