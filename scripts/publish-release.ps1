@@ -1,5 +1,5 @@
-# 发布直装 APK 到 GitHub Release。
-# 用法：
+# Publish the direct APK to GitHub Release.
+# Usage:
 #   .\scripts\publish-release.ps1
 #   .\scripts\publish-release.ps1 -Tag v3.7 -ReleaseName v3.7
 
@@ -41,7 +41,7 @@ function Get-ReleaseNotes {
         [string]$VersionName
     )
 
-    $fallback = 'Glimmer Android 倒计时应用。'
+    $fallback = 'Glimmer Android countdown app.'
     if (-not (Test-Path $Path)) {
         return $fallback
     }
@@ -97,13 +97,13 @@ $apkPath = Join-Path $rootDir ("app/build/outputs/apk/direct/release/$apkName")
 
 $token = Get-AuthToken
 if (-not $token) {
-    Write-Host '错误：未检测到 GITHUB_TOKEN，且无法从 gh auth token 获取凭据。' -ForegroundColor Red
+    Write-Host 'ERROR: GITHUB_TOKEN not found and gh auth token is unavailable.' -ForegroundColor Red
     Write-Host '$env:GITHUB_TOKEN = "your_token"; .\scripts\publish-release.ps1' -ForegroundColor Cyan
     exit 1
 }
 
 if (-not (Test-Path $apkPath)) {
-    Write-Host '错误：未找到 APK，请先执行 .\gradlew assembleDirectRelease。' -ForegroundColor Red
+    Write-Host 'ERROR: APK not found. Run .\gradlew assembleDirectRelease first.' -ForegroundColor Red
     Write-Host $apkPath -ForegroundColor Yellow
     exit 1
 }
@@ -122,7 +122,7 @@ $releaseBody = @{
     prerelease = $false
 } | ConvertTo-Json -Depth 4
 
-Write-Host ("创建或更新 Release $Tag ...") -ForegroundColor Cyan
+Write-Host ("Create or update Release $Tag ...") -ForegroundColor Cyan
 
 try {
     $release = Invoke-RestMethod `
@@ -137,7 +137,7 @@ try {
         throw
     }
 
-    Write-Host ("Release $Tag 已存在，正在读取并更新说明...") -ForegroundColor Yellow
+    Write-Host ("Release $Tag already exists, updating notes and assets...") -ForegroundColor Yellow
     $release = Invoke-RestMethod `
         -Uri "https://api.github.com/repos/$owner/$repo/releases/tags/$Tag" `
         -Method Get `
@@ -153,7 +153,7 @@ try {
 
 $existingAsset = $release.assets | Where-Object { $_.name -eq $apkName } | Select-Object -First 1
 if ($existingAsset) {
-    Write-Host ("检测到同名资产 $apkName，正在删除旧资产...") -ForegroundColor Yellow
+    Write-Host ("Delete existing asset $apkName ...") -ForegroundColor Yellow
     Invoke-RestMethod `
         -Uri "https://api.github.com/repos/$owner/$repo/releases/assets/$($existingAsset.id)" `
         -Method Delete `
@@ -163,7 +163,7 @@ if ($existingAsset) {
 $encodedApkName = [uri]::EscapeDataString($apkName)
 $uploadUrl = $release.upload_url -replace '\{\?name,label\}$', "?name=$encodedApkName"
 
-Write-Host '上传 APK ...' -ForegroundColor Cyan
+Write-Host 'Upload APK ...' -ForegroundColor Cyan
 
 $apkBytes = [System.IO.File]::ReadAllBytes($apkPath)
 $uploadHeaders = @{
@@ -179,5 +179,5 @@ $null = Invoke-RestMethod `
     -Headers $uploadHeaders `
     -Body $apkBytes
 
-Write-Host '完成。' -ForegroundColor Green
+Write-Host 'Done.' -ForegroundColor Green
 Write-Host $release.html_url -ForegroundColor Cyan
