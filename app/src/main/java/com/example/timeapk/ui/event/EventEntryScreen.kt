@@ -32,15 +32,24 @@ import androidx.compose.ui.res.stringResource
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.Manifest
-import android.content.pm.PackageManager
 import android.os.Build
 import android.widget.Toast
-import androidx.core.content.ContextCompat
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.core.graphics.toColorInt
+import com.example.timeapk.permissions.canPostAppNotifications
+import com.example.timeapk.permissions.hasCalendarReadWritePermission
+import com.example.timeapk.permissions.hasNotificationRuntimePermission
+import com.example.timeapk.permissions.markCalendarPermissionRequested
+import com.example.timeapk.permissions.markNotificationPermissionRequested
+import com.example.timeapk.permissions.openAppDetailsSettings
+import com.example.timeapk.permissions.openAppNotificationSettings
+import com.example.timeapk.permissions.shouldShowCalendarPermissionRationaleCompat
+import com.example.timeapk.permissions.shouldShowNotificationPermissionRationaleCompat
+import com.example.timeapk.permissions.wasCalendarPermissionRequestedBefore
+import com.example.timeapk.permissions.wasNotificationPermissionRequestedBefore
 import com.example.timeapk.R
 import com.example.timeapk.TimeApplication
 import com.example.timeapk.data.CATEGORY_ANNIVERSARY
@@ -55,6 +64,8 @@ import com.example.timeapk.data.REPEAT_YEARLY
 import com.example.timeapk.data.sanitizeReminderTimeMinutesOfDay
 import com.example.timeapk.ui.AppViewModelProvider
 import com.example.timeapk.ui.components.BottomSheetDatePicker
+import com.example.timeapk.ui.components.PermissionActionDialog
+import com.example.timeapk.ui.components.PermissionDialogSpec
 import com.example.timeapk.ui.components.SnapWheelPicker
 import com.example.timeapk.ui.theme.AnimationSpecs
 import com.example.timeapk.ui.utils.eventDateToLocalDate
@@ -102,6 +113,8 @@ fun EventEntryScreen(
     var pendingSaveAfterNotificationPermission by remember { mutableStateOf(false) }
     var pendingSaveAfterCalendarPermission by remember { mutableStateOf(false) }
     var pendingSaveDetailsOverride by remember { mutableStateOf<EventDetails?>(null) }
+    var navigateBackAfterPermissionFallbackSave by remember { mutableStateOf(false) }
+    var permissionDialog by remember { mutableStateOf<PermissionDialogSpec?>(null) }
     LaunchedEffect(eventId) {
         if (eventId != null && eventId != 0) {
             viewModel.loadEvent(eventId)
@@ -118,26 +131,109 @@ fun EventEntryScreen(
     var isSaving by remember { mutableStateOf(false) }
 
     fun hasCalendarPermission(): Boolean {
-        val readGranted = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.READ_CALENDAR
-        ) == PackageManager.PERMISSION_GRANTED
-        val writeGranted = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.WRITE_CALENDAR
-        ) == PackageManager.PERMISSION_GRANTED
-        return readGranted && writeGranted
+        return context.hasCalendarReadWritePermission()
     }
 
-    fun hasNotificationPermission(): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
-        return ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.POST_NOTIFICATIONS
-        ) == PackageManager.PERMISSION_GRANTED
+    fun canPostNotifications(): Boolean {
+        return context.canPostAppNotifications()
     }
+
+    lateinit var saveWithoutReminder: () -> Unit
+    lateinit var saveWithoutCalendarSync: () -> Unit
+    lateinit var launchNotificationPermissionRequest: () -> Unit
+    lateinit var launchCalendarPermissionRequest: () -> Unit
+
+    fun showNotificationPermissionRationaleForSave() {
+        permissionDialog = PermissionDialogSpec(
+            title = context.getString(R.string.permission_dialog_title_notifications),
+            message = context.getString(R.string.notification_permission_rationale_message),
+            confirmText = context.getString(R.string.permission_dialog_button_continue),
+            dismissText = context.getString(R.string.permission_dialog_button_save_without_reminder),
+            onConfirm = {
+                permissionDialog = null
+                launchNotificationPermissionRequest()
+            },
+            onDismiss = {
+                permissionDialog = null
+                saveWithoutReminder()
+            },
+            onRequestDismiss = {
+                permissionDialog = null
+                isSaving = false
+            }
+        )
+    }
+
+    fun showNotificationSettingsForSave() {
+        permissionDialog = PermissionDialogSpec(
+            title = context.getString(R.string.permission_dialog_title_notifications),
+            message = context.getString(R.string.notification_permission_settings_message),
+            confirmText = context.getString(R.string.permission_dialog_button_open_settings),
+            dismissText = context.getString(R.string.permission_dialog_button_save_without_reminder),
+            onConfirm = {
+                permissionDialog = null
+                isSaving = false
+                context.openAppNotificationSettings()
+            },
+            onDismiss = {
+                permissionDialog = null
+                saveWithoutReminder()
+            },
+            onRequestDismiss = {
+                permissionDialog = null
+                isSaving = false
+            }
+        )
+    }
+
+    fun showCalendarPermissionRationaleForSave() {
+        permissionDialog = PermissionDialogSpec(
+            title = context.getString(R.string.permission_dialog_title_calendar),
+            message = context.getString(R.string.calendar_permission_rationale_message),
+            confirmText = context.getString(R.string.permission_dialog_button_continue),
+            dismissText = context.getString(R.string.permission_dialog_button_save_without_sync),
+            onConfirm = {
+                permissionDialog = null
+                launchCalendarPermissionRequest()
+            },
+            onDismiss = {
+                permissionDialog = null
+                saveWithoutCalendarSync()
+            },
+            onRequestDismiss = {
+                permissionDialog = null
+                isSaving = false
+            }
+        )
+    }
+
+    fun showCalendarSettingsForSave() {
+        permissionDialog = PermissionDialogSpec(
+            title = context.getString(R.string.permission_dialog_title_calendar),
+            message = context.getString(R.string.calendar_permission_settings_message),
+            confirmText = context.getString(R.string.permission_dialog_button_open_settings),
+            dismissText = context.getString(R.string.permission_dialog_button_save_without_sync),
+            onConfirm = {
+                permissionDialog = null
+                isSaving = false
+                context.openAppDetailsSettings()
+            },
+            onDismiss = {
+                permissionDialog = null
+                saveWithoutCalendarSync()
+            },
+            onRequestDismiss = {
+                permissionDialog = null
+                isSaving = false
+            }
+        )
+    }
+
+    lateinit var requestNotificationAccessForSave: (EventDetails) -> Unit
 
     fun launchSave(detailsOverride: EventDetails = pendingSaveDetailsOverride ?: latestEventDetails) {
+        val shouldNavigateBackAfterSaveWarning = navigateBackAfterPermissionFallbackSave
+        navigateBackAfterPermissionFallbackSave = false
         pendingSaveDetailsOverride = null
         viewModel.updateUiState(detailsOverride)
         coroutineScope.launch {
@@ -145,7 +241,12 @@ fun EventEntryScreen(
                 is SaveEventResult.Success -> navigateBack()
                 is SaveEventResult.PartialSuccess -> {
                     isSaving = false
-                    snackbarHostState.showSnackbar(result.message)
+                    if (shouldNavigateBackAfterSaveWarning) {
+                        Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()
+                        navigateBack()
+                    } else {
+                        snackbarHostState.showSnackbar(result.message)
+                    }
                 }
                 is SaveEventResult.Failure -> {
                     isSaving = false
@@ -170,15 +271,7 @@ fun EventEntryScreen(
         if (granted) {
             launchSave()
         } else {
-            val downgradedDetails = (pendingSaveDetailsOverride ?: latestEventDetails).copy(
-                syncToScheduleEnabled = false
-            )
-            Toast.makeText(
-                context,
-                context.getString(R.string.calendar_permission_denied_saved_without_sync),
-                Toast.LENGTH_SHORT
-            ).show()
-            launchSave(downgradedDetails)
+            saveWithoutCalendarSync()
         }
     }
 
@@ -186,8 +279,11 @@ fun EventEntryScreen(
         pendingSaveDetailsOverride = details
         val shouldCheckCalendarPermission = details.syncToScheduleEnabled
         if (shouldCheckCalendarPermission && !hasCalendarPermission()) {
-            pendingSaveAfterCalendarPermission = true
-            calendarPermissionLauncher.launch(calendarPermissions)
+            when {
+                context.shouldShowCalendarPermissionRationaleCompat() -> showCalendarPermissionRationaleForSave()
+                context.wasCalendarPermissionRequestedBefore() -> showCalendarSettingsForSave()
+                else -> launchCalendarPermissionRequest()
+            }
             return
         }
         launchSave(details)
@@ -204,20 +300,65 @@ fun EventEntryScreen(
         if (granted) {
             continueSaveAfterPermissionChecks()
         } else {
-            val downgradedDetails = (pendingSaveDetailsOverride ?: latestEventDetails).copy(
-                remindEnabled = false
-            )
-            viewModel.updateUiState(downgradedDetails)
-            Toast.makeText(
-                context,
-                context.getString(R.string.notification_permission_denied_saved_without_reminder),
-                Toast.LENGTH_SHORT
-            ).show()
-            continueSaveAfterPermissionChecks(downgradedDetails)
+            saveWithoutReminder()
+        }
+    }
+
+    launchNotificationPermissionRequest = {
+        pendingSaveAfterNotificationPermission = true
+        context.markNotificationPermissionRequested()
+        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
+
+    launchCalendarPermissionRequest = {
+        pendingSaveAfterCalendarPermission = true
+        context.markCalendarPermissionRequested()
+        calendarPermissionLauncher.launch(calendarPermissions)
+    }
+
+    saveWithoutReminder = {
+        val downgradedDetails = (pendingSaveDetailsOverride ?: latestEventDetails).copy(
+            remindEnabled = false
+        )
+        viewModel.updateUiState(downgradedDetails)
+        navigateBackAfterPermissionFallbackSave = true
+        Toast.makeText(
+            context,
+            context.getString(R.string.notification_permission_denied_saved_without_reminder),
+            Toast.LENGTH_SHORT
+        ).show()
+        continueSaveAfterPermissionChecks(downgradedDetails)
+    }
+
+    saveWithoutCalendarSync = {
+        val downgradedDetails = (pendingSaveDetailsOverride ?: latestEventDetails).copy(
+            syncToScheduleEnabled = false
+        )
+        navigateBackAfterPermissionFallbackSave = true
+        Toast.makeText(
+            context,
+            context.getString(R.string.calendar_permission_denied_saved_without_sync),
+            Toast.LENGTH_SHORT
+        ).show()
+        launchSave(downgradedDetails)
+    }
+
+    requestNotificationAccessForSave = { details ->
+        pendingSaveDetailsOverride = details
+        when {
+            canPostNotifications() -> continueSaveAfterPermissionChecks(details)
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                context.hasNotificationRuntimePermission() -> showNotificationSettingsForSave()
+            context.shouldShowNotificationPermissionRationaleCompat() -> showNotificationPermissionRationaleForSave()
+            context.wasNotificationPermissionRequestedBefore() -> showNotificationSettingsForSave()
+            else -> launchNotificationPermissionRequest()
         }
     }
 
     val isEditing = eventId != null && eventId != 0
+    permissionDialog?.let { dialog ->
+        PermissionActionDialog(spec = dialog)
+    }
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -255,18 +396,14 @@ fun EventEntryScreen(
                 if (isSaving) return@EventEntryBody
 
                 val details = eventUiState.eventDetails
-                val shouldRequestNotificationPermission =
-                    details.remindEnabled && !hasNotificationPermission()
-                pendingSaveDetailsOverride = details
-                if (shouldRequestNotificationPermission) {
+                if (details.remindEnabled && !canPostNotifications()) {
                     isSaving = true
-                    pendingSaveAfterNotificationPermission = true
-                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    requestNotificationAccessForSave(details)
                     return@EventEntryBody
                 }
 
                 isSaving = true
-                continueSaveAfterPermissionChecks()
+                continueSaveAfterPermissionChecks(details)
             },
             modifier = modifier.padding(innerPadding)
         )
@@ -350,14 +487,8 @@ fun EventInputForm(
     val latestEventDetails by rememberUpdatedState(eventDetails)
     val calendarPermissions = arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR)
     var pendingReminderEnableAfterPermission by remember { mutableStateOf(false) }
-
-    fun hasNotificationPermission(): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
-        return ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.POST_NOTIFICATIONS
-        ) == PackageManager.PERMISSION_GRANTED
-    }
+    var pendingScheduleEnableAfterPermission by remember { mutableStateOf(false) }
+    var permissionDialog by remember { mutableStateOf<PermissionDialogSpec?>(null) }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -366,7 +497,9 @@ fun EventInputForm(
             return@rememberLauncherForActivityResult
         }
         pendingReminderEnableAfterPermission = false
-        onValueChange(latestEventDetails.copy(remindEnabled = granted))
+        if (granted) {
+            onValueChange(latestEventDetails.copy(remindEnabled = true))
+        }
     }
 
     val calendarPermissionLauncher = rememberLauncherForActivityResult(
@@ -375,9 +508,10 @@ fun EventInputForm(
         val granted =
             grantResults[Manifest.permission.READ_CALENDAR] == true &&
                 grantResults[Manifest.permission.WRITE_CALENDAR] == true
-        if (!granted && eventDetails.syncToScheduleEnabled) {
-            onValueChange(eventDetails.copy(syncToScheduleEnabled = false))
+        if (pendingScheduleEnableAfterPermission && granted) {
+            onValueChange(latestEventDetails.copy(syncToScheduleEnabled = true))
         }
+        pendingScheduleEnableAfterPermission = false
     }
     val dateFormatMode by (context.applicationContext as TimeApplication).userPrefs.dateFormatModeFlow.collectAsState(initial = 0)
     val dateFormatter = remember(dateFormatMode) { getDisplayDateFormatter(dateFormatMode) }
@@ -399,6 +533,101 @@ fun EventInputForm(
                 )
             }
         )
+    }
+    permissionDialog?.let { dialog ->
+        PermissionActionDialog(spec = dialog)
+    }
+
+    fun launchNotificationPermissionRequest() {
+        pendingReminderEnableAfterPermission = true
+        context.markNotificationPermissionRequested()
+        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
+
+    fun launchCalendarPermissionRequest() {
+        pendingScheduleEnableAfterPermission = true
+        context.markCalendarPermissionRequested()
+        calendarPermissionLauncher.launch(calendarPermissions)
+    }
+
+    fun requestNotificationAccessForToggle() {
+        when {
+            context.canPostAppNotifications() -> onValueChange(latestEventDetails.copy(remindEnabled = true))
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                context.hasNotificationRuntimePermission() -> {
+                permissionDialog = PermissionDialogSpec(
+                    title = context.getString(R.string.permission_dialog_title_notifications),
+                    message = context.getString(R.string.notification_permission_settings_message),
+                    confirmText = context.getString(R.string.permission_dialog_button_open_settings),
+                    dismissText = context.getString(R.string.permission_dialog_button_not_now),
+                    onConfirm = {
+                        permissionDialog = null
+                        context.openAppNotificationSettings()
+                    },
+                    onDismiss = { permissionDialog = null }
+                )
+            }
+            context.shouldShowNotificationPermissionRationaleCompat() -> {
+                permissionDialog = PermissionDialogSpec(
+                    title = context.getString(R.string.permission_dialog_title_notifications),
+                    message = context.getString(R.string.notification_permission_rationale_message),
+                    confirmText = context.getString(R.string.permission_dialog_button_continue),
+                    dismissText = context.getString(R.string.permission_dialog_button_not_now),
+                    onConfirm = {
+                        permissionDialog = null
+                        launchNotificationPermissionRequest()
+                    },
+                    onDismiss = { permissionDialog = null }
+                )
+            }
+            context.wasNotificationPermissionRequestedBefore() -> {
+                permissionDialog = PermissionDialogSpec(
+                    title = context.getString(R.string.permission_dialog_title_notifications),
+                    message = context.getString(R.string.notification_permission_settings_message),
+                    confirmText = context.getString(R.string.permission_dialog_button_open_settings),
+                    dismissText = context.getString(R.string.permission_dialog_button_not_now),
+                    onConfirm = {
+                        permissionDialog = null
+                        context.openAppNotificationSettings()
+                    },
+                    onDismiss = { permissionDialog = null }
+                )
+            }
+            else -> launchNotificationPermissionRequest()
+        }
+    }
+
+    fun requestCalendarAccessForToggle() {
+        when {
+            context.hasCalendarReadWritePermission() -> onValueChange(latestEventDetails.copy(syncToScheduleEnabled = true))
+            context.shouldShowCalendarPermissionRationaleCompat() -> {
+                permissionDialog = PermissionDialogSpec(
+                    title = context.getString(R.string.permission_dialog_title_calendar),
+                    message = context.getString(R.string.calendar_permission_rationale_message),
+                    confirmText = context.getString(R.string.permission_dialog_button_continue),
+                    dismissText = context.getString(R.string.permission_dialog_button_not_now),
+                    onConfirm = {
+                        permissionDialog = null
+                        launchCalendarPermissionRequest()
+                    },
+                    onDismiss = { permissionDialog = null }
+                )
+            }
+            context.wasCalendarPermissionRequestedBefore() -> {
+                permissionDialog = PermissionDialogSpec(
+                    title = context.getString(R.string.permission_dialog_title_calendar),
+                    message = context.getString(R.string.calendar_permission_settings_message),
+                    confirmText = context.getString(R.string.permission_dialog_button_open_settings),
+                    dismissText = context.getString(R.string.permission_dialog_button_not_now),
+                    onConfirm = {
+                        permissionDialog = null
+                        context.openAppDetailsSettings()
+                    },
+                    onDismiss = { permissionDialog = null }
+                )
+            }
+            else -> launchCalendarPermissionRequest()
+        }
     }
 
     val textFieldColors = TextFieldDefaults.colors(
@@ -765,9 +994,8 @@ fun EventInputForm(
                 Switch(
                     checked = eventDetails.remindEnabled,
                     onCheckedChange = { enabled ->
-                        if (enabled && !hasNotificationPermission()) {
-                            pendingReminderEnableAfterPermission = true
-                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        if (enabled) {
+                            requestNotificationAccessForToggle()
                         } else {
                             onValueChange(eventDetails.copy(remindEnabled = enabled))
                         }
@@ -794,17 +1022,10 @@ fun EventInputForm(
                 Switch(
                     checked = eventDetails.syncToScheduleEnabled,
                     onCheckedChange = { enabled ->
-                        onValueChange(eventDetails.copy(syncToScheduleEnabled = enabled))
-                        val readGranted = ContextCompat.checkSelfPermission(
-                            context,
-                            Manifest.permission.READ_CALENDAR
-                        ) == PackageManager.PERMISSION_GRANTED
-                        val writeGranted = ContextCompat.checkSelfPermission(
-                            context,
-                            Manifest.permission.WRITE_CALENDAR
-                        ) == PackageManager.PERMISSION_GRANTED
-                        if (enabled && (!readGranted || !writeGranted)) {
-                            calendarPermissionLauncher.launch(calendarPermissions)
+                        if (enabled) {
+                            requestCalendarAccessForToggle()
+                        } else {
+                            onValueChange(eventDetails.copy(syncToScheduleEnabled = false))
                         }
                     }
                 )

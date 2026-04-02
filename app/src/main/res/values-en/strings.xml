@@ -345,6 +345,17 @@
     <string name="notification_permission_denied_saved_without_reminder">Notification permission was denied. The event was saved without reminders.</string>
     <string name="calendar_permission_denied_saved_without_sync">Calendar permission was denied. The event was saved without schedule sync.</string>
     <string name="date_picker_invalid_input">Enter a valid date, for example 2026/02/28.</string>
+    <string name="permission_dialog_title_notifications">Allow notifications</string>
+    <string name="permission_dialog_title_calendar">Allow calendar access</string>
+    <string name="notification_permission_rationale_message">Turn on notification access so reminders can be delivered at the scheduled time.</string>
+    <string name="notification_permission_settings_message">Notifications are currently disabled for this app. Open system settings to enable them, or continue without reminders.</string>
+    <string name="calendar_permission_rationale_message">Allow calendar access so events can be added to and kept in sync with your system calendar.</string>
+    <string name="calendar_permission_settings_message">Calendar access is currently unavailable. Open system settings to allow it, or continue without calendar sync.</string>
+    <string name="permission_dialog_button_continue">Continue</string>
+    <string name="permission_dialog_button_open_settings">Open settings</string>
+    <string name="permission_dialog_button_not_now">Not now</string>
+    <string name="permission_dialog_button_save_without_reminder">Save without reminder</string>
+    <string name="permission_dialog_button_save_without_sync">Save without sync</string>
 </resources>
 
 

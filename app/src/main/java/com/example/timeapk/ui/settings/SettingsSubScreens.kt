@@ -32,6 +32,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.toColorInt
 import com.example.timeapk.BuildConfig
+import com.example.timeapk.permissions.hasCalendarReadWritePermission
+import com.example.timeapk.permissions.markCalendarPermissionRequested
+import com.example.timeapk.permissions.openAppDetailsSettings
+import com.example.timeapk.permissions.shouldShowCalendarPermissionRationaleCompat
+import com.example.timeapk.permissions.wasCalendarPermissionRequestedBefore
 import com.example.timeapk.R
 import com.example.timeapk.TimeApplication
 import com.example.timeapk.data.*
@@ -39,6 +44,8 @@ import com.example.timeapk.notifications.RescheduleAllWorker
 import com.example.timeapk.notifications.rescheduleMilestoneReminders
 import com.example.timeapk.notifications.scheduleReminder
 import com.example.timeapk.notifications.ScheduleSyncManager
+import com.example.timeapk.ui.components.PermissionActionDialog
+import com.example.timeapk.ui.components.PermissionDialogSpec
 import com.example.timeapk.ui.components.SnapWheelPicker
 import com.example.timeapk.widget.WidgetUpdater
 import com.example.timeapk.update.CheckUpdateResult
@@ -1193,20 +1200,13 @@ fun MilestoneSettingsContent(
     var writableCalendars by remember { mutableStateOf<List<ScheduleSyncManager.CalendarOption>>(emptyList()) }
     var latestScheduleSyncEvent by remember { mutableStateOf<Event?>(null) }
     var syncStatusLoading by remember { mutableStateOf(false) }
+    var permissionDialog by remember { mutableStateOf<PermissionDialogSpec?>(null) }
     val calendarPermissions = remember {
         arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR)
     }
 
     fun hasCalendarPermission(): Boolean {
-        val readGranted = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.READ_CALENDAR
-        ) == PackageManager.PERMISSION_GRANTED
-        val writeGranted = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.WRITE_CALENDAR
-        ) == PackageManager.PERMISSION_GRANTED
-        return readGranted && writeGranted
+        return context.hasCalendarReadWritePermission()
     }
 
     val refreshScheduleSyncStatus: suspend () -> Unit = {
@@ -1232,6 +1232,44 @@ fun MilestoneSettingsContent(
         }
     }
 
+    fun launchCalendarPermissionRequest() {
+        context.markCalendarPermissionRequested()
+        calendarPermissionLauncher.launch(calendarPermissions)
+    }
+
+    fun requestCalendarPermissionAccess() {
+        when {
+            hasCalendarPermission() -> scope.launch { refreshScheduleSyncStatus() }
+            context.shouldShowCalendarPermissionRationaleCompat() -> {
+                permissionDialog = PermissionDialogSpec(
+                    title = context.getString(R.string.permission_dialog_title_calendar),
+                    message = context.getString(R.string.calendar_permission_rationale_message),
+                    confirmText = context.getString(R.string.permission_dialog_button_continue),
+                    dismissText = context.getString(R.string.permission_dialog_button_not_now),
+                    onConfirm = {
+                        permissionDialog = null
+                        launchCalendarPermissionRequest()
+                    },
+                    onDismiss = { permissionDialog = null }
+                )
+            }
+            context.wasCalendarPermissionRequestedBefore() -> {
+                permissionDialog = PermissionDialogSpec(
+                    title = context.getString(R.string.permission_dialog_title_calendar),
+                    message = context.getString(R.string.calendar_permission_settings_message),
+                    confirmText = context.getString(R.string.permission_dialog_button_open_settings),
+                    dismissText = context.getString(R.string.permission_dialog_button_not_now),
+                    onConfirm = {
+                        permissionDialog = null
+                        context.openAppDetailsSettings()
+                    },
+                    onDismiss = { permissionDialog = null }
+                )
+            }
+            else -> launchCalendarPermissionRequest()
+        }
+    }
+
     LaunchedEffect(Unit) {
         refreshScheduleSyncStatus()
     }
@@ -1250,6 +1288,9 @@ fun MilestoneSettingsContent(
             .verticalScroll(rememberScrollState())
             .padding(24.dp)
     ) {
+        permissionDialog?.let { dialog ->
+            PermissionActionDialog(spec = dialog)
+        }
         SettingsGroupHeader(title = stringResource(R.string.settings_milestone_entry_title))
 
         Row(
@@ -1477,7 +1518,7 @@ fun MilestoneSettingsContent(
                 .fillMaxWidth()
                 .clickable {
                     if (!calendarPermissionGranted) {
-                        calendarPermissionLauncher.launch(calendarPermissions)
+                        requestCalendarPermissionAccess()
                     } else {
                         scope.launch {
                             prefs.setScheduleTargetCalendarId(null)
@@ -1492,7 +1533,7 @@ fun MilestoneSettingsContent(
                 selected = scheduleTargetCalendarId == null,
                 onClick = {
                     if (!calendarPermissionGranted) {
-                        calendarPermissionLauncher.launch(calendarPermissions)
+                        requestCalendarPermissionAccess()
                     } else {
                         scope.launch {
                             prefs.setScheduleTargetCalendarId(null)
@@ -1517,7 +1558,7 @@ fun MilestoneSettingsContent(
                 modifier = Modifier.padding(vertical = 4.dp)
             )
             OutlinedButton(
-                onClick = { calendarPermissionLauncher.launch(calendarPermissions) },
+                onClick = { requestCalendarPermissionAccess() },
                 modifier = Modifier.padding(vertical = 4.dp)
             ) {
                 Text(stringResource(R.string.settings_schedule_request_calendar_permission))
@@ -1536,7 +1577,7 @@ fun MilestoneSettingsContent(
                         .fillMaxWidth()
                         .clickable {
                             if (!calendarPermissionGranted) {
-                                calendarPermissionLauncher.launch(calendarPermissions)
+                                requestCalendarPermissionAccess()
                             } else {
                                 scope.launch {
                                     prefs.setScheduleTargetCalendarId(calendar.id)
@@ -1551,7 +1592,7 @@ fun MilestoneSettingsContent(
                         selected = scheduleTargetCalendarId == calendar.id,
                         onClick = {
                             if (!calendarPermissionGranted) {
-                                calendarPermissionLauncher.launch(calendarPermissions)
+                                requestCalendarPermissionAccess()
                             } else {
                                 scope.launch {
                                     prefs.setScheduleTargetCalendarId(calendar.id)
@@ -2282,7 +2323,6 @@ private fun evaluateContrastAuditForKey(
         onPrimary = onPrimary
     )
 }
-
 
 
 

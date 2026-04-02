@@ -1,18 +1,15 @@
 ﻿package com.example.timeapk.notifications
 
-import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.os.Build
 import androidx.core.app.NotificationCompat
-import androidx.core.content.ContextCompat
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.example.timeapk.MainActivity
+import com.example.timeapk.permissions.canPostAppNotifications
 import com.example.timeapk.R
 import com.example.timeapk.TimeApplication
 
@@ -67,11 +64,7 @@ class MilestoneReminderWorker(
     }
 
     private fun canPostNotifications(): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
-        return ContextCompat.checkSelfPermission(
-            applicationContext,
-            Manifest.permission.POST_NOTIFICATIONS
-        ) == PackageManager.PERMISSION_GRANTED
+        return applicationContext.canPostAppNotifications()
     }
 
     private fun ensureChannel(channelId: String) {
