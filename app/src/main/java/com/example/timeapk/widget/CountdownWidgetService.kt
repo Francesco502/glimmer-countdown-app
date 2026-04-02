@@ -7,14 +7,9 @@ import android.os.Binder
 import android.util.TypedValue
 import android.widget.RemoteViews
 import android.widget.RemoteViewsService
-import androidx.core.content.ContextCompat
 import com.example.timeapk.R
 
 class CountdownWidgetService : RemoteViewsService() {
-    companion object {
-        const val EXTRA_THEME_IS_DARK = "widget_theme_is_dark"
-    }
-
     override fun onGetViewFactory(intent: Intent): RemoteViewsFactory {
         return CountdownRemoteViewsFactory(applicationContext, intent)
     }
@@ -32,8 +27,6 @@ private class CountdownRemoteViewsFactory(
 
     private val items = mutableListOf<WidgetRenderedItem>()
     private var textStyle: WidgetTextStyle = WidgetStylePolicy.resolve(widgetSizeBucket, 1f)
-    private var isDarkTheme: Boolean =
-        intent.getBooleanExtra(CountdownWidgetService.EXTRA_THEME_IS_DARK, false)
 
     override fun onCreate() = Unit
 
@@ -48,7 +41,6 @@ private class CountdownRemoteViewsFactory(
             items.clear()
             items.addAll(snapshot.items)
             textStyle = snapshot.textStyle
-            isDarkTheme = WidgetThemeResolver.resolve(context).isDark
         } finally {
             Binder.restoreCallingIdentity(identityToken)
         }
@@ -58,16 +50,10 @@ private class CountdownRemoteViewsFactory(
 
     override fun getViewAt(position: Int): RemoteViews? {
         val item = items.getOrNull(position) ?: return null
-        val textColor = ContextCompat.getColor(
-            context,
-            if (isDarkTheme) R.color.widget_text_dark else R.color.widget_text_light
-        )
 
         return RemoteViews(context.packageName, R.layout.widget_countdown_item).apply {
             setTextViewText(R.id.widget_item_title, item.title)
             setTextViewText(R.id.widget_item_value, item.value)
-            setTextColor(R.id.widget_item_title, textColor)
-            setTextColor(R.id.widget_item_value, textColor)
             setTextViewTextSize(R.id.widget_item_title, TypedValue.COMPLEX_UNIT_SP, textStyle.titleSp)
             setTextViewTextSize(R.id.widget_item_value, TypedValue.COMPLEX_UNIT_SP, textStyle.valueSp)
             setViewPadding(

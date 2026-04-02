@@ -71,16 +71,12 @@
     <!-- Remind -->
     <string name="field_remind">Remind</string>
     <string name="remind_same_day">Same day</string>
-    <string name="remind_1_day">1 day before</string>
-    <string name="remind_3_days">3 days before</string>
-    <string name="remind_7_days">7 days before</string>
     <plurals name="remind_days_before_format">
         <item quantity="one">%1$d day before</item>
         <item quantity="other">%1$d days before</item>
     </plurals>
     <string name="reminder_time_hour">Hour</string>
     <string name="reminder_time_minute">Minute</string>
-    <string name="reminder_time_0">0:00</string>
     <string name="reminder_time_6">6:00</string>
     <string name="reminder_time_8">8:00</string>
     <string name="reminder_time_9">9:00</string>
@@ -300,7 +296,6 @@
     <string name="date_part_month">Month</string>
     <string name="date_part_day">Day</string>
     <string name="calendar_permission_required_for_sync">Calendar permission is required to sync to system schedule.</string>
-    <string name="notification_permission_required_for_reminder">Notification permission is required to enable reminders.</string>
     <string name="action_apply">Apply</string>
     <string name="custom_remind_days_label">Custom days before</string>
     <string name="custom_reminder_time_label">Custom reminder time</string>
@@ -347,6 +342,9 @@
     <string name="settings_entry_data_desc">Export, import, and data migration</string>
     <string name="settings_about_entry_title">About &amp; updates</string>
     <string name="settings_entry_about_desc">Version details and update checks</string>
+    <string name="notification_permission_denied_saved_without_reminder">Notification permission was denied. The event was saved without reminders.</string>
+    <string name="calendar_permission_denied_saved_without_sync">Calendar permission was denied. The event was saved without schedule sync.</string>
+    <string name="date_picker_invalid_input">Enter a valid date, for example 2026/02/28.</string>
 </resources>
 
 

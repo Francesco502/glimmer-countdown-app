@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="widget_surface_color">#FF171B22</color>
+    <color name="widget_surface_highlight_color">#26FFFFFF</color>
+    <color name="widget_surface_highlight_fade_color">#00FFFFFF</color>
+    <color name="widget_stroke_color">#26FFFFFF</color>
+    <color name="widget_item_surface_color">#FF202632</color>
+    <color name="widget_item_highlight_color">#18FFFFFF</color>
+    <color name="widget_item_highlight_fade_color">#00FFFFFF</color>
+    <color name="widget_item_stroke_color">#1FFFFFFF</color>
+    <color name="widget_text_primary_color">#FFF6F7FB</color>
+    <color name="widget_text_secondary_color">#FFC0C8D4</color>
+    <color name="widget_text_accent_color">#FFD9E2FF</color>
+</resources>

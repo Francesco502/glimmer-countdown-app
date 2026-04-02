@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="?attr/widgetBackgroundRadius" />
+            <solid android:color="?attr/widgetSurfaceColor" />
+            <stroke
+                android:width="@dimen/widget_stroke_width"
+                android:color="?attr/widgetStrokeColor" />
+        </shape>
+    </item>
+
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="?attr/widgetBackgroundRadius" />
+            <gradient
+                android:angle="270"
+                android:endColor="?attr/widgetSurfaceHighlightFadeColor"
+                android:startColor="?attr/widgetSurfaceHighlightColor" />
+        </shape>
+    </item>
+</layer-list>

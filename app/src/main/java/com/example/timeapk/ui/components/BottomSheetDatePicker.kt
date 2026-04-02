@@ -7,6 +7,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshotFlow
@@ -62,6 +64,8 @@ fun BottomSheetDatePicker(
     var yearInput by remember { mutableStateOf(selectedDate.year.toString()) }
     var monthInput by remember { mutableStateOf(selectedDate.monthValue.toString().padStart(2, '0')) }
     var dayInput by remember { mutableStateOf(selectedDate.dayOfMonth.toString().padStart(2, '0')) }
+    var solarInputError by remember { mutableStateOf<String?>(null) }
+    val invalidDateInputMessage = stringResource(R.string.date_picker_invalid_input)
 
     val focusManager = LocalFocusManager.current
     val scope = rememberCoroutineScope()
@@ -325,6 +329,38 @@ fun BottomSheetDatePicker(
         }
     }
 
+    fun syncInputFieldsToSelectedDate() {
+        yearInput = selectedDate.year.toString()
+        monthInput = selectedDate.monthValue.toString().padStart(2, '0')
+        dayInput = selectedDate.dayOfMonth.toString().padStart(2, '0')
+    }
+
+    fun validateAndSyncInputWheels(): Boolean {
+        if (isLunarMode) {
+            solarInputError = null
+            syncInputFieldsToSelectedDate()
+            return true
+        }
+
+        val parsedDate = parseSolarDateInput(yearInput, monthInput, dayInput, yearRange)
+        if (parsedDate == null) {
+            solarInputError = invalidDateInputMessage
+            return false
+        }
+
+        solarInputError = null
+        selectedDate = parsedDate
+        syncInputFieldsToSelectedDate()
+        scope.launch {
+            isProgrammaticScroll = true
+            yearState.animateScrollToItem((parsedDate.year - yearRange.first).coerceAtLeast(0))
+            monthState.animateScrollToItem(parsedDate.monthValue - 1)
+            dayState.animateScrollToItem(parsedDate.dayOfMonth - 1)
+            isProgrammaticScroll = false
+        }
+        return true
+    }
+
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     ModalBottomSheet(
@@ -365,7 +401,9 @@ fun BottomSheetDatePicker(
                 )
                 TextButton(onClick = {
                     focusManager.clearFocus()
-                    // 浣跨敤褰撳墠閫変腑鏃ユ湡
+                    if (!isLunarMode && !validateAndSyncInputWheels()) {
+                        return@TextButton
+                    }
                     val millis = selectedDate
                         .atStartOfDay(ZoneOffset.UTC)
                         .toInstant()
@@ -425,37 +463,51 @@ fun BottomSheetDatePicker(
                         label = stringResource(R.string.date_part_year),
                         value = yearInput,
                         onValueChange = { new ->
+                            solarInputError = null
                             yearInput = new.filter { it.isDigit() }.take(4)
                         },
                         onDone = {
                             focusManager.clearFocus()
-                            applyInputAndSyncWheels()
+                            validateAndSyncInputWheels()
                         },
+                        isError = solarInputError != null,
                         modifier = Modifier.weight(1.4f)
                     )
                     DatePartField(
                         label = stringResource(R.string.date_part_month),
                         value = monthInput,
                         onValueChange = { new ->
+                            solarInputError = null
                             monthInput = new.filter { it.isDigit() }.take(2)
                         },
                         onDone = {
                             focusManager.clearFocus()
-                            applyInputAndSyncWheels()
+                            validateAndSyncInputWheels()
                         },
+                        isError = solarInputError != null,
                         modifier = Modifier.weight(1f)
                     )
                     DatePartField(
                         label = stringResource(R.string.date_part_day),
                         value = dayInput,
                         onValueChange = { new ->
+                            solarInputError = null
                             dayInput = new.filter { it.isDigit() }.take(2)
                         },
                         onDone = {
                             focusManager.clearFocus()
-                            applyInputAndSyncWheels()
+                            validateAndSyncInputWheels()
                         },
+                        isError = solarInputError != null,
                         modifier = Modifier.weight(1f)
+                    )
+                }
+                solarInputError?.let { errorMessage ->
+                    Text(
+                        text = errorMessage,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(start = 4.dp, bottom = 12.dp)
                     )
                 }
             } else {
@@ -500,6 +552,7 @@ private fun DatePartField(
     value: String,
     onValueChange: (String) -> Unit,
     onDone: () -> Unit,
+    isError: Boolean,
     modifier: Modifier = Modifier
 ) {
     val focusManager = LocalFocusManager.current
@@ -520,6 +573,7 @@ private fun DatePartField(
                 focusManager.clearFocus()
             }
         ),
+        isError = isError,
         modifier = modifier.onFocusChanged { state ->
             val nowFocused = state.isFocused
             if (hasFocus && !nowFocused) {
@@ -531,6 +585,24 @@ private fun DatePartField(
     )
 }
 
+internal fun parseSolarDateInput(
+    yearInput: String,
+    monthInput: String,
+    dayInput: String,
+    yearRange: IntRange
+): LocalDate? {
+    val year = yearInput.toIntOrNull() ?: return null
+    val month = monthInput.toIntOrNull() ?: return null
+    val day = dayInput.toIntOrNull() ?: return null
+    if (year !in yearRange || month !in 1..12) return null
+
+    val yearMonth = runCatching { YearMonth.of(year, month) }.getOrNull() ?: return null
+    if (day !in 1..yearMonth.lengthOfMonth()) return null
+
+    return LocalDate.of(year, month, day)
+}
+
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun <T> WheelColumn(
     modifier: Modifier,
@@ -547,7 +619,8 @@ private fun <T> WheelColumn(
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            state = state
+            state = state,
+            flingBehavior = rememberSnapFlingBehavior(lazyListState = state)
         ) {
             items(totalCount) { index ->
                 val itemIndex = index - paddingCount
@@ -613,29 +686,9 @@ private fun <T> WheelSyncEffect(
     enabled: Boolean,
     onItemSelected: (T) -> Unit
 ) {
-    // 婊氬姩鍋滄鏃剁殑鍚搁檮閫昏緫
-    LaunchedEffect(listState.isScrollInProgress) {
-        if (!listState.isScrollInProgress && enabled) {
-            val firstVisibleItemIndex = listState.firstVisibleItemIndex
-            val firstVisibleItemScrollOffset = listState.firstVisibleItemScrollOffset
-            val layoutInfo = listState.layoutInfo
-            val itemSize = layoutInfo.visibleItemsInfo.firstOrNull()?.size ?: 0
-            
-            if (itemSize > 0) {
-                val targetIndex = if (firstVisibleItemScrollOffset > itemSize / 2) {
-                    firstVisibleItemIndex + 1
-                } else {
-                    firstVisibleItemIndex
-                }
-                listState.animateScrollToItem(targetIndex)
-            }
-        }
-    }
-
     LaunchedEffect(listState, items, enabled) {
         if (!enabled) return@LaunchedEffect
         snapshotFlow {
-            // 鍙栦腑闂撮偅涓€琛屽搴旂殑 index
             listState.firstVisibleItemIndex + paddingCount
         }.collectLatest { index ->
             if (items.isNotEmpty()) {

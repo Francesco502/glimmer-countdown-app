@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="widget_surface_color">@android:color/system_neutral1_50</color>
+    <color name="widget_surface_highlight_color">#B3FFFFFF</color>
+    <color name="widget_surface_highlight_fade_color">#00FFFFFF</color>
+    <color name="widget_stroke_color">@android:color/system_neutral2_200</color>
+    <color name="widget_item_surface_color">@android:color/system_neutral1_0</color>
+    <color name="widget_item_highlight_color">#CCFFFFFF</color>
+    <color name="widget_item_highlight_fade_color">#00FFFFFF</color>
+    <color name="widget_item_stroke_color">@android:color/system_neutral1_100</color>
+    <color name="widget_text_primary_color">@android:color/system_neutral1_900</color>
+    <color name="widget_text_secondary_color">@android:color/system_neutral2_700</color>
+    <color name="widget_text_accent_color">@android:color/system_accent1_600</color>
+</resources>

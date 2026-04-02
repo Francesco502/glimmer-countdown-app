@@ -1,10 +1,13 @@
 package com.example.timeapk.notifications
 
+import android.Manifest
 import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
+import android.content.pm.PackageManager
 import android.provider.CalendarContract
 import android.util.Log
+import androidx.core.content.ContextCompat
 import com.example.timeapk.R
 import com.example.timeapk.data.Event
 import com.example.timeapk.data.REPEAT_MONTHLY
@@ -390,25 +393,28 @@ object ScheduleSyncManager {
     }
 
     fun clearAllMilestoneScheduleReminders(context: Context) {
+        if (!hasCalendarReadAccess(context)) return
         val idsByKind = findEventIdsByExtendedProperty(context, META_NAME_KIND, META_KIND_MILESTONE)
         removeEventsByIds(context, idsByKind)
         removeEventsByDescriptionLike(context, "$MILESTONE_MARKER_PREFIX%")
     }
 
     fun clearMilestoneScheduleRemindersByEventId(context: Context, eventId: Int) {
+        if (!hasCalendarReadAccess(context)) return
         val ids = findManagedMilestoneEventIdsByEventId(context, eventId)
         removeEventsByIds(context, ids)
         removeEventsByDescriptionLike(context, "$MILESTONE_MARKER_PREFIX:$eventId%")
     }
 
     fun removeScheduleReminderByEventId(context: Context, eventId: Int) {
+        if (!hasCalendarReadAccess(context)) return
         val ids = findManagedReminderEventIds(context, eventId)
         removeEventsByIds(context, ids)
         removeEventsByDescriptionLike(context, "$REMINDER_MARKER_PREFIX:$eventId%")
     }
 
     fun removeScheduleReminder(context: Context, calendarEventId: Long?) {
-        if (calendarEventId == null) return
+        if (calendarEventId == null || !hasCalendarWriteAccess(context)) return
         try {
             val uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, calendarEventId)
             context.contentResolver.delete(uri, null, null)
@@ -523,6 +529,7 @@ object ScheduleSyncManager {
     }
 
     private fun loadExistingReminderEntries(context: Context, eventId: Int): List<ExistingReminderEntry> {
+        if (!hasCalendarReadAccess(context)) return emptyList()
         val entries = mutableListOf<ExistingReminderEntry>()
 
         context.contentResolver.query(
@@ -569,6 +576,7 @@ object ScheduleSyncManager {
     }
 
     private fun findManagedReminderEventIds(context: Context, eventId: Int): Set<Long> {
+        if (!hasCalendarReadAccess(context)) return emptySet()
         val ids = mutableSetOf<Long>()
         ids += findEventIdsByExtendedProperty(context, META_NAME_EVENT_ID, eventId.toString())
             .filter { id ->
@@ -590,6 +598,7 @@ object ScheduleSyncManager {
     }
 
     private fun findManagedMilestoneEventIdsByEventId(context: Context, eventId: Int): Set<Long> {
+        if (!hasCalendarReadAccess(context)) return emptySet()
         val ids = mutableSetOf<Long>()
         ids += findEventIdsByExtendedProperty(context, META_NAME_EVENT_ID, eventId.toString())
             .filter { id ->
@@ -612,6 +621,7 @@ object ScheduleSyncManager {
     }
 
     private fun findEventIdsByExtendedProperty(context: Context, name: String, value: String): Set<Long> {
+        if (!hasCalendarReadAccess(context)) return emptySet()
         val ids = mutableSetOf<Long>()
         context.contentResolver.query(
             CalendarContract.ExtendedProperties.CONTENT_URI,
@@ -629,6 +639,7 @@ object ScheduleSyncManager {
     }
 
     private fun readExtendedProperties(context: Context, eventId: Long): Map<String, String> {
+        if (!hasCalendarReadAccess(context)) return emptyMap()
         val result = mutableMapOf<String, String>()
         context.contentResolver.query(
             CalendarContract.ExtendedProperties.CONTENT_URI,
@@ -651,6 +662,7 @@ object ScheduleSyncManager {
     }
 
     private fun upsertExtendedProperties(context: Context, eventId: Long, properties: Map<String, String>): Boolean {
+        if (!hasCalendarWriteAccess(context)) return false
         return try {
             properties.forEach { (name, value) ->
                 context.contentResolver.delete(
@@ -679,6 +691,7 @@ object ScheduleSyncManager {
     }
 
     private fun insertEventAndReminder(context: Context, values: ContentValues): Long? {
+        if (!hasCalendarWriteAccess(context)) return null
         val uri = context.contentResolver.insert(CalendarContract.Events.CONTENT_URI, values) ?: return null
         val eventId = ContentUris.parseId(uri)
         upsertReminderAlert(context, eventId)
@@ -686,6 +699,7 @@ object ScheduleSyncManager {
     }
 
     private fun updateEventAndReminder(context: Context, eventId: Long, values: ContentValues): Boolean {
+        if (!hasCalendarWriteAccess(context)) return false
         val uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId)
         val affected = context.contentResolver.update(uri, values, null, null)
         if (affected <= 0) return false
@@ -694,6 +708,7 @@ object ScheduleSyncManager {
     }
 
     private fun upsertReminderAlert(context: Context, eventId: Long) {
+        if (!hasCalendarWriteAccess(context)) return
         val selection = "${CalendarContract.Reminders.EVENT_ID} = ?"
         val args = arrayOf(eventId.toString())
         context.contentResolver.delete(CalendarContract.Reminders.CONTENT_URI, selection, args)
@@ -711,6 +726,7 @@ object ScheduleSyncManager {
     }
 
     private fun removeEventsByIds(context: Context, ids: Iterable<Long>) {
+        if (!hasCalendarWriteAccess(context)) return
         ids.forEach { id ->
             try {
                 val uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, id)
@@ -722,6 +738,7 @@ object ScheduleSyncManager {
     }
 
     private fun removeEventsByDescriptionLike(context: Context, pattern: String) {
+        if (!hasCalendarReadAccess(context)) return
         try {
             val projection = arrayOf(CalendarContract.Events._ID)
             val selection = "${CalendarContract.Events.DESCRIPTION} LIKE ?"
@@ -745,6 +762,19 @@ object ScheduleSyncManager {
         } catch (_: SecurityException) {
         } catch (_: Exception) {
         }
+    }
+
+    private fun hasCalendarReadAccess(context: Context): Boolean {
+        return hasPermission(context, Manifest.permission.READ_CALENDAR) ||
+            hasPermission(context, Manifest.permission.WRITE_CALENDAR)
+    }
+
+    private fun hasCalendarWriteAccess(context: Context): Boolean {
+        return hasPermission(context, Manifest.permission.WRITE_CALENDAR)
+    }
+
+    private fun hasPermission(context: Context, permission: String): Boolean {
+        return ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
     }
 
     internal fun buildReminderMarkerForTest(eventId: Int): String = "$REMINDER_MARKER_PREFIX:$eventId"

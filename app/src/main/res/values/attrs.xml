@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <attr name="widgetBackgroundRadius" format="dimension" />
+    <attr name="widgetItemRadius" format="dimension" />
+    <attr name="widgetSurfaceColor" format="color" />
+    <attr name="widgetSurfaceHighlightColor" format="color" />
+    <attr name="widgetSurfaceHighlightFadeColor" format="color" />
+    <attr name="widgetStrokeColor" format="color" />
+    <attr name="widgetItemSurfaceColor" format="color" />
+    <attr name="widgetItemHighlightColor" format="color" />
+    <attr name="widgetItemHighlightFadeColor" format="color" />
+    <attr name="widgetItemStrokeColor" format="color" />
+    <attr name="widgetTextPrimaryColor" format="color" />
+    <attr name="widgetTextSecondaryColor" format="color" />
+    <attr name="widgetTextAccentColor" format="color" />
+</resources>

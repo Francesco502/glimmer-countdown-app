@@ -28,8 +28,8 @@ android {
         applicationId = "com.example.timeapk"
         minSdk = 26
         targetSdk = 36
-        versionCode = versionCodeOverride ?: 11
-        versionName = versionNameOverride ?: "3.7"
+        versionCode = versionCodeOverride ?: 12
+        versionName = versionNameOverride ?: "3.8"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -101,8 +101,8 @@ android {
     }
 }
 
-// Rename the direct release APK to glimmer-countdown-3-7.apk style.
-val versionNameForApk = versionNameOverride ?: "3.7"
+// Rename the direct release APK to glimmer-countdown-3-8.apk style.
+val versionNameForApk = versionNameOverride ?: "3.8"
 val apkBaseName = "glimmer-countdown-${versionNameForApk.replace(".", "-")}"
 
 tasks.register("renameDirectReleaseApk") {
@@ -112,7 +112,16 @@ tasks.register("renameDirectReleaseApk") {
         val fromFile = File(releaseDir, "app-direct-release.apk")
         val toFile = File(releaseDir, "$apkBaseName.apk")
         if (fromFile.exists()) {
+            if (toFile.exists()) {
+                toFile.delete()
+            }
             fromFile.renameTo(toFile)
+        }
+        val metadataFile = File(releaseDir, "output-metadata.json")
+        if (metadataFile.exists()) {
+            metadataFile.writeText(
+                metadataFile.readText().replace("\"outputFile\": \"app-direct-release.apk\"", "\"outputFile\": \"$apkBaseName.apk\"")
+            )
         }
     }
 }

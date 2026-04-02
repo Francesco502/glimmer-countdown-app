@@ -15,11 +15,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Clear
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
+import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.LaunchedEffect
@@ -34,6 +34,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
+import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
@@ -80,6 +81,8 @@ private val PRESET_COLORS = listOf(
 )
 // CATEGORY_DEFAULT_COLOR map removed as explicit category selection is gone
 
+private val EventEntryContentMaxWidth = 720.dp
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EventEntryScreen(
@@ -90,6 +93,7 @@ fun EventEntryScreen(
 ) {
     val context = LocalContext.current
     val eventUiState by viewModel.eventUiState.collectAsState()
+    val latestEventDetails by rememberUpdatedState(eventUiState.eventDetails)
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val calendarPermissions = remember {
@@ -97,6 +101,7 @@ fun EventEntryScreen(
     }
     var pendingSaveAfterNotificationPermission by remember { mutableStateOf(false) }
     var pendingSaveAfterCalendarPermission by remember { mutableStateOf(false) }
+    var pendingSaveDetailsOverride by remember { mutableStateOf<EventDetails?>(null) }
     LaunchedEffect(eventId) {
         if (eventId != null && eventId != 0) {
             viewModel.loadEvent(eventId)
@@ -132,7 +137,9 @@ fun EventEntryScreen(
         ) == PackageManager.PERMISSION_GRANTED
     }
 
-    fun launchSave() {
+    fun launchSave(detailsOverride: EventDetails = pendingSaveDetailsOverride ?: latestEventDetails) {
+        pendingSaveDetailsOverride = null
+        viewModel.updateUiState(detailsOverride)
         coroutineScope.launch {
             when (val result = viewModel.saveEvent()) {
                 is SaveEventResult.Success -> navigateBack()
@@ -163,24 +170,27 @@ fun EventEntryScreen(
         if (granted) {
             launchSave()
         } else {
-            isSaving = false
-            coroutineScope.launch {
-                snackbarHostState.showSnackbar(
-                    context.getString(R.string.calendar_permission_required_for_sync)
-                )
-            }
+            val downgradedDetails = (pendingSaveDetailsOverride ?: latestEventDetails).copy(
+                syncToScheduleEnabled = false
+            )
+            Toast.makeText(
+                context,
+                context.getString(R.string.calendar_permission_denied_saved_without_sync),
+                Toast.LENGTH_SHORT
+            ).show()
+            launchSave(downgradedDetails)
         }
     }
 
-    fun continueSaveAfterPermissionChecks() {
-        val details = eventUiState.eventDetails
+    fun continueSaveAfterPermissionChecks(details: EventDetails = pendingSaveDetailsOverride ?: latestEventDetails) {
+        pendingSaveDetailsOverride = details
         val shouldCheckCalendarPermission = details.syncToScheduleEnabled
         if (shouldCheckCalendarPermission && !hasCalendarPermission()) {
             pendingSaveAfterCalendarPermission = true
             calendarPermissionLauncher.launch(calendarPermissions)
             return
         }
-        launchSave()
+        launchSave(details)
     }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
@@ -194,12 +204,16 @@ fun EventEntryScreen(
         if (granted) {
             continueSaveAfterPermissionChecks()
         } else {
-            isSaving = false
-            coroutineScope.launch {
-                snackbarHostState.showSnackbar(
-                    context.getString(R.string.notification_permission_required_for_reminder)
-                )
-            }
+            val downgradedDetails = (pendingSaveDetailsOverride ?: latestEventDetails).copy(
+                remindEnabled = false
+            )
+            viewModel.updateUiState(downgradedDetails)
+            Toast.makeText(
+                context,
+                context.getString(R.string.notification_permission_denied_saved_without_reminder),
+                Toast.LENGTH_SHORT
+            ).show()
+            continueSaveAfterPermissionChecks(downgradedDetails)
         }
     }
 
@@ -219,7 +233,7 @@ fun EventEntryScreen(
                 navigationIcon = {
                     IconButton(onClick = navigateBack) {
                         Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
+                            Icons.AutoMirrored.Outlined.ArrowBack,
                             contentDescription = stringResource(R.string.nav_back)
                         )
                     }
@@ -243,6 +257,7 @@ fun EventEntryScreen(
                 val details = eventUiState.eventDetails
                 val shouldRequestNotificationPermission =
                     details.remindEnabled && !hasNotificationPermission()
+                pendingSaveDetailsOverride = details
                 if (shouldRequestNotificationPermission) {
                     isSaving = true
                     pendingSaveAfterNotificationPermission = true
@@ -267,51 +282,58 @@ fun EventEntryBody(
     isSaving: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    Column(
+    Box(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .imePadding()
             .background(MaterialTheme.colorScheme.background)
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+        contentAlignment = Alignment.TopCenter
     ) {
-        // Keep a clear paper layer for form content.
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(4.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.24f)),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .widthIn(max = EventEntryContentMaxWidth),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+            // Keep a clear paper layer for form content.
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(4.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.24f)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
-                EventInputForm(
-                    eventDetails = eventUiState.eventDetails,
-                    onValueChange = onEventValueChange
-                )
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    EventInputForm(
+                        eventDetails = eventUiState.eventDetails,
+                        onValueChange = onEventValueChange
+                    )
+                }
             }
-        }
-        
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End
-        ) {
-            TextButton(
-                onClick = onSaveClick,
-                enabled = eventUiState.isEntryValid && !isSaving,
-                modifier = Modifier.padding(top = 16.dp),
-                shape = RoundedCornerShape(2.dp)
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
             ) {
-                Text(
-                    text = stringResource(R.string.button_save_event),
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        letterSpacing = 2.sp
-                    ),
-                    color = if (eventUiState.isEntryValid) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
-                )
+                TextButton(
+                    onClick = onSaveClick,
+                    enabled = eventUiState.isEntryValid && !isSaving,
+                    modifier = Modifier.padding(top = 16.dp),
+                    shape = RoundedCornerShape(2.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.button_save_event),
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            letterSpacing = 2.sp
+                        ),
+                        color = if (eventUiState.isEntryValid) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                    )
+                }
             }
         }
     }
@@ -383,9 +405,9 @@ fun EventInputForm(
         focusedContainerColor = Color.Transparent,
         unfocusedContainerColor = Color.Transparent,
         disabledContainerColor = Color.Transparent,
-        focusedIndicatorColor = MaterialTheme.colorScheme.primary,
-        unfocusedIndicatorColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
-        disabledIndicatorColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+        focusedIndicatorColor = Color.Transparent,
+        unfocusedIndicatorColor = Color.Transparent,
+        disabledIndicatorColor = Color.Transparent,
         focusedLabelColor = MaterialTheme.colorScheme.primary,
         unfocusedLabelColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
     )
@@ -580,13 +602,13 @@ fun EventInputForm(
                 onValueChange(eventDetails.copy(title = it))
             },
             label = { Text(stringResource(R.string.field_title)) },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(4.dp)),
             singleLine = true,
             isError = showTitleError,
             supportingText = if (showTitleError) {
                 { Text(stringResource(R.string.field_title_required)) }
             } else null,
-            shape = RoundedCornerShape(0.dp),
+            shape = RoundedCornerShape(4.dp),
             colors = textFieldColors
         )
 
@@ -632,14 +654,14 @@ fun EventInputForm(
 
         // 鏁翠釜鏃ユ湡杈撳叆妗嗗彲鐐瑰嚮鎵撳紑鏃ユ湡閫夋嫨鍣紝鍘绘帀鍙充晶鍥炬爣
         // 浣跨敤涓婂眰閫忔槑鐐瑰嚮灞傦紝閬垮厤 TextField 鑷韩娑堣垂鐐瑰嚮浜嬩欢
-        Box(modifier = Modifier.fillMaxWidth()) {
+        Box(modifier = Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(4.dp))) {
             TextField(
                 value = dateString,
                 onValueChange = { },
                 label = { Text(stringResource(R.string.field_date)) },
                 modifier = Modifier.fillMaxWidth(),
                 readOnly = true,
-                shape = RoundedCornerShape(0.dp),
+                shape = RoundedCornerShape(4.dp),
                 colors = textFieldColors
             )
             Box(
@@ -655,10 +677,10 @@ fun EventInputForm(
             value = eventDetails.note,
             onValueChange = { onValueChange(eventDetails.copy(note = it)) },
             label = { Text(stringResource(R.string.field_note)) },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(4.dp)),
             minLines = 2,
             maxLines = 4,
-            shape = RoundedCornerShape(0.dp),
+            shape = RoundedCornerShape(4.dp),
             colors = textFieldColors
         )
 
@@ -719,9 +741,9 @@ fun EventInputForm(
             }
             Icon(
                 imageVector = if (reminderSettingsExpanded) {
-                    Icons.Default.KeyboardArrowUp
+                    Icons.Outlined.KeyboardArrowUp
                 } else {
-                    Icons.Default.KeyboardArrowDown
+                    Icons.Outlined.KeyboardArrowDown
                 },
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
@@ -883,7 +905,7 @@ fun EventInputForm(
                 color = MaterialTheme.colorScheme.surfaceVariant,
                 selected = false,
                 onClick = { showCustomColorDialog = true },
-                icon = Icons.Default.Palette
+                icon = Icons.Outlined.Palette
             )
 
             // No color selected
@@ -892,7 +914,7 @@ fun EventInputForm(
                 color = MaterialTheme.colorScheme.surface,
                 selected = noColorSelected,
                 onClick = { onValueChange(eventDetails.copy(colorHex = null)) },
-                icon = Icons.Default.Clear
+                icon = Icons.Outlined.Clear
             )
         }
     }
@@ -989,30 +1011,64 @@ fun CustomColorDialog(
 ) {
     var hexCode by remember { mutableStateOf(initialColor?.removePrefix("#") ?: "FFFFFF") }
     var isError by remember { mutableStateOf(false) }
-    
-    LaunchedEffect(hexCode) {
-        isError = try {
-            if (hexCode.length == 6 || hexCode.length == 8) {
-                "#$hexCode".toColorInt()
-                false
-            } else true
-        } catch (e: Exception) {
-            true
-        }
+    var r by remember { mutableFloatStateOf(1f) }
+    var g by remember { mutableFloatStateOf(1f) }
+    var b by remember { mutableFloatStateOf(1f) }
+
+    LaunchedEffect(initialColor) {
+        val c = try { Color((initialColor ?: "#FFFFFF").toColorInt()) } catch (e: Exception) { Color.White }
+        r = c.red
+        g = c.green
+        b = c.blue
+        hexCode = String.format("%02X%02X%02X", (r * 255).toInt(), (g * 255).toInt(), (b * 255).toInt())
+    }
+
+    fun updateHexFromRgb() {
+        hexCode = String.format("%02X%02X%02X", (r * 255).toInt(), (g * 255).toInt(), (b * 255).toInt())
+        isError = false
     }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.custom_colors_title)) },
         text = {
-            OutlinedTextField(
-                value = hexCode,
-                onValueChange = { hexCode = it.take(8).uppercase() },
-                prefix = { Text("#") },
-                isError = isError,
-                singleLine = true,
-                label = { Text(stringResource(R.string.custom_color_hex_hint)) }
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(60.dp)
+                        .background(Color(red = r, green = g, blue = b), RoundedCornerShape(4.dp))
+                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Slider(value = r, onValueChange = { r = it; updateHexFromRgb() }, colors = SliderDefaults.colors(thumbColor = Color.Red, activeTrackColor = Color.Red.copy(alpha = 0.5f)))
+                    Slider(value = g, onValueChange = { g = it; updateHexFromRgb() }, colors = SliderDefaults.colors(thumbColor = Color.Green, activeTrackColor = Color.Green.copy(alpha = 0.5f)))
+                    Slider(value = b, onValueChange = { b = it; updateHexFromRgb() }, colors = SliderDefaults.colors(thumbColor = Color.Blue, activeTrackColor = Color.Blue.copy(alpha = 0.5f)))
+                }
+                OutlinedTextField(
+                    value = hexCode,
+                    onValueChange = { newHex ->
+                        hexCode = newHex.take(8).uppercase()
+                        try {
+                            if (hexCode.length == 6 || hexCode.length == 8) {
+                                val c = Color("#$hexCode".toColorInt())
+                                r = c.red
+                                g = c.green
+                                b = c.blue
+                                isError = false
+                            } else {
+                                isError = true
+                            }
+                        } catch (e: Exception) {
+                            isError = true
+                        }
+                    },
+                    prefix = { Text("#") },
+                    isError = isError,
+                    singleLine = true,
+                    label = { Text(stringResource(R.string.custom_color_hex_hint)) }
+                )
+            }
         },
         confirmButton = {
             TextButton(

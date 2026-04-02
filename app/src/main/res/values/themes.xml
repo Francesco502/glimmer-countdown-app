@@ -1,6 +1,22 @@
 <resources>
     <style name="Theme.TimeAPK" parent="android:Theme.Material.Light.NoActionBar">
-        <!-- 启动时显示的画面：深色背景 + 居中图标，与港式复古深色主题一致 -->
+        <!-- 启动页使用暖白底与居中图标，和应用主视觉保持一致 -->
         <item name="android:windowBackground">@drawable/splash_background</item>
+    </style>
+
+    <style name="Theme.TimeAPK.Widget" parent="android:Theme.Material.Light">
+        <item name="widgetBackgroundRadius">@dimen/widget_background_radius</item>
+        <item name="widgetItemRadius">@dimen/widget_item_radius</item>
+        <item name="widgetSurfaceColor">@color/widget_surface_color</item>
+        <item name="widgetSurfaceHighlightColor">@color/widget_surface_highlight_color</item>
+        <item name="widgetSurfaceHighlightFadeColor">@color/widget_surface_highlight_fade_color</item>
+        <item name="widgetStrokeColor">@color/widget_stroke_color</item>
+        <item name="widgetItemSurfaceColor">@color/widget_item_surface_color</item>
+        <item name="widgetItemHighlightColor">@color/widget_item_highlight_color</item>
+        <item name="widgetItemHighlightFadeColor">@color/widget_item_highlight_fade_color</item>
+        <item name="widgetItemStrokeColor">@color/widget_item_stroke_color</item>
+        <item name="widgetTextPrimaryColor">@color/widget_text_primary_color</item>
+        <item name="widgetTextSecondaryColor">@color/widget_text_secondary_color</item>
+        <item name="widgetTextAccentColor">@color/widget_text_accent_color</item>
     </style>
 </resources>

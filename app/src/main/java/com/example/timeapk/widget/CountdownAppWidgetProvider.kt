@@ -6,10 +6,9 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.widget.RemoteViews
-import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import com.example.timeapk.MainActivity
 import com.example.timeapk.R
 
@@ -48,14 +47,6 @@ class CountdownAppWidgetProvider : AppWidgetProvider() {
         ) {
             val sizeBucket = resolveSizeBucket(appWidgetManager.getAppWidgetOptions(appWidgetId))
             val openAppPendingIntent = createOpenAppPendingIntent(context, appWidgetId)
-            val backgroundColor = ContextCompat.getColor(
-                context,
-                if (themeSnapshot.isDark) R.color.widget_background_dark else R.color.widget_background_light
-            )
-            val textColor = ContextCompat.getColor(
-                context,
-                if (themeSnapshot.isDark) R.color.widget_text_dark else R.color.widget_text_light
-            )
 
             val views = RemoteViews(context.packageName, R.layout.widget_countdown).apply {
                 setWidgetListRemoteAdapter(
@@ -65,9 +56,6 @@ class CountdownAppWidgetProvider : AppWidgetProvider() {
                 setPendingIntentTemplate(R.id.widget_list, openAppPendingIntent)
                 setOnClickPendingIntent(R.id.widget_root, openAppPendingIntent)
                 setOnClickPendingIntent(R.id.widget_empty, openAppPendingIntent)
-                setInt(R.id.widget_root, "setBackgroundColor", backgroundColor)
-                setInt(R.id.widget_empty, "setBackgroundColor", backgroundColor)
-                setTextColor(R.id.widget_empty, textColor)
             }
 
             appWidgetManager.updateAppWidget(appWidgetId, views)
@@ -102,10 +90,9 @@ class CountdownAppWidgetProvider : AppWidgetProvider() {
             return Intent(context, CountdownWidgetService::class.java).apply {
                 putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
                 putExtra(WidgetSizeBucket.EXTRA_SIZE_BUCKET, sizeBucket)
-                putExtra(CountdownWidgetService.EXTRA_THEME_IS_DARK, themeSnapshot.isDark)
-                data = Uri.parse(
-                    "glimmer://widget/$appWidgetId?size=$sizeBucket&dark=${if (themeSnapshot.isDark) 1 else 0}"
-                )
+                data =
+                    "glimmer://widget/$appWidgetId?size=$sizeBucket&theme=${themeSnapshot.remoteCollectionKey}"
+                        .toUri()
             }
         }
 

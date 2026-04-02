@@ -18,25 +18,25 @@ object WidgetStylePolicy {
             WidgetSizeBucket.SMALL -> WidgetTextStyle(
                 titleSp = 9.5f * scale,
                 valueSp = 9.5f * scale,
-                paddingHorizontalDp = 4,
-                paddingVerticalDp = 1,
+                paddingHorizontalDp = 6,
+                paddingVerticalDp = 3,
                 valueMaxEms = 8
             )
 
             WidgetSizeBucket.LARGE -> WidgetTextStyle(
                 titleSp = 12f * scale,
                 valueSp = 12f * scale,
-                paddingHorizontalDp = 8,
-                paddingVerticalDp = 2,
-                valueMaxEms = 14
+                paddingHorizontalDp = 10,
+                paddingVerticalDp = 4,
+                valueMaxEms = 16
             )
 
             else -> WidgetTextStyle(
                 titleSp = 11f * scale,
                 valueSp = 11f * scale,
-                paddingHorizontalDp = 6,
-                paddingVerticalDp = 1,
-                valueMaxEms = 10
+                paddingHorizontalDp = 8,
+                paddingVerticalDp = 3,
+                valueMaxEms = 11
             )
         }
     }

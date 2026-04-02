@@ -59,15 +59,11 @@
     <string name="field_repeat">重复</string>
     <string name="field_remind">提醒</string>
     <string name="remind_same_day">当天</string>
-    <string name="remind_1_day">提前 1 天</string>
-    <string name="remind_3_days">提前 3 天</string>
-    <string name="remind_7_days">提前 7 天</string>
     <plurals name="remind_days_before_format">
         <item quantity="other">提前 %1$d 天</item>
     </plurals>
     <string name="reminder_time_hour">小时</string>
     <string name="reminder_time_minute">分钟</string>
-    <string name="reminder_time_0">0:00</string>
     <string name="reminder_time_6">6:00</string>
     <string name="reminder_time_8">8:00</string>
     <string name="reminder_time_9">9:00</string>
@@ -249,7 +245,6 @@
     <string name="date_part_month">月</string>
     <string name="date_part_day">日</string>
     <string name="calendar_permission_required_for_sync">需要日历权限才能同步到系统日程。</string>
-    <string name="notification_permission_required_for_reminder">需要通知权限才能启用提醒。</string>
     <string name="action_apply">应用</string>
     <string name="custom_remind_days_label">自定义提前天数</string>
     <string name="custom_reminder_time_label">自定义提醒时间</string>
@@ -295,4 +290,7 @@
     <string name="settings_entry_data_desc">导入导出与数据迁移</string>
     <string name="settings_about_entry_title">关于与更新</string>
     <string name="settings_entry_about_desc">版本信息与检查更新</string>
+    <string name="notification_permission_denied_saved_without_reminder">未授予通知权限，已关闭提醒并保存事件。</string>
+    <string name="calendar_permission_denied_saved_without_sync">未授予日历权限，已关闭日程同步并保存事件。</string>
+    <string name="date_picker_invalid_input">请输入有效日期，例如 2026/02/28。</string>
 </resources>

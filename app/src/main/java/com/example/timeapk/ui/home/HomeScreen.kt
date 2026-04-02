@@ -29,18 +29,16 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Sort
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.filled.ViewList
-import androidx.compose.material.icons.filled.ViewModule
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.automirrored.outlined.ViewList
+import androidx.compose.material.icons.outlined.ViewModule
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.automirrored.outlined.Sort
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import kotlinx.coroutines.launch
@@ -146,26 +144,46 @@ fun HomeScreen(
     // Reorder list state is seeded synchronously to avoid first-frame jump/glitch.
     val orderedList = remember { mutableStateListOf<EventUiState>() }
     var listInitialized by remember { mutableStateOf(false) }
+    var dragInProgress by remember { mutableStateOf(false) }
+    var pendingDisplayedList by remember { mutableStateOf<List<EventUiState>?>(null) }
+
+    fun applyDisplayedListSnapshot(target: List<EventUiState>) {
+        if (target.isEmpty()) {
+            orderedList.clear()
+            listInitialized = true
+            return
+        }
+
+        if (orderedList.isEmpty()) {
+            orderedList.addAll(target)
+            listInitialized = true
+            return
+        }
+
+        val currentIds = orderedList.map { it.event.id }
+        val targetIds = target.map { it.event.id }
+        if (shouldKeepCurrentCustomOrder(currentIds, targetIds, sortType)) {
+            orderedList.refreshItemsByKey(target) { it.event.id }
+        } else {
+            orderedList.replaceWithOrderedItems(target) { it.event.id }
+        }
+        listInitialized = true
+    }
 
     if (orderedList.isEmpty() && displayedList.isNotEmpty()) {
         orderedList.addAll(displayedList)
+        listInitialized = true
     }
 
-    LaunchedEffect(displayedList) {
-        if (orderedList.isEmpty()) return@LaunchedEffect
-        val targetIds = displayedList.map { it.event.id }
-        val currentIds = orderedList.map { it.event.id }
-        if (targetIds == currentIds) {
-            displayedList.forEachIndexed { i, newItem ->
-                if (i < orderedList.size && orderedList[i] != newItem) {
-                    orderedList[i] = newItem
-                }
-            }
-        } else {
-            orderedList.clear()
-            orderedList.addAll(displayedList)
+    LaunchedEffect(displayedList, dragInProgress, sortType) {
+        if (dragInProgress) {
+            pendingDisplayedList = displayedList
+            return@LaunchedEffect
         }
-        listInitialized = true
+
+        val targetList = pendingDisplayedList ?: displayedList
+        pendingDisplayedList = null
+        applyDisplayedListSnapshot(targetList)
     }
 
     Scaffold(
@@ -185,7 +203,7 @@ fun HomeScreen(
                         modifier = Modifier.size(40.dp)
                     ) {
                         Icon(
-                            Icons.Default.Settings,
+                            Icons.Outlined.Settings,
                             contentDescription = stringResource(R.string.settings_title),
                             modifier = Modifier.size(20.dp)
                         )
@@ -212,14 +230,14 @@ fun HomeScreen(
                 modifier = Modifier
                     .size(48.dp)
                     .graphicsLayer { scaleX = fabScale; scaleY = fabScale },
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(4.dp),
                 color = MaterialTheme.colorScheme.surface,
                 border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)),
                 shadowElevation = 2.dp
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        imageVector = Icons.Default.Add,
+                        imageVector = Icons.Outlined.Add,
                         contentDescription = stringResource(R.string.cd_add_event),
                         tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                         modifier = Modifier.size(24.dp)
@@ -260,7 +278,7 @@ fun HomeScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 InlineActionIconButton(
-                    icon = Icons.Default.Search,
+                    icon = Icons.Outlined.Search,
                     contentDescription = stringResource(R.string.search_hint),
                     active = showSearchBar || searchQuery.isNotBlank(),
                     onClick = {
@@ -272,14 +290,14 @@ fun HomeScreen(
                     }
                 )
                 InlineActionIconButton(
-                    icon = Icons.Default.Tune,
+                    icon = Icons.Outlined.Tune,
                     contentDescription = stringResource(R.string.home_filter_panel_toggle),
                     active = hasActiveFilter || showFilterPanel,
                     onClick = { showFilterPanel = !showFilterPanel }
                 )
                 Box {
                     InlineActionIconButton(
-                        icon = Icons.AutoMirrored.Filled.Sort,
+                        icon = Icons.AutoMirrored.Outlined.Sort,
                         contentDescription = stringResource(R.string.sort_menu),
                         active = sortType != SortType.Custom || showSortMenu,
                         onClick = { showSortMenu = true }
@@ -312,12 +330,12 @@ fun HomeScreen(
                     }
                 }
                 InlineActionIconButton(
-                    icon = when (nextMode) {
-                        0 -> Icons.Default.ViewModule
-                        1 -> Icons.AutoMirrored.Filled.ViewList
-                        else -> Icons.Default.CalendarMonth
+                    icon = when (homeDisplayMode) {
+                        0 -> Icons.Outlined.ViewModule
+                        1 -> Icons.AutoMirrored.Outlined.ViewList
+                        else -> Icons.Outlined.CalendarMonth
                     },
-                    contentDescription = when (nextMode) {
+                    contentDescription = when (homeDisplayMode) {
                         0 -> stringResource(R.string.display_mode_card)
                         1 -> stringResource(R.string.display_mode_list)
                         else -> stringResource(R.string.display_mode_calendar)
@@ -431,6 +449,7 @@ fun HomeScreen(
                     val reorderState = rememberReorderableLazyListState(
                         onMove = { from, to ->
                             if (dragEnabled) {
+                                dragInProgress = true
                                 val fromIdx = from.index
                                 val toIdx = to.index
                                 if (fromIdx in orderedList.indices && toIdx in orderedList.indices && fromIdx != toIdx) {
@@ -440,6 +459,7 @@ fun HomeScreen(
                             }
                         },
                         onDragEnd = { _, _ ->
+                            dragInProgress = false
                             if (dragEnabled) {
                                 scope.launch { prefs.setCustomEventOrder(orderedList.map { it.event.id }) }
                             }
@@ -609,7 +629,7 @@ private fun EmptyState(modifier: Modifier = Modifier) {
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(
-                imageVector = androidx.compose.material.icons.Icons.Default.Add,
+                imageVector = Icons.Outlined.Add,
                 contentDescription = stringResource(R.string.cd_add_event),
                 modifier = Modifier.size(64.dp),
                 tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f)
@@ -665,11 +685,6 @@ fun EventCard(
         targetValue = if (isDragging) 0.85f else if (isPressed) 0.92f else 1f,
         animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
         label = "cardAlpha"
-    )
-    val dragElevation by animateDpAsState(
-        targetValue = if (isDragging) 16.dp else 0.dp,
-        animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
-        label = "dragElevation"
     )
 
     val juanbenTint = if (isPast) 0.85f else 1.0f
@@ -767,12 +782,6 @@ fun EventCard(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = 110.dp)
-            .shadow(
-                elevation = dragElevation, 
-                shape = RoundedCornerShape(2.dp), 
-                spotColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f),
-                ambientColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f)
-            )
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
@@ -935,11 +944,6 @@ private fun EventListItem(
         animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
         label = "listItemAlpha"
     )
-    val listDragElevation by animateDpAsState(
-        targetValue = if (isDragging) 12.dp else 0.dp,
-        animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
-        label = "listDragElevation"
-    )
     val isPast = eventState.isPast
     val targetLocalDate = remember(eventState.event.date) {
         eventDateToLocalDate(eventState.event.date)
@@ -1055,12 +1059,6 @@ private fun EventListItem(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(
-                elevation = listDragElevation, 
-                shape = RoundedCornerShape(2.dp), 
-                spotColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f),
-                ambientColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f)
-            )
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
@@ -1094,8 +1092,8 @@ private fun EventListItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 72.dp)
-                .padding(horizontal = 4.dp, vertical = 10.dp),
+                .heightIn(min = 88.dp)
+                .padding(horizontal = 12.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
@@ -1114,14 +1112,14 @@ private fun EventListItem(
             ) {
                 Text(
                     text = eventState.event.title,
-                    style = MaterialTheme.typography.bodyLarge.copy(
+                    style = MaterialTheme.typography.titleMedium.copy(
                         letterSpacing = 0.3.sp
                     ),
                     color = itemContentColor.copy(alpha = if (isPast) 0.84f else 1f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = dateLine,
                     style = dateLineStyle,
@@ -1159,7 +1157,7 @@ private fun EventListItem(
             Spacer(modifier = Modifier.width(12.dp))
             Column(
                 modifier = Modifier
-                    .width(96.dp)
+                    .widthIn(min = 96.dp, max = 152.dp)
                     .sizeIn(minHeight = 48.dp)
                     .then(
                         if (tapNavigationEnabled) {
@@ -1177,13 +1175,13 @@ private fun EventListItem(
             ) {
                 Text(
                     text = daysDisplay,
-                    style = if (daysDisplay.length > 8) {
-                        MaterialTheme.typography.bodyMedium
-                    } else {
-                        MaterialTheme.typography.titleMedium
+                    style = when {
+                        daysDisplay.length > 12 -> MaterialTheme.typography.bodySmall
+                        daysDisplay.length > 8 -> MaterialTheme.typography.bodyMedium
+                        else -> MaterialTheme.typography.titleMedium
                     },
                     color = if (isPast) displayColor.copy(alpha = 0.82f) else displayColor,
-                    maxLines = 2,
+                    maxLines = if (daysDisplay.length > 12) 3 else 2,
                     overflow = TextOverflow.Clip,
                     textAlign = TextAlign.End,
                     modifier = Modifier.fillMaxWidth()
@@ -1280,7 +1278,7 @@ private fun MonthCalendarView(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = { currentMonth = currentMonth.minusMonths(1) }) {
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = stringResource(R.string.calendar_prev_month))
+                Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, contentDescription = stringResource(R.string.calendar_prev_month))
             }
             Text(
                 text = currentMonth.atDay(1).format(monthFormatter),
@@ -1288,7 +1286,7 @@ private fun MonthCalendarView(
                 color = MaterialTheme.colorScheme.onBackground
             )
             IconButton(onClick = { currentMonth = currentMonth.plusMonths(1) }) {
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = stringResource(R.string.calendar_next_month))
+                Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = stringResource(R.string.calendar_next_month))
             }
         }
 

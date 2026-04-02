@@ -9,6 +9,7 @@ import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -17,12 +18,12 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.NotificationsOff
-import androidx.compose.material.icons.filled.PushPin
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.NotificationsOff
+import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.collectAsState
@@ -39,6 +40,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.border
@@ -75,6 +77,8 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.Period
 import java.time.temporal.ChronoUnit
+
+private val DetailContentMaxWidth = 760.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -114,9 +118,12 @@ fun DetailScreen(
             text = { Text(stringResource(R.string.delete_confirm_message, eventState.event.title)) },
             confirmButton = {
                 TextButton(onClick = {
-                    onDeleteClick()
-                    showDeleteConfirm = false
-                    onNavigateBack()
+                    scope.launch {
+                        onDeleteClick()
+                        showDeleteConfirm = false
+                        kotlinx.coroutines.delay(200)
+                        onNavigateBack()
+                    }
                 }) {
                     Text(stringResource(R.string.delete_confirm_ok), color = MaterialTheme.colorScheme.error)
                 }
@@ -172,12 +179,18 @@ fun DetailScreen(
             visible = contentVisible,
             enter = fadeIn(animationSpec = AnimationSpecs.mediumTween()) + slideInVertically(animationSpec = AnimationSpecs.mediumTweenIntOffset()) { it / 8 }
         ) {
-        Column(
+        Box(
             modifier = modifier
                 .padding(innerPadding)
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
                 .verticalScroll(scrollState)
+        ) {
+        Column(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .widthIn(max = DetailContentMaxWidth)
                 .padding(24.dp)
         ) {
             // 澶嶅彜鍦鸿鏉?鑰侀粍鍘嗛鏍煎崱鐗?-> 瀹嬩唬涔︾敾鏍峰紡
@@ -245,7 +258,7 @@ fun DetailScreen(
                         }
                         
                         Icon(
-                            imageVector = if (eventState.event.remindEnabled) Icons.Default.Notifications else Icons.Default.NotificationsOff,
+                            imageVector = if (eventState.event.remindEnabled) Icons.Outlined.Notifications else Icons.Outlined.NotificationsOff,
                             contentDescription = if (eventState.event.remindEnabled) stringResource(R.string.cd_reminder_on) else stringResource(R.string.cd_reminder_off),
                             modifier = Modifier.size(20.dp),
                             tint = if (eventState.event.remindEnabled) detailBaseColor else detailContentColor.copy(alpha = 0.35f)
@@ -604,7 +617,7 @@ fun DetailScreen(
             Spacer(modifier = Modifier.height(32.dp))
             
             // 搴曢儴鎿嶄綔鍖猴細鏂瑰舰鎸夐挳锛堝甫鎸夊帇缂╂斁鍙嶉锛?
-            DetailActionButtons(
+            ResponsiveDetailActionButtons(
                 isPinned = eventState.event.id in pinnedEventIds,
                 isReminderOrScheduleEnabled = eventState.event.remindEnabled || eventState.event.syncToScheduleEnabled,
                 onReminderCalendarClick = onEditClick,
@@ -645,6 +658,141 @@ fun DetailScreen(
             )
         }
         }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ResponsiveDetailActionButtons(
+    isPinned: Boolean,
+    isReminderOrScheduleEnabled: Boolean,
+    onReminderCalendarClick: () -> Unit,
+    onPinClick: () -> Unit,
+    onEditClick: () -> Unit,
+    onDeleteClick: () -> Unit,
+    onShareClick: () -> Unit
+) {
+    val reminderInteractionSource = remember { MutableInteractionSource() }
+    val pinInteractionSource = remember { MutableInteractionSource() }
+    val editInteractionSource = remember { MutableInteractionSource() }
+    val deleteInteractionSource = remember { MutableInteractionSource() }
+    val shareInteractionSource = remember { MutableInteractionSource() }
+    val reminderPressed by reminderInteractionSource.collectIsPressedAsState()
+    val pinPressed by pinInteractionSource.collectIsPressedAsState()
+    val editPressed by editInteractionSource.collectIsPressedAsState()
+    val deletePressed by deleteInteractionSource.collectIsPressedAsState()
+    val sharePressed by shareInteractionSource.collectIsPressedAsState()
+
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 48.dp, bottom = 24.dp)
+    ) {
+        val maxItemsInEachRow = if (maxWidth < 360.dp) 3 else 5
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            maxItemsInEachRow = maxItemsInEachRow,
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            ResponsiveDetailActionButton(
+                interactionSource = reminderInteractionSource,
+                scale = animateFloatAsState(if (reminderPressed) 0.96f else 1f, AnimationSpecs.springButton, label = "responsiveReminder").value,
+                onClick = onReminderCalendarClick,
+                icon = Icons.Outlined.Notifications,
+                label = stringResource(R.string.button_reminder_calendar),
+                iconTint = if (isReminderOrScheduleEnabled) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                },
+                textColor = if (isReminderOrScheduleEnabled) {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                } else {
+                    MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
+                }
+            )
+            ResponsiveDetailActionButton(
+                interactionSource = pinInteractionSource,
+                scale = animateFloatAsState(if (pinPressed) 0.96f else 1f, AnimationSpecs.springButton, label = "responsivePin").value,
+                onClick = onPinClick,
+                icon = Icons.Outlined.PushPin,
+                label = if (isPinned) stringResource(R.string.button_unpin) else stringResource(R.string.button_pin),
+                iconTint = if (isPinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+                textColor = if (isPinned) MaterialTheme.colorScheme.primary.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
+            )
+            ResponsiveDetailActionButton(
+                interactionSource = editInteractionSource,
+                scale = animateFloatAsState(if (editPressed) 0.96f else 1f, AnimationSpecs.springButton, label = "responsiveEdit").value,
+                onClick = onEditClick,
+                icon = Icons.Outlined.Edit,
+                label = stringResource(R.string.button_edit),
+                iconTint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+                textColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+                contentDescription = stringResource(R.string.cd_edit)
+            )
+            ResponsiveDetailActionButton(
+                interactionSource = shareInteractionSource,
+                scale = animateFloatAsState(if (sharePressed) 0.96f else 1f, AnimationSpecs.springButton, label = "responsiveShare").value,
+                onClick = onShareClick,
+                icon = Icons.Outlined.Share,
+                label = stringResource(R.string.button_share),
+                iconTint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+                textColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+                contentDescription = stringResource(R.string.cd_share)
+            )
+            ResponsiveDetailActionButton(
+                interactionSource = deleteInteractionSource,
+                scale = animateFloatAsState(if (deletePressed) 0.96f else 1f, AnimationSpecs.springButton, label = "responsiveDelete").value,
+                onClick = onDeleteClick,
+                icon = Icons.Outlined.Delete,
+                label = stringResource(R.string.button_delete),
+                iconTint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f),
+                textColor = MaterialTheme.colorScheme.error.copy(alpha = 0.5f),
+                contentDescription = stringResource(R.string.cd_delete)
+            )
+        }
+    }
+}
+
+@Composable
+private fun ResponsiveDetailActionButton(
+    interactionSource: MutableInteractionSource,
+    scale: Float,
+    onClick: () -> Unit,
+    icon: ImageVector,
+    label: String,
+    iconTint: Color,
+    textColor: Color,
+    contentDescription: String = label
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .widthIn(min = 72.dp, max = 104.dp)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = LocalIndication.current,
+                onClick = onClick
+            )
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .padding(horizontal = 8.dp, vertical = 6.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            modifier = Modifier.size(24.dp),
+            tint = iconTint
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = textColor,
+            textAlign = TextAlign.Center,
+            maxLines = 2
+        )
     }
 }
 
@@ -693,7 +841,7 @@ private fun DetailActionButtons(
                 .padding(8.dp)
         ) {
             Icon(
-                Icons.Default.Notifications,
+                Icons.Outlined.Notifications,
                 contentDescription = stringResource(R.string.button_reminder_calendar),
                 modifier = Modifier.size(24.dp),
                 tint = if (isReminderOrScheduleEnabled) {
@@ -725,7 +873,7 @@ private fun DetailActionButtons(
                 .padding(8.dp)
         ) {
             Icon(
-                Icons.Default.PushPin,
+                Icons.Outlined.PushPin,
                 contentDescription = if (isPinned) stringResource(R.string.button_unpin) else stringResource(R.string.button_pin),
                 modifier = Modifier.size(24.dp),
                 tint = if (isPinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
@@ -748,7 +896,7 @@ private fun DetailActionButtons(
                 .graphicsLayer { scaleX = scaleEdit; scaleY = scaleEdit }
                 .padding(8.dp)
         ) {
-            Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.cd_edit), modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f))
+            Icon(Icons.Outlined.Edit, contentDescription = stringResource(R.string.cd_edit), modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f))
             Spacer(modifier = Modifier.height(4.dp))
             Text(stringResource(R.string.button_edit), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f))
         }
@@ -764,7 +912,7 @@ private fun DetailActionButtons(
                 .graphicsLayer { scaleX = scaleShare; scaleY = scaleShare }
                 .padding(8.dp)
         ) {
-            Icon(Icons.Default.Share, contentDescription = stringResource(R.string.cd_share), modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f))
+            Icon(Icons.Outlined.Share, contentDescription = stringResource(R.string.cd_share), modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f))
             Spacer(modifier = Modifier.height(4.dp))
             Text(stringResource(R.string.button_share), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f))
         }
@@ -780,7 +928,7 @@ private fun DetailActionButtons(
                 .graphicsLayer { scaleX = scaleDelete; scaleY = scaleDelete }
                 .padding(8.dp)
         ) {
-            Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.cd_delete), modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f))
+            Icon(Icons.Outlined.Delete, contentDescription = stringResource(R.string.cd_delete), modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f))
             Spacer(modifier = Modifier.height(4.dp))
             Text(stringResource(R.string.button_delete), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error.copy(alpha = 0.5f))
         }
