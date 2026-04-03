@@ -21,6 +21,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
@@ -206,6 +208,9 @@ private fun <T> WheelSelectionEffect(
     onItemSelected: (T) -> Unit,
     onScrollStateChanged: (Boolean) -> Unit
 ) {
+    val haptic = LocalHapticFeedback.current
+    var lastSelectedIndex by remember { mutableStateOf(-1) }
+
     LaunchedEffect(listState, items, enabled) {
         if (!enabled) return@LaunchedEffect
         snapshotFlow {
@@ -230,6 +235,10 @@ private fun <T> WheelSelectionEffect(
                     paddingCount = paddingCount,
                     itemCount = items.size
                 )
+                if (itemIndex != lastSelectedIndex) {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    lastSelectedIndex = itemIndex
+                }
                 onItemSelected(items[itemIndex])
                 onScrollStateChanged(false)
             }

@@ -114,6 +114,7 @@ fun DetailScreen(
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
+            shape = MaterialTheme.shapes.medium,
             title = { Text(stringResource(R.string.delete_confirm_title)) },
             text = { Text(stringResource(R.string.delete_confirm_message, eventState.event.title)) },
             confirmButton = {
@@ -196,13 +197,13 @@ fun DetailScreen(
             // 澶嶅彜鍦鸿鏉?鑰侀粍鍘嗛鏍煎崱鐗?-> 瀹嬩唬涔︾敾鏍峰紡
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(4.dp), // 绋嶅井澧炲姞鍦嗚
+                shape = MaterialTheme.shapes.medium, // 绋嶅井澧炲姞鍦嗚
                 colors = CardDefaults.cardColors(
                     containerColor = detailCardColor
                 ),
                 border = BorderStroke(
-                    width = 1.dp, // 鍔犳繁涓€鐐硅竟妗?
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                    width = com.example.timeapk.ui.theme.SongDesignTokens.BorderWidth.dp, // 鍔犳繁涓€鐐硅竟妗?
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong)
                 ),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {

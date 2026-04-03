@@ -47,6 +47,7 @@ import com.example.timeapk.notifications.ScheduleSyncManager
 import com.example.timeapk.ui.components.PermissionActionDialog
 import com.example.timeapk.ui.components.PermissionDialogSpec
 import com.example.timeapk.ui.components.SnapWheelPicker
+import com.example.timeapk.ui.theme.ColorContrastGuardrail
 import com.example.timeapk.widget.WidgetUpdater
 import com.example.timeapk.update.CheckUpdateResult
 import com.example.timeapk.update.UpdateInstaller
@@ -54,8 +55,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import com.example.timeapk.ui.theme.ColorContrastGuardrail
 import com.example.timeapk.ui.theme.SongDesignTokens
+import androidx.compose.ui.window.Dialog
 import com.example.timeapk.ui.utils.findActivity
 import java.time.Instant
 import java.time.ZoneId
@@ -263,6 +264,7 @@ fun AppearanceSettingsContent(
 
             AlertDialog(
                 onDismissRequest = { colorPickerKey = null },
+                shape = RoundedCornerShape(SongDesignTokens.StandardRadius.dp),
                 title = { Text(label) },
                 text = {
                     Column(
@@ -279,8 +281,8 @@ fun AppearanceSettingsContent(
                                         Box(
                                             modifier = Modifier
                                                 .size(36.dp)
-                                                .background(Color(hex.toColorInt()), RoundedCornerShape(8.dp))
-                                                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaSoft), RoundedCornerShape(8.dp))
+                                                .background(Color(hex.toColorInt()), RoundedCornerShape(SongDesignTokens.StandardRadius.dp))
+                                            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaSoft), RoundedCornerShape(SongDesignTokens.StandardRadius.dp))
                                                 .clickable {
                                                     tryApplyColor(hex)
                                                 }
@@ -906,7 +908,7 @@ fun LegacyDisplaySettingsContent(
             customMilestones.forEach { days ->
                 Row(
                     modifier = Modifier
-                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(SongDesignTokens.StandardRadius.dp))
                         .padding(horizontal = 8.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -1746,7 +1748,7 @@ fun MilestoneSettingsContent(
             customMilestones.forEach { days ->
                 Row(
                     modifier = Modifier
-                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(SongDesignTokens.StandardRadius.dp))
                         .padding(horizontal = 8.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -2323,6 +2325,5 @@ private fun evaluateContrastAuditForKey(
         onPrimary = onPrimary
     )
 }
-
 
 

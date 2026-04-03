@@ -1,4 +1,4 @@
-﻿package com.example.timeapk.ui.theme
+package com.example.timeapk.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
@@ -12,9 +12,13 @@ private fun scaleSp(value: Int, scale: Float): TextUnit = (value * scale).sp
 fun typographyForFontPreset(preset: Int, baseScale: Float = 1f): Typography {
     val scale = baseScale.coerceIn(SongDesignTokens.BaseFontScaleMin, SongDesignTokens.BaseFontScaleMax)
     val isSlenderGold = preset == 4
-    val bodyFamily = FontFamily.Serif
-    val displayFamily = FontFamily.Serif
-    val numbersFamily = if (isSlenderGold) FontFamily.Monospace else FontFamily.Serif
+    val bodyFamily = if (isSlenderGold) FontFamily.Serif else FontFamily.Serif
+    val displayFamily = if (isSlenderGold) FontFamily.Serif else FontFamily.Serif
+    val numbersFamily = if (isSlenderGold) FontFamily.Serif else FontFamily.Serif
+
+    // 优化：在此处可以替换为真实的字体资源，例如：
+    // val slenderGoldFamily = FontFamily(Font(R.font.slender_gold, FontWeight.Normal))
+    // val bodyFamily = if (isSlenderGold) slenderGoldFamily else FontFamily.Serif
 
     val displayWeight = if (isSlenderGold) FontWeight.Light else FontWeight.SemiBold
     val titleWeight = if (isSlenderGold) FontWeight.Normal else FontWeight.Medium

@@ -6,9 +6,11 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshotFlow
@@ -368,8 +370,8 @@ fun BottomSheetDatePicker(
         sheetState = sheetState,
         dragHandle = null,
         shape = RoundedCornerShape(
-            topStart = com.example.timeapk.ui.theme.SongDesignTokens.RadiusLg.dp,
-            topEnd = com.example.timeapk.ui.theme.SongDesignTokens.RadiusLg.dp
+            topStart = com.example.timeapk.ui.theme.SongDesignTokens.StandardRadius.dp,
+            topEnd = com.example.timeapk.ui.theme.SongDesignTokens.StandardRadius.dp
         )
     ) {
         Column(
@@ -430,8 +432,8 @@ fun BottomSheetDatePicker(
                         labelColor = if (!isLunarMode) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                     ),
                     border = BorderStroke(
-                        width = 1.dp,
-                        color = if (!isLunarMode) Color.Transparent else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                        width = com.example.timeapk.ui.theme.SongDesignTokens.BorderWidth.dp,
+                        color = if (!isLunarMode) Color.Transparent else MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong)
                     ),
                     shape = MaterialTheme.shapes.small
                 )
@@ -574,6 +576,15 @@ private fun DatePartField(
             }
         ),
         isError = isError,
+        shape = MaterialTheme.shapes.small,
+        colors = TextFieldDefaults.colors(
+            focusedContainerColor = Color.Transparent,
+            unfocusedContainerColor = Color.Transparent,
+            disabledContainerColor = Color.Transparent,
+            focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+            unfocusedIndicatorColor = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong),
+            disabledIndicatorColor = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaSoft),
+        ),
         modifier = modifier.onFocusChanged { state ->
             val nowFocused = state.isFocused
             if (hasFocus && !nowFocused) {
@@ -686,6 +697,7 @@ private fun <T> WheelSyncEffect(
     enabled: Boolean,
     onItemSelected: (T) -> Unit
 ) {
+    val haptic = LocalHapticFeedback.current
     LaunchedEffect(listState, items, enabled) {
         if (!enabled) return@LaunchedEffect
         snapshotFlow {
@@ -694,6 +706,7 @@ private fun <T> WheelSyncEffect(
             if (items.isNotEmpty()) {
                 val itemIndex = index - paddingCount
                 if (itemIndex in items.indices) {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     onItemSelected(items[itemIndex])
                 }
             }

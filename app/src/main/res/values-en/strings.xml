@@ -356,6 +356,10 @@
     <string name="permission_dialog_button_not_now">Not now</string>
     <string name="permission_dialog_button_save_without_reminder">Save without reminder</string>
     <string name="permission_dialog_button_save_without_sync">Save without sync</string>
+    <string name="discard_changes_dialog_title">Discard changes?</string>
+    <string name="discard_changes_dialog_message">You have unsaved edits. Leave this page and discard them?</string>
+    <string name="discard_changes_dialog_confirm">Discard</string>
+    <string name="discard_changes_dialog_dismiss">Keep editing</string>
 </resources>
 
 

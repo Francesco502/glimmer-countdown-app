@@ -304,4 +304,8 @@
     <string name="permission_dialog_button_not_now">暂不处理</string>
     <string name="permission_dialog_button_save_without_reminder">无提醒保存</string>
     <string name="permission_dialog_button_save_without_sync">不同步保存</string>
+    <string name="discard_changes_dialog_title">放弃修改？</string>
+    <string name="discard_changes_dialog_message">当前内容尚未保存，离开此页后修改将丢失。</string>
+    <string name="discard_changes_dialog_confirm">放弃修改</string>
+    <string name="discard_changes_dialog_dismiss">继续编辑</string>
 </resources>

@@ -1,6 +1,7 @@
 package com.example.timeapk.ui.components
 
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -19,6 +20,7 @@ data class PermissionDialogSpec(
 fun PermissionActionDialog(spec: PermissionDialogSpec) {
     AlertDialog(
         onDismissRequest = spec.onRequestDismiss ?: spec.onDismiss,
+        shape = MaterialTheme.shapes.medium,
         title = { Text(spec.title) },
         text = { Text(spec.message) },
         confirmButton = {

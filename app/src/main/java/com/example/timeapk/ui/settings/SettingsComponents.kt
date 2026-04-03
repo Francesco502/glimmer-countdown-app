@@ -87,11 +87,11 @@ fun SettingsCategoryRow(
             .border(
                 width = 1.dp,
                 color = MaterialTheme.colorScheme.outline.copy(alpha = SongDesignTokens.BorderAlphaSoft),
-                shape = RoundedCornerShape(8.dp)
+                shape = RoundedCornerShape(SongDesignTokens.StandardRadius.dp)
             )
             .background(
                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.62f),
-                shape = RoundedCornerShape(8.dp)
+                shape = RoundedCornerShape(SongDesignTokens.StandardRadius.dp)
             )
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 13.dp),

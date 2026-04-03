@@ -61,8 +61,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import com.example.timeapk.data.CATEGORY_ANNIVERSARY
 import com.example.timeapk.data.CATEGORY_BIRTHDAY
 import com.example.timeapk.data.CATEGORY_OTHER
@@ -91,6 +91,7 @@ import com.example.timeapk.R
 import com.example.timeapk.TimeApplication
 import com.example.timeapk.data.Event
 import com.example.timeapk.ui.theme.AnimationSpecs
+import com.example.timeapk.ui.theme.SongDesignTokens
 
 import androidx.compose.foundation.LocalOverscrollConfiguration
 import androidx.compose.foundation.OverscrollConfiguration
@@ -230,10 +231,10 @@ fun HomeScreen(
                 modifier = Modifier
                     .size(48.dp)
                     .graphicsLayer { scaleX = fabScale; scaleY = fabScale },
-                shape = RoundedCornerShape(4.dp),
+                shape = MaterialTheme.shapes.medium,
                 color = MaterialTheme.colorScheme.surface,
-                border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)),
-                shadowElevation = 2.dp
+                border = BorderStroke(SongDesignTokens.BorderWidth.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = SongDesignTokens.BorderAlphaStrong)),
+                shadowElevation = 0.dp
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
@@ -497,7 +498,7 @@ fun HomeScreen(
                                             }
                                         ),
                                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-                                    verticalArrangement = Arrangement.spacedBy(if (homeDisplayMode == 0) 12.dp else 0.dp)
+                                    verticalArrangement = Arrangement.spacedBy(if (homeDisplayMode == 0) 12.dp else SongDesignTokens.PaddingList.dp)
                                 ) {
                                     items(orderedList, key = { it.event.id }) { eventState ->
                                         ReorderableItem(reorderState, key = eventState.event.id) { isDragging ->
@@ -690,14 +691,15 @@ fun EventCard(
     val juanbenTint = if (isPast) 0.85f else 1.0f
     val cardContainerColor = baseCardColor.copy(alpha = juanbenTint)
 
-    // Keep high contrast for readability on both light and dark card colors.
-    val isLight = cardContainerColor.luminance() > 0.45f
-    val onBgColor = MaterialTheme.colorScheme.onBackground
-    val cardContentColor = if (isLight) {
-        lerp(onBgColor, baseCardColor, 0.1f)
+    // 方案一：动态计算文字颜色，保留“宋式美学”的雅致高级感，同时提高对比度
+    val isLight = baseCardColor.luminance() > 0.45f
+    val baseTextColor = if (isLight) {
+        Color(0xFF1A1A1A) // 雅致墨黑
     } else {
-        lerp(onBgColor, baseCardColor, 0.05f)
+        Color(0xFFFDFBF7) // 宣纸白
     }
+    // 降低混合比例，生成专属的“同频文字色”，保证高对比度
+    val cardContentColor = lerp(baseTextColor, baseCardColor, 0.05f)
 
     val view = androidx.compose.ui.platform.LocalView.current
     val locale = androidx.compose.ui.platform.LocalContext.current.resources.configuration.locales[0]
@@ -1006,7 +1008,6 @@ private fun EventListItem(
         }
     }
 
-    val itemContentColor = MaterialTheme.colorScheme.onSurface
     val eventColor = parseEventColorOrFallback(
         hex = eventState.event.colorHex,
         fallback = MaterialTheme.colorScheme.primary
@@ -1056,6 +1057,12 @@ private fun EventListItem(
         else -> Color.Transparent
     }
 
+    // 方案一：动态计算文字颜色，保留“宋式美学”的雅致高级感
+    // 在列表模式下，背景通常是透明或白色的，文字颜色应主要受系统主题影响，
+    // 降低混入事件颜色的比例，提高对比度
+    val baseTextColorListItem = MaterialTheme.colorScheme.onSurface
+    val itemContentColor = lerp(baseTextColorListItem, eventColor, 0.04f)
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -1064,9 +1071,9 @@ private fun EventListItem(
                 scaleY = scale
                 alpha = itemAlpha
             }
-            .background(color = rowBackground, shape = RoundedCornerShape(2.dp))
+            .background(color = rowBackground, shape = MaterialTheme.shapes.medium)
             .then(
-                if (isDragging) Modifier.border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), RoundedCornerShape(2.dp))
+                if (isDragging) Modifier.border(SongDesignTokens.BorderWidth.dp, MaterialTheme.colorScheme.primary.copy(alpha = SongDesignTokens.BorderAlphaStrong), MaterialTheme.shapes.medium)
                 else Modifier
             )
             .then(
@@ -1327,7 +1334,7 @@ private fun MonthCalendarView(
                             .weight(1f)
                             .height(62.dp)
                             .clickable(enabled = date != null) { if (date != null) pickedDate = date },
-                        shape = RoundedCornerShape(8.dp),
+                        shape = MaterialTheme.shapes.medium,
                         color = if (isSelected) {
                             MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
                         } else if (hasEvents) {
@@ -1376,7 +1383,7 @@ private fun MonthCalendarView(
                                                 .size(4.dp)
                                                 .background(
                                                     color = MaterialTheme.colorScheme.primary,
-                                                    shape = RoundedCornerShape(4.dp)
+                                                    shape = MaterialTheme.shapes.small
                                                 )
                                         )
                                         Text(
@@ -1430,9 +1437,9 @@ private fun MonthCalendarView(
                                     Modifier.clickable { onEventClick(state.event.id) }
                                 }
                             ),
-                        shape = RoundedCornerShape(8.dp),
+                        shape = MaterialTheme.shapes.medium,
                         color = MaterialTheme.colorScheme.surface,
-                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                        border = BorderStroke(SongDesignTokens.BorderWidth.dp, MaterialTheme.colorScheme.outline.copy(alpha = SongDesignTokens.BorderAlphaStrong))
                     ) {
                         Row(
                             modifier = Modifier

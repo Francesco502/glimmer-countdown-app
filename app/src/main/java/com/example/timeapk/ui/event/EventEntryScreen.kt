@@ -27,8 +27,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.Manifest
@@ -94,6 +97,11 @@ private val PRESET_COLORS = listOf(
 
 private val EventEntryContentMaxWidth = 720.dp
 
+private enum class SaveRequestOrigin {
+    Standard,
+    PermissionFallback
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EventEntryScreen(
@@ -113,8 +121,9 @@ fun EventEntryScreen(
     var pendingSaveAfterNotificationPermission by remember { mutableStateOf(false) }
     var pendingSaveAfterCalendarPermission by remember { mutableStateOf(false) }
     var pendingSaveDetailsOverride by remember { mutableStateOf<EventDetails?>(null) }
-    var navigateBackAfterPermissionFallbackSave by remember { mutableStateOf(false) }
+    var pendingSaveOrigin by remember { mutableStateOf(SaveRequestOrigin.Standard) }
     var permissionDialog by remember { mutableStateOf<PermissionDialogSpec?>(null) }
+    var showDiscardChangesDialog by remember { mutableStateOf(false) }
     LaunchedEffect(eventId) {
         if (eventId != null && eventId != 0) {
             viewModel.loadEvent(eventId)
@@ -159,6 +168,7 @@ fun EventEntryScreen(
             },
             onRequestDismiss = {
                 permissionDialog = null
+                pendingSaveOrigin = SaveRequestOrigin.Standard
                 isSaving = false
             }
         )
@@ -172,6 +182,7 @@ fun EventEntryScreen(
             dismissText = context.getString(R.string.permission_dialog_button_save_without_reminder),
             onConfirm = {
                 permissionDialog = null
+                pendingSaveOrigin = SaveRequestOrigin.Standard
                 isSaving = false
                 context.openAppNotificationSettings()
             },
@@ -181,6 +192,7 @@ fun EventEntryScreen(
             },
             onRequestDismiss = {
                 permissionDialog = null
+                pendingSaveOrigin = SaveRequestOrigin.Standard
                 isSaving = false
             }
         )
@@ -202,6 +214,7 @@ fun EventEntryScreen(
             },
             onRequestDismiss = {
                 permissionDialog = null
+                pendingSaveOrigin = SaveRequestOrigin.Standard
                 isSaving = false
             }
         )
@@ -215,6 +228,7 @@ fun EventEntryScreen(
             dismissText = context.getString(R.string.permission_dialog_button_save_without_sync),
             onConfirm = {
                 permissionDialog = null
+                pendingSaveOrigin = SaveRequestOrigin.Standard
                 isSaving = false
                 context.openAppDetailsSettings()
             },
@@ -224,6 +238,7 @@ fun EventEntryScreen(
             },
             onRequestDismiss = {
                 permissionDialog = null
+                pendingSaveOrigin = SaveRequestOrigin.Standard
                 isSaving = false
             }
         )
@@ -231,17 +246,24 @@ fun EventEntryScreen(
 
     lateinit var requestNotificationAccessForSave: (EventDetails) -> Unit
 
-    fun launchSave(detailsOverride: EventDetails = pendingSaveDetailsOverride ?: latestEventDetails) {
-        val shouldNavigateBackAfterSaveWarning = navigateBackAfterPermissionFallbackSave
-        navigateBackAfterPermissionFallbackSave = false
+    fun launchSave(
+        detailsOverride: EventDetails = pendingSaveDetailsOverride ?: latestEventDetails,
+        saveOrigin: SaveRequestOrigin = pendingSaveOrigin
+    ) {
         pendingSaveDetailsOverride = null
         viewModel.updateUiState(detailsOverride)
         coroutineScope.launch {
             when (val result = viewModel.saveEvent()) {
-                is SaveEventResult.Success -> navigateBack()
+                is SaveEventResult.Success -> {
+                    pendingSaveOrigin = SaveRequestOrigin.Standard
+                    isSaving = false
+                    navigateBack()
+                }
                 is SaveEventResult.PartialSuccess -> {
                     isSaving = false
-                    if (shouldNavigateBackAfterSaveWarning) {
+                    val shouldNavigateBack = saveOrigin == SaveRequestOrigin.PermissionFallback
+                    pendingSaveOrigin = SaveRequestOrigin.Standard
+                    if (shouldNavigateBack) {
                         Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()
                         navigateBack()
                     } else {
@@ -249,6 +271,7 @@ fun EventEntryScreen(
                     }
                 }
                 is SaveEventResult.Failure -> {
+                    pendingSaveOrigin = SaveRequestOrigin.Standard
                     isSaving = false
                     snackbarHostState.showSnackbar(result.message)
                 }
@@ -269,14 +292,18 @@ fun EventEntryScreen(
 
         pendingSaveAfterCalendarPermission = false
         if (granted) {
-            launchSave()
+            launchSave(saveOrigin = pendingSaveOrigin)
         } else {
             saveWithoutCalendarSync()
         }
     }
 
-    fun continueSaveAfterPermissionChecks(details: EventDetails = pendingSaveDetailsOverride ?: latestEventDetails) {
+    fun continueSaveAfterPermissionChecks(
+        details: EventDetails = pendingSaveDetailsOverride ?: latestEventDetails,
+        saveOrigin: SaveRequestOrigin = pendingSaveOrigin
+    ) {
         pendingSaveDetailsOverride = details
+        pendingSaveOrigin = saveOrigin
         val shouldCheckCalendarPermission = details.syncToScheduleEnabled
         if (shouldCheckCalendarPermission && !hasCalendarPermission()) {
             when {
@@ -286,7 +313,7 @@ fun EventEntryScreen(
             }
             return
         }
-        launchSave(details)
+        launchSave(detailsOverride = details, saveOrigin = saveOrigin)
     }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
@@ -298,7 +325,7 @@ fun EventEntryScreen(
 
         pendingSaveAfterNotificationPermission = false
         if (granted) {
-            continueSaveAfterPermissionChecks()
+            continueSaveAfterPermissionChecks(saveOrigin = pendingSaveOrigin)
         } else {
             saveWithoutReminder()
         }
@@ -321,30 +348,37 @@ fun EventEntryScreen(
             remindEnabled = false
         )
         viewModel.updateUiState(downgradedDetails)
-        navigateBackAfterPermissionFallbackSave = true
+        pendingSaveOrigin = SaveRequestOrigin.PermissionFallback
         Toast.makeText(
             context,
             context.getString(R.string.notification_permission_denied_saved_without_reminder),
             Toast.LENGTH_SHORT
         ).show()
-        continueSaveAfterPermissionChecks(downgradedDetails)
+        continueSaveAfterPermissionChecks(
+            details = downgradedDetails,
+            saveOrigin = SaveRequestOrigin.PermissionFallback
+        )
     }
 
     saveWithoutCalendarSync = {
         val downgradedDetails = (pendingSaveDetailsOverride ?: latestEventDetails).copy(
             syncToScheduleEnabled = false
         )
-        navigateBackAfterPermissionFallbackSave = true
+        pendingSaveOrigin = SaveRequestOrigin.PermissionFallback
         Toast.makeText(
             context,
             context.getString(R.string.calendar_permission_denied_saved_without_sync),
             Toast.LENGTH_SHORT
         ).show()
-        launchSave(downgradedDetails)
+        launchSave(
+            detailsOverride = downgradedDetails,
+            saveOrigin = SaveRequestOrigin.PermissionFallback
+        )
     }
 
     requestNotificationAccessForSave = { details ->
         pendingSaveDetailsOverride = details
+        pendingSaveOrigin = SaveRequestOrigin.Standard
         when {
             canPostNotifications() -> continueSaveAfterPermissionChecks(details)
             Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
@@ -356,8 +390,45 @@ fun EventEntryScreen(
     }
 
     val isEditing = eventId != null && eventId != 0
+    val hasUnsavedChanges = eventUiState.hasUnsavedChanges()
+
+    fun requestNavigateBack() {
+        when {
+            isSaving -> Unit
+            hasUnsavedChanges -> showDiscardChangesDialog = true
+            else -> navigateBack()
+        }
+    }
+
+    BackHandler(enabled = !showDiscardChangesDialog && permissionDialog == null) {
+        requestNavigateBack()
+    }
+
     permissionDialog?.let { dialog ->
         PermissionActionDialog(spec = dialog)
+    }
+    if (showDiscardChangesDialog) {
+        AlertDialog(
+            onDismissRequest = { showDiscardChangesDialog = false },
+            shape = MaterialTheme.shapes.medium,
+            title = { Text(stringResource(R.string.discard_changes_dialog_title)) },
+            text = { Text(stringResource(R.string.discard_changes_dialog_message)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDiscardChangesDialog = false
+                        navigateBack()
+                    }
+                ) {
+                    Text(stringResource(R.string.discard_changes_dialog_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDiscardChangesDialog = false }) {
+                    Text(stringResource(R.string.discard_changes_dialog_dismiss))
+                }
+            }
+        )
     }
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -372,7 +443,10 @@ fun EventEntryScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = navigateBack) {
+                    IconButton(
+                        onClick = ::requestNavigateBack,
+                        enabled = !isSaving
+                    ) {
                         Icon(
                             Icons.AutoMirrored.Outlined.ArrowBack,
                             contentDescription = stringResource(R.string.nav_back)
@@ -396,6 +470,7 @@ fun EventEntryScreen(
                 if (isSaving) return@EventEntryBody
 
                 val details = eventUiState.eventDetails
+                pendingSaveOrigin = SaveRequestOrigin.Standard
                 if (details.remindEnabled && !canPostNotifications()) {
                     isSaving = true
                     requestNotificationAccessForSave(details)
@@ -654,6 +729,7 @@ fun EventInputForm(
         )
     }
 
+    val haptic = LocalHapticFeedback.current
     val titleTouched = remember { mutableStateOf(false) }
     val showTitleError = titleTouched.value && eventDetails.title.isBlank()
     val reminderDayOptions = remember { (0..3650).toList() }
@@ -690,6 +766,7 @@ fun EventInputForm(
         var isRepeatPickerScrolling by remember { mutableStateOf(false) }
         AlertDialog(
             onDismissRequest = { showCustomRepeatPicker = false },
+            shape = MaterialTheme.shapes.medium,
             title = { Text(stringResource(R.string.category_custom)) },
             text = {
                 SnapWheelPicker(
@@ -727,6 +804,7 @@ fun EventInputForm(
         var isDaysPickerScrolling by remember { mutableStateOf(false) }
         AlertDialog(
             onDismissRequest = { showCustomRemindDaysPicker = false },
+            shape = MaterialTheme.shapes.medium,
             title = { Text(stringResource(R.string.custom_remind_days_label)) },
             text = {
                 SnapWheelPicker(
@@ -778,6 +856,7 @@ fun EventInputForm(
         var isMinutePickerScrolling by remember { mutableStateOf(false) }
         AlertDialog(
             onDismissRequest = { showCustomRemindTimePicker = false },
+            shape = MaterialTheme.shapes.medium,
             title = { Text(stringResource(R.string.custom_reminder_time_label)) },
             text = {
                 Row(
@@ -867,7 +946,7 @@ fun EventInputForm(
                     selected = currentCategory == value,
                     onClick = { onValueChange(eventDetails.copy(category = value)) },
                     label = { Text(label) },
-                    shape = RoundedCornerShape(4.dp),
+                    shape = MaterialTheme.shapes.small,
                     colors = categoryChipColors
                 )
             }
@@ -936,13 +1015,13 @@ fun EventInputForm(
                     selected = eventDetails.repeatType == value,
                     onClick = { onValueChange(eventDetails.copy(repeatType = value)) },
                     label = { Text(label) },
-                    shape = RoundedCornerShape(4.dp),
+                    shape = MaterialTheme.shapes.small,
                     colors = formChipColors
                 )
             }
             OutlinedButton(
                 onClick = { showCustomRepeatPicker = true },
-                shape = RoundedCornerShape(4.dp)
+                shape = MaterialTheme.shapes.small
             ) {
                 Text(stringResource(R.string.category_custom))
             }
@@ -1251,6 +1330,7 @@ fun CustomColorDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        shape = MaterialTheme.shapes.medium,
         title = { Text(stringResource(R.string.custom_colors_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {

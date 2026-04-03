@@ -96,10 +96,12 @@ class EventEntryViewModel(
         viewModelScope.launch {
             val event = repository.getEvent(id)
             if (event != null) {
+                val loadedDetails = event.toEventDetails()
                 _eventUiState.update {
                     it.copy(
-                        eventDetails = event.toEventDetails(),
-                        isEntryValid = validateInput(event.toEventDetails()),
+                        eventDetails = loadedDetails,
+                        initialEventDetails = loadedDetails,
+                        isEntryValid = validateInput(loadedDetails),
                         loadError = false
                     )
                 }
@@ -219,6 +221,16 @@ class EventEntryViewModel(
             hasSideEffectFailure = true
         }
 
+        val savedDetails = updatedEvent.toEventDetails()
+        _eventUiState.update {
+            it.copy(
+                eventDetails = savedDetails,
+                initialEventDetails = savedDetails,
+                isEntryValid = validateInput(savedDetails),
+                loadError = false
+            )
+        }
+
         return if (hasSideEffectFailure) {
             SaveEventResult.PartialSuccess(application.getString(R.string.save_event_partial_warning))
         } else {
@@ -231,11 +243,28 @@ class EventEntryViewModel(
     }
 }
 
+private fun EventDetails.hasSameEditableContent(other: EventDetails): Boolean {
+    return title == other.title &&
+        date == other.date &&
+        category == other.category &&
+        note == other.note &&
+        colorHex == other.colorHex &&
+        repeatType == other.repeatType &&
+        remindDaysBefore == other.remindDaysBefore &&
+        reminderTimeMinutesOfDay == other.reminderTimeMinutesOfDay &&
+        remindEnabled == other.remindEnabled &&
+        syncToScheduleEnabled == other.syncToScheduleEnabled &&
+        isLunar == other.isLunar
+}
+
 data class EventEntryUiState(
     val eventDetails: EventDetails = EventDetails(),
     val isEntryValid: Boolean = false,
-    val loadError: Boolean = false
-)
+    val loadError: Boolean = false,
+    val initialEventDetails: EventDetails = eventDetails
+) {
+    fun hasUnsavedChanges(): Boolean = !eventDetails.hasSameEditableContent(initialEventDetails)
+}
 
 data class EventDetails(
     val id: Int = 0,

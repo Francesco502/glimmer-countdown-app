@@ -3,11 +3,18 @@ package com.example.timeapk.ui.theme
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
+import androidx.compose.material.ripple.LocalRippleTheme
+import androidx.compose.material.ripple.RippleAlpha
+import androidx.compose.material.ripple.RippleTheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
@@ -23,7 +30,7 @@ private val DarkColorScheme = darkColorScheme(
     background = SongDarkBackground,
     surface = SongDarkSurface,
     surfaceVariant = SongDarkSurfaceVariant,
-    onPrimary = Color(0xFF101012),
+    onPrimary = Color(0xFF1F1F1F), // 更柔和的墨色
     onSecondary = Color.White,
     onTertiary = Color.White,
     onBackground = SongDarkTextOnBG,
@@ -66,6 +73,19 @@ private fun applyStatusBarStyle(
     val window = view.context.findActivity()?.window ?: return
     window.statusBarColor = backgroundColorArgb
     WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+}
+
+private object SongRippleTheme : RippleTheme {
+    @Composable
+    override fun defaultColor(): Color = MaterialTheme.colorScheme.onSurface
+
+    @Composable
+    override fun rippleAlpha(): RippleAlpha = RippleAlpha(
+        pressedAlpha = 0.04f,
+        focusedAlpha = 0.04f,
+        draggedAlpha = 0.04f,
+        hoveredAlpha = 0.04f
+    )
 }
 
 @Composable
@@ -121,9 +141,22 @@ fun TimeAPKTheme(
         }
     }
 
+    val songShapes = Shapes(
+        extraSmall = RoundedCornerShape(SongDesignTokens.StandardRadius.dp),
+        small = RoundedCornerShape(SongDesignTokens.StandardRadius.dp),
+        medium = RoundedCornerShape(SongDesignTokens.StandardRadius.dp),
+        large = RoundedCornerShape(SongDesignTokens.StandardRadius.dp),
+        extraLarge = RoundedCornerShape(SongDesignTokens.StandardRadius.dp)
+    )
+
     MaterialTheme(
         colorScheme = colorScheme,
         typography = typographyForFontPreset(fontPreset, baseFontScale),
-        content = content
-    )
+        shapes = songShapes
+    ) {
+        CompositionLocalProvider(
+            LocalRippleTheme provides SongRippleTheme,
+            content = content
+        )
+    }
 }
