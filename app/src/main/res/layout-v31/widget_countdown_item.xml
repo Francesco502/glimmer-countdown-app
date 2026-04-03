@@ -3,8 +3,6 @@
     android:id="@+id/widget_item_root"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@drawable/widget_item_background"
-    android:clipToOutline="true"
     android:gravity="center_vertical"
     android:orientation="horizontal"
     android:theme="@style/Theme.TimeAPK.Widget"

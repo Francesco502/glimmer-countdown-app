@@ -6,6 +6,7 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.widget.RemoteViews
 import androidx.core.net.toUri
@@ -73,11 +74,16 @@ class CountdownAppWidgetProvider : AppWidgetProvider() {
             appWidgetId: Int
         ): PendingIntent {
             val intent = Intent(context, MainActivity::class.java)
+            val flags = PendingIntent.FLAG_UPDATE_CURRENT or if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                PendingIntent.FLAG_MUTABLE
+            } else {
+                0
+            }
             return PendingIntent.getActivity(
                 context,
                 appWidgetId,
                 intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                flags
             )
         }
 

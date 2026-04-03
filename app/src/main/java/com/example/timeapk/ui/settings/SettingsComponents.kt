@@ -41,7 +41,6 @@ import androidx.compose.ui.unit.dp
 import androidx.core.graphics.toColorInt
 import com.example.timeapk.R
 import com.example.timeapk.ui.components.rememberPressScale
-import com.example.timeapk.ui.theme.SongDesignTokens
 
 enum class SettingsCategory(
     val titleRes: Int,
@@ -81,38 +80,26 @@ fun SettingsCategoryRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val (pressModifier, interactionSource) = rememberPressScale()
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .border(
-                width = 1.dp,
-                color = MaterialTheme.colorScheme.outline.copy(alpha = SongDesignTokens.BorderAlphaSoft),
-                shape = RoundedCornerShape(SongDesignTokens.StandardRadius.dp)
+            .then(pressModifier)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = LocalIndication.current,
+                onClick = onClick
             )
-            .background(
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.62f),
-                shape = RoundedCornerShape(SongDesignTokens.StandardRadius.dp)
-            )
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 13.dp),
+            .padding(horizontal = 2.dp, vertical = 18.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(34.dp)
-                .background(
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                    shape = RoundedCornerShape(8.dp)
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = category.icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary
-            )
-        }
-        Spacer(modifier = Modifier.width(12.dp))
+        Icon(
+            imageVector = category.icon,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.82f)
+        )
+        Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = stringResource(category.titleRes),
@@ -132,7 +119,8 @@ fun SettingsCategoryRow(
         Icon(
             imageVector = Icons.AutoMirrored.Filled.ArrowForward,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
+            modifier = Modifier.size(18.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f)
         )
     }
 }

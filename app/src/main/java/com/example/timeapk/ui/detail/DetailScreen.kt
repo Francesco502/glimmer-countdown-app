@@ -1,6 +1,5 @@
 package com.example.timeapk.ui.detail
 
-import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
@@ -9,7 +8,6 @@ import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -624,38 +622,7 @@ fun DetailScreen(
                 onReminderCalendarClick = onEditClick,
                 onPinClick = { scope.launch { prefs.togglePinnedEventId(eventState.event.id) } },
                 onEditClick = onEditClick,
-                onDeleteClick = { showDeleteConfirm = true },
-                onShareClick = {
-                    val isYearlyShare = eventState.event.repeatType == REPEAT_YEARLY
-                    val text = when {
-                        eventState.isPast -> {
-                            val elapsedDays = if (isYearlyShare) eventState.daysPassed else eventState.daysElapsed
-                            context.resources.getQuantityString(
-                                R.plurals.share_text_past,
-                                elapsedDays.toInt(),
-                                eventState.event.title,
-                                elapsedDays.toInt()
-                            )
-                        }
-                        eventState.daysRemaining == 0L ->
-                            context.getString(R.string.share_text_today, eventState.event.title)
-                        else -> {
-                            val remainingDays = eventState.daysRemaining.toInt()
-                            context.resources.getQuantityString(
-                                R.plurals.share_text_countdown,
-                                remainingDays,
-                                eventState.event.title,
-                                remainingDays
-                            )
-                        }
-                    }
-                    val sendIntent = Intent().apply {
-                        action = Intent.ACTION_SEND
-                        putExtra(Intent.EXTRA_TEXT, text)
-                        type = "text/plain"
-                    }
-                    context.startActivity(Intent.createChooser(sendIntent, context.getString(R.string.share_chooser_title)))
-                }
+                onDeleteClick = { showDeleteConfirm = true }
             )
         }
         }
@@ -663,7 +630,6 @@ fun DetailScreen(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ResponsiveDetailActionButtons(
     isPinned: Boolean,
@@ -671,94 +637,79 @@ private fun ResponsiveDetailActionButtons(
     onReminderCalendarClick: () -> Unit,
     onPinClick: () -> Unit,
     onEditClick: () -> Unit,
-    onDeleteClick: () -> Unit,
-    onShareClick: () -> Unit
+    onDeleteClick: () -> Unit
 ) {
     val reminderInteractionSource = remember { MutableInteractionSource() }
     val pinInteractionSource = remember { MutableInteractionSource() }
     val editInteractionSource = remember { MutableInteractionSource() }
     val deleteInteractionSource = remember { MutableInteractionSource() }
-    val shareInteractionSource = remember { MutableInteractionSource() }
     val reminderPressed by reminderInteractionSource.collectIsPressedAsState()
     val pinPressed by pinInteractionSource.collectIsPressedAsState()
     val editPressed by editInteractionSource.collectIsPressedAsState()
     val deletePressed by deleteInteractionSource.collectIsPressedAsState()
-    val sharePressed by shareInteractionSource.collectIsPressedAsState()
-
-    BoxWithConstraints(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 48.dp, bottom = 24.dp)
+            .padding(top = 48.dp, bottom = 24.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.Top
     ) {
-        val maxItemsInEachRow = if (maxWidth < 360.dp) 3 else 5
-        FlowRow(
-            modifier = Modifier.fillMaxWidth(),
-            maxItemsInEachRow = maxItemsInEachRow,
-            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            ResponsiveDetailActionButton(
-                interactionSource = reminderInteractionSource,
-                scale = animateFloatAsState(if (reminderPressed) 0.96f else 1f, AnimationSpecs.springButton, label = "responsiveReminder").value,
-                onClick = onReminderCalendarClick,
-                icon = Icons.Outlined.Notifications,
-                label = stringResource(R.string.button_reminder_calendar),
-                iconTint = if (isReminderOrScheduleEnabled) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
-                },
-                textColor = if (isReminderOrScheduleEnabled) {
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
-                } else {
-                    MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
-                }
-            )
-            ResponsiveDetailActionButton(
-                interactionSource = pinInteractionSource,
-                scale = animateFloatAsState(if (pinPressed) 0.96f else 1f, AnimationSpecs.springButton, label = "responsivePin").value,
-                onClick = onPinClick,
-                icon = Icons.Outlined.PushPin,
-                label = if (isPinned) stringResource(R.string.button_unpin) else stringResource(R.string.button_pin),
-                iconTint = if (isPinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
-                textColor = if (isPinned) MaterialTheme.colorScheme.primary.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
-            )
-            ResponsiveDetailActionButton(
-                interactionSource = editInteractionSource,
-                scale = animateFloatAsState(if (editPressed) 0.96f else 1f, AnimationSpecs.springButton, label = "responsiveEdit").value,
-                onClick = onEditClick,
-                icon = Icons.Outlined.Edit,
-                label = stringResource(R.string.button_edit),
-                iconTint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
-                textColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
-                contentDescription = stringResource(R.string.cd_edit)
-            )
-            ResponsiveDetailActionButton(
-                interactionSource = shareInteractionSource,
-                scale = animateFloatAsState(if (sharePressed) 0.96f else 1f, AnimationSpecs.springButton, label = "responsiveShare").value,
-                onClick = onShareClick,
-                icon = Icons.Outlined.Share,
-                label = stringResource(R.string.button_share),
-                iconTint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
-                textColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
-                contentDescription = stringResource(R.string.cd_share)
-            )
-            ResponsiveDetailActionButton(
-                interactionSource = deleteInteractionSource,
-                scale = animateFloatAsState(if (deletePressed) 0.96f else 1f, AnimationSpecs.springButton, label = "responsiveDelete").value,
-                onClick = onDeleteClick,
-                icon = Icons.Outlined.Delete,
-                label = stringResource(R.string.button_delete),
-                iconTint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f),
-                textColor = MaterialTheme.colorScheme.error.copy(alpha = 0.5f),
-                contentDescription = stringResource(R.string.cd_delete)
-            )
-        }
+        ResponsiveDetailActionButton(
+            modifier = Modifier.weight(1f),
+            interactionSource = reminderInteractionSource,
+            scale = animateFloatAsState(if (reminderPressed) 0.96f else 1f, AnimationSpecs.springButton, label = "responsiveReminder").value,
+            onClick = onReminderCalendarClick,
+            icon = Icons.Outlined.Notifications,
+            label = stringResource(R.string.button_reminder_calendar),
+            iconTint = if (isReminderOrScheduleEnabled) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+            },
+            textColor = if (isReminderOrScheduleEnabled) {
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+            } else {
+                MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
+            }
+        )
+        ResponsiveDetailActionButton(
+            modifier = Modifier.weight(1f),
+            interactionSource = pinInteractionSource,
+            scale = animateFloatAsState(if (pinPressed) 0.96f else 1f, AnimationSpecs.springButton, label = "responsivePin").value,
+            onClick = onPinClick,
+            icon = Icons.Outlined.PushPin,
+            label = if (isPinned) stringResource(R.string.button_unpin) else stringResource(R.string.button_pin),
+            iconTint = if (isPinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+            textColor = if (isPinned) MaterialTheme.colorScheme.primary.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
+        )
+        ResponsiveDetailActionButton(
+            modifier = Modifier.weight(1f),
+            interactionSource = editInteractionSource,
+            scale = animateFloatAsState(if (editPressed) 0.96f else 1f, AnimationSpecs.springButton, label = "responsiveEdit").value,
+            onClick = onEditClick,
+            icon = Icons.Outlined.Edit,
+            label = stringResource(R.string.button_edit),
+            iconTint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+            textColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+            contentDescription = stringResource(R.string.cd_edit)
+        )
+        ResponsiveDetailActionButton(
+            modifier = Modifier.weight(1f),
+            interactionSource = deleteInteractionSource,
+            scale = animateFloatAsState(if (deletePressed) 0.96f else 1f, AnimationSpecs.springButton, label = "responsiveDelete").value,
+            onClick = onDeleteClick,
+            icon = Icons.Outlined.Delete,
+            label = stringResource(R.string.button_delete),
+            iconTint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f),
+            textColor = MaterialTheme.colorScheme.error.copy(alpha = 0.5f),
+            contentDescription = stringResource(R.string.cd_delete)
+        )
     }
 }
 
 @Composable
 private fun ResponsiveDetailActionButton(
+    modifier: Modifier = Modifier,
     interactionSource: MutableInteractionSource,
     scale: Float,
     onClick: () -> Unit,
@@ -770,15 +721,14 @@ private fun ResponsiveDetailActionButton(
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .widthIn(min = 72.dp, max = 104.dp)
+        modifier = modifier
             .clickable(
                 interactionSource = interactionSource,
                 indication = LocalIndication.current,
                 onClick = onClick
             )
             .graphicsLayer { scaleX = scale; scaleY = scale }
-            .padding(horizontal = 8.dp, vertical = 6.dp)
+            .padding(horizontal = 4.dp, vertical = 6.dp)
     ) {
         Icon(
             imageVector = icon,
@@ -792,7 +742,7 @@ private fun ResponsiveDetailActionButton(
             style = MaterialTheme.typography.labelSmall,
             color = textColor,
             textAlign = TextAlign.Center,
-            maxLines = 2
+            maxLines = 1
         )
     }
 }

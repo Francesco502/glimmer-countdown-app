@@ -36,7 +36,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.Manifest
 import android.os.Build
-import android.widget.Toast
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -264,7 +263,6 @@ fun EventEntryScreen(
                     val shouldNavigateBack = saveOrigin == SaveRequestOrigin.PermissionFallback
                     pendingSaveOrigin = SaveRequestOrigin.Standard
                     if (shouldNavigateBack) {
-                        Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()
                         navigateBack()
                     } else {
                         snackbarHostState.showSnackbar(result.message)
@@ -349,11 +347,6 @@ fun EventEntryScreen(
         )
         viewModel.updateUiState(downgradedDetails)
         pendingSaveOrigin = SaveRequestOrigin.PermissionFallback
-        Toast.makeText(
-            context,
-            context.getString(R.string.notification_permission_denied_saved_without_reminder),
-            Toast.LENGTH_SHORT
-        ).show()
         continueSaveAfterPermissionChecks(
             details = downgradedDetails,
             saveOrigin = SaveRequestOrigin.PermissionFallback
@@ -364,12 +357,8 @@ fun EventEntryScreen(
         val downgradedDetails = (pendingSaveDetailsOverride ?: latestEventDetails).copy(
             syncToScheduleEnabled = false
         )
+        viewModel.updateUiState(downgradedDetails)
         pendingSaveOrigin = SaveRequestOrigin.PermissionFallback
-        Toast.makeText(
-            context,
-            context.getString(R.string.calendar_permission_denied_saved_without_sync),
-            Toast.LENGTH_SHORT
-        ).show()
         launchSave(
             detailsOverride = downgradedDetails,
             saveOrigin = SaveRequestOrigin.PermissionFallback

@@ -130,7 +130,7 @@
     <!-- Detail -->
     <string name="detail_title">Event detail</string>
     <string name="button_edit">Edit</string>
-    <string name="button_reminder_calendar">Reminder/Calendar</string>
+    <string name="button_reminder_calendar">Reminder</string>
     <string name="button_delete">Delete</string>
     <string name="button_share">Share</string>
     <string name="button_pin">Pin</string>
@@ -342,8 +342,6 @@
     <string name="settings_entry_data_desc">Export, import, and data migration</string>
     <string name="settings_about_entry_title">About &amp; updates</string>
     <string name="settings_entry_about_desc">Version details and update checks</string>
-    <string name="notification_permission_denied_saved_without_reminder">Notification permission was denied. The event was saved without reminders.</string>
-    <string name="calendar_permission_denied_saved_without_sync">Calendar permission was denied. The event was saved without schedule sync.</string>
     <string name="date_picker_invalid_input">Enter a valid date, for example 2026/02/28.</string>
     <string name="permission_dialog_title_notifications">Allow notifications</string>
     <string name="permission_dialog_title_calendar">Allow calendar access</string>

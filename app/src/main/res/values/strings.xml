@@ -105,7 +105,7 @@
     <string name="date_picker_cancel">取消</string>
     <string name="detail_title">事件详情</string>
     <string name="button_edit">编辑</string>
-    <string name="button_reminder_calendar">提醒/日历</string>
+    <string name="button_reminder_calendar">提醒</string>
     <string name="button_delete">删除</string>
     <string name="button_share">分享</string>
     <string name="button_pin">置顶</string>
@@ -290,8 +290,6 @@
     <string name="settings_entry_data_desc">导入导出与数据迁移</string>
     <string name="settings_about_entry_title">关于与更新</string>
     <string name="settings_entry_about_desc">版本信息与检查更新</string>
-    <string name="notification_permission_denied_saved_without_reminder">未授予通知权限，已关闭提醒并保存事件。</string>
-    <string name="calendar_permission_denied_saved_without_sync">未授予日历权限，已关闭日程同步并保存事件。</string>
     <string name="date_picker_invalid_input">请输入有效日期，例如 2026/02/28。</string>
     <string name="permission_dialog_title_notifications">允许通知</string>
     <string name="permission_dialog_title_calendar">允许访问日历</string>

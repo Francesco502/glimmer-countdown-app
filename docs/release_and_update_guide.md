@@ -1,6 +1,6 @@
-# TimeAPK 发布与更新指引
+# TimeAPK 发布与更新指南
 
-本文档说明当前 `3.7` 版本如何完成签名、构建、发布，以及如何在保持同版本号时重新发布。
+本文档说明当前 `3.8` 版本如何完成签名、构建、发布，以及如何更新 GitHub Release。
 
 ## 一、当前状态
 
@@ -10,9 +10,9 @@
 | 最低 / 目标 SDK | `minSdk 26` / `targetSdk 36` |
 | Release 构建 | 已启用 `release` buildType，并开启 `minify` 与 `shrinkResources` |
 | Release 签名 | 从 `keystore.properties` 读取 |
-| APK 命名 | 输出为 `glimmer-countdown-3-7.apk` |
-| 更新检查 | 已具备 GitHub Release 检查器与应用内入口 |
+| Direct APK 命名 | 输出为 `glimmer-countdown-3-8.apk` |
 | 渠道 | 支持 `direct` / `play` flavor |
+| 应用内更新入口 | 已具备 GitHub Release 检查与设置页入口 |
 
 ## 二、发布前准备
 
@@ -36,50 +36,44 @@ keyPassword=xxx
 
 当前版本值：
 
-- `VERSION_NAME=3.7`
-- `VERSION_CODE=11`
+- `VERSION_NAME=3.8`
+- `VERSION_CODE=12`
 
-如果只是修复 `3.7` 中的小问题并重新发布，可以保持 `3.7 / 11` 不变，但需要更新 `v3.7` 标签和 GitHub Release 资产。如果后续要正式发新版本，再递增 `versionCode` 与 `versionName`。
+若后续继续发布新版本，应同步递增 `versionCode`，并更新 `versionName`、README 与 CHANGELOG。
 
 ## 三、构建命令
 
 ```bash
-./gradlew test
+./gradlew assembleDirectDebug
+./gradlew testDirectDebugUnitTest
+./gradlew lintDirectDebug
 ./gradlew assembleDirectRelease
 ./gradlew bundlePlayRelease
 ```
 
-APK 路径：
+产物路径：
 
-- `app/build/outputs/apk/direct/release/glimmer-countdown-3-7.apk`
+- `app/build/outputs/apk/direct/release/glimmer-countdown-3-8.apk`
+- `app/build/outputs/bundle/playRelease/app-play-release.aab`
 
 ## 四、GitHub 发布
 
-### 1. 推送代码
+### 1. 提交与推送
 
 ```bash
 git add app gradle.properties README.md CHANGELOG.md docs scripts .gitignore
-git commit -m "release: refresh v3.7 docs and widget fixes"
+git commit -m "release: ship v3.8"
 git push origin main
 ```
 
-### 2. 更新标签
-
-首次发布：
+### 2. 标签
 
 ```bash
-git tag -a v3.7 -m "Release v3.7"
-git push origin v3.7
+git tag -a v3.8 -m "Release v3.8"
+git push origin v3.8
 ```
 
-同版本重新发布：
-
-```bash
-git tag -fa v3.7 -m "Release v3.7"
-git push origin v3.7 --force
-```
-
-### 3. 更新 Release
+### 3. Release
 
 ```powershell
 $env:GITHUB_TOKEN = "your_token"
@@ -89,16 +83,13 @@ $env:GITHUB_TOKEN = "your_token"
 脚本会：
 
 - 读取当前版本号
-- 提取 `CHANGELOG.md` 中 `3.7` 小节作为 Release 说明
-- 自动更新已存在的 Release 说明
+- 提取 `CHANGELOG.md` 中 `3.8` 小节作为 Release Notes
+- 自动更新已存在的 GitHub Release
 - 自动替换同名 APK 资产
 
-## 五、与应用内更新的关系
+## 五、建议抽检
 
-当前工程已具备：
-
-- GitHub Release 更新检查能力
-- 设置页中的“检查更新”入口
-- 渠道区分与版本展示能力
-
-后续若要接入完整下载与安装流程，只需要继续扩展现有更新模块，无需重做发布链路。
+- 桌面小组件的深浅色切换与点击打开链路
+- 权限不足时的降级保存与返回首页行为
+- 编辑页未保存内容时的返回确认
+- 设置首页细线分隔样式的真机效果

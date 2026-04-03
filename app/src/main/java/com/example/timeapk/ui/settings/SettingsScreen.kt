@@ -4,9 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -14,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -136,22 +135,17 @@ fun SettingsCategoryList(
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier.padding(vertical = 18.dp),
+        modifier = modifier.padding(horizontal = 20.dp, vertical = 18.dp),
         verticalArrangement = Arrangement.Top
     ) {
-        Text(
-            text = stringResource(R.string.settings_overview_hint),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 14.dp)
-        )
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
         SettingsCategory.entries.forEach { category ->
             SettingsCategoryRow(
                 category = category,
                 onClick = { onCategoryClick(category) },
-                modifier = Modifier.padding(horizontal = 20.dp)
+                modifier = Modifier
             )
-            Spacer(modifier = Modifier.height(10.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.24f))
         }
     }
 }
