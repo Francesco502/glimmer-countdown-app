@@ -79,6 +79,21 @@ internal fun supportedRepeatTypes(isLunar: Boolean): List<String> {
     }
 }
 
+internal fun resolvePartialSaveMessageResId(
+    hasGenericFailure: Boolean,
+    scheduleSyncError: String?
+): Int? {
+    if (!hasGenericFailure && scheduleSyncError.isNullOrBlank()) {
+        return null
+    }
+    return when {
+        hasGenericFailure -> R.string.save_event_partial_warning
+        ScheduleSyncManager.isNoWritableCalendarError(scheduleSyncError) ->
+            R.string.save_event_partial_warning_no_writable_calendar
+        else -> R.string.save_event_partial_warning
+    }
+}
+
 class EventEntryViewModel(
     private val application: Application,
     private val repository: EventRepository
@@ -141,7 +156,8 @@ class EventEntryViewModel(
             return SaveEventResult.Failure(application.getString(R.string.save_event_failed))
         }
 
-        var hasSideEffectFailure = false
+        var hasGenericSideEffectFailure = false
+        var scheduleSyncError: String? = null
 
         var updatedEvent = persistedEvent
 
@@ -151,7 +167,7 @@ class EventEntryViewModel(
                 scheduleReminder(application, persistedEvent)
             }
         } catch (_: Exception) {
-            hasSideEffectFailure = true
+            hasGenericSideEffectFailure = true
         }
 
         updatedEvent = if (persistedEvent.syncToScheduleEnabled) {
@@ -165,7 +181,7 @@ class EventEntryViewModel(
                     useRRuleSync = useRRuleSync
                 )
                 if (syncResult.error != null) {
-                    hasSideEffectFailure = true
+                    scheduleSyncError = syncResult.error
                 }
                 persistedEvent.copy(
                     scheduleEventId = syncResult.primaryScheduleEventId,
@@ -174,12 +190,12 @@ class EventEntryViewModel(
                     lastScheduleSyncError = syncResult.error
                 )
             } catch (_: Exception) {
-                hasSideEffectFailure = true
+                scheduleSyncError = "Schedule sync failed"
                 persistedEvent.copy(
                     scheduleEventId = null,
                     targetCalendarId = null,
                     lastScheduleSyncAt = System.currentTimeMillis(),
-                    lastScheduleSyncError = "Schedule sync failed"
+                    lastScheduleSyncError = scheduleSyncError
                 )
             }
         } else {
@@ -187,7 +203,7 @@ class EventEntryViewModel(
                 ScheduleSyncManager.removeScheduleReminder(application, persistedEvent.scheduleEventId)
                 ScheduleSyncManager.removeScheduleReminderByEventId(application, persistedEvent.id)
             } catch (_: Exception) {
-                hasSideEffectFailure = true
+                hasGenericSideEffectFailure = true
             }
             persistedEvent.copy(
                 scheduleEventId = null,
@@ -201,7 +217,7 @@ class EventEntryViewModel(
             try {
                 repository.updateEvent(updatedEvent)
             } catch (_: Exception) {
-                hasSideEffectFailure = true
+                hasGenericSideEffectFailure = true
             }
         }
 
@@ -212,13 +228,13 @@ class EventEntryViewModel(
                 ScheduleSyncManager.clearMilestoneScheduleRemindersByEventId(application, updatedEvent.id)
             }
         } catch (_: Exception) {
-            hasSideEffectFailure = true
+            hasGenericSideEffectFailure = true
         }
 
         try {
             WidgetUpdater.refreshCountdownWidgets(application)
         } catch (_: Exception) {
-            hasSideEffectFailure = true
+            hasGenericSideEffectFailure = true
         }
 
         val savedDetails = updatedEvent.toEventDetails()
@@ -231,8 +247,13 @@ class EventEntryViewModel(
             )
         }
 
-        return if (hasSideEffectFailure) {
-            SaveEventResult.PartialSuccess(application.getString(R.string.save_event_partial_warning))
+        val partialMessageResId = resolvePartialSaveMessageResId(
+            hasGenericFailure = hasGenericSideEffectFailure,
+            scheduleSyncError = scheduleSyncError
+        )
+
+        return if (partialMessageResId != null) {
+            SaveEventResult.PartialSuccess(application.getString(partialMessageResId))
         } else {
             SaveEventResult.Success
         }

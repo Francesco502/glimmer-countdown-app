@@ -47,4 +47,14 @@ class ScheduleSyncManagerTest {
         assertTrue(isManagedReminderMetadataKind("reminder_v2"))
         assertTrue(isManagedReminderMetadataKind("reminder_rrule_v2"))
     }
+
+    @Test
+    fun isNoWritableCalendarError_matchesDedicatedSyncErrorOnly() {
+        assertTrue(
+            ScheduleSyncManager.isNoWritableCalendarError(
+                ScheduleSyncManager.ERROR_NO_WRITABLE_CALENDAR
+            )
+        )
+        assertFalse(ScheduleSyncManager.isNoWritableCalendarError("Calendar permission denied"))
+    }
 }

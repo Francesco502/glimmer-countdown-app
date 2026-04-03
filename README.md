@@ -1,11 +1,10 @@
 # 拾光（Glimmer）
-
-`v3.8` 的 Android 倒数日 / 生日 / 纪念日应用，基于 Jetpack Compose + Material 3。
+`v3.8.1` 的 Android 倒数日 / 生日 / 纪念日应用，基于 Jetpack Compose + Material 3。
 
 ## 版本信息
 
-- `versionName`: `3.8`
-- `versionCode`: `12`
+- `versionName`: `3.8.1`
+- `versionCode`: `13`
 - 发布日期：`2026-04-03`
 
 ## 核心能力
@@ -19,21 +18,17 @@
 - 支持表格模式与桌面小组件
 - 支持 JSON 导入 / 导出，用于备份与恢复
 
-## 3.8 版本重点
+## 3.8.1 版本重点
 
-- 小组件主题自适配增强：跟随系统深浅色、动态配色、字体缩放与整体圆角背景
-- 调整小组件条目样式，去掉每条事件的独立外框，保持整体背景更克制
-- 修复小组件点击链路，确保点击具体事件可正确带出 `open_event_id`
-- 完善权限申请与降级保存流程，权限不足时可继续保存并直接返回首页
-- 新增编辑页返回防丢机制，未保存修改时拦截返回并弹确认框
-- 修复日期输入非法值校验、首页拖拽刷新中断、详情页与编辑页宽屏布局等问题
-- 详情页操作区收敛为“提醒 / 置顶 / 编辑 / 删除”四按钮
-- 设置首页改为细线分隔样式，减少圆角卡片感，更贴近宋式克制风格
+- 修复“通知和日历权限都已授予，但系统中没有可写日历”时，保存仍误报“部分提醒/同步操作失败”的问题
+- 新增保存前、权限回调后和同步开关开启时的可写日历检查
+- 无可写日历时，改为明确提示用户前往系统同步设置，或以“不同步日历”的方式继续保存
+- 保留 3.8 的小组件主题、权限降级保存、编辑页返回防丢等改进
 
 ## 构建与运行
 
 ```bash
-# 直装渠道 Debug
+# 直营渠道 Debug
 ./gradlew installDirectDebug
 
 # Play 渠道 Debug
@@ -41,7 +36,7 @@
 ```
 
 ```bash
-# 直装渠道 Release APK
+# 直营渠道 Release APK
 ./gradlew assembleDirectRelease
 
 # Play 渠道 Release AAB
@@ -50,7 +45,7 @@
 
 默认产物路径：
 
-- `app/build/outputs/apk/direct/release/glimmer-countdown-3-8.apk`
+- `app/build/outputs/apk/direct/release/glimmer-countdown-3-8-1.apk`
 - `app/build/outputs/bundle/playRelease/app-play-release.aab`
 
 ## 发布文档

@@ -240,6 +240,8 @@
     <string name="settings_schedule_target_calendar_title">Target calendar</string>
     <string name="settings_schedule_calendar_auto">Auto-select writable calendar</string>
     <string name="settings_schedule_calendar_no_writable">No writable calendar found. Please grant permission or enable a calendar account.</string>
+    <string name="calendar_no_writable_toggle_message">No writable calendar is available. Add or enable a calendar account in system sync settings or your calendar app before turning on system calendar sync.</string>
+    <string name="calendar_no_writable_save_message">No writable calendar is available, so the event cannot sync to your system calendar right now. Open system sync settings to fix the calendar account, or save without calendar sync.</string>
     <string name="settings_schedule_request_calendar_permission">Grant calendar permission</string>
     <string name="settings_schedule_rrule_title">Use RRULE strategy</string>
     <string name="settings_schedule_rrule_summary">For weekly/monthly/yearly recurring events with same-day reminders, prefer RRULE sync.</string>
@@ -308,6 +310,7 @@
     </plurals>
     <string name="save_event_failed">Save failed. Please try again.</string>
     <string name="save_event_partial_warning">Event saved, but some reminder/sync steps failed. Please check permissions and system settings.</string>
+    <string name="save_event_partial_warning_no_writable_calendar">Event saved, but it could not sync to your system calendar because no writable calendar is available. Check your calendar account or sync settings.</string>
     <string name="import_partial_summary">Import completed: success %1$d, failed %2$d, warnings %3$d</string>
     <string name="settings_milestone_remind_time_title">Milestone reminder time</string>
     <string name="settings_milestone_remind_time_hint">HH:mm (e.g. 08:30)</string>

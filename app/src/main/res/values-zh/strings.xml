@@ -200,6 +200,8 @@
     <string name="settings_schedule_target_calendar_title">目标日历</string>
     <string name="settings_schedule_calendar_auto">自动选择可写日历</string>
     <string name="settings_schedule_calendar_no_writable">未找到可写日历，请检查权限与日历账户。</string>
+    <string name="calendar_no_writable_toggle_message">未找到可写日历，请先在系统同步设置或日历应用中添加可同步的日历账户，再开启系统日历同步。</string>
+    <string name="calendar_no_writable_save_message">未找到可写日历，当前无法同步到系统日程。你可以先前往系统同步设置处理日历账户，或继续以不同步日历的方式保存。</string>
     <string name="settings_schedule_request_calendar_permission">授权日历权限</string>
     <string name="settings_schedule_rrule_title">启用 RRULE 策略</string>
     <string name="settings_schedule_rrule_summary">对周/月/年重复且当天提醒的事件，优先使用 RRULE 同步。</string>
@@ -256,6 +258,7 @@
     </plurals>
     <string name="save_event_failed">保存失败，请重试。</string>
     <string name="save_event_partial_warning">事件已保存，但部分提醒/同步操作失败，请检查权限与系统设置。</string>
+    <string name="save_event_partial_warning_no_writable_calendar">事件已保存，但当前系统中没有可写日历，未能同步到系统日程。请检查日历账户或同步设置。</string>
     <string name="import_partial_summary">导入完成：成功%1$d，失败%2$d，警告%3$d</string>
     <string name="settings_milestone_remind_time_title">里程碑提醒时间</string>
     <string name="settings_milestone_remind_time_hint">HH:mm（例如 08:30）</string>

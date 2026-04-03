@@ -25,6 +25,8 @@ internal fun isManagedReminderMetadataKind(kind: String?): Boolean {
 
 object ScheduleSyncManager {
 
+    internal const val ERROR_NO_WRITABLE_CALENDAR = "No writable calendar"
+
     data class CalendarOption(
         val id: Long,
         val displayName: String,
@@ -90,6 +92,12 @@ object ScheduleSyncManager {
     ): String {
         val rr = if (useRRule) 1 else 0
         return "$REMINDER_MARKER_PREFIX:$eventId:v2:occ=$occurrenceEpochDay:days=$daysLeft:rr=$rr"
+    }
+
+    fun hasWritableCalendar(context: Context): Boolean = getWritableCalendars(context).isNotEmpty()
+
+    internal fun isNoWritableCalendarError(error: String?): Boolean {
+        return error == ERROR_NO_WRITABLE_CALENDAR
     }
 
     fun getWritableCalendars(context: Context): List<CalendarOption> {
@@ -181,7 +189,7 @@ object ScheduleSyncManager {
                         primaryScheduleEventId = null,
                         targetCalendarId = null,
                         lastSyncAt = lastSyncAt,
-                        error = "No writable calendar"
+                        error = ERROR_NO_WRITABLE_CALENDAR
                     )
                 } else {
                     val expectedEntries = buildExpectedReminderEntries(
@@ -336,7 +344,7 @@ object ScheduleSyncManager {
                     scheduleEventId = null,
                     targetCalendarId = null,
                     lastSyncAt = lastSyncAt,
-                    error = "No writable calendar"
+                    error = ERROR_NO_WRITABLE_CALENDAR
                 )
             val triggerDate = Instant.ofEpochMilli(triggerAtMillis).atZone(ZoneId.systemDefault()).toLocalDate()
             val marker = milestoneMarker(eventId, triggerDate.toEpochDay())

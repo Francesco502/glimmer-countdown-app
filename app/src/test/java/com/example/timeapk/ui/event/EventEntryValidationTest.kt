@@ -1,9 +1,11 @@
 package com.example.timeapk.ui.event
 
+import com.example.timeapk.R
 import com.example.timeapk.data.REPEAT_DAILY
 import com.example.timeapk.data.REPEAT_MONTHLY
 import com.example.timeapk.data.REPEAT_NONE
 import com.example.timeapk.data.REPEAT_YEARLY
+import com.example.timeapk.notifications.ScheduleSyncManager
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -61,5 +63,27 @@ class EventEntryValidationTest {
         ).toEvent()
 
         assertEquals(REPEAT_NONE, event.repeatType)
+    }
+
+    @Test
+    fun resolvePartialSaveMessageResId_returnsSpecificMessageForNoWritableCalendarOnly() {
+        assertEquals(
+            R.string.save_event_partial_warning_no_writable_calendar,
+            resolvePartialSaveMessageResId(
+                hasGenericFailure = false,
+                scheduleSyncError = ScheduleSyncManager.ERROR_NO_WRITABLE_CALENDAR
+            )
+        )
+    }
+
+    @Test
+    fun resolvePartialSaveMessageResId_prefersGenericMessageWhenOtherFailuresAlsoExist() {
+        assertEquals(
+            R.string.save_event_partial_warning,
+            resolvePartialSaveMessageResId(
+                hasGenericFailure = true,
+                scheduleSyncError = ScheduleSyncManager.ERROR_NO_WRITABLE_CALENDAR
+            )
+        )
     }
 }

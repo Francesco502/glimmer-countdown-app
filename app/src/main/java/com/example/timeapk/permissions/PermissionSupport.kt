@@ -17,8 +17,12 @@ private const val PERMISSION_PREFS = "permission_prompt_state"
 private const val KEY_NOTIFICATION_REQUESTED = "notification_requested"
 private const val KEY_CALENDAR_REQUESTED = "calendar_requested"
 
+fun Context.areAppNotificationsEnabledCompat(): Boolean {
+    return NotificationManagerCompat.from(this).areNotificationsEnabled()
+}
+
 fun Context.canPostAppNotifications(): Boolean {
-    if (!NotificationManagerCompat.from(this).areNotificationsEnabled()) {
+    if (!areAppNotificationsEnabledCompat()) {
         return false
     }
     return Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
@@ -33,6 +37,23 @@ fun Context.hasNotificationRuntimePermission(): Boolean {
 fun Context.hasCalendarReadWritePermission(): Boolean {
     return hasPermission(Manifest.permission.READ_CALENDAR) &&
         hasPermission(Manifest.permission.WRITE_CALENDAR)
+}
+
+fun Context.didGrantNotificationPermissionAfterRequest(callbackGranted: Boolean): Boolean {
+    return isNotificationPermissionGrantedAfterRequest(
+        callbackGranted = callbackGranted,
+        hasRuntimePermission = hasNotificationRuntimePermission()
+    )
+}
+
+fun Context.didGrantCalendarPermissionAfterRequest(
+    grantResults: Map<String, Boolean>
+): Boolean {
+    return areCalendarPermissionsGrantedAfterRequest(
+        grantResults = grantResults,
+        hasReadPermission = hasPermission(Manifest.permission.READ_CALENDAR),
+        hasWritePermission = hasPermission(Manifest.permission.WRITE_CALENDAR)
+    )
 }
 
 fun Context.shouldShowNotificationPermissionRationaleCompat(): Boolean {
@@ -98,8 +119,41 @@ fun Context.openAppDetailsSettings() {
     startActivity(intent)
 }
 
+fun Context.openSystemSyncSettings() {
+    val syncIntent = Intent(Settings.ACTION_SYNC_SETTINGS).apply {
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+    val fallbackIntent = Intent(Settings.ACTION_SETTINGS).apply {
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+    val opened = runCatching {
+        startActivity(syncIntent)
+        true
+    }.getOrDefault(false)
+    if (!opened) {
+        runCatching { startActivity(fallbackIntent) }
+    }
+}
+
 private fun Context.hasPermission(permission: String): Boolean {
     return ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
+}
+
+internal fun isNotificationPermissionGrantedAfterRequest(
+    callbackGranted: Boolean,
+    hasRuntimePermission: Boolean
+): Boolean {
+    return callbackGranted || hasRuntimePermission
+}
+
+internal fun areCalendarPermissionsGrantedAfterRequest(
+    grantResults: Map<String, Boolean>,
+    hasReadPermission: Boolean,
+    hasWritePermission: Boolean
+): Boolean {
+    val readGranted = grantResults[Manifest.permission.READ_CALENDAR] ?: hasReadPermission
+    val writeGranted = grantResults[Manifest.permission.WRITE_CALENDAR] ?: hasWritePermission
+    return readGranted && writeGranted
 }
 
 private fun Context.permissionPrefs() =
