@@ -30,7 +30,9 @@ object ScheduleSyncManager {
     data class CalendarOption(
         val id: Long,
         val displayName: String,
-        val accountName: String?
+        val accountName: String?,
+        internal val accessLevel: Int? = null,
+        internal val isMarkedWritable: Boolean = false
     ) {
         val label: String
             get() = accountName?.takeIf { it.isNotBlank() }?.let { "$displayName ($it)" } ?: displayName
@@ -102,39 +104,18 @@ object ScheduleSyncManager {
 
     fun getWritableCalendars(context: Context): List<CalendarOption> {
         return try {
-            val projection = arrayOf(
-                CalendarContract.Calendars._ID,
-                CalendarContract.Calendars.CALENDAR_DISPLAY_NAME,
-                CalendarContract.Calendars.ACCOUNT_NAME,
-                CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL
-            )
-            val calendars = mutableListOf<CalendarOption>()
-            context.contentResolver.query(
-                CalendarContract.Calendars.CONTENT_URI,
-                projection,
-                null,
-                null,
-                null
-            )?.use { cursor ->
-                val idIndex = cursor.getColumnIndex(CalendarContract.Calendars._ID)
-                val nameIndex = cursor.getColumnIndex(CalendarContract.Calendars.CALENDAR_DISPLAY_NAME)
-                val accountIndex = cursor.getColumnIndex(CalendarContract.Calendars.ACCOUNT_NAME)
-                val accessIndex = cursor.getColumnIndex(CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL)
-
-                while (cursor.moveToNext()) {
-                    val accessLevel = if (accessIndex >= 0) cursor.getInt(accessIndex) else CalendarContract.Calendars.CAL_ACCESS_EDITOR
-                    val writable = accessLevel >= CalendarContract.Calendars.CAL_ACCESS_CONTRIBUTOR ||
-                        accessLevel == CalendarContract.Calendars.CAL_ACCESS_EDITOR ||
-                        accessLevel == CalendarContract.Calendars.CAL_ACCESS_OWNER
-                    if (!writable) continue
-
-                    val id = cursor.getLong(idIndex)
-                    val displayName = if (nameIndex >= 0) cursor.getString(nameIndex).orEmpty() else id.toString()
-                    val accountName = if (accountIndex >= 0) cursor.getString(accountIndex) else null
-                    calendars += CalendarOption(id = id, displayName = displayName.ifBlank { id.toString() }, accountName = accountName)
+            queryCalendarsWithDetails(context).ifEmpty {
+                queryCalendarsWithLegacyProjection(context)
+            }.also { selectedCalendars ->
+                if (selectedCalendars.isEmpty()) {
+                    Log.w(TAG, "Calendar provider returned no calendars")
+                } else if (selectedCalendars.none { it.isMarkedWritable }) {
+                    Log.w(
+                        TAG,
+                        "No calendars were marked writable by provider; falling back to available calendars: ${selectedCalendars.joinToString { it.debugSummary() }}"
+                    )
                 }
             }
-            calendars
         } catch (t: SecurityException) {
             Log.w(TAG, "No calendar permission when querying writable calendars", t)
             emptyList()
@@ -167,10 +148,9 @@ object ScheduleSyncManager {
         useRRuleSync: Boolean
     ): ScheduleSyncResult {
         val lastSyncAt = System.currentTimeMillis()
+        val sanitizedEvent = event.sanitizedReminderConfig()
 
         return try {
-            val sanitizedEvent = event.sanitizedReminderConfig()
-
             if (!sanitizedEvent.syncToScheduleEnabled) {
                 removeScheduleReminder(context, sanitizedEvent.scheduleEventId)
                 removeScheduleReminderByEventId(context, sanitizedEvent.id)
@@ -257,16 +237,38 @@ object ScheduleSyncManager {
                         removeScheduleReminder(context, sanitizedEvent.scheduleEventId)
                         removeScheduleReminderByEventId(context, sanitizedEvent.id)
                     }
+                    if (metadataWarnings > 0) {
+                        Log.w(
+                            TAG,
+                            "Synced calendar event(s) for eventId=${sanitizedEvent.id} with $metadataWarnings extended-property warning(s); falling back to description markers"
+                        )
+                    }
+                    if (expectedEntries.isNotEmpty() && primaryId == null) {
+                        tryLegacyReminderInsert(
+                            context = context,
+                            event = sanitizedEvent,
+                            preferredCalendarId = preferredCalendarId,
+                            useRRuleSync = useRRuleSync,
+                            lastSyncAt = lastSyncAt,
+                            reason = "Series sync produced no calendar event"
+                        )?.let { return it }
+                        Log.w(
+                            TAG,
+                            "All calendar inserts failed for eventId=${sanitizedEvent.id} on calendarId=$targetCalendarId; treating as no writable calendar"
+                        )
+                        return ScheduleSyncResult(
+                            primaryScheduleEventId = null,
+                            targetCalendarId = targetCalendarId,
+                            lastSyncAt = lastSyncAt,
+                            error = ERROR_NO_WRITABLE_CALENDAR
+                        )
+                    }
 
                     ScheduleSyncResult(
                         primaryScheduleEventId = primaryId,
                         targetCalendarId = targetCalendarId,
                         lastSyncAt = lastSyncAt,
-                        error = if (metadataWarnings > 0) {
-                            "Schedule synced with metadata warnings ($metadataWarnings)"
-                        } else {
-                            null
-                        }
+                        error = null
                     )
                 }
             }
@@ -278,6 +280,14 @@ object ScheduleSyncManager {
                 error = "Calendar permission denied"
             )
         } catch (t: Throwable) {
+            tryLegacyReminderInsert(
+                context = context,
+                event = sanitizedEvent,
+                preferredCalendarId = preferredCalendarId,
+                useRRuleSync = useRRuleSync,
+                lastSyncAt = lastSyncAt,
+                reason = t.message ?: t::class.java.simpleName
+            )?.let { return it }
             ScheduleSyncResult(
                 primaryScheduleEventId = null,
                 targetCalendarId = null,
@@ -376,11 +386,17 @@ object ScheduleSyncManager {
                         META_NAME_SCHEMA_VERSION to META_SCHEMA_VERSION
                     )
                 )
+                if (!metadataSaved) {
+                    Log.w(
+                        TAG,
+                        "Synced milestone calendar event for eventId=$eventId without extended properties; falling back to description markers"
+                    )
+                }
                 MilestoneScheduleSyncResult(
                     scheduleEventId = insertedId,
                     targetCalendarId = resolvedCalendarId,
                     lastSyncAt = lastSyncAt,
-                    error = if (metadataSaved) null else "Milestone synced with metadata warning"
+                    error = null
                 )
             }
         } catch (t: SecurityException) {
@@ -538,135 +554,175 @@ object ScheduleSyncManager {
 
     private fun loadExistingReminderEntries(context: Context, eventId: Int): List<ExistingReminderEntry> {
         if (!hasCalendarReadAccess(context)) return emptyList()
-        val entries = mutableListOf<ExistingReminderEntry>()
+        return try {
+            val entries = mutableListOf<ExistingReminderEntry>()
 
-        context.contentResolver.query(
-            CalendarContract.Events.CONTENT_URI,
-            arrayOf(CalendarContract.Events._ID, CalendarContract.Events.DESCRIPTION),
-            "${CalendarContract.Events.DESCRIPTION} LIKE ?",
-            arrayOf("$REMINDER_MARKER_PREFIX:$eventId%"),
-            null
-        )?.use { cursor ->
-            val idIndex = cursor.getColumnIndex(CalendarContract.Events._ID)
-            val descIndex = cursor.getColumnIndex(CalendarContract.Events.DESCRIPTION)
-            while (cursor.moveToNext()) {
-                val id = cursor.getLong(idIndex)
-                val description = if (descIndex >= 0) cursor.getString(descIndex).orEmpty() else ""
-                val markerLine = description.lineSequence().firstOrNull().orEmpty()
-                entries += ExistingReminderEntry(
-                    calendarEventId = id,
-                    key = parseReminderKeyFromMarker(markerLine)
-                )
-            }
-        }
-
-        val idsByMeta = findEventIdsByExtendedProperty(context, META_NAME_EVENT_ID, eventId.toString())
-        idsByMeta.forEach { id ->
-            if (entries.any { it.calendarEventId == id }) return@forEach
-            val props = readExtendedProperties(context, id)
-            val kind = props[META_NAME_KIND]
-            if (!isManagedReminderMetadataKind(kind)) return@forEach
-            val occ = props[META_NAME_OCC_EPOCH_DAY]?.toLongOrNull()
-            val days = props[META_NAME_DAYS_LEFT]?.toIntOrNull()
-            val key = if (occ != null && days != null) {
-                buildReminderEntryKey(
-                    occurrenceEpochDay = occ,
-                    daysLeft = days,
-                    useRRule = kind == META_KIND_REMINDER_RRULE
-                )
-            } else {
+            context.contentResolver.query(
+                CalendarContract.Events.CONTENT_URI,
+                arrayOf(CalendarContract.Events._ID, CalendarContract.Events.DESCRIPTION),
+                "${CalendarContract.Events.DESCRIPTION} LIKE ?",
+                arrayOf("$REMINDER_MARKER_PREFIX:$eventId%"),
                 null
+            )?.use { cursor ->
+                val idIndex = cursor.getColumnIndex(CalendarContract.Events._ID)
+                val descIndex = cursor.getColumnIndex(CalendarContract.Events.DESCRIPTION)
+                while (cursor.moveToNext()) {
+                    val id = cursor.getLong(idIndex)
+                    val description = if (descIndex >= 0) cursor.getString(descIndex).orEmpty() else ""
+                    val markerLine = description.lineSequence().firstOrNull().orEmpty()
+                    entries += ExistingReminderEntry(
+                        calendarEventId = id,
+                        key = parseReminderKeyFromMarker(markerLine)
+                    )
+                }
             }
-            entries += ExistingReminderEntry(calendarEventId = id, key = key)
-        }
 
-        return entries
+            val idsByMeta = findEventIdsByExtendedProperty(context, META_NAME_EVENT_ID, eventId.toString())
+            idsByMeta.forEach { id ->
+                if (entries.any { it.calendarEventId == id }) return@forEach
+                val props = readExtendedProperties(context, id)
+                val kind = props[META_NAME_KIND]
+                if (!isManagedReminderMetadataKind(kind)) return@forEach
+                val occ = props[META_NAME_OCC_EPOCH_DAY]?.toLongOrNull()
+                val days = props[META_NAME_DAYS_LEFT]?.toIntOrNull()
+                val key = if (occ != null && days != null) {
+                    buildReminderEntryKey(
+                        occurrenceEpochDay = occ,
+                        daysLeft = days,
+                        useRRule = kind == META_KIND_REMINDER_RRULE
+                    )
+                } else {
+                    null
+                }
+                entries += ExistingReminderEntry(calendarEventId = id, key = key)
+            }
+
+            entries
+        } catch (t: SecurityException) {
+            Log.w(TAG, "No calendar permission when loading existing reminder entries for eventId=$eventId", t)
+            emptyList()
+        } catch (t: Throwable) {
+            Log.w(TAG, "Failed to load existing reminder entries for eventId=$eventId", t)
+            emptyList()
+        }
     }
 
     private fun findManagedReminderEventIds(context: Context, eventId: Int): Set<Long> {
         if (!hasCalendarReadAccess(context)) return emptySet()
-        val ids = mutableSetOf<Long>()
-        ids += findEventIdsByExtendedProperty(context, META_NAME_EVENT_ID, eventId.toString())
-            .filter { id ->
-                isManagedReminderMetadataKind(readExtendedProperties(context, id)[META_NAME_KIND])
+        return try {
+            val ids = mutableSetOf<Long>()
+            ids += findEventIdsByExtendedProperty(context, META_NAME_EVENT_ID, eventId.toString())
+                .filter { id ->
+                    isManagedReminderMetadataKind(readExtendedProperties(context, id)[META_NAME_KIND])
+                }
+            context.contentResolver.query(
+                CalendarContract.Events.CONTENT_URI,
+                arrayOf(CalendarContract.Events._ID),
+                "${CalendarContract.Events.DESCRIPTION} LIKE ?",
+                arrayOf("$REMINDER_MARKER_PREFIX:$eventId%"),
+                null
+            )?.use { cursor ->
+                val idIndex = cursor.getColumnIndex(CalendarContract.Events._ID)
+                while (cursor.moveToNext()) {
+                    ids += cursor.getLong(idIndex)
+                }
             }
-        context.contentResolver.query(
-            CalendarContract.Events.CONTENT_URI,
-            arrayOf(CalendarContract.Events._ID),
-            "${CalendarContract.Events.DESCRIPTION} LIKE ?",
-            arrayOf("$REMINDER_MARKER_PREFIX:$eventId%"),
-            null
-        )?.use { cursor ->
-            val idIndex = cursor.getColumnIndex(CalendarContract.Events._ID)
-            while (cursor.moveToNext()) {
-                ids += cursor.getLong(idIndex)
-            }
+            ids
+        } catch (t: SecurityException) {
+            Log.w(TAG, "No calendar permission when finding managed reminder events for eventId=$eventId", t)
+            emptySet()
+        } catch (t: Throwable) {
+            Log.w(TAG, "Failed to find managed reminder events for eventId=$eventId", t)
+            emptySet()
         }
-        return ids
     }
 
     private fun findManagedMilestoneEventIdsByEventId(context: Context, eventId: Int): Set<Long> {
         if (!hasCalendarReadAccess(context)) return emptySet()
-        val ids = mutableSetOf<Long>()
-        ids += findEventIdsByExtendedProperty(context, META_NAME_EVENT_ID, eventId.toString())
-            .filter { id ->
-                val kind = readExtendedProperties(context, id)[META_NAME_KIND]
-                kind == META_KIND_MILESTONE
+        return try {
+            val ids = mutableSetOf<Long>()
+            ids += findEventIdsByExtendedProperty(context, META_NAME_EVENT_ID, eventId.toString())
+                .filter { id ->
+                    val kind = readExtendedProperties(context, id)[META_NAME_KIND]
+                    kind == META_KIND_MILESTONE
+                }
+            context.contentResolver.query(
+                CalendarContract.Events.CONTENT_URI,
+                arrayOf(CalendarContract.Events._ID),
+                "${CalendarContract.Events.DESCRIPTION} LIKE ?",
+                arrayOf("$MILESTONE_MARKER_PREFIX:$eventId%"),
+                null
+            )?.use { cursor ->
+                val idIndex = cursor.getColumnIndex(CalendarContract.Events._ID)
+                while (cursor.moveToNext()) {
+                    ids += cursor.getLong(idIndex)
+                }
             }
-        context.contentResolver.query(
-            CalendarContract.Events.CONTENT_URI,
-            arrayOf(CalendarContract.Events._ID),
-            "${CalendarContract.Events.DESCRIPTION} LIKE ?",
-            arrayOf("$MILESTONE_MARKER_PREFIX:$eventId%"),
-            null
-        )?.use { cursor ->
-            val idIndex = cursor.getColumnIndex(CalendarContract.Events._ID)
-            while (cursor.moveToNext()) {
-                ids += cursor.getLong(idIndex)
-            }
+            ids
+        } catch (t: SecurityException) {
+            Log.w(TAG, "No calendar permission when finding managed milestone events for eventId=$eventId", t)
+            emptySet()
+        } catch (t: Throwable) {
+            Log.w(TAG, "Failed to find managed milestone events for eventId=$eventId", t)
+            emptySet()
         }
-        return ids
     }
 
     private fun findEventIdsByExtendedProperty(context: Context, name: String, value: String): Set<Long> {
         if (!hasCalendarReadAccess(context)) return emptySet()
-        val ids = mutableSetOf<Long>()
-        context.contentResolver.query(
-            CalendarContract.ExtendedProperties.CONTENT_URI,
-            arrayOf(CalendarContract.ExtendedProperties.EVENT_ID),
-            "${CalendarContract.ExtendedProperties.NAME} = ? AND ${CalendarContract.ExtendedProperties.VALUE} = ?",
-            arrayOf(name, value),
-            null
-        )?.use { cursor ->
-            val idIndex = cursor.getColumnIndex(CalendarContract.ExtendedProperties.EVENT_ID)
-            while (cursor.moveToNext()) {
-                ids += cursor.getLong(idIndex)
+        return try {
+            val ids = mutableSetOf<Long>()
+            context.contentResolver.query(
+                CalendarContract.ExtendedProperties.CONTENT_URI,
+                arrayOf(CalendarContract.ExtendedProperties.EVENT_ID),
+                "${CalendarContract.ExtendedProperties.NAME} = ? AND ${CalendarContract.ExtendedProperties.VALUE} = ?",
+                arrayOf(name, value),
+                null
+            )?.use { cursor ->
+                val idIndex = cursor.getColumnIndex(CalendarContract.ExtendedProperties.EVENT_ID)
+                while (cursor.moveToNext()) {
+                    ids += cursor.getLong(idIndex)
+                }
             }
+            ids
+        } catch (t: SecurityException) {
+            Log.w(TAG, "No calendar permission when reading extended properties", t)
+            emptySet()
+        } catch (t: Throwable) {
+            Log.w(TAG, "Failed to query extended properties for $name=$value", t)
+            emptySet()
         }
-        return ids
     }
 
     private fun readExtendedProperties(context: Context, eventId: Long): Map<String, String> {
         if (!hasCalendarReadAccess(context)) return emptyMap()
-        val result = mutableMapOf<String, String>()
-        context.contentResolver.query(
-            CalendarContract.ExtendedProperties.CONTENT_URI,
-            arrayOf(CalendarContract.ExtendedProperties.NAME, CalendarContract.ExtendedProperties.VALUE),
-            "${CalendarContract.ExtendedProperties.EVENT_ID} = ?",
-            arrayOf(eventId.toString()),
-            null
-        )?.use { cursor ->
-            val nameIndex = cursor.getColumnIndex(CalendarContract.ExtendedProperties.NAME)
-            val valueIndex = cursor.getColumnIndex(CalendarContract.ExtendedProperties.VALUE)
-            while (cursor.moveToNext()) {
-                val key = if (nameIndex >= 0) cursor.getString(nameIndex).orEmpty() else ""
-                val value = if (valueIndex >= 0) cursor.getString(valueIndex).orEmpty() else ""
-                if (key.isNotBlank()) {
-                    result[key] = value
+        return try {
+            val result = mutableMapOf<String, String>()
+            context.contentResolver.query(
+                CalendarContract.ExtendedProperties.CONTENT_URI,
+                arrayOf(CalendarContract.ExtendedProperties.NAME, CalendarContract.ExtendedProperties.VALUE),
+                "${CalendarContract.ExtendedProperties.EVENT_ID} = ?",
+                arrayOf(eventId.toString()),
+                null
+            )?.use { cursor ->
+                val nameIndex = cursor.getColumnIndex(CalendarContract.ExtendedProperties.NAME)
+                val valueIndex = cursor.getColumnIndex(CalendarContract.ExtendedProperties.VALUE)
+                while (cursor.moveToNext()) {
+                    val key = if (nameIndex >= 0) cursor.getString(nameIndex).orEmpty() else ""
+                    val value = if (valueIndex >= 0) cursor.getString(valueIndex).orEmpty() else ""
+                    if (key.isNotBlank()) {
+                        result[key] = value
+                    }
                 }
             }
+            result
+        } catch (t: SecurityException) {
+            Log.w(TAG, "No calendar permission when reading extended properties for eventId=$eventId", t)
+            emptyMap()
+        } catch (t: Throwable) {
+            Log.w(TAG, "Failed to read extended properties for eventId=$eventId", t)
+            emptyMap()
         }
-        return result
     }
 
     private fun upsertExtendedProperties(context: Context, eventId: Long, properties: Map<String, String>): Boolean {
@@ -785,10 +841,174 @@ object ScheduleSyncManager {
         return ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
     }
 
+    private fun CalendarOption.debugSummary(): String {
+        val accountPart = accountName?.takeIf { it.isNotBlank() } ?: "no-account"
+        val accessPart = accessLevel?.toString() ?: "unknown"
+        return "${label}[id=$id,access=$accessPart,markedWritable=$isMarkedWritable,account=$accountPart]"
+    }
+
+    private fun tryLegacyReminderInsert(
+        context: Context,
+        event: Event,
+        preferredCalendarId: Long?,
+        useRRuleSync: Boolean,
+        lastSyncAt: Long,
+        reason: String
+    ): ScheduleSyncResult? {
+        val targetCalendarId = resolveTargetCalendarId(context, event, preferredCalendarId) ?: return null
+        return try {
+            removeScheduleReminder(context, event.scheduleEventId)
+            val insertedId = insertLegacyReminderEvent(
+                context = context,
+                event = event,
+                targetCalendarId = targetCalendarId,
+                useRRuleSync = useRRuleSync
+            ) ?: return null
+            Log.w(
+                TAG,
+                "Modern calendar sync failed for eventId=${event.id}; legacy single-event fallback succeeded. reason=$reason"
+            )
+            ScheduleSyncResult(
+                primaryScheduleEventId = insertedId,
+                targetCalendarId = targetCalendarId,
+                lastSyncAt = lastSyncAt,
+                error = null
+            )
+        } catch (t: Throwable) {
+            Log.w(
+                TAG,
+                "Legacy single-event fallback also failed for eventId=${event.id}. reason=$reason",
+                t
+            )
+            null
+        }
+    }
+
+    private fun insertLegacyReminderEvent(
+        context: Context,
+        event: Event,
+        targetCalendarId: Long,
+        useRRuleSync: Boolean
+    ): Long? {
+        val trigger = computeNextReminderTrigger(event) ?: return null
+        val useRRule = shouldUseRRuleSync(event, useRRuleSync) && trigger.daysLeft == 0
+        val marker = if (useRRule) {
+            reminderMarker(event.id, 0L, 0, true)
+        } else {
+            reminderMarker(
+                eventId = event.id,
+                occurrenceEpochDay = trigger.occurrenceDate.toEpochDay(),
+                daysLeft = trigger.daysLeft,
+                useRRule = false
+            )
+        }
+        val values = ContentValues().apply {
+            put(CalendarContract.Events.DTSTART, trigger.triggerAtMillis)
+            put(CalendarContract.Events.DTEND, trigger.triggerAtMillis + 60 * 60 * 1000L)
+            put(CalendarContract.Events.TITLE, buildReminderTitle(context, event, trigger.daysLeft))
+            put(CalendarContract.Events.DESCRIPTION, buildMarkedDescription(marker, event.note))
+            put(CalendarContract.Events.CALENDAR_ID, targetCalendarId)
+            put(CalendarContract.Events.EVENT_TIMEZONE, TimeZone.getDefault().id)
+            if (useRRule) {
+                put(CalendarContract.Events.RRULE, buildRRuleForEvent(event))
+            } else {
+                putNull(CalendarContract.Events.RRULE)
+            }
+        }
+        return insertEventAndReminder(context, values)
+    }
+
     internal fun buildReminderMarkerForTest(eventId: Int): String = "$REMINDER_MARKER_PREFIX:$eventId"
 
     internal fun buildReminderTitleForTest(event: Event): String {
         return if (event.remindDaysBefore == 0) event.title else "${event.title} (-${event.remindDaysBefore}d)"
+    }
+
+    internal fun isCalendarAccessLevelMarkedWritable(accessLevel: Int?): Boolean {
+        val level = accessLevel ?: return true
+        return level >= CalendarContract.Calendars.CAL_ACCESS_CONTRIBUTOR
+    }
+
+    private fun queryCalendarsWithDetails(context: Context): List<CalendarOption> {
+        return try {
+            val projection = arrayOf(
+                CalendarContract.Calendars._ID,
+                CalendarContract.Calendars.CALENDAR_DISPLAY_NAME,
+                CalendarContract.Calendars.ACCOUNT_NAME,
+                CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL
+            )
+            val calendars = mutableListOf<CalendarOption>()
+            context.contentResolver.query(
+                CalendarContract.Calendars.CONTENT_URI,
+                projection,
+                null,
+                null,
+                null
+            )?.use { cursor ->
+                val idIndex = cursor.getColumnIndex(CalendarContract.Calendars._ID)
+                val nameIndex = cursor.getColumnIndex(CalendarContract.Calendars.CALENDAR_DISPLAY_NAME)
+                val accountIndex = cursor.getColumnIndex(CalendarContract.Calendars.ACCOUNT_NAME)
+                val accessIndex = cursor.getColumnIndex(CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL)
+
+                while (cursor.moveToNext()) {
+                    val id = cursor.getLong(idIndex)
+                    val displayName = if (nameIndex >= 0) cursor.getString(nameIndex).orEmpty() else id.toString()
+                    val accountName = if (accountIndex >= 0) cursor.getString(accountIndex) else null
+                    val accessLevel = if (accessIndex >= 0) cursor.getInt(accessIndex) else null
+                    calendars += CalendarOption(
+                        id = id,
+                        displayName = displayName.ifBlank { id.toString() },
+                        accountName = accountName,
+                        accessLevel = accessLevel,
+                        isMarkedWritable = accessIndex < 0 || isCalendarAccessLevelMarkedWritable(accessLevel)
+                    )
+                }
+            }
+            selectCalendarsForSync(calendars)
+        } catch (t: Throwable) {
+            if (t is SecurityException) {
+                throw t
+            }
+            Log.w(TAG, "Detailed calendar query failed, falling back to legacy projection", t)
+            emptyList()
+        }
+    }
+
+    private fun queryCalendarsWithLegacyProjection(context: Context): List<CalendarOption> {
+        val projection = arrayOf(
+            CalendarContract.Calendars._ID,
+            CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL
+        )
+        val calendars = mutableListOf<CalendarOption>()
+        context.contentResolver.query(
+            CalendarContract.Calendars.CONTENT_URI,
+            projection,
+            null,
+            null,
+            null
+        )?.use { cursor ->
+            val idIndex = cursor.getColumnIndex(CalendarContract.Calendars._ID)
+            val accessIndex = cursor.getColumnIndex(CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL)
+            while (cursor.moveToNext()) {
+                val id = cursor.getLong(idIndex)
+                val accessLevel = if (accessIndex >= 0) cursor.getInt(accessIndex) else null
+                calendars += CalendarOption(
+                    id = id,
+                    displayName = id.toString(),
+                    accountName = null,
+                    accessLevel = accessLevel,
+                    isMarkedWritable = accessIndex < 0 || isCalendarAccessLevelMarkedWritable(accessLevel)
+                )
+            }
+        }
+        return selectCalendarsForSync(calendars)
+    }
+
+    internal fun selectCalendarsForSync(calendars: List<CalendarOption>): List<CalendarOption> {
+        val explicitlyWritable = calendars.filter { it.isMarkedWritable }
+        if (explicitlyWritable.isNotEmpty()) return explicitlyWritable
+        val unknownAccess = calendars.filter { it.accessLevel == null }
+        return unknownAccess
     }
 
     internal fun buildMarkedDescriptionForTest(marker: String, note: String): String =

@@ -104,34 +104,27 @@ fun Context.openAppNotificationSettings() {
         putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
         putExtra("app_package", packageName)
         putExtra("app_uid", applicationInfo.uid)
-        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
-    startActivity(intent)
+    launchExternalSettingsIntent(intent)
 }
 
 fun Context.openAppDetailsSettings() {
     val intent = Intent(
         Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
         Uri.fromParts("package", packageName, null)
-    ).apply {
-        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    }
-    startActivity(intent)
+    )
+    launchExternalSettingsIntent(intent)
 }
 
 fun Context.openSystemSyncSettings() {
-    val syncIntent = Intent(Settings.ACTION_SYNC_SETTINGS).apply {
-        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    }
-    val fallbackIntent = Intent(Settings.ACTION_SETTINGS).apply {
-        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    }
+    val syncIntent = Intent(Settings.ACTION_SYNC_SETTINGS)
+    val fallbackIntent = Intent(Settings.ACTION_SETTINGS)
     val opened = runCatching {
-        startActivity(syncIntent)
+        launchExternalSettingsIntent(syncIntent)
         true
     }.getOrDefault(false)
     if (!opened) {
-        runCatching { startActivity(fallbackIntent) }
+        runCatching { launchExternalSettingsIntent(fallbackIntent) }
     }
 }
 
@@ -156,8 +149,17 @@ internal fun areCalendarPermissionsGrantedAfterRequest(
     return readGranted && writeGranted
 }
 
+internal fun buildExternalSettingsLaunchFlags(): Int {
+    return Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK
+}
+
 private fun Context.permissionPrefs() =
     getSharedPreferences(PERMISSION_PREFS, Context.MODE_PRIVATE)
+
+private fun Context.launchExternalSettingsIntent(intent: Intent) {
+    intent.addFlags(buildExternalSettingsLaunchFlags())
+    startActivity(intent)
+}
 
 private fun Context.findActivityForPermissions(): Activity? {
     var context = this

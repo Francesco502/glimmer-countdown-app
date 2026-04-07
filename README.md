@@ -1,11 +1,11 @@
 # 拾光（Glimmer）
-`v3.8.1` 的 Android 倒数日 / 生日 / 纪念日应用，基于 Jetpack Compose + Material 3。
+`v3.9` 的 Android 倒数日 / 生日 / 纪念日应用，基于 Jetpack Compose + Material 3。
 
 ## 版本信息
 
-- `versionName`: `3.8.1`
-- `versionCode`: `13`
-- 发布日期：`2026-04-03`
+- `versionName`: `3.9`
+- `versionCode`: `14`
+- 发布日期：`2026-04-07`
 
 ## 核心能力
 
@@ -18,12 +18,13 @@
 - 支持表格模式与桌面小组件
 - 支持 JSON 导入 / 导出，用于备份与恢复
 
-## 3.8.1 版本重点
+## 3.9 版本重点
 
-- 修复“通知和日历权限都已授予，但系统中没有可写日历”时，保存仍误报“部分提醒/同步操作失败”的问题
-- 新增保存前、权限回调后和同步开关开启时的可写日历检查
-- 无可写日历时，改为明确提示用户前往系统同步设置，或以“不同步日历”的方式继续保存
-- 保留 3.8 的小组件主题、权限降级保存、编辑页返回防丢等改进
+- 将系统日程同步回退到更贴近 `3.6 / 3.7` 的真实写入策略，不再依赖保存前的“标准可写日历账户”前置拦截
+- 当新版系列同步链路与部分厂商日历 Provider 不兼容时，自动回退到旧版单条 `Events + Reminders` 写入，降低误报“部分提醒/同步操作失败”的概率
+- 将旧提醒 / 旧里程碑日程的清理查询改为安全失败，只记日志，不再因为 Provider 查询兼容性把保存误判成部分失败
+- 为保存链路补充 logcat 定位信息，后续能直接区分提醒调度、日历同步、里程碑同步和小组件刷新异常
+- 延续 3.8 的小组件主题、权限降级保存、编辑页返回防丢等改进
 
 ## 构建与运行
 
@@ -45,7 +46,7 @@
 
 默认产物路径：
 
-- `app/build/outputs/apk/direct/release/glimmer-countdown-3-8-1.apk`
+- `app/build/outputs/apk/direct/release/glimmer-countdown-3-9.apk`
 - `app/build/outputs/bundle/playRelease/app-play-release.aab`
 
 ## 发布文档

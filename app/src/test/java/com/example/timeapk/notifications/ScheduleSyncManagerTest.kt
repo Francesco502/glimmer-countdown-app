@@ -1,5 +1,6 @@
 package com.example.timeapk.notifications
 
+import android.provider.CalendarContract
 import com.example.timeapk.data.CATEGORY_OTHER
 import com.example.timeapk.data.Event
 import org.junit.Assert.assertEquals
@@ -56,5 +57,82 @@ class ScheduleSyncManagerTest {
             )
         )
         assertFalse(ScheduleSyncManager.isNoWritableCalendarError("Calendar permission denied"))
+    }
+
+    @Test
+    fun isCalendarAccessLevelMarkedWritable_acceptsContributorAndAbove() {
+        assertTrue(
+            ScheduleSyncManager.isCalendarAccessLevelMarkedWritable(
+                CalendarContract.Calendars.CAL_ACCESS_CONTRIBUTOR
+            )
+        )
+        assertTrue(
+            ScheduleSyncManager.isCalendarAccessLevelMarkedWritable(
+                CalendarContract.Calendars.CAL_ACCESS_OWNER
+            )
+        )
+        assertFalse(
+            ScheduleSyncManager.isCalendarAccessLevelMarkedWritable(
+                CalendarContract.Calendars.CAL_ACCESS_READ
+            )
+        )
+    }
+
+    @Test
+    fun selectCalendarsForSync_prefersCalendarsMarkedWritableByProvider() {
+        val calendars = listOf(
+            ScheduleSyncManager.CalendarOption(
+                id = 1L,
+                displayName = "Read only",
+                accountName = "ro@example.com",
+                accessLevel = CalendarContract.Calendars.CAL_ACCESS_READ,
+                isMarkedWritable = false
+            ),
+            ScheduleSyncManager.CalendarOption(
+                id = 2L,
+                displayName = "Writable",
+                accountName = "rw@example.com",
+                accessLevel = CalendarContract.Calendars.CAL_ACCESS_OWNER,
+                isMarkedWritable = true
+            )
+        )
+
+        val selected = ScheduleSyncManager.selectCalendarsForSync(calendars)
+
+        assertEquals(listOf(calendars[1]), selected)
+    }
+
+    @Test
+    fun selectCalendarsForSync_excludesExplicitlyReadOnlyCalendars() {
+        val calendars = listOf(
+            ScheduleSyncManager.CalendarOption(
+                id = 9L,
+                displayName = "Holidays",
+                accountName = null,
+                accessLevel = CalendarContract.Calendars.CAL_ACCESS_READ,
+                isMarkedWritable = false
+            )
+        )
+
+        val selected = ScheduleSyncManager.selectCalendarsForSync(calendars)
+
+        assertEquals(emptyList<ScheduleSyncManager.CalendarOption>(), selected)
+    }
+
+    @Test
+    fun selectCalendarsForSync_fallsBackToUnknownAccessLevelCalendars() {
+        val calendars = listOf(
+            ScheduleSyncManager.CalendarOption(
+                id = 10L,
+                displayName = "Phone calendar",
+                accountName = null,
+                accessLevel = null,
+                isMarkedWritable = false
+            )
+        )
+
+        val selected = ScheduleSyncManager.selectCalendarsForSync(calendars)
+
+        assertEquals(calendars, selected)
     }
 }

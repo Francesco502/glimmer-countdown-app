@@ -5,7 +5,6 @@ import com.example.timeapk.data.REPEAT_DAILY
 import com.example.timeapk.data.REPEAT_MONTHLY
 import com.example.timeapk.data.REPEAT_NONE
 import com.example.timeapk.data.REPEAT_YEARLY
-import com.example.timeapk.notifications.ScheduleSyncManager
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -66,12 +65,23 @@ class EventEntryValidationTest {
     }
 
     @Test
-    fun resolvePartialSaveMessageResId_returnsSpecificMessageForNoWritableCalendarOnly() {
+    fun resolvePartialSaveMessageResId_returnsGenericMessageForScheduleSyncFailures() {
+        assertEquals(
+            R.string.save_event_partial_warning,
+            resolvePartialSaveMessageResId(
+                hasGenericFailure = false,
+                scheduleSyncError = "Calendar sync failed"
+            )
+        )
+    }
+
+    @Test
+    fun resolvePartialSaveMessageResId_returnsNoWritableCalendarMessage() {
         assertEquals(
             R.string.save_event_partial_warning_no_writable_calendar,
             resolvePartialSaveMessageResId(
                 hasGenericFailure = false,
-                scheduleSyncError = ScheduleSyncManager.ERROR_NO_WRITABLE_CALENDAR
+                scheduleSyncError = "No writable calendar"
             )
         )
     }
@@ -82,7 +92,18 @@ class EventEntryValidationTest {
             R.string.save_event_partial_warning,
             resolvePartialSaveMessageResId(
                 hasGenericFailure = true,
-                scheduleSyncError = ScheduleSyncManager.ERROR_NO_WRITABLE_CALENDAR
+                scheduleSyncError = "No writable calendar"
+            )
+        )
+    }
+
+    @Test
+    fun resolvePartialSaveMessageResId_returnsNullWhenNoFailures() {
+        assertEquals(
+            null,
+            resolvePartialSaveMessageResId(
+                hasGenericFailure = false,
+                scheduleSyncError = null
             )
         )
     }

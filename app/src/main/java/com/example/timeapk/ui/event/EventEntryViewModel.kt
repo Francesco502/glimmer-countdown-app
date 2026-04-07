@@ -1,6 +1,7 @@
 package com.example.timeapk.ui.event
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.room.withTransaction
@@ -53,6 +54,7 @@ private val DEFAULT_EVENT_COLOR_HEX = listOf(
     "#3A4550",
     "#785B64"
 )
+private const val TAG = "EventEntryViewModel"
 
 internal fun isEventDateValid(dateMillis: Long): Boolean = dateMillis >= MIN_SUPPORTED_EVENT_DATE_MILLIS
 
@@ -86,12 +88,10 @@ internal fun resolvePartialSaveMessageResId(
     if (!hasGenericFailure && scheduleSyncError.isNullOrBlank()) {
         return null
     }
-    return when {
-        hasGenericFailure -> R.string.save_event_partial_warning
-        ScheduleSyncManager.isNoWritableCalendarError(scheduleSyncError) ->
-            R.string.save_event_partial_warning_no_writable_calendar
-        else -> R.string.save_event_partial_warning
+    if (!hasGenericFailure && ScheduleSyncManager.isNoWritableCalendarError(scheduleSyncError)) {
+        return R.string.save_event_partial_warning_no_writable_calendar
     }
+    return R.string.save_event_partial_warning
 }
 
 class EventEntryViewModel(
@@ -166,7 +166,8 @@ class EventEntryViewModel(
             if (persistedEvent.remindEnabled) {
                 scheduleReminder(application, persistedEvent)
             }
-        } catch (_: Exception) {
+        } catch (t: Exception) {
+            Log.w(TAG, "Failed to schedule app reminder for eventId=${persistedEvent.id}", t)
             hasGenericSideEffectFailure = true
         }
 
@@ -181,6 +182,10 @@ class EventEntryViewModel(
                     useRRuleSync = useRRuleSync
                 )
                 if (syncResult.error != null) {
+                    Log.w(
+                        TAG,
+                        "Calendar sync returned warning for eventId=${persistedEvent.id}: ${syncResult.error}"
+                    )
                     scheduleSyncError = syncResult.error
                 }
                 persistedEvent.copy(
@@ -189,7 +194,8 @@ class EventEntryViewModel(
                     lastScheduleSyncAt = syncResult.lastSyncAt,
                     lastScheduleSyncError = syncResult.error
                 )
-            } catch (_: Exception) {
+            } catch (t: Exception) {
+                Log.w(TAG, "Calendar sync crashed for eventId=${persistedEvent.id}", t)
                 scheduleSyncError = "Schedule sync failed"
                 persistedEvent.copy(
                     scheduleEventId = null,
@@ -202,8 +208,8 @@ class EventEntryViewModel(
             try {
                 ScheduleSyncManager.removeScheduleReminder(application, persistedEvent.scheduleEventId)
                 ScheduleSyncManager.removeScheduleReminderByEventId(application, persistedEvent.id)
-            } catch (_: Exception) {
-                hasGenericSideEffectFailure = true
+            } catch (t: Exception) {
+                Log.w(TAG, "Failed to clear calendar sync data for eventId=${persistedEvent.id}", t)
             }
             persistedEvent.copy(
                 scheduleEventId = null,
@@ -216,8 +222,8 @@ class EventEntryViewModel(
         if (updatedEvent != persistedEvent) {
             try {
                 repository.updateEvent(updatedEvent)
-            } catch (_: Exception) {
-                hasGenericSideEffectFailure = true
+            } catch (t: Exception) {
+                Log.w(TAG, "Failed to persist sync status for eventId=${updatedEvent.id}", t)
             }
         }
 
@@ -227,14 +233,14 @@ class EventEntryViewModel(
                 cancelMilestoneReminders(application, updatedEvent.id)
                 ScheduleSyncManager.clearMilestoneScheduleRemindersByEventId(application, updatedEvent.id)
             }
-        } catch (_: Exception) {
-            hasGenericSideEffectFailure = true
+        } catch (t: Exception) {
+            Log.w(TAG, "Failed to sync milestone reminders for eventId=${updatedEvent.id}", t)
         }
 
         try {
             WidgetUpdater.refreshCountdownWidgets(application)
-        } catch (_: Exception) {
-            hasGenericSideEffectFailure = true
+        } catch (t: Exception) {
+            Log.w(TAG, "Failed to refresh widgets after saving eventId=${updatedEvent.id}", t)
         }
 
         val savedDetails = updatedEvent.toEventDetails()
@@ -253,6 +259,10 @@ class EventEntryViewModel(
         )
 
         return if (partialMessageResId != null) {
+            Log.w(
+                TAG,
+                "Saved eventId=${updatedEvent.id} with partial side-effect failure. hasGenericFailure=$hasGenericSideEffectFailure, scheduleSyncError=$scheduleSyncError"
+            )
             SaveEventResult.PartialSuccess(application.getString(partialMessageResId))
         } else {
             SaveEventResult.Success

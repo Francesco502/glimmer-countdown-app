@@ -1,6 +1,7 @@
 package com.example.timeapk.permissions
 
 import android.Manifest
+import android.content.Intent
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -46,5 +47,13 @@ class PermissionSupportTest {
                 hasWritePermission = false
             )
         )
+    }
+
+    @Test
+    fun buildExternalSettingsLaunchFlags_opensSettingsOutsideAppTask() {
+        val flags = buildExternalSettingsLaunchFlags()
+
+        assertTrue(flags and Intent.FLAG_ACTIVITY_NEW_TASK != 0)
+        assertTrue(flags and Intent.FLAG_ACTIVITY_MULTIPLE_TASK != 0)
     }
 }

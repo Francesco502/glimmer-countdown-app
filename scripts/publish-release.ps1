@@ -1,7 +1,7 @@
-# Publish the direct APK to GitHub Release.
+# Publish the direct APK and Play AAB to GitHub Release.
 # Usage:
 #   .\scripts\publish-release.ps1
-#   .\scripts\publish-release.ps1 -Tag v3.8.1 -ReleaseName v3.8.1
+#   .\scripts\publish-release.ps1 -Tag v3.9 -ReleaseName v3.9
 
 param(
     [string]$Tag,
@@ -19,7 +19,7 @@ $changelogPath = Join-Path $rootDir 'CHANGELOG.md'
 function Get-VersionName {
     param([string]$Path)
 
-    $fallback = '3.8.1'
+    $fallback = '3.9'
     if (-not (Test-Path $Path)) {
         return $fallback
     }
@@ -94,6 +94,8 @@ if (-not $ReleaseName) {
 $releaseNotes = Get-ReleaseNotes -Path $changelogPath -VersionName $versionName
 $apkName = 'glimmer-countdown-' + ($versionName -replace '\.', '-') + '.apk'
 $apkPath = Join-Path $rootDir ("app/build/outputs/apk/direct/release/$apkName")
+$aabName = 'app-play-release.aab'
+$aabPath = Join-Path $rootDir 'app/build/outputs/bundle/playRelease/app-play-release.aab'
 
 $token = Get-AuthToken
 if (-not $token) {
@@ -105,6 +107,11 @@ if (-not $token) {
 if (-not (Test-Path $apkPath)) {
     Write-Host 'ERROR: APK not found. Run .\gradlew assembleDirectRelease first.' -ForegroundColor Red
     Write-Host $apkPath -ForegroundColor Yellow
+    exit 1
+}
+if (-not (Test-Path $aabPath)) {
+    Write-Host 'ERROR: AAB not found. Run .\gradlew bundlePlayRelease first.' -ForegroundColor Red
+    Write-Host $aabPath -ForegroundColor Yellow
     exit 1
 }
 
@@ -151,33 +158,63 @@ try {
         -ContentType 'application/json; charset=utf-8'
 }
 
-$existingAsset = $release.assets | Where-Object { $_.name -eq $apkName } | Select-Object -First 1
-if ($existingAsset) {
-    Write-Host ("Delete existing asset $apkName ...") -ForegroundColor Yellow
-    Invoke-RestMethod `
-        -Uri "https://api.github.com/repos/$owner/$repo/releases/assets/$($existingAsset.id)" `
-        -Method Delete `
-        -Headers $headers
+function Upload-ReleaseAsset {
+    param(
+        [object]$Release,
+        [string]$AssetName,
+        [string]$AssetPath,
+        [string]$ContentType,
+        [hashtable]$Headers,
+        [string]$Owner,
+        [string]$Repo
+    )
+
+    $existingAsset = $Release.assets | Where-Object { $_.name -eq $AssetName } | Select-Object -First 1
+    if ($existingAsset) {
+        Write-Host ("Delete existing asset $AssetName ...") -ForegroundColor Yellow
+        Invoke-RestMethod `
+            -Uri "https://api.github.com/repos/$Owner/$Repo/releases/assets/$($existingAsset.id)" `
+            -Method Delete `
+            -Headers $Headers
+    }
+
+    $encodedName = [uri]::EscapeDataString($AssetName)
+    $uploadUrl = $Release.upload_url -replace '\{\?name,label\}$', "?name=$encodedName"
+
+    Write-Host ("Upload $AssetName ...") -ForegroundColor Cyan
+
+    $bytes = [System.IO.File]::ReadAllBytes($AssetPath)
+    $uploadHeaders = @{
+        Authorization  = $Headers.Authorization
+        Accept         = $Headers.Accept
+        'Content-Type' = $ContentType
+        'User-Agent'   = $Headers.'User-Agent'
+    }
+
+    $null = Invoke-RestMethod `
+        -Uri $uploadUrl `
+        -Method Post `
+        -Headers $uploadHeaders `
+        -Body $bytes
 }
 
-$encodedApkName = [uri]::EscapeDataString($apkName)
-$uploadUrl = $release.upload_url -replace '\{\?name,label\}$', "?name=$encodedApkName"
+Upload-ReleaseAsset `
+    -Release $release `
+    -AssetName $apkName `
+    -AssetPath $apkPath `
+    -ContentType 'application/vnd.android.package-archive' `
+    -Headers $headers `
+    -Owner $owner `
+    -Repo $repo
 
-Write-Host 'Upload APK ...' -ForegroundColor Cyan
-
-$apkBytes = [System.IO.File]::ReadAllBytes($apkPath)
-$uploadHeaders = @{
-    Authorization  = "token $token"
-    Accept         = 'application/vnd.github.v3+json'
-    'Content-Type' = 'application/vnd.android.package-archive'
-    'User-Agent'   = 'glimmer-countdown-release-script'
-}
-
-$null = Invoke-RestMethod `
-    -Uri $uploadUrl `
-    -Method Post `
-    -Headers $uploadHeaders `
-    -Body $apkBytes
+Upload-ReleaseAsset `
+    -Release $release `
+    -AssetName $aabName `
+    -AssetPath $aabPath `
+    -ContentType 'application/octet-stream' `
+    -Headers $headers `
+    -Owner $owner `
+    -Repo $repo
 
 Write-Host 'Done.' -ForegroundColor Green
 Write-Host $release.html_url -ForegroundColor Cyan
