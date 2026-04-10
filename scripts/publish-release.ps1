@@ -1,7 +1,7 @@
 # Publish the direct APK and Play AAB to GitHub Release.
 # Usage:
 #   .\scripts\publish-release.ps1
-#   .\scripts\publish-release.ps1 -Tag v3.9 -ReleaseName v3.9
+#   .\scripts\publish-release.ps1 -Tag v3.10 -ReleaseName v3.10
 
 param(
     [string]$Tag,
@@ -19,7 +19,7 @@ $changelogPath = Join-Path $rootDir 'CHANGELOG.md'
 function Get-VersionName {
     param([string]$Path)
 
-    $fallback = '3.9'
+    $fallback = '3.10'
     if (-not (Test-Path $Path)) {
         return $fallback
     }

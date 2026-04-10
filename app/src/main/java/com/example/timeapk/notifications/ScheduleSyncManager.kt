@@ -83,6 +83,14 @@ object ScheduleSyncManager {
         val note: String
     )
 
+    internal data class ReminderSyncPlanEntry(
+        val key: String,
+        val triggerAtMillis: Long,
+        val occurrenceEpochDay: Long,
+        val daysLeft: Int,
+        val useRRule: Boolean
+    )
+
     private fun milestoneMarker(eventId: Int, triggerEpochDay: Long): String =
         "$MILESTONE_MARKER_PREFIX:$eventId:v2:trigger=$triggerEpochDay"
 
@@ -452,54 +460,69 @@ object ScheduleSyncManager {
         event: Event,
         useRRuleSync: Boolean
     ): List<ExpectedReminderEntry> {
-        val zoneId = ZoneId.systemDefault()
-        val nowMillis = System.currentTimeMillis()
+        return buildReminderSyncPlan(
+            event = event,
+            useRRuleSync = useRRuleSync
+        ).map { entry ->
+            ExpectedReminderEntry(
+                key = entry.key,
+                triggerAtMillis = entry.triggerAtMillis,
+                occurrenceEpochDay = entry.occurrenceEpochDay,
+                daysLeft = entry.daysLeft,
+                useRRule = entry.useRRule,
+                title = buildReminderTitle(context, event, entry.daysLeft),
+                marker = reminderMarker(event.id, entry.occurrenceEpochDay, entry.daysLeft, entry.useRRule),
+                note = event.note
+            )
+        }
+    }
+
+    internal fun buildReminderSyncPlan(
+        event: Event,
+        nowMillis: Long = System.currentTimeMillis(),
+        zoneId: ZoneId = ZoneId.systemDefault(),
+        useRRuleSync: Boolean
+    ): List<ReminderSyncPlanEntry> {
         val useRRule = shouldUseRRuleSync(event, useRRuleSync)
 
         if (useRRule) {
             val nextTrigger = computeNextReminderTrigger(event, nowMillis, zoneId) ?: return emptyList()
-            val key = buildReminderEntryKey(
-                occurrenceEpochDay = 0L,
-                daysLeft = 0,
-                useRRule = true
-            )
             return listOf(
-                ExpectedReminderEntry(
-                    key = key,
+                ReminderSyncPlanEntry(
+                    key = buildReminderEntryKey(
+                        occurrenceEpochDay = 0L,
+                        daysLeft = 0,
+                        useRRule = true
+                    ),
                     triggerAtMillis = nextTrigger.triggerAtMillis,
                     occurrenceEpochDay = 0L,
                     daysLeft = 0,
-                    useRRule = true,
-                    title = buildReminderTitle(context, event, 0),
-                    marker = reminderMarker(event.id, 0L, 0, true),
-                    note = event.note
+                    useRRule = true
                 )
             )
         }
 
         val series = computeUpcomingReminderSeries(event, nowMillis, zoneId) ?: return emptyList()
+        val reminderHour = event.reminderTimeMinutesOfDay / 60
+        val reminderMinute = event.reminderTimeMinutesOfDay % 60
+        val occurrenceEpochDay = series.occurrenceDate.toEpochDay()
         return series.entries.map { entry ->
             val remindAtMillis = entry.reminderDate
-                .atTime(event.reminderTimeMinutesOfDay / 60, event.reminderTimeMinutesOfDay % 60)
+                .atTime(reminderHour, reminderMinute)
                 .atZone(zoneId)
                 .toInstant()
                 .toEpochMilli()
 
-            val occurrenceEpochDay = series.occurrenceDate.toEpochDay()
-            val key = buildReminderEntryKey(
-                occurrenceEpochDay = occurrenceEpochDay,
-                daysLeft = entry.daysLeft,
-                useRRule = false
-            )
-            ExpectedReminderEntry(
-                key = key,
+            ReminderSyncPlanEntry(
+                key = buildReminderEntryKey(
+                    occurrenceEpochDay = occurrenceEpochDay,
+                    daysLeft = entry.daysLeft,
+                    useRRule = false
+                ),
                 triggerAtMillis = remindAtMillis,
                 occurrenceEpochDay = occurrenceEpochDay,
                 daysLeft = entry.daysLeft,
-                useRRule = false,
-                title = buildReminderTitle(context, event, entry.daysLeft),
-                marker = reminderMarker(event.id, occurrenceEpochDay, entry.daysLeft, false),
-                note = event.note
+                useRRule = false
             )
         }
             .filter { it.triggerAtMillis > nowMillis || it.daysLeft == 0 }
@@ -858,7 +881,8 @@ object ScheduleSyncManager {
         val targetCalendarId = resolveTargetCalendarId(context, event, preferredCalendarId) ?: return null
         return try {
             removeScheduleReminder(context, event.scheduleEventId)
-            val insertedId = insertLegacyReminderEvent(
+            removeScheduleReminderByEventId(context, event.id)
+            val insertedId = insertLegacyReminderSeries(
                 context = context,
                 event = event,
                 targetCalendarId = targetCalendarId,
@@ -866,7 +890,7 @@ object ScheduleSyncManager {
             ) ?: return null
             Log.w(
                 TAG,
-                "Modern calendar sync failed for eventId=${event.id}; legacy single-event fallback succeeded. reason=$reason"
+                "Modern calendar sync failed for eventId=${event.id}; legacy reminder-series fallback succeeded. reason=$reason"
             )
             ScheduleSyncResult(
                 primaryScheduleEventId = insertedId,
@@ -877,45 +901,47 @@ object ScheduleSyncManager {
         } catch (t: Throwable) {
             Log.w(
                 TAG,
-                "Legacy single-event fallback also failed for eventId=${event.id}. reason=$reason",
+                "Legacy reminder-series fallback also failed for eventId=${event.id}. reason=$reason",
                 t
             )
             null
         }
     }
 
-    private fun insertLegacyReminderEvent(
+    private fun insertLegacyReminderSeries(
         context: Context,
         event: Event,
         targetCalendarId: Long,
         useRRuleSync: Boolean
     ): Long? {
-        val trigger = computeNextReminderTrigger(event) ?: return null
-        val useRRule = shouldUseRRuleSync(event, useRRuleSync) && trigger.daysLeft == 0
-        val marker = if (useRRule) {
-            reminderMarker(event.id, 0L, 0, true)
-        } else {
-            reminderMarker(
-                eventId = event.id,
-                occurrenceEpochDay = trigger.occurrenceDate.toEpochDay(),
-                daysLeft = trigger.daysLeft,
-                useRRule = false
-            )
-        }
-        val values = ContentValues().apply {
-            put(CalendarContract.Events.DTSTART, trigger.triggerAtMillis)
-            put(CalendarContract.Events.DTEND, trigger.triggerAtMillis + 60 * 60 * 1000L)
-            put(CalendarContract.Events.TITLE, buildReminderTitle(context, event, trigger.daysLeft))
-            put(CalendarContract.Events.DESCRIPTION, buildMarkedDescription(marker, event.note))
-            put(CalendarContract.Events.CALENDAR_ID, targetCalendarId)
-            put(CalendarContract.Events.EVENT_TIMEZONE, TimeZone.getDefault().id)
-            if (useRRule) {
-                put(CalendarContract.Events.RRULE, buildRRuleForEvent(event))
-            } else {
-                putNull(CalendarContract.Events.RRULE)
+        val expectedEntries = buildExpectedReminderEntries(
+            context = context,
+            event = event,
+            useRRuleSync = useRRuleSync
+        )
+        var primaryId: Long? = null
+
+        expectedEntries.forEach { entry ->
+            val values = ContentValues().apply {
+                put(CalendarContract.Events.DTSTART, entry.triggerAtMillis)
+                put(CalendarContract.Events.DTEND, entry.triggerAtMillis + 60 * 60 * 1000L)
+                put(CalendarContract.Events.TITLE, entry.title)
+                put(CalendarContract.Events.DESCRIPTION, buildMarkedDescription(entry.marker, entry.note))
+                put(CalendarContract.Events.CALENDAR_ID, targetCalendarId)
+                put(CalendarContract.Events.EVENT_TIMEZONE, TimeZone.getDefault().id)
+                if (entry.useRRule) {
+                    put(CalendarContract.Events.RRULE, buildRRuleForEvent(event))
+                } else {
+                    putNull(CalendarContract.Events.RRULE)
+                }
+            }
+            val insertedId = insertEventAndReminder(context, values)
+            if (primaryId == null && insertedId != null) {
+                primaryId = insertedId
             }
         }
-        return insertEventAndReminder(context, values)
+
+        return primaryId
     }
 
     internal fun buildReminderMarkerForTest(eventId: Int): String = "$REMINDER_MARKER_PREFIX:$eventId"

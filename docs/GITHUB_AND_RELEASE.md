@@ -1,13 +1,13 @@
-# GitHub 提交与发布流程（v3.9）
+# GitHub 提交与发布流程（v3.10）
 
-本文档用于当前 `3.9` 版本的代码提交、推送、标签与 GitHub Release 操作。
+本文档用于当前 `3.10` 版本的代码提交、推送、标签与 GitHub Release 操作。
 
 ## 1. 本地提交
 
 ```bash
 git status
 git add app gradle.properties README.md CHANGELOG.md docs scripts .gitignore
-git commit -m "release: ship v3.9"
+git commit -m "release: ship v3.10"
 ```
 
 说明：
@@ -21,20 +21,20 @@ git commit -m "release: ship v3.9"
 git push origin main
 ```
 
-## 3. 创建或更新 `v3.9` 标签
+## 3. 创建或更新 `v3.10` 标签
 
 首次发布：
 
 ```bash
-git tag -a v3.9 -m "Release v3.9"
-git push origin v3.9
+git tag -a v3.10 -m "Release v3.10"
+git push origin v3.10
 ```
 
 同版本重新发布：
 
 ```bash
-git tag -fa v3.9 -m "Release v3.9"
-git push origin v3.9 --force
+git tag -fa v3.10 -m "Release v3.10"
+git push origin v3.10 --force
 ```
 
 ## 4. 构建 Release 产物
@@ -46,7 +46,7 @@ git push origin v3.9 --force
 
 产物路径：
 
-- `app/build/outputs/apk/direct/release/glimmer-countdown-3-9.apk`
+- `app/build/outputs/apk/direct/release/glimmer-countdown-3-10.apk`
 - `app/build/outputs/bundle/playRelease/app-play-release.aab`
 
 ## 5. 创建或更新 GitHub Release
@@ -59,14 +59,14 @@ $env:GITHUB_TOKEN = "your_token"
 脚本行为：
 
 - 自动读取 `gradle.properties` 中的 `VERSION_NAME`
-- 自动从 `CHANGELOG.md` 提取 `3.9` 小节作为 Release Notes
+- 自动从 `CHANGELOG.md` 提取 `3.10` 小节作为 Release Notes
 - 如果 Release 已存在，会自动更新说明
 - 如果同名 APK / AAB 资产已存在，会自动删除旧资产并上传新 APK / AAB
 
 ## 6. 发布后核对
 
-- Release 标题、标签与说明是否对应 `v3.9`
-- 上传的 APK 文件名是否为 `glimmer-countdown-3-9.apk`
+- Release 标题、标签与说明是否对应 `v3.10`
+- 上传的 APK 文件名是否为 `glimmer-countdown-3-10.apk`
 - 上传的 AAB 文件名是否为 `app-play-release.aab`
-- “设置 > 关于”中版本是否显示为 `3.9`
+- “设置 > 关于”中版本是否显示为 `3.10`
 - 抽检权限保存流程、系统日历同步与小组件主题切换
