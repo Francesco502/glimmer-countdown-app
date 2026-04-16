@@ -24,7 +24,7 @@
 
 ## 三、发布动作
 
-- [ ] 提交并 push 当前代码到远端分支
-- [ ] 创建或更新 `v3.11` 标签
-- [ ] 在 GitHub Release 中上传最新 APK 与 AAB
-- [ ] 以 `CHANGELOG.md` 中的 `3.11` 小节作为 Release Notes
+- [x] 提交并 push 当前代码到远端分支
+- [x] 创建或更新 `v3.11` 标签
+- [x] 在 GitHub Release 中上传最新 APK 与 AAB
+- [x] 以 `CHANGELOG.md` 中的 `3.11` 小节作为 Release Notes
