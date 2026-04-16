@@ -1,6 +1,6 @@
 # TimeAPK 发布与更新指引
 
-本文档说明当前 `3.10` 版本如何完成签名、构建、发布，以及如何更新 GitHub Release。
+本文档说明当前 `3.11` 版本如何完成签名、构建、发布，以及如何更新 GitHub Release。
 
 ## 一、当前状态
 
@@ -10,7 +10,7 @@
 | 最低 / 目标 SDK | `minSdk 26` / `targetSdk 36` |
 | Release 构建 | 已启用 `release` buildType，并开启 `minify` 与 `shrinkResources` |
 | Release 签名 | 从 `keystore.properties` 读取 |
-| Direct APK 命名 | 输出为 `glimmer-countdown-3-10.apk` |
+| Direct APK 命名 | 输出为 `glimmer-countdown-3-11.apk` |
 | 渠道 | 支持 `direct` / `play` flavor |
 | 应用内更新入口 | 已具备 GitHub Release 检查与设置页入口 |
 
@@ -36,24 +36,23 @@ keyPassword=xxx
 
 当前版本值：
 
-- `VERSION_NAME=3.10`
-- `VERSION_CODE=15`
+- `VERSION_NAME=3.11`
+- `VERSION_CODE=16`
 
-后续继续发布新版本时，应同步递增 `versionCode`，并更新 `versionName`、README 与 CHANGELOG。
+后续继续发布新版本时，应同步递增 `versionCode`，并更新 `versionName`、`README.md`、`CHANGELOG.md` 与发布文档。
 
 ## 三、构建命令
 
 ```bash
 ./gradlew assembleDirectDebug
-./gradlew testDirectDebugUnitTest
-./gradlew lintDirectDebug
+./gradlew testPlayDebugUnitTest --tests "com.example.timeapk.ui.event.EventEntryValidationTest" --tests "com.example.timeapk.notifications.ReminderDateCalculatorEdgeTest" --tests "com.example.timeapk.notifications.ScheduleSyncManagerTest"
 ./gradlew assembleDirectRelease
 ./gradlew bundlePlayRelease
 ```
 
 产物路径：
 
-- `app/build/outputs/apk/direct/release/glimmer-countdown-3-10.apk`
+- `app/build/outputs/apk/direct/release/glimmer-countdown-3-11.apk`
 - `app/build/outputs/bundle/playRelease/app-play-release.aab`
 
 ## 四、GitHub 发布
@@ -62,15 +61,15 @@ keyPassword=xxx
 
 ```bash
 git add app gradle.properties README.md CHANGELOG.md docs scripts .gitignore
-git commit -m "release: ship v3.10"
+git commit -m "release: ship v3.11"
 git push origin main
 ```
 
 ### 2. 标签
 
 ```bash
-git tag -a v3.10 -m "Release v3.10"
-git push origin v3.10
+git tag -a v3.11 -m "Release v3.11"
+git push origin v3.11
 ```
 
 ### 3. Release
@@ -83,14 +82,13 @@ $env:GITHUB_TOKEN = "your_token"
 脚本会：
 
 - 读取当前版本号
-- 提取 `CHANGELOG.md` 中 `3.10` 小节作为 Release Notes
+- 提取 `CHANGELOG.md` 中 `3.11` 小节作为 Release Notes
 - 自动更新已存在的 GitHub Release
 - 自动替换同名 APK / AAB 资产
 
 ## 五、建议抽检
 
-- 授予通知 / 日历权限后的新增事件保存，不再误报“部分提醒/同步操作失败”
-- 对新版系列同步不兼容的设备，确认会自动回退到旧版单条系统日程写入
-- 添加可写日历后的系统日程同步与提醒写入
-- 小组件深浅色切换与点按打开链路
-- 编辑页未保存内容时的返回确认
+- 新建事件默认提醒是否按“开启 / 7 天 / 10:00”初始化
+- 修改默认提醒设置后，新建事件是否使用新的默认值
+- 里程碑提醒、系统日历同步和原有提醒计算链路是否正常
+- 浅色 / 深色主题下设置页与事件编辑页显示是否正常

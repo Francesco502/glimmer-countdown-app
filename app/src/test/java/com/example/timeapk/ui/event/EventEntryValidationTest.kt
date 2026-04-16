@@ -1,6 +1,9 @@
 package com.example.timeapk.ui.event
 
 import com.example.timeapk.R
+import com.example.timeapk.data.CATEGORY_ANNIVERSARY
+import com.example.timeapk.data.CATEGORY_OTHER
+import com.example.timeapk.data.DefaultEventReminderSettings
 import com.example.timeapk.data.REPEAT_DAILY
 import com.example.timeapk.data.REPEAT_MONTHLY
 import com.example.timeapk.data.REPEAT_NONE
@@ -62,6 +65,48 @@ class EventEntryValidationTest {
         ).toEvent()
 
         assertEquals(REPEAT_NONE, event.repeatType)
+    }
+
+    @Test
+    fun buildNewEventDetails_usesProvidedReminderDefaults() {
+        val millis = LocalDate.of(2026, 4, 16)
+            .atStartOfDay(ZoneOffset.UTC)
+            .toInstant()
+            .toEpochMilli()
+
+        val details = buildNewEventDetails(
+            defaultReminderSettings = DefaultEventReminderSettings(
+                enabled = true,
+                daysBefore = 7,
+                timeMinutesOfDay = 10 * 60
+            ),
+            initialCategory = CATEGORY_ANNIVERSARY,
+            nowMillis = millis
+        )
+
+        assertEquals(CATEGORY_ANNIVERSARY, details.category)
+        assertTrue(details.remindEnabled)
+        assertEquals(7, details.remindDaysBefore)
+        assertEquals(10 * 60, details.reminderTimeMinutesOfDay)
+        assertEquals(millis, details.date)
+        assertEquals(millis, details.createdAt)
+    }
+
+    @Test
+    fun buildNewEventDetails_fallsBackToOtherCategoryAndSanitizesReminderValues() {
+        val details = buildNewEventDetails(
+            defaultReminderSettings = DefaultEventReminderSettings(
+                enabled = false,
+                daysBefore = -3,
+                timeMinutesOfDay = 24 * 60 + 5
+            ),
+            initialCategory = "custom"
+        )
+
+        assertEquals(CATEGORY_OTHER, details.category)
+        assertFalse(details.remindEnabled)
+        assertEquals(0, details.remindDaysBefore)
+        assertEquals(24 * 60 - 1, details.reminderTimeMinutesOfDay)
     }
 
     @Test

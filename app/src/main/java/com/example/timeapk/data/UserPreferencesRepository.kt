@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import org.json.JSONArray
@@ -43,6 +44,9 @@ private val PINNED_EVENT_IDS_JSON = stringPreferencesKey("pinned_event_ids_json"
 private val MILESTONE_REMIND_ENABLED = booleanPreferencesKey("milestone_remind_enabled")
 private val MILESTONE_REMIND_DAYS_AHEAD = intPreferencesKey("milestone_remind_days_ahead")
 private val MILESTONE_REMIND_TIME_MINUTES_OF_DAY = intPreferencesKey("milestone_remind_time_minutes_of_day")
+private val DEFAULT_EVENT_REMIND_ENABLED = booleanPreferencesKey("default_event_remind_enabled")
+private val DEFAULT_EVENT_REMIND_DAYS_BEFORE = intPreferencesKey("default_event_remind_days_before")
+private val DEFAULT_EVENT_REMIND_TIME_MINUTES_OF_DAY = intPreferencesKey("default_event_remind_time_minutes_of_day")
 private val SMART_MILESTONES_ENABLED = booleanPreferencesKey("smart_milestones_enabled")
 private val REDUCE_MOTION_ENABLED = booleanPreferencesKey("reduce_motion_enabled")
 private val SCHEDULE_TARGET_CALENDAR_ID = longPreferencesKey("schedule_target_calendar_id")
@@ -59,6 +63,10 @@ const val THEME_DARK = 2
 
 const val LANG_ZH = 0
 const val LANG_EN = 1
+
+const val DEFAULT_NEW_EVENT_REMIND_ENABLED = true
+const val DEFAULT_NEW_EVENT_REMIND_DAYS_BEFORE = 7
+const val DEFAULT_NEW_EVENT_REMIND_TIME_MINUTES_OF_DAY = 10 * 60
 
 internal const val HOME_SORT_BY_DAYS = 0
 internal const val HOME_SORT_BY_DATE = 1
@@ -79,6 +87,12 @@ internal fun resolveHomeSortPreference(storedSortType: Int?, hasMigratedToCustom
 internal data class HomeSortSelectionUpdate(
     val sortType: Int,
     val hasMigratedToCustomSort: Boolean
+)
+
+data class DefaultEventReminderSettings(
+    val enabled: Boolean = DEFAULT_NEW_EVENT_REMIND_ENABLED,
+    val daysBefore: Int = DEFAULT_NEW_EVENT_REMIND_DAYS_BEFORE,
+    val timeMinutesOfDay: Int = DEFAULT_NEW_EVENT_REMIND_TIME_MINUTES_OF_DAY
 )
 
 internal fun resolveHomeSortSelectionUpdate(selectedSortType: Int): HomeSortSelectionUpdate {
@@ -138,6 +152,17 @@ class UserPreferencesRepository(private val context: Context) {
     }
     val milestoneRemindTimeMinutesOfDayFlow: Flow<Int> = context.dataStore.data.map {
         sanitizeReminderTimeMinutesOfDay(it[MILESTONE_REMIND_TIME_MINUTES_OF_DAY] ?: 480)
+    }
+    val defaultEventRemindEnabledFlow: Flow<Boolean> = context.dataStore.data.map {
+        it[DEFAULT_EVENT_REMIND_ENABLED] ?: DEFAULT_NEW_EVENT_REMIND_ENABLED
+    }
+    val defaultEventRemindDaysBeforeFlow: Flow<Int> = context.dataStore.data.map {
+        sanitizeRemindDaysBefore(it[DEFAULT_EVENT_REMIND_DAYS_BEFORE] ?: DEFAULT_NEW_EVENT_REMIND_DAYS_BEFORE)
+    }
+    val defaultEventRemindTimeMinutesOfDayFlow: Flow<Int> = context.dataStore.data.map {
+        sanitizeReminderTimeMinutesOfDay(
+            it[DEFAULT_EVENT_REMIND_TIME_MINUTES_OF_DAY] ?: DEFAULT_NEW_EVENT_REMIND_TIME_MINUTES_OF_DAY
+        )
     }
     val smartMilestonesEnabledFlow: Flow<Boolean> = context.dataStore.data.map {
         it[SMART_MILESTONES_ENABLED] ?: true
@@ -309,6 +334,35 @@ class UserPreferencesRepository(private val context: Context) {
     suspend fun setMilestoneRemindTimeMinutesOfDay(minutesOfDay: Int) {
         context.dataStore.edit {
             it[MILESTONE_REMIND_TIME_MINUTES_OF_DAY] = sanitizeReminderTimeMinutesOfDay(minutesOfDay)
+        }
+    }
+
+    suspend fun getDefaultEventReminderSettings(): DefaultEventReminderSettings {
+        val prefs = context.dataStore.data.first()
+        return DefaultEventReminderSettings(
+            enabled = prefs[DEFAULT_EVENT_REMIND_ENABLED] ?: DEFAULT_NEW_EVENT_REMIND_ENABLED,
+            daysBefore = sanitizeRemindDaysBefore(
+                prefs[DEFAULT_EVENT_REMIND_DAYS_BEFORE] ?: DEFAULT_NEW_EVENT_REMIND_DAYS_BEFORE
+            ),
+            timeMinutesOfDay = sanitizeReminderTimeMinutesOfDay(
+                prefs[DEFAULT_EVENT_REMIND_TIME_MINUTES_OF_DAY] ?: DEFAULT_NEW_EVENT_REMIND_TIME_MINUTES_OF_DAY
+            )
+        )
+    }
+
+    suspend fun setDefaultEventRemindEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[DEFAULT_EVENT_REMIND_ENABLED] = enabled }
+    }
+
+    suspend fun setDefaultEventRemindDaysBefore(days: Int) {
+        context.dataStore.edit {
+            it[DEFAULT_EVENT_REMIND_DAYS_BEFORE] = sanitizeRemindDaysBefore(days)
+        }
+    }
+
+    suspend fun setDefaultEventRemindTimeMinutesOfDay(minutesOfDay: Int) {
+        context.dataStore.edit {
+            it[DEFAULT_EVENT_REMIND_TIME_MINUTES_OF_DAY] = sanitizeReminderTimeMinutesOfDay(minutesOfDay)
         }
     }
 

@@ -20,7 +20,8 @@ object AppViewModelProvider {
         initializer {
             EventEntryViewModel(
                 timeApplication(),
-                timeApplication().repository
+                timeApplication().repository,
+                timeApplication().userPrefs
             )
         }
     }

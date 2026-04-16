@@ -309,4 +309,8 @@
     <string name="discard_changes_dialog_message">当前内容尚未保存，离开此页后修改将丢失。</string>
     <string name="discard_changes_dialog_confirm">放弃修改</string>
     <string name="discard_changes_dialog_dismiss">继续编辑</string>
+    <string name="settings_default_event_remind_title">新建事件默认提醒</string>
+    <string name="settings_default_event_remind_summary">仅在创建新事件时生效，已有事件会保留当前提醒设置。</string>
+    <string name="settings_default_event_remind_days_title">提前天数</string>
+    <string name="settings_default_event_remind_time_title">提醒时间</string>
 </resources>

@@ -230,6 +230,10 @@
 
     <string name="settings_milestone_remind_title">Milestone reminder</string>
     <string name="settings_milestone_remind_summary">Notify when approaching a major time milestone</string>
+    <string name="settings_default_event_remind_title">Default event reminder</string>
+    <string name="settings_default_event_remind_summary">Applied when creating a new event. Existing events keep their current reminder settings.</string>
+    <string name="settings_default_event_remind_days_title">Days ahead</string>
+    <string name="settings_default_event_remind_time_title">Reminder time</string>
     <string name="settings_milestone_remind_days_title">Days ahead</string>
     <string name="settings_milestone_remind_days_1">1 day before</string>
     <string name="settings_milestone_remind_days_3">3 days before</string>
@@ -341,7 +345,7 @@
     <string name="settings_entry_appearance_desc">Theme, colors, fonts, and base text size</string>
     <string name="settings_entry_display_desc">Language, density, date format, and motion</string>
     <string name="settings_milestone_entry_title">Milestones &amp; reminders</string>
-    <string name="settings_entry_milestone_desc">Milestone visibility, presets, and reminder timing</string>
+    <string name="settings_entry_milestone_desc">New-event reminder defaults, milestone visibility, and reminder timing</string>
     <string name="settings_entry_data_desc">Export, import, and data migration</string>
     <string name="settings_about_entry_title">About &amp; updates</string>
     <string name="settings_entry_about_desc">Version details and update checks</string>
