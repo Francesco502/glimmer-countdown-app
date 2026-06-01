@@ -3,17 +3,20 @@ package com.example.timeapk.ui.event
 import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
 import androidx.room.withTransaction
 import com.example.timeapk.R
 import com.example.timeapk.TimeApplication
 import com.example.timeapk.data.CATEGORY_ANNIVERSARY
 import com.example.timeapk.data.CATEGORY_BIRTHDAY
 import com.example.timeapk.data.CATEGORY_OTHER
+import com.example.timeapk.data.DefaultEventReminderSettings
 import com.example.timeapk.data.Event
 import com.example.timeapk.data.EventRepository
 import com.example.timeapk.data.REPEAT_NONE
 import com.example.timeapk.data.REPEAT_YEARLY
+import com.example.timeapk.data.UserPreferencesRepository
+import com.example.timeapk.data.sanitizeRemindDaysBefore
+import com.example.timeapk.data.sanitizeReminderTimeMinutesOfDay
 import com.example.timeapk.data.sanitizedReminderConfig
 import com.example.timeapk.notifications.ScheduleSyncManager
 import com.example.timeapk.notifications.cancelMilestoneReminders
@@ -26,7 +29,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.ZoneOffset
 import kotlin.random.Random
@@ -94,9 +96,28 @@ internal fun resolvePartialSaveMessageResId(
     return R.string.save_event_partial_warning
 }
 
+internal fun buildNewEventDetails(
+    defaultReminderSettings: DefaultEventReminderSettings,
+    initialCategory: String? = null,
+    nowMillis: Long = System.currentTimeMillis()
+): EventDetails {
+    val resolvedCategory = initialCategory
+        .takeIf { it in listOf(CATEGORY_BIRTHDAY, CATEGORY_ANNIVERSARY, CATEGORY_OTHER) }
+        ?: CATEGORY_OTHER
+    return EventDetails(
+        date = nowMillis,
+        category = resolvedCategory,
+        remindDaysBefore = sanitizeRemindDaysBefore(defaultReminderSettings.daysBefore),
+        reminderTimeMinutesOfDay = sanitizeReminderTimeMinutesOfDay(defaultReminderSettings.timeMinutesOfDay),
+        remindEnabled = defaultReminderSettings.enabled,
+        createdAt = nowMillis
+    )
+}
+
 class EventEntryViewModel(
     private val application: Application,
-    private val repository: EventRepository
+    private val repository: EventRepository,
+    private val userPreferencesRepository: UserPreferencesRepository
 ) : AndroidViewModel(application) {
     private val _eventUiState = MutableStateFlow(EventEntryUiState())
     val eventUiState: StateFlow<EventEntryUiState> = _eventUiState.asStateFlow()
@@ -107,22 +128,49 @@ class EventEntryViewModel(
         }
     }
 
-    fun loadEvent(id: Int) {
-        viewModelScope.launch {
-            val event = repository.getEvent(id)
-            if (event != null) {
-                val loadedDetails = event.toEventDetails()
-                _eventUiState.update {
-                    it.copy(
-                        eventDetails = loadedDetails,
-                        initialEventDetails = loadedDetails,
-                        isEntryValid = validateInput(loadedDetails),
-                        loadError = false
-                    )
-                }
-            } else {
-                _eventUiState.update { it.copy(loadError = true) }
+    suspend fun prepareForEvent(eventId: Int?) {
+        if (eventId != null && eventId != 0) {
+            loadExistingEvent(eventId)
+            return
+        }
+
+        val app = application as? TimeApplication
+        val initialCategory = app?.initialCategoryForAdd
+        if (app != null) {
+            app.initialCategoryForAdd = null
+        }
+
+        val defaultReminderSettings = runCatching {
+            userPreferencesRepository.getDefaultEventReminderSettings()
+        }.getOrDefault(DefaultEventReminderSettings())
+        val newDetails = buildNewEventDetails(
+            defaultReminderSettings = defaultReminderSettings,
+            initialCategory = initialCategory
+        )
+        _eventUiState.update {
+            it.copy(
+                eventDetails = newDetails,
+                initialEventDetails = newDetails,
+                isEntryValid = validateInput(newDetails),
+                loadError = false
+            )
+        }
+    }
+
+    private suspend fun loadExistingEvent(id: Int) {
+        val event = repository.getEvent(id)
+        if (event != null) {
+            val loadedDetails = event.toEventDetails()
+            _eventUiState.update {
+                it.copy(
+                    eventDetails = loadedDetails,
+                    initialEventDetails = loadedDetails,
+                    isEntryValid = validateInput(loadedDetails),
+                    loadError = false
+                )
             }
+        } else {
+            _eventUiState.update { it.copy(loadError = true) }
         }
     }
 

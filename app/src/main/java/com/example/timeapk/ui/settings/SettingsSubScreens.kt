@@ -1190,6 +1190,15 @@ fun MilestoneSettingsContent(
     val milestoneRemindEnabled by prefs.milestoneRemindEnabledFlow.collectAsState(initial = false)
     val milestoneRemindDaysAhead by prefs.milestoneRemindDaysAheadFlow.collectAsState(initial = 7)
     val milestoneRemindTimeMinutesOfDay by prefs.milestoneRemindTimeMinutesOfDayFlow.collectAsState(initial = 480)
+    val defaultEventRemindEnabled by prefs.defaultEventRemindEnabledFlow.collectAsState(
+        initial = DEFAULT_NEW_EVENT_REMIND_ENABLED
+    )
+    val defaultEventRemindDaysBefore by prefs.defaultEventRemindDaysBeforeFlow.collectAsState(
+        initial = DEFAULT_NEW_EVENT_REMIND_DAYS_BEFORE
+    )
+    val defaultEventRemindTimeMinutesOfDay by prefs.defaultEventRemindTimeMinutesOfDayFlow.collectAsState(
+        initial = DEFAULT_NEW_EVENT_REMIND_TIME_MINUTES_OF_DAY
+    )
     val customMilestones by prefs.customMilestonesFlow.collectAsState(initial = DEFAULT_MILESTONE_DAYS)
     val scheduleTargetCalendarId by prefs.scheduleTargetCalendarIdFlow.collectAsState(initial = null)
     val scheduleUseRRuleSync by prefs.scheduleUseRRuleSyncFlow.collectAsState(initial = true)
@@ -1294,6 +1303,146 @@ fun MilestoneSettingsContent(
             PermissionActionDialog(spec = dialog)
         }
         SettingsGroupHeader(title = stringResource(R.string.settings_milestone_entry_title))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.settings_default_event_remind_title),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = stringResource(R.string.settings_default_event_remind_summary),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            ClassicalToggle(
+                checked = defaultEventRemindEnabled,
+                onCheckedChange = {
+                    scope.launch {
+                        prefs.setDefaultEventRemindEnabled(it)
+                    }
+                }
+            )
+        }
+        if (defaultEventRemindEnabled) {
+            val selectedDays = defaultEventRemindDaysBefore.coerceIn(
+                remindDayOptions.first(),
+                remindDayOptions.last()
+            )
+            val selectedHour = (defaultEventRemindTimeMinutesOfDay / 60).coerceIn(0, 23)
+            val selectedMinute = (defaultEventRemindTimeMinutesOfDay % 60).coerceIn(0, 59)
+
+            Text(
+                text = stringResource(R.string.settings_default_event_remind_days_title),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
+            )
+            Text(
+                text = if (selectedDays == 0) {
+                    stringResource(R.string.remind_same_day)
+                } else {
+                    context.resources.getQuantityString(
+                        R.plurals.remind_days_before_format,
+                        selectedDays,
+                        selectedDays
+                    )
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            SnapWheelPicker(
+                items = remindDayOptions,
+                selectedItem = selectedDays,
+                onItemSelected = { days ->
+                    if (days != defaultEventRemindDaysBefore) {
+                        scope.launch {
+                            prefs.setDefaultEventRemindDaysBefore(days)
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                itemLabel = { days ->
+                    if (days == 0) {
+                        context.getString(R.string.remind_same_day)
+                    } else {
+                        context.resources.getQuantityString(
+                            R.plurals.remind_days_before_format,
+                            days,
+                            days
+                        )
+                    }
+                }
+            )
+
+            Text(
+                text = stringResource(R.string.settings_default_event_remind_time_title),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+            )
+            Text(
+                text = formatMinutesOfDay(defaultEventRemindTimeMinutesOfDay),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.reminder_time_hour),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    SnapWheelPicker(
+                        items = remindHourOptions,
+                        selectedItem = selectedHour,
+                        onItemSelected = { hour ->
+                            val updatedMinutes = hour * 60 + selectedMinute
+                            if (updatedMinutes != defaultEventRemindTimeMinutesOfDay) {
+                                scope.launch {
+                                    prefs.setDefaultEventRemindTimeMinutesOfDay(updatedMinutes)
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        itemLabel = { value -> String.format(Locale.US, "%02d", value) }
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.reminder_time_minute),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    SnapWheelPicker(
+                        items = remindMinuteOptions,
+                        selectedItem = selectedMinute,
+                        onItemSelected = { minute ->
+                            val updatedMinutes = selectedHour * 60 + minute
+                            if (updatedMinutes != defaultEventRemindTimeMinutesOfDay) {
+                                scope.launch {
+                                    prefs.setDefaultEventRemindTimeMinutesOfDay(updatedMinutes)
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        itemLabel = { value -> String.format(Locale.US, "%02d", value) }
+                    )
+                }
+            }
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
 
         Row(
             modifier = Modifier
@@ -2333,5 +2482,4 @@ private fun evaluateContrastAuditForKey(
         onPrimary = onPrimary
     )
 }
-
 

@@ -39,14 +39,13 @@ keyPassword=xxx
 - `VERSION_NAME=3.11`
 - `VERSION_CODE=16`
 
-后续继续发布新版本时，应同步递增 `versionCode`，并更新 `versionName`、README 与 CHANGELOG。
+后续继续发布新版本时，应同步递增 `versionCode`，并更新 `versionName`、`README.md`、`CHANGELOG.md` 与发布文档。
 
 ## 三、构建命令
 
 ```bash
 ./gradlew assembleDirectDebug
-./gradlew testDirectDebugUnitTest
-./gradlew lintDirectDebug
+./gradlew testPlayDebugUnitTest --tests "com.example.timeapk.ui.event.EventEntryValidationTest" --tests "com.example.timeapk.notifications.ReminderDateCalculatorEdgeTest" --tests "com.example.timeapk.notifications.ScheduleSyncManagerTest"
 ./gradlew assembleDirectRelease
 ./gradlew bundlePlayRelease
 ```
@@ -89,8 +88,7 @@ $env:GITHUB_TOKEN = "your_token"
 
 ## 五、建议抽检
 
-- 授予通知 / 日历权限后的新增事件保存，不再误报“部分提醒/同步操作失败”
-- 对新版系列同步不兼容的设备，确认会自动回退到旧版单条系统日程写入
-- 添加可写日历后的系统日程同步与提醒写入
-- 小组件深浅色切换与点按打开链路
-- 编辑页未保存内容时的返回确认
+- 新建事件默认提醒是否按“开启 / 7 天 / 10:00”初始化
+- 修改默认提醒设置后，新建事件是否使用新的默认值
+- 里程碑提醒、系统日历同步和原有提醒计算链路是否正常
+- 浅色 / 深色主题下设置页与事件编辑页显示是否正常

@@ -126,9 +126,13 @@ fun EventEntryScreen(
     var pendingSaveOrigin by remember { mutableStateOf(SaveRequestOrigin.Standard) }
     var permissionDialog by remember { mutableStateOf<PermissionDialogSpec?>(null) }
     var showDiscardChangesDialog by remember { mutableStateOf(false) }
+    var isEntryInitialized by remember(eventId) { mutableStateOf(false) }
     LaunchedEffect(eventId) {
-        if (eventId != null && eventId != 0) {
-            viewModel.loadEvent(eventId)
+        isEntryInitialized = false
+        try {
+            viewModel.prepareForEvent(eventId)
+        } finally {
+            isEntryInitialized = true
         }
     }
     LaunchedEffect(eventUiState.loadError) {
@@ -446,26 +450,39 @@ fun EventEntryScreen(
             )
         }
     ) { innerPadding ->
-        EventEntryBody(
-            eventUiState = eventUiState,
-            onEventValueChange = viewModel::updateUiState,
-            isSaving = isSaving,
-            onSaveClick = {
-                if (isSaving) return@EventEntryBody
+        if (!isEntryInitialized) {
+            Box(
+                modifier = modifier
+                    .padding(innerPadding)
+                    .fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+            }
+        } else {
+            EventEntryBody(
+                eventUiState = eventUiState,
+                onEventValueChange = viewModel::updateUiState,
+                isSaving = isSaving,
+                onSaveClick = {
+                    if (isSaving) return@EventEntryBody
 
-                val details = eventUiState.eventDetails
-                pendingSaveOrigin = SaveRequestOrigin.Standard
-                if (details.remindEnabled && !context.hasNotificationRuntimePermission()) {
+                    val details = eventUiState.eventDetails
+                    pendingSaveOrigin = SaveRequestOrigin.Standard
+                    if (details.remindEnabled && !context.hasNotificationRuntimePermission()) {
+                        isSaving = true
+                        requestNotificationAccessForSave?.invoke(details) ?: run {
+                            isSaving = false
+                        }
+                        return@EventEntryBody
+                    }
+
                     isSaving = true
-                    requestNotificationAccessForSave?.invoke(details)
-                    return@EventEntryBody
-                }
-
-                isSaving = true
-                continueSaveAfterPermissionChecks(details)
-            },
-            modifier = modifier.padding(innerPadding)
-        )
+                    continueSaveAfterPermissionChecks(details)
+                },
+                modifier = modifier.padding(innerPadding)
+            )
+        }
     }
 }
 
@@ -1377,8 +1394,6 @@ fun CustomColorDialog(
         }
     )
 }
-
-
 
 
 

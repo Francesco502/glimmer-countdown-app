@@ -61,7 +61,7 @@ $env:GITHUB_TOKEN = "your_token"
 - 自动读取 `gradle.properties` 中的 `VERSION_NAME`
 - 自动从 `CHANGELOG.md` 提取 `3.11` 小节作为 Release Notes
 - 如果 Release 已存在，会自动更新说明
-- 如果同名 APK / AAB 资产已存在，会自动删除旧资产并上传新 APK / AAB
+- 如果同名 APK / AAB 资源已存在，会自动删除旧资源并上传新 APK / AAB
 
 ## 6. 发布后核对
 
@@ -70,3 +70,4 @@ $env:GITHUB_TOKEN = "your_token"
 - 上传的 AAB 文件名是否为 `app-play-release.aab`
 - “设置 > 关于”中版本是否显示为 `3.11`
 - 抽检权限保存流程、系统日历同步与小组件主题切换
+- 抽检新建事件默认提醒设置、系统日历同步与提醒计算是否正常
