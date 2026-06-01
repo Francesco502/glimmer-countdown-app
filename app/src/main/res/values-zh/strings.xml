@@ -30,6 +30,7 @@
     <string name="milestone_1000">1000 天</string>
     <string name="milestone_days_format">%d 天</string>
     <string name="milestone_label_prefix">距离 %1$s</string>
+    <string name="milestone_none">无即将到来的节点</string>
     <string name="filter_all">全部</string>
     <string name="sort_by_days">按剩余天数</string>
     <string name="sort_by_date">按目标日期</string>
@@ -179,6 +180,7 @@
     <string name="widget_today_compact">今天</string>
     <string name="widget_lunar_prefix">农·%1$s</string>
     <string name="notification_channel_name">倒计时提醒</string>
+    <string name="milestone_notification_channel_name">节点提醒</string>
     <string name="notification_today">正当此时！</string>
     <plurals name="notification_days_left">
         <item quantity="other">还有 %1$d 天</item>

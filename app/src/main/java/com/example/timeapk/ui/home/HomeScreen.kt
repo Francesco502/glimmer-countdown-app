@@ -201,7 +201,7 @@ fun HomeScreen(
                 actions = {
                     IconButton(
                         onClick = navigateToSettings,
-                        modifier = Modifier.size(40.dp)
+                        modifier = Modifier.size(48.dp)
                     ) {
                         Icon(
                             Icons.Outlined.Settings,
@@ -610,7 +610,7 @@ private fun InlineActionIconButton(
 ) {
     IconButton(
         onClick = onClick,
-        modifier = Modifier.size(34.dp)
+        modifier = Modifier.size(40.dp)
     ) {
         Icon(
             imageVector = icon,
@@ -760,11 +760,16 @@ fun EventCard(
             }
         }
         DisplayModes.MILESTONE -> {
-            displayContent = formatDaysSmart(eventState.nextMilestoneDays ?: 0L, false, locale)
-            displayUnit = stringResource(R.string.days_unit)
-            val milestoneVal = eventState.nextMilestoneValue ?: 0L
-            val milestoneStr = milestoneLabel(milestoneVal)
-            labelText = stringResource(R.string.milestone_label_prefix, milestoneStr)
+            if (eventState.nextMilestoneDays != null && eventState.nextMilestoneValue != null) {
+                displayContent = formatDaysSmart(eventState.nextMilestoneDays, false, locale)
+                displayUnit = stringResource(R.string.days_unit)
+                val milestoneStr = milestoneLabel(eventState.nextMilestoneValue)
+                labelText = stringResource(R.string.milestone_label_prefix, milestoneStr)
+            } else {
+                displayContent = ""
+                displayUnit = ""
+                labelText = stringResource(R.string.milestone_none)
+            }
         }
         else -> {
             displayContent = ""
@@ -997,10 +1002,14 @@ private fun EventListItem(
             }
         }
         DisplayModes.MILESTONE -> {
-            daysDisplay = formatDaysSmart(eventState.nextMilestoneDays ?: 0L, false, locale) + stringResource(R.string.days_unit)
-            val milestoneVal = eventState.nextMilestoneValue ?: 0L
-            val milestoneStr = milestoneLabel(milestoneVal)
-            labelText = stringResource(R.string.milestone_label_prefix, milestoneStr)
+            if (eventState.nextMilestoneDays != null && eventState.nextMilestoneValue != null) {
+                daysDisplay = formatDaysSmart(eventState.nextMilestoneDays, false, locale) + stringResource(R.string.days_unit)
+                val milestoneStr = milestoneLabel(eventState.nextMilestoneValue)
+                labelText = stringResource(R.string.milestone_label_prefix, milestoneStr)
+            } else {
+                daysDisplay = ""
+                labelText = stringResource(R.string.milestone_none)
+            }
         }
         else -> {
             daysDisplay = ""
@@ -1049,7 +1058,7 @@ private fun EventListItem(
     val displayColor = if (isLightSurface) {
         lerp(eventColor, MaterialTheme.colorScheme.onBackground, 0.4f)
     } else {
-        lerp(eventColor, MaterialTheme.colorScheme.onBackground, 0.4f)
+        lerp(eventColor, MaterialTheme.colorScheme.onBackground, 0.2f)
     }
     val rowBackground = when {
         isDragging -> MaterialTheme.colorScheme.surface

@@ -139,7 +139,13 @@ fun previousOccurrenceDate(origin: LocalDate, today: LocalDate, repeatType: Stri
     val nextOnOrAfterToday = nextOccurrenceDate(origin, today, repeatType)
     if (!nextOnOrAfterToday.isAfter(today)) return nextOnOrAfterToday
 
-    val previousProbeDate = today.minusDays(1)
-    if (previousProbeDate.isBefore(origin)) return origin
-    return nextOccurrenceDate(origin, previousProbeDate, repeatType)
+    // Subtract one repeat interval from the next occurrence to get the previous one.
+    return when (repeatType) {
+        REPEAT_DAILY -> today
+        REPEAT_WEEKLY -> nextOnOrAfterToday.minusWeeks(1)
+        REPEAT_MONTHLY -> nextOnOrAfterToday.minusMonths(1)
+        REPEAT_HALF_YEARLY -> nextOnOrAfterToday.minusMonths(6)
+        REPEAT_YEARLY -> nextOnOrAfterToday.minusYears(1)
+        else -> origin
+    }
 }

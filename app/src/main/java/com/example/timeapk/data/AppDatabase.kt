@@ -36,6 +36,8 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE events ADD COLUMN scheduleEventId INTEGER")
             }
         }
+        // Note: MIGRATION_5_6 added tags; MIGRATION_7_8 intentionally drops it
+        // during the table rebuild as the feature was removed.
         private val MIGRATION_5_6 = object : Migration(5, 6) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE events ADD COLUMN tags TEXT NOT NULL DEFAULT ''")
@@ -119,6 +121,8 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE events_new RENAME TO events")
             }
         }
+        // Note: MIGRATION_8_9 added birthHour/birthMinute; MIGRATION_9_10 intentionally
+        // drops them during the table rebuild as the feature was removed.
         private val MIGRATION_8_9 = object : Migration(8, 9) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE events ADD COLUMN birthHour INTEGER")

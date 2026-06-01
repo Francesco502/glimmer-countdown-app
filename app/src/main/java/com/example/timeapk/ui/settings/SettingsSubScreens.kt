@@ -1922,8 +1922,12 @@ fun DataSettingsContent(
             return@rememberLauncherForActivityResult
         }
         scope.launch {
-            val list = parseEventsFromJson(text)
-            val (successCount, failedCount, warningCount) = importEvents(list)
+            val parseResult = parseEventsFromJson(text)
+            if (parseResult.errorCount < 0) {
+                importResultMessage = context.getString(R.string.import_error)
+                return@launch
+            }
+            val (successCount, failedCount, warningCount) = importEvents(parseResult.events)
             importResultMessage = importResultText(successCount, failedCount, warningCount)
         }
     }
@@ -1966,9 +1970,13 @@ fun DataSettingsContent(
             confirmButton = {
                 TextButton(onClick = {
                     scope.launch {
-                        val list = parseEventsFromJson(importJsonText)
-                        val (successCount, failedCount, warningCount) = importEvents(list)
-            importResultMessage = importResultText(successCount, failedCount, warningCount)
+                        val parseResult = parseEventsFromJson(importJsonText)
+                        if (parseResult.errorCount < 0) {
+                            importResultMessage = context.getString(R.string.import_error)
+                            return@launch
+                        }
+                        val (successCount, failedCount, warningCount) = importEvents(parseResult.events)
+                        importResultMessage = importResultText(successCount, failedCount, warningCount)
                     }
                 }) {
                     Text(stringResource(R.string.import_events), color = MaterialTheme.colorScheme.primary)

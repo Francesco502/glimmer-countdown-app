@@ -3,6 +3,7 @@ package com.example.timeapk.notifications
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import java.util.concurrent.TimeUnit
 import androidx.core.content.edit
 import androidx.work.CoroutineWorker
 import androidx.work.Data
@@ -300,6 +301,7 @@ class RescheduleAllWorker(
             val input: Data = workDataOf(KEY_REASON to reason)
             val request = OneTimeWorkRequestBuilder<RescheduleAllWorker>()
                 .setInputData(input)
+                .setInitialDelay(500, TimeUnit.MILLISECONDS)
                 .build()
             WorkManager.getInstance(context).enqueueUniqueWork(
                 UNIQUE_WORK_NAME,

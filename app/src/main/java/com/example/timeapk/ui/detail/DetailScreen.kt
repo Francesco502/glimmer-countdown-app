@@ -101,10 +101,16 @@ fun DetailScreen(
 
     if (eventState == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(48.dp)
-            )
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                CircularProgressIndicator(
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(48.dp)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                TextButton(onClick = onNavigateBack) {
+                    Text(stringResource(R.string.nav_back))
+                }
+            }
         }
         return
     }
@@ -120,7 +126,6 @@ fun DetailScreen(
                     scope.launch {
                         onDeleteClick()
                         showDeleteConfirm = false
-                        kotlinx.coroutines.delay(200)
                         onNavigateBack()
                     }
                 }) {

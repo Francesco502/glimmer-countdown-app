@@ -32,6 +32,7 @@
     <string name="milestone_30">30 days</string>
     <string name="milestone_100">100 days</string>
     <string name="milestone_365">1 year</string>
+    <string name="milestone_none">No upcoming milestone</string>
     <string name="milestone_520">520 days</string>
     <string name="milestone_1000">1000 days</string>
     <string name="milestone_days_format">Day %d</string>
@@ -216,6 +217,7 @@
 
     <!-- Reminder notifications -->
     <string name="notification_channel_name">Countdown reminders</string>
+    <string name="milestone_notification_channel_name">Milestone reminders</string>
     <string name="notification_today">Today!</string>
     <plurals name="notification_days_left">
         <item quantity="one">%1$d day left</item>

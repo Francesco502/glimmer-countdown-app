@@ -145,10 +145,10 @@ fun EventEntryScreen(
         return context.hasCalendarReadWritePermission()
     }
 
-    lateinit var saveWithoutReminder: () -> Unit
-    lateinit var saveWithoutCalendarSync: () -> Unit
-    lateinit var launchNotificationPermissionRequest: () -> Unit
-    lateinit var launchCalendarPermissionRequest: () -> Unit
+    var saveWithoutReminder: (() -> Unit)? by remember { mutableStateOf(null) }
+    var saveWithoutCalendarSync: (() -> Unit)? by remember { mutableStateOf(null) }
+    var launchNotificationPermissionRequest: (() -> Unit)? by remember { mutableStateOf(null) }
+    var launchCalendarPermissionRequest: (() -> Unit)? by remember { mutableStateOf(null) }
 
     fun showNotificationPermissionRationaleForSave() {
         permissionDialog = PermissionDialogSpec(
@@ -158,11 +158,11 @@ fun EventEntryScreen(
             dismissText = context.getString(R.string.permission_dialog_button_save_without_reminder),
             onConfirm = {
                 permissionDialog = null
-                launchNotificationPermissionRequest()
+                launchNotificationPermissionRequest?.invoke()
             },
             onDismiss = {
                 permissionDialog = null
-                saveWithoutReminder()
+                saveWithoutReminder?.invoke()
             },
             onRequestDismiss = {
                 permissionDialog = null
@@ -186,7 +186,7 @@ fun EventEntryScreen(
             },
             onDismiss = {
                 permissionDialog = null
-                saveWithoutReminder()
+                saveWithoutReminder?.invoke()
             },
             onRequestDismiss = {
                 permissionDialog = null
@@ -204,11 +204,11 @@ fun EventEntryScreen(
             dismissText = context.getString(R.string.permission_dialog_button_save_without_sync),
             onConfirm = {
                 permissionDialog = null
-                launchCalendarPermissionRequest()
+                launchCalendarPermissionRequest?.invoke()
             },
             onDismiss = {
                 permissionDialog = null
-                saveWithoutCalendarSync()
+                saveWithoutCalendarSync?.invoke()
             },
             onRequestDismiss = {
                 permissionDialog = null
@@ -232,7 +232,7 @@ fun EventEntryScreen(
             },
             onDismiss = {
                 permissionDialog = null
-                saveWithoutCalendarSync()
+                saveWithoutCalendarSync?.invoke()
             },
             onRequestDismiss = {
                 permissionDialog = null
@@ -242,7 +242,7 @@ fun EventEntryScreen(
         )
     }
 
-    lateinit var requestNotificationAccessForSave: (EventDetails) -> Unit
+    var requestNotificationAccessForSave: ((EventDetails) -> Unit)? by remember { mutableStateOf(null) }
 
     fun launchSave(
         detailsOverride: EventDetails = pendingSaveDetailsOverride ?: latestEventDetails,
@@ -287,7 +287,7 @@ fun EventEntryScreen(
             when {
                 context.shouldShowCalendarPermissionRationaleCompat() -> showCalendarPermissionRationaleForSave()
                 context.wasCalendarPermissionRequestedBefore() -> showCalendarSettingsForSave()
-                else -> launchCalendarPermissionRequest()
+                else -> launchCalendarPermissionRequest?.invoke()
             }
             return
         }
@@ -307,7 +307,7 @@ fun EventEntryScreen(
         if (granted) {
             continueSaveAfterPermissionChecks(saveOrigin = pendingSaveOrigin)
         } else {
-            saveWithoutCalendarSync()
+            saveWithoutCalendarSync?.invoke()
         }
     }
 
@@ -322,7 +322,7 @@ fun EventEntryScreen(
         if (context.didGrantNotificationPermissionAfterRequest(granted)) {
             continueSaveAfterPermissionChecks(saveOrigin = pendingSaveOrigin)
         } else {
-            saveWithoutReminder()
+            saveWithoutReminder?.invoke()
         }
     }
 
@@ -369,7 +369,7 @@ fun EventEntryScreen(
             context.hasNotificationRuntimePermission() -> continueSaveAfterPermissionChecks(details)
             context.shouldShowNotificationPermissionRationaleCompat() -> showNotificationPermissionRationaleForSave()
             context.wasNotificationPermissionRequestedBefore() -> showNotificationSettingsForSave()
-            else -> launchNotificationPermissionRequest()
+            else -> launchNotificationPermissionRequest?.invoke()
         }
     }
 
@@ -457,7 +457,7 @@ fun EventEntryScreen(
                 pendingSaveOrigin = SaveRequestOrigin.Standard
                 if (details.remindEnabled && !context.hasNotificationRuntimePermission()) {
                     isSaving = true
-                    requestNotificationAccessForSave(details)
+                    requestNotificationAccessForSave?.invoke(details)
                     return@EventEntryBody
                 }
 
@@ -1266,7 +1266,7 @@ private fun ColorChip(
     )
     Box(
         modifier = Modifier
-            .size(32.dp)
+            .size(36.dp)
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .background(color, RoundedCornerShape(4.dp))
             .then(

@@ -34,12 +34,14 @@ class GitHubReleaseUpdateChecker(
     private val latestReleaseUrl
         get() = "https://api.github.com/repos/$owner/$repo/releases/latest"
 
-    private fun resolvedClient(): OkHttpClient {
-        return client ?: OkHttpClient.Builder()
+    private val defaultClient: OkHttpClient by lazy {
+        OkHttpClient.Builder()
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(15, TimeUnit.SECONDS)
             .build()
     }
+
+    private fun resolvedClient(): OkHttpClient = client ?: defaultClient
 
     override suspend fun checkUpdate(): CheckUpdateResult = withContext(Dispatchers.IO) {
         try {
@@ -57,7 +59,7 @@ class GitHubReleaseUpdateChecker(
                             errorMessage = "HTTP ${resp.code}"
                         )
                     } else {
-                        val json = JSONObject(resp.body.string())
+                        val json = JSONObject(resp.body?.string() ?: "")
                         val tagName = json.optString("tag_name", "").trim().removePrefix("v")
                         val body = json.optString("body", "").trim()
                         val assets = json.optJSONArray("assets")

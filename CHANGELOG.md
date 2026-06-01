@@ -2,6 +2,28 @@
 
 本文档记录拾光（Glimmer）各版本的主要变更。
 
+## [3.11] - 2026-05-27
+
+### 修复
+
+- 升级应用版本至 `3.11`（`versionCode=16`）
+- 修复 `previousOccurrenceDate` 对每周/每月/每半年重复事件返回未来日期的问题，导致"已过去天数"始终显示 0
+- 修复首页列表项文字颜色在暗色模式下不自适应的问题（`displayColor` 两个分支代码完全相同）
+- 修复编辑页 `lateinit var` 在 Compose 重组竞态下可能触发 `UninitializedPropertyAccessException` 崩溃的问题
+- 修复 JSON 导入在遇到格式错误时静默丢弃全部事件的问题，改为逐条解析并报告错误数
+- 修复详情页删除确认使用 `delay(200)` 导致旋转屏幕后可能卡在已删除事件页面的问题
+- 修复详情页事件加载失败时显示无限 spinner 且无法返回的问题，添加返回按钮
+- 修复里程碑模式下无即将到来节点时错误显示"0 天"的问题，改为显示"无即将到来的节点"
+- 修复 CSV 导出丢失 colorHex、remindDaysBefore、reminderTimeMinutesOfDay 等 6 个字段的问题
+- 修复纯文本导出对今天事件显示"已经 0 天"的问题
+- 修复设置按钮（40dp→48dp）、操作栏按钮（34dp→40dp）、颜色选择器（32dp→36dp）触控目标不达标的问题
+- 修复里程碑通知与倒计时通知共享同一 channel 导致用户无法分别配置的问题
+- 修复里程碑通知 ID 与倒计时通知 ID 在 eventId≥1000 时可能碰撞的问题
+- 修复 `RescheduleAllWorker` 在快速连续修改设置时反复重启的问题，添加 500ms 防抖
+- 修复 `GitHubReleaseUpdateChecker` 每次调用创建新 OkHttpClient 的问题，改为单例复用
+- 修复 `GitHubReleaseUpdateChecker` 中 `resp.body` 未做 null 检查的问题
+- 为数据库迁移 5→6 和 8→9 添加注释，说明 `tags` 和 `birthHour`/`birthMinute` 列被有意移除
+
 ## [3.10] - 2026-04-10
 
 ### 修复

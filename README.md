@@ -1,11 +1,11 @@
 # 拾光（Glimmer）
-`v3.10` 的 Android 倒数日 / 生日 / 纪念日应用，基于 Jetpack Compose + Material 3。
+`v3.11` 的 Android 倒数日 / 生日 / 纪念日应用，基于 Jetpack Compose + Material 3。
 
 ## 版本信息
 
-- `versionName`: `3.10`
-- `versionCode`: `15`
-- 发布日期：`2026-04-10`
+- `versionName`: `3.11`
+- `versionCode`: `16`
+- 发布日期：`2026-05-27`
 
 ## 核心能力
 
@@ -18,12 +18,13 @@
 - 支持表格模式与桌面小组件
 - 支持 JSON 导入 / 导出，用于备份与恢复
 
-## 3.10 版本重点
+## 3.11 版本重点
 
-- 修复“提前 X 天提醒”同步到系统日程后，在兼容性回退链路下只会出现第 X 天单条提醒的问题
-- 当系统日历 Provider 触发兼容性回退时，改为补写从第 X 天到当天的整段提醒系列，而不是单条 `Events + Reminders`
-- 保持当天提醒的周 / 月 / 年重复事件继续使用 RRULE 单条同步，避免破坏既有重复日程表现
-- 延续 3.9 的真实写入、Provider 兼容性回退和 logcat 定位能力
+- 修复重复事件“已过去天数”、暗色模式列表文字、详情页删除/加载失败等显示问题
+- JSON 导入支持逐条容错，格式错误时保留有效事件并报告失败数
+- 补齐 CSV 导出字段，优化今天事件的纯文本导出显示
+- 倒计时提醒与里程碑提醒拆分通知 channel，并降低连续设置变更触发的重复重排程
+- 修复更新检查器客户端复用与空响应处理问题
 
 ## 构建与运行
 
@@ -45,7 +46,7 @@
 
 默认产物路径：
 
-- `app/build/outputs/apk/direct/release/glimmer-countdown-3-10.apk`
+- `app/build/outputs/apk/direct/release/glimmer-countdown-3-11.apk`
 - `app/build/outputs/bundle/playRelease/app-play-release.aab`
 
 ## 发布文档

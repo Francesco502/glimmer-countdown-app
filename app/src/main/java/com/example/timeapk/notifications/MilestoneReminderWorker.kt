@@ -26,7 +26,7 @@ class MilestoneReminderWorker(
         val eventId = inputData.getInt(KEY_EVENT_ID, 0)
         val milestoneLabel = inputData.getString(KEY_MILESTONE_LABEL) ?: return Result.failure()
         val daysLeft = inputData.getInt(KEY_DAYS_LEFT, 0)
-        val channelId = "countdown_reminder"
+        val channelId = "milestone_reminder"
 
         if (canPostNotifications()) {
             ensureChannel(channelId)
@@ -73,7 +73,7 @@ class MilestoneReminderWorker(
             nm.createNotificationChannel(
                 NotificationChannel(
                     channelId,
-                    applicationContext.getString(R.string.notification_channel_name),
+                    applicationContext.getString(R.string.milestone_notification_channel_name),
                     NotificationManager.IMPORTANCE_DEFAULT
                 )
             )
@@ -92,7 +92,7 @@ class MilestoneReminderWorker(
         const val KEY_EVENT_ID = "event_id"
         const val KEY_MILESTONE_LABEL = "milestone_label"
         const val KEY_DAYS_LEFT = "days_left"
-        private const val MILESTONE_NOTIFICATION_ID_BASE = 2000
+        private const val MILESTONE_NOTIFICATION_ID_BASE = 100000
     }
 }
 

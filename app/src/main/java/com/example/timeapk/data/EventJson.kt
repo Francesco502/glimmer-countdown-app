@@ -30,39 +30,72 @@ fun List<Event>.toJsonString(): String {
     return arr.toString()
 }
 
-fun parseEventsFromJson(json: String): List<Event> {
+data class ParseResult(val events: List<Event>, val errorCount: Int)
+
+fun parseEventsFromJson(json: String): ParseResult {
     val list = mutableListOf<Event>()
+    var errorCount = 0
     try {
         val arr = JSONArray(json)
         for (i in 0 until arr.length()) {
-            val o = arr.getJSONObject(i)
-            val repeatType = normalizeRepeatType(o.optString("repeatType", REPEAT_NONE))
-            val category = o.optString("category", "")
-            list.add(
-                Event(
-                    id = 0,
-                    title = o.optString("title", ""),
-                    date = o.optLong("date", System.currentTimeMillis()),
-                    category = category,
-                    note = o.optString("note", ""),
-                    colorHex = if (o.isNull("colorHex")) null else o.optString("colorHex"),
-                    repeatType = repeatType,
-                    remindDaysBefore = sanitizeRemindDaysBefore(o.optInt("remindDaysBefore", 0)),
-                    reminderTimeMinutesOfDay = sanitizeReminderTimeMinutesOfDay(o.optInt("reminderTimeMinutesOfDay", 480)),
-                    remindEnabled = o.optBoolean("remindEnabled", false),
-                    syncToScheduleEnabled = o.optBoolean("syncToScheduleEnabled", true),
-                    scheduleEventId = null,
-                    targetCalendarId = null,
-                    lastScheduleSyncAt = null,
-                    lastScheduleSyncError = null,
-                    createdAt = o.optLong("createdAt", System.currentTimeMillis()),
-                    isLunar = o.optBoolean("isLunar", false)
+            try {
+                val o = arr.getJSONObject(i)
+                val repeatType = normalizeRepeatType(o.optionalString("repeatType", REPEAT_NONE))
+                val category = o.optionalString("category", "")
+                list.add(
+                    Event(
+                        id = 0,
+                        title = o.optionalString("title", ""),
+                        date = o.optionalLong("date", System.currentTimeMillis()),
+                        category = category,
+                        note = o.optionalString("note", ""),
+                        colorHex = o.optionalNullableString("colorHex"),
+                        repeatType = repeatType,
+                        remindDaysBefore = sanitizeRemindDaysBefore(o.optionalInt("remindDaysBefore", 0)),
+                        reminderTimeMinutesOfDay = sanitizeReminderTimeMinutesOfDay(o.optionalInt("reminderTimeMinutesOfDay", 480)),
+                        remindEnabled = o.optionalBoolean("remindEnabled", false),
+                        syncToScheduleEnabled = o.optionalBoolean("syncToScheduleEnabled", true),
+                        scheduleEventId = null,
+                        targetCalendarId = null,
+                        lastScheduleSyncAt = null,
+                        lastScheduleSyncError = null,
+                        createdAt = o.optionalLong("createdAt", System.currentTimeMillis()),
+                        isLunar = o.optionalBoolean("isLunar", false)
+                    )
                 )
-            )
+            } catch (_: Exception) {
+                errorCount++
+            }
         }
     } catch (_: Exception) {
+        return ParseResult(emptyList(), -1)
     }
-    return list
+    return ParseResult(list, errorCount)
+}
+
+private fun JSONObject.optionalString(name: String, defaultValue: String): String {
+    if (!has(name) || isNull(name)) return defaultValue
+    return get(name) as? String ?: throw IllegalArgumentException("Expected string for $name")
+}
+
+private fun JSONObject.optionalNullableString(name: String): String? {
+    if (!has(name) || isNull(name)) return null
+    return get(name) as? String ?: throw IllegalArgumentException("Expected string for $name")
+}
+
+private fun JSONObject.optionalLong(name: String, defaultValue: Long): Long {
+    if (!has(name) || isNull(name)) return defaultValue
+    return (get(name) as? Number)?.toLong() ?: throw IllegalArgumentException("Expected number for $name")
+}
+
+private fun JSONObject.optionalInt(name: String, defaultValue: Int): Int {
+    if (!has(name) || isNull(name)) return defaultValue
+    return (get(name) as? Number)?.toInt() ?: throw IllegalArgumentException("Expected number for $name")
+}
+
+private fun JSONObject.optionalBoolean(name: String, defaultValue: Boolean): Boolean {
+    if (!has(name) || isNull(name)) return defaultValue
+    return get(name) as? Boolean ?: throw IllegalArgumentException("Expected boolean for $name")
 }
 
 private fun normalizeRepeatType(value: String): String {
@@ -87,7 +120,7 @@ private fun escapeCsvField(s: String): String {
 }
 
 fun List<Event>.toCsvString(): String {
-    val header = "title,date,category,note,repeatType,remindEnabled"
+    val header = "title,date,category,note,colorHex,repeatType,remindDaysBefore,reminderTimeMinutesOfDay,remindEnabled,syncToScheduleEnabled,createdAt,isLunar"
     val lines = mutableListOf(header)
     for (e in this) {
         lines.add(
@@ -96,8 +129,14 @@ fun List<Event>.toCsvString(): String {
                 e.date.toString(),
                 escapeCsvField(e.category),
                 escapeCsvField(e.note),
+                e.colorHex ?: "",
                 e.repeatType,
-                e.remindEnabled.toString()
+                e.remindDaysBefore.toString(),
+                e.reminderTimeMinutesOfDay.toString(),
+                e.remindEnabled.toString(),
+                e.syncToScheduleEnabled.toString(),
+                e.createdAt.toString(),
+                e.isLunar.toString()
             ).joinToString(",")
         )
     }
@@ -116,11 +155,11 @@ fun List<Event>.toPlainTextListString(daysLeftLabel: String, daysPastLabel: Stri
         }
 
         val days = java.time.temporal.ChronoUnit.DAYS.between(today, nextTargetDate).toInt()
-        val (label, count) = if (days > 0) {
-            daysLeftLabel to days
-        } else {
-            daysPastLabel to -days
+        val (label, count) = when {
+            days > 0 -> daysLeftLabel to days
+            days < 0 -> daysPastLabel to -days
+            else -> "" to 0
         }
-        "${e.title}: $label $count $daysUnit"
+        if (count == 0) "${e.title}: $daysLeftLabel 0 $daysUnit" else "${e.title}: $label $count $daysUnit"
     }.joinToString("\n")
 }
