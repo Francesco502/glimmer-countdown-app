@@ -31,6 +31,8 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -388,6 +390,23 @@ fun EventEntryScreen(
         }
     }
 
+    fun requestSave() {
+        if (isSaving) return
+
+        val details = eventUiState.eventDetails
+        pendingSaveOrigin = SaveRequestOrigin.Standard
+        if (details.remindEnabled && !context.hasNotificationRuntimePermission()) {
+            isSaving = true
+            requestNotificationAccessForSave?.invoke(details) ?: run {
+                isSaving = false
+            }
+            return
+        }
+
+        isSaving = true
+        continueSaveAfterPermissionChecks(details)
+    }
+
     BackHandler(enabled = !showDiscardChangesDialog && permissionDialog == null) {
         requestNavigateBack()
     }
@@ -421,6 +440,15 @@ fun EventEntryScreen(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        bottomBar = {
+            if (isEntryInitialized) {
+                EventEntrySaveBar(
+                    enabled = eventUiState.isEntryValid && !isSaving,
+                    isSaving = isSaving,
+                    onSaveClick = { requestSave() }
+                )
+            }
+        },
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
@@ -463,23 +491,6 @@ fun EventEntryScreen(
             EventEntryBody(
                 eventUiState = eventUiState,
                 onEventValueChange = viewModel::updateUiState,
-                isSaving = isSaving,
-                onSaveClick = {
-                    if (isSaving) return@EventEntryBody
-
-                    val details = eventUiState.eventDetails
-                    pendingSaveOrigin = SaveRequestOrigin.Standard
-                    if (details.remindEnabled && !context.hasNotificationRuntimePermission()) {
-                        isSaving = true
-                        requestNotificationAccessForSave?.invoke(details) ?: run {
-                            isSaving = false
-                        }
-                        return@EventEntryBody
-                    }
-
-                    isSaving = true
-                    continueSaveAfterPermissionChecks(details)
-                },
                 modifier = modifier.padding(innerPadding)
             )
         }
@@ -491,8 +502,6 @@ fun EventEntryScreen(
 fun EventEntryBody(
     eventUiState: EventEntryUiState,
     onEventValueChange: (EventDetails) -> Unit,
-    onSaveClick: () -> Unit,
-    isSaving: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -529,24 +538,48 @@ fun EventEntryBody(
                 }
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
+        }
+    }
+}
+
+@Composable
+private fun EventEntrySaveBar(
+    enabled: Boolean,
+    isSaving: Boolean,
+    onSaveClick: () -> Unit
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 2.dp
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .imePadding()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Button(
+                onClick = onSaveClick,
+                enabled = enabled,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = EventEntryContentMaxWidth),
+                shape = RoundedCornerShape(4.dp)
             ) {
-                TextButton(
-                    onClick = onSaveClick,
-                    enabled = eventUiState.isEntryValid && !isSaving,
-                    modifier = Modifier.padding(top = 16.dp),
-                    shape = RoundedCornerShape(2.dp)
-                ) {
-                    Text(
-                        text = stringResource(R.string.button_save_event),
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            letterSpacing = 2.sp
-                        ),
-                        color = if (eventUiState.isEntryValid) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                if (isSaving) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
                     )
+                    Spacer(modifier = Modifier.width(8.dp))
                 }
+                Text(
+                    text = stringResource(R.string.button_save_event),
+                    style = MaterialTheme.typography.titleMedium
+                )
             }
         }
     }
@@ -921,7 +954,7 @@ fun EventInputForm(
             colors = textFieldColors
         )
 
-        // 鍒嗙被锛氱敓鏃?/ 绾康鏃?/ 鍏朵粬
+        // Category selection.
         Text(
             text = stringResource(R.string.field_category),
             style = MaterialTheme.typography.labelMedium,
@@ -953,7 +986,7 @@ fun EventInputForm(
             }
         }
         
-        // 鏃ユ湡閫夋嫨锛氬叕鍘?/ 鍐滃巻 鏄剧ず
+        // Date selection and display.
         val baseDate = eventDateToLocalDate(eventDetails.date)
         val dateString = if (eventDetails.isLunar) {
                                             formatLunarDateString(baseDate, context)
@@ -961,8 +994,7 @@ fun EventInputForm(
             baseDate.format(dateFormatter)
         }
 
-        // 鏁翠釜鏃ユ湡杈撳叆妗嗗彲鐐瑰嚮鎵撳紑鏃ユ湡閫夋嫨鍣紝鍘绘帀鍙充晶鍥炬爣
-        // 浣跨敤涓婂眰閫忔槑鐐瑰嚮灞傦紝閬垮厤 TextField 鑷韩娑堣垂鐐瑰嚮浜嬩欢
+        // Use an overlay click target so the read-only field opens the picker reliably.
         Box(modifier = Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(4.dp))) {
             TextField(
                 value = dateString,
@@ -1166,7 +1198,7 @@ fun EventInputForm(
             }
         }
         
-        // 棰滆壊閫夋嫨
+        // Color selection.
         Text(
             text = stringResource(R.string.field_card_color),
             style = MaterialTheme.typography.labelMedium,
@@ -1185,7 +1217,8 @@ fun EventInputForm(
                 ColorChip(
                     color = color,
                     selected = selected,
-                    onClick = { onValueChange(eventDetails.copy(colorHex = hex)) }
+                    onClick = { onValueChange(eventDetails.copy(colorHex = hex)) },
+                    contentDescription = stringResource(R.string.cd_event_color_option, hex)
                 )
             }
             
@@ -1197,7 +1230,8 @@ fun EventInputForm(
                 ColorChip(
                     color = color,
                     selected = true,
-                    onClick = { showCustomColorDialog = true }
+                    onClick = { showCustomColorDialog = true },
+                    contentDescription = stringResource(R.string.cd_event_color_option, hex)
                 )
             }
 
@@ -1206,7 +1240,8 @@ fun EventInputForm(
                 color = MaterialTheme.colorScheme.surfaceVariant,
                 selected = false,
                 onClick = { showCustomColorDialog = true },
-                icon = Icons.Outlined.Palette
+                icon = Icons.Outlined.Palette,
+                contentDescription = stringResource(R.string.cd_custom_event_color)
             )
 
             // No color selected
@@ -1215,7 +1250,8 @@ fun EventInputForm(
                 color = MaterialTheme.colorScheme.surface,
                 selected = noColorSelected,
                 onClick = { onValueChange(eventDetails.copy(colorHex = null)) },
-                icon = Icons.Outlined.Clear
+                icon = Icons.Outlined.Clear,
+                contentDescription = stringResource(R.string.cd_no_event_color)
             )
         }
     }
@@ -1272,10 +1308,16 @@ private fun ColorChip(
     color: Color,
     selected: Boolean,
     onClick: () -> Unit,
+    contentDescription: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector? = null
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
+    val accessibleDescription = if (selected) {
+        stringResource(R.string.cd_event_color_selected, contentDescription)
+    } else {
+        contentDescription
+    }
     val scale by animateFloatAsState(
         if (isPressed) 0.9f else 1f,
         animationSpec = AnimationSpecs.springButton,
@@ -1283,23 +1325,30 @@ private fun ColorChip(
     )
     Box(
         modifier = Modifier
-            .size(36.dp)
-            .graphicsLayer { scaleX = scale; scaleY = scale }
-            .background(color, RoundedCornerShape(4.dp))
-            .then(
-                if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp))
-                else Modifier.border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong), RoundedCornerShape(4.dp))
-            )
+            .size(48.dp)
+            .semantics { this.contentDescription = accessibleDescription }
             .clickable(interactionSource = interactionSource, indication = LocalIndication.current, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        if (icon != null) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(20.dp),
-                tint = if (color.luminance() > 0.5f) MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
-            )
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .graphicsLayer { scaleX = scale; scaleY = scale }
+                .background(color, RoundedCornerShape(4.dp))
+                .then(
+                    if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp))
+                    else Modifier.border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong), RoundedCornerShape(4.dp))
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = if (color.luminance() > 0.5f) MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
+                )
+            }
         }
     }
 }
@@ -1394,10 +1443,6 @@ fun CustomColorDialog(
         }
     )
 }
-
-
-
-
 
 
 

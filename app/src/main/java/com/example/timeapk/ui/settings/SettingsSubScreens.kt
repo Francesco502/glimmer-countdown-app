@@ -5,6 +5,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -57,12 +58,28 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.example.timeapk.ui.theme.SongDesignTokens
 import androidx.compose.ui.window.Dialog
+import com.example.timeapk.ui.utils.eventDateToLocalDate
 import com.example.timeapk.ui.utils.findActivity
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.roundToInt
+
+private data class PendingImportPreview(
+    val parseResult: BackupParseResult,
+    val importableEvents: List<Event>,
+    val existingDuplicateCount: Int
+) {
+    val totalSkippedDuplicates: Int
+        get() = parseResult.skippedDuplicateCount + existingDuplicateCount
+}
+
+private data class ImportExecutionResult(
+    val successCount: Int,
+    val failedCount: Int,
+    val warningCount: Int
+)
 
 @Composable
 fun ClassicalToggle(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
@@ -1954,9 +1971,11 @@ fun DataSettingsContent(
     var showImportDialog by remember { mutableStateOf(false) }
     var importJsonText by remember { mutableStateOf("") }
     var importResultMessage by remember { mutableStateOf<String?>(null) }
+    var pendingImportPreview by remember { mutableStateOf<PendingImportPreview?>(null) }
+    var pendingExportText by remember { mutableStateOf<String?>(null) }
 
-    suspend fun importEvents(events: List<Event>): Triple<Int, Int, Int> {
-        if (events.isEmpty()) return Triple(0, 0, 0)
+    suspend fun importEvents(events: List<Event>): ImportExecutionResult {
+        if (events.isEmpty()) return ImportExecutionResult(0, 0, 0)
         var successCount = 0
         var failedCount = 0
         var warningCount = 0
@@ -2039,45 +2058,114 @@ fun DataSettingsContent(
             }
         }
 
-        return Triple(successCount, failedCount, warningCount)
+        return ImportExecutionResult(successCount, failedCount, warningCount)
     }
 
-    fun importResultText(successCount: Int, failedCount: Int, warningCount: Int): String {
-        return when {
-            successCount <= 0 -> context.getString(R.string.import_error)
-            failedCount > 0 || warningCount > 0 -> context.getString(
-                R.string.import_partial_summary,
-                successCount,
-                failedCount,
-                warningCount
-            )
-            else -> context.resources.getQuantityString(
-                R.plurals.import_success,
-                successCount,
-                successCount
-            )
+    fun importFailureText(parseResult: BackupParseResult): String {
+        return when (parseResult.failure) {
+            BackupParseFailure.EMPTY_FILE -> context.getString(R.string.import_error_empty_file)
+            BackupParseFailure.NO_EVENTS_FOUND -> context.getString(R.string.import_error_no_events)
+            BackupParseFailure.UNSUPPORTED_FORMAT,
+            null -> context.getString(R.string.import_error_unsupported_format)
         }
+    }
+
+    fun importResultText(
+        preview: PendingImportPreview,
+        executionResult: ImportExecutionResult
+    ): String {
+        return context.getString(
+            R.string.import_completed_detailed,
+            preview.parseResult.recognizedCount,
+            executionResult.successCount,
+            preview.totalSkippedDuplicates,
+            preview.parseResult.parseErrorCount + executionResult.failedCount,
+            executionResult.warningCount
+        )
+    }
+
+    suspend fun buildImportPreview(parseResult: BackupParseResult): PendingImportPreview? {
+        if (parseResult.failure != null) {
+            importResultMessage = importFailureText(parseResult)
+            return null
+        }
+        val existingEvents = repository.getAllEventsSnapshot()
+        val duplicateFilter = filterExistingDuplicateEvents(
+            events = parseResult.events,
+            existingEvents = existingEvents
+        )
+        return PendingImportPreview(
+            parseResult = parseResult,
+            importableEvents = duplicateFilter.importableEvents,
+            existingDuplicateCount = duplicateFilter.existingDuplicateCount
+        )
+    }
+
+    suspend fun parseBytesForPreview(bytes: ByteArray) {
+        pendingImportPreview = null
+        val parseResult = parseEventsFromBackupBytesDetailed(bytes)
+        pendingImportPreview = buildImportPreview(parseResult)
+    }
+
+    suspend fun writeExportText(uri: Uri, text: String): Boolean {
+        return withContext(Dispatchers.IO) {
+            try {
+                context.contentResolver.openOutputStream(uri)?.use { output ->
+                    output.write(text.toByteArray(Charsets.UTF_8))
+                } != null
+            } catch (_: Exception) {
+                false
+            }
+        }
+    }
+
+    suspend fun showExportSaveResult(success: Boolean) {
+        snackbarHostState.showSnackbar(
+            context.getString(
+                if (success) R.string.export_file_saved else R.string.export_file_failed
+            )
+        )
     }
 
     val importFromFileLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri ?: return@rememberLauncherForActivityResult
-        val text = try {
-            context.contentResolver.openInputStream(uri)?.use { it.bufferedReader().readText() } ?: ""
-        } catch (_: Exception) {
-            ""
-        }
-        if (text.isBlank()) {
-            importResultMessage = context.getString(R.string.import_error)
-            return@rememberLauncherForActivityResult
-        }
         scope.launch {
-            val parseResult = parseEventsFromJson(text)
-            if (parseResult.errorCount < 0) {
-                importResultMessage = context.getString(R.string.import_error)
+            val bytes = withContext(Dispatchers.IO) {
+                try {
+                    context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: ByteArray(0)
+                } catch (_: Exception) {
+                    ByteArray(0)
+                }
+            }
+            if (bytes.isEmpty()) {
+                importResultMessage = context.getString(R.string.import_error_empty_file)
+                pendingImportPreview = null
                 return@launch
             }
-            val (successCount, failedCount, warningCount) = importEvents(parseResult.events)
-            importResultMessage = importResultText(successCount, failedCount, warningCount)
+            importResultMessage = null
+            parseBytesForPreview(bytes)
+        }
+    }
+
+    val saveJsonLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        val text = pendingExportText
+        pendingExportText = null
+        if (uri == null || text == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            showExportSaveResult(writeExportText(uri, text))
+        }
+    }
+
+    val saveCsvLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri ->
+        val text = pendingExportText
+        pendingExportText = null
+        if (uri == null || text == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            showExportSaveResult(writeExportText(uri, text))
         }
     }
 
@@ -2086,6 +2174,7 @@ fun DataSettingsContent(
             onDismissRequest = {
                 showImportDialog = false
                 importResultMessage = null
+                pendingImportPreview = null
             },
             shape = RoundedCornerShape(4.dp),
             containerColor = MaterialTheme.colorScheme.surface,
@@ -2096,7 +2185,11 @@ fun DataSettingsContent(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = importJsonText,
-                        onValueChange = { importJsonText = it },
+                        onValueChange = {
+                            importJsonText = it
+                            pendingImportPreview = null
+                            importResultMessage = null
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(min = 120.dp),
@@ -2105,7 +2198,7 @@ fun DataSettingsContent(
                         shape = RoundedCornerShape(4.dp)
                     )
                     OutlinedButton(
-                        onClick = { importFromFileLauncher.launch("text/*") },
+                        onClick = { importFromFileLauncher.launch("*/*") },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(4.dp)
                     ) {
@@ -2114,27 +2207,87 @@ fun DataSettingsContent(
                     importResultMessage?.let { msg ->
                         Text(msg, color = MaterialTheme.colorScheme.primary)
                     }
+                    pendingImportPreview?.let { preview ->
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = SongDesignTokens.BorderAlphaStrong)
+                        )
+                        Text(
+                            text = stringResource(
+                                R.string.import_preview_summary,
+                                preview.parseResult.recognizedCount,
+                                preview.importableEvents.size,
+                                preview.totalSkippedDuplicates,
+                                preview.parseResult.parseErrorCount
+                            ),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        if (preview.importableEvents.isEmpty()) {
+                            Text(
+                                text = stringResource(R.string.import_preview_empty_after_duplicates),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        } else {
+                            val sampleEvents = preview.importableEvents.take(5)
+                            sampleEvents.forEach { event ->
+                                Text(
+                                    text = "${event.title} · ${formatImportPreviewDate(event)}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            val remaining = preview.importableEvents.size - sampleEvents.size
+                            if (remaining > 0) {
+                                Text(
+                                    text = stringResource(R.string.import_preview_more, remaining),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
                 }
             },
             confirmButton = {
-                TextButton(onClick = {
-                    scope.launch {
-                        val parseResult = parseEventsFromJson(importJsonText)
-                        if (parseResult.errorCount < 0) {
-                            importResultMessage = context.getString(R.string.import_error)
-                            return@launch
+                TextButton(
+                    enabled = pendingImportPreview?.importableEvents?.isNotEmpty()
+                        ?: importJsonText.isNotBlank(),
+                    onClick = {
+                        scope.launch {
+                            val preview = pendingImportPreview
+                            if (preview == null) {
+                                importResultMessage = null
+                                parseBytesForPreview(importJsonText.toByteArray(Charsets.UTF_8))
+                                return@launch
+                            }
+
+                            val executionResult = importEvents(preview.importableEvents)
+                            importResultMessage = importResultText(preview, executionResult)
+                            pendingImportPreview = null
+                            if (executionResult.successCount > 0) {
+                                importJsonText = ""
+                            }
                         }
-                        val (successCount, failedCount, warningCount) = importEvents(parseResult.events)
-                        importResultMessage = importResultText(successCount, failedCount, warningCount)
                     }
-                }) {
-                    Text(stringResource(R.string.import_events), color = MaterialTheme.colorScheme.primary)
+                ) {
+                    Text(
+                        text = stringResource(
+                            if (pendingImportPreview == null) {
+                                R.string.import_preview_action
+                            } else {
+                                R.string.import_events
+                            }
+                        ),
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
             },
             dismissButton = {
                 TextButton(onClick = {
                     showImportDialog = false
                     importResultMessage = null
+                    pendingImportPreview = null
                 }) {
                     Text(
                         stringResource(R.string.delete_confirm_cancel),
@@ -2178,6 +2331,22 @@ fun DataSettingsContent(
         SettingsPressableRow(
             onClick = {
                 scope.launch {
+                    pendingExportText = repository.getAllEventsSnapshot().toJsonString()
+                    saveJsonLauncher.launch("timeapk-events.json")
+                }
+            }
+        ) {
+            Text(
+                text = stringResource(R.string.export_events_file),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
+
+        SettingsPressableRow(
+            onClick = {
+                scope.launch {
                     val events = repository.getAllEventsSnapshot()
                     val csv = events.toCsvString()
                     context.startActivity(
@@ -2191,6 +2360,22 @@ fun DataSettingsContent(
         ) {
             Text(
                 text = stringResource(R.string.export_csv),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
+
+        SettingsPressableRow(
+            onClick = {
+                scope.launch {
+                    pendingExportText = repository.getAllEventsSnapshot().toCsvString()
+                    saveCsvLauncher.launch("timeapk-events.csv")
+                }
+            }
+        ) {
+            Text(
+                text = stringResource(R.string.export_csv_file),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -2228,6 +2413,7 @@ fun DataSettingsContent(
                 showImportDialog = true
                 importJsonText = ""
                 importResultMessage = null
+                pendingImportPreview = null
             }
         ) {
             Text(
@@ -2421,6 +2607,10 @@ private fun formatScheduleSyncTime(millis: Long): String {
         .format(formatter)
 }
 
+private fun formatImportPreviewDate(event: Event): String {
+    return eventDateToLocalDate(event.date).format(DateTimeFormatter.ISO_LOCAL_DATE)
+}
+
 private fun parseReminderTimeInput(input: String): Int? {
     val raw = input.trim()
     if (raw.isBlank()) return null
@@ -2482,4 +2672,3 @@ private fun evaluateContrastAuditForKey(
         onPrimary = onPrimary
     )
 }
-

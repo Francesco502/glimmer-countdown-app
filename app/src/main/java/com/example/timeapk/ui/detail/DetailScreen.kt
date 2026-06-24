@@ -21,7 +21,6 @@ import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.NotificationsOff
 import androidx.compose.material.icons.outlined.PushPin
-import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.collectAsState
@@ -82,6 +81,7 @@ private val DetailContentMaxWidth = 760.dp
 @Composable
 fun DetailScreen(
     eventState: EventUiState?,
+    eventMissing: Boolean = false,
     onNavigateBack: () -> Unit,
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit,
@@ -102,11 +102,20 @@ fun DetailScreen(
     if (eventState == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                CircularProgressIndicator(
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(48.dp)
-                )
-                Spacer(modifier = Modifier.height(16.dp))
+                if (eventMissing) {
+                    Text(
+                        text = stringResource(R.string.event_load_error),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        textAlign = TextAlign.Center
+                    )
+                } else {
+                    CircularProgressIndicator(
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
                 TextButton(onClick = onNavigateBack) {
                     Text(stringResource(R.string.nav_back))
                 }
@@ -145,7 +154,6 @@ fun DetailScreen(
         fallback = MaterialTheme.colorScheme.primary
     )
     
-    // 铻嶅叆涓婚鑹诧細浣挎祬鑹蹭笉閭ｄ箞鍒虹溂锛堝儚鏌撹壊鐨勫绾革級锛屾繁鑹蹭笌鑳屾櫙鏈変竴瀹氬尯鍒嗭紙鍍忓甫搴曡壊鐨勫ⅷ閿級
     val isDark = androidx.compose.foundation.isSystemInDarkTheme()
     val detailCardColor = androidx.compose.ui.graphics.lerp(
         MaterialTheme.colorScheme.surface,
@@ -155,7 +163,7 @@ fun DetailScreen(
     val detailContentColor = MaterialTheme.colorScheme.onSurface
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background, // 涓庡叾浠栭〉闈㈣儗鏅竴鑷?
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text(stringResource(R.string.detail_title), style = MaterialTheme.typography.titleLarge) },
@@ -176,7 +184,6 @@ fun DetailScreen(
         }
     ) { innerPadding ->
         val scrollState = rememberScrollState()
-        // 淇锛歷isible=true 棣栨缁勫悎涓嶆挱鏀惧姩鐢伙紝闇€瑕佷粠 false鈫抰rue 杩囨浮
         var contentVisible by remember { mutableStateOf(false) }
         LaunchedEffect(Unit) { contentVisible = true }
         AnimatedVisibility(
@@ -197,24 +204,22 @@ fun DetailScreen(
                 .widthIn(max = DetailContentMaxWidth)
                 .padding(24.dp)
         ) {
-            // 澶嶅彜鍦鸿鏉?鑰侀粍鍘嗛鏍煎崱鐗?-> 瀹嬩唬涔︾敾鏍峰紡
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.medium, // 绋嶅井澧炲姞鍦嗚
+                shape = MaterialTheme.shapes.medium,
                 colors = CardDefaults.cardColors(
                     containerColor = detailCardColor
                 ),
                 border = BorderStroke(
-                    width = com.example.timeapk.ui.theme.SongDesignTokens.BorderWidth.dp, // 鍔犳繁涓€鐐硅竟妗?
+                    width = com.example.timeapk.ui.theme.SongDesignTokens.BorderWidth.dp,
                     color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong)
                 ),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column(
-                    modifier = Modifier.padding(32.dp), // 澧炲姞鍐呴儴鐣欑櫧
+                    modifier = Modifier.padding(32.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // 椤堕儴锛氭棩鏈熶笌绫诲埆锛堜笌璁剧疆涓棩鏈熸牸寮忎竴鑷达級
                     val today = LocalDate.now()
                     val targetLocalDate = eventDateToLocalDate(eventState.event.date)
                     val isYearly = eventState.event.repeatType == REPEAT_YEARLY
@@ -269,7 +274,6 @@ fun DetailScreen(
                         )
                     }
                     
-                    // 鍙ゅ吀涓ょ娓愰殣鍒嗛殧绾?
                     androidx.compose.foundation.Canvas(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -291,7 +295,6 @@ fun DetailScreen(
                         )
                     }
 
-                    // 鏍稿績锛氭爣棰樹笌鍊掕鏃?
                     Text(
                         text = eventState.event.title,
                         style = MaterialTheme.typography.displayMedium.copy(
@@ -305,7 +308,6 @@ fun DetailScreen(
                     
                     Spacer(modifier = Modifier.height(40.dp))
 
-                    // 鍊掕鏃?/ 宸插巻灞曠ず锛氭櫤鑳芥ā寮忚疆杞敮鎸?
                     val isToday = eventState.daysRemaining == 0L && !eventState.isPast
                     val todayLabel = stringResource(R.string.days_today_label)
                     val isRepeating = eventState.event.repeatType != REPEAT_NONE
@@ -362,7 +364,6 @@ fun DetailScreen(
                             labelText = ""
                         }
                     }
-                    // 鍒囨崲鏄剧ず妯″紡鏃朵繚鎸佸瓧鍙蜂竴鑷达紝涓嶉殢鍐呭闀跨煭鍙樺寲
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -399,7 +400,6 @@ fun DetailScreen(
                         )
                     }
 
-                    // 鍙ゅ吀娓愰殣鍒嗛殧绾?
                     Spacer(modifier = Modifier.height(32.dp))
                     androidx.compose.foundation.Canvas(
                         modifier = Modifier
@@ -424,7 +424,6 @@ fun DetailScreen(
                     }
                     Spacer(modifier = Modifier.height(32.dp))
 
-                    // 绾康鏃ワ細缂樿捣锝滃凡鍘嗭綔闈欏€?鍏锛堟姌椤垫帓鐗堬級
                     if (effectiveCategory == CATEGORY_ANNIVERSARY && isRepeating) {
                         val originDate = targetLocalDate
                         val isLunarAnniversary = eventState.event.isLunar && eventState.event.repeatType == REPEAT_YEARLY
@@ -514,7 +513,6 @@ fun DetailScreen(
                                 }
                             }
                             Spacer(modifier = Modifier.height(16.dp))
-                            // 闈欏€?
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.Start,
@@ -556,7 +554,6 @@ fun DetailScreen(
                         }
                     }
 
-                    // 鍏朵粬锛氫粎鍏巻 + 鍐滃巻
                     if (effectiveCategory == CATEGORY_OTHER) {
                         Spacer(modifier = Modifier.height(24.dp))
                         Column(
@@ -576,7 +573,6 @@ fun DetailScreen(
                         }
                     }
 
-                    // 鐢熸棩锛氬啘鍘嗐€佸瞾鏁般€佸睘鐩搞€佹槦搴?
                     if (effectiveCategory == CATEGORY_BIRTHDAY) {
                         Spacer(modifier = Modifier.height(24.dp))
                         val lunarLine = formatLunarDateString(targetLocalDate, context)
@@ -604,9 +600,8 @@ fun DetailScreen(
 
                     if (eventState.event.note.isNotBlank()) {
                         Spacer(modifier = Modifier.height(48.dp))
-                        // 澶囨敞鍖哄煙锛氱被浼兼姤绾稿紩瑷€ -> 瀹嬩唬棰樿穻椋庢牸
                         Text(
-                            text = eventState.event.note, // 鍘绘帀寮曞彿锛屾洿骞插噣
+                            text = eventState.event.note,
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontStyle = androidx.compose.ui.text.font.FontStyle.Normal,
                                 letterSpacing = 0.5.sp
@@ -620,7 +615,7 @@ fun DetailScreen(
             
             Spacer(modifier = Modifier.height(32.dp))
             
-            // 搴曢儴鎿嶄綔鍖猴細鏂瑰舰鎸夐挳锛堝甫鎸夊帇缂╂斁鍙嶉锛?
+            // Bottom action row.
             ResponsiveDetailActionButtons(
                 isPinned = eventState.event.id in pinnedEventIds,
                 isReminderOrScheduleEnabled = eventState.event.remindEnabled || eventState.event.syncToScheduleEnabled,
@@ -753,145 +748,6 @@ private fun ResponsiveDetailActionButton(
 }
 
 @Composable
-private fun DetailActionButtons(
-    isPinned: Boolean,
-    isReminderOrScheduleEnabled: Boolean,
-    onReminderCalendarClick: () -> Unit,
-    onPinClick: () -> Unit,
-    onEditClick: () -> Unit,
-    onDeleteClick: () -> Unit,
-    onShareClick: () -> Unit
-) {
-    val reminderInteractionSource = remember { MutableInteractionSource() }
-    val pinInteractionSource = remember { MutableInteractionSource() }
-    val editInteractionSource = remember { MutableInteractionSource() }
-    val deleteInteractionSource = remember { MutableInteractionSource() }
-    val shareInteractionSource = remember { MutableInteractionSource() }
-    val reminderPressed by reminderInteractionSource.collectIsPressedAsState()
-    val pinPressed by pinInteractionSource.collectIsPressedAsState()
-    val editPressed by editInteractionSource.collectIsPressedAsState()
-    val deletePressed by deleteInteractionSource.collectIsPressedAsState()
-    val sharePressed by shareInteractionSource.collectIsPressedAsState()
-    val scaleReminder by animateFloatAsState(if (reminderPressed) 0.96f else 1f, AnimationSpecs.springButton, label = "reminder")
-    val scalePin by animateFloatAsState(if (pinPressed) 0.96f else 1f, AnimationSpecs.springButton, label = "pin")
-    val scaleEdit by animateFloatAsState(if (editPressed) 0.96f else 1f, AnimationSpecs.springButton, label = "edit")
-    val scaleDelete by animateFloatAsState(if (deletePressed) 0.96f else 1f, AnimationSpecs.springButton, label = "delete")
-    val scaleShare by animateFloatAsState(if (sharePressed) 0.96f else 1f, AnimationSpecs.springButton, label = "share")
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 48.dp, bottom = 24.dp), // 涓婃柟鐣欏嚭澶ч噺绌虹櫧
-        horizontalArrangement = Arrangement.SpaceEvenly, // 姘村钩鍒嗘暎瀵归綈
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier
-                .clickable(
-                    interactionSource = reminderInteractionSource,
-                    indication = LocalIndication.current,
-                    onClick = onReminderCalendarClick
-                )
-                .graphicsLayer { scaleX = scaleReminder; scaleY = scaleReminder }
-                .padding(8.dp)
-        ) {
-            Icon(
-                Icons.Outlined.Notifications,
-                contentDescription = stringResource(R.string.button_reminder_calendar),
-                modifier = Modifier.size(24.dp),
-                tint = if (isReminderOrScheduleEnabled) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
-                }
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                stringResource(R.string.button_reminder_calendar),
-                style = MaterialTheme.typography.labelSmall,
-                color = if (isReminderOrScheduleEnabled) {
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
-                } else {
-                    MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
-                }
-            )
-        }
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier
-                .clickable(
-                    interactionSource = pinInteractionSource,
-                    indication = LocalIndication.current,
-                    onClick = onPinClick
-                )
-                .graphicsLayer { scaleX = scalePin; scaleY = scalePin }
-                .padding(8.dp)
-        ) {
-            Icon(
-                Icons.Outlined.PushPin,
-                contentDescription = if (isPinned) stringResource(R.string.button_unpin) else stringResource(R.string.button_pin),
-                modifier = Modifier.size(24.dp),
-                tint = if (isPinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                if (isPinned) stringResource(R.string.button_unpin) else stringResource(R.string.button_pin),
-                style = MaterialTheme.typography.labelSmall,
-                color = if (isPinned) MaterialTheme.colorScheme.primary.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
-            )
-        }
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier
-                .clickable(
-                    interactionSource = editInteractionSource,
-                    indication = LocalIndication.current,
-                    onClick = onEditClick
-                )
-                .graphicsLayer { scaleX = scaleEdit; scaleY = scaleEdit }
-                .padding(8.dp)
-        ) {
-            Icon(Icons.Outlined.Edit, contentDescription = stringResource(R.string.cd_edit), modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f))
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(stringResource(R.string.button_edit), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f))
-        }
-        
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier
-                .clickable(
-                    interactionSource = shareInteractionSource,
-                    indication = LocalIndication.current,
-                    onClick = onShareClick
-                )
-                .graphicsLayer { scaleX = scaleShare; scaleY = scaleShare }
-                .padding(8.dp)
-        ) {
-            Icon(Icons.Outlined.Share, contentDescription = stringResource(R.string.cd_share), modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f))
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(stringResource(R.string.button_share), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f))
-        }
-
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier
-                .clickable(
-                    interactionSource = deleteInteractionSource,
-                    indication = LocalIndication.current,
-                    onClick = onDeleteClick
-                )
-                .graphicsLayer { scaleX = scaleDelete; scaleY = scaleDelete }
-                .padding(8.dp)
-        ) {
-            Icon(Icons.Outlined.Delete, contentDescription = stringResource(R.string.cd_delete), modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f))
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(stringResource(R.string.button_delete), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error.copy(alpha = 0.5f))
-        }
-    }
-}
-
-@Composable
 private fun DetailLabelRow(label: String, value: String, contentColor: androidx.compose.ui.graphics.Color) {
     Row(
         modifier = Modifier
@@ -904,7 +760,7 @@ private fun DetailLabelRow(label: String, value: String, contentColor: androidx.
             text = "$label:",
             style = MaterialTheme.typography.bodyLarge,
             color = contentColor.copy(alpha = 0.75f),
-            modifier = Modifier.width(80.dp) // 缁?Label 鐣欏嚭鍥哄畾绌洪棿锛岃惀閫犳姌椤甸敊钀芥劅
+            modifier = Modifier.width(80.dp)
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
@@ -915,7 +771,4 @@ private fun DetailLabelRow(label: String, value: String, contentColor: androidx.
         )
     }
 }
-
-
-
 

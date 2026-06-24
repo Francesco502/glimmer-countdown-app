@@ -66,7 +66,9 @@ fun BottomSheetDatePicker(
     var yearInput by remember { mutableStateOf(selectedDate.year.toString()) }
     var monthInput by remember { mutableStateOf(selectedDate.monthValue.toString().padStart(2, '0')) }
     var dayInput by remember { mutableStateOf(selectedDate.dayOfMonth.toString().padStart(2, '0')) }
+    var lunarYearInput by remember { mutableStateOf(selectedDate.year.toString()) }
     var solarInputError by remember { mutableStateOf<String?>(null) }
+    var lunarInputError by remember { mutableStateOf<String?>(null) }
     val invalidDateInputMessage = stringResource(R.string.date_picker_invalid_input)
 
     val focusManager = LocalFocusManager.current
@@ -92,6 +94,12 @@ fun BottomSheetDatePicker(
             solar.lunar
         } catch (_: Throwable) {
             null
+        }
+    }
+    LaunchedEffect(isLunarMode, currentLunar?.year) {
+        if (isLunarMode) {
+            lunarYearInput = currentLunar?.year?.toString() ?: selectedDate.year.toString()
+            lunarInputError = null
         }
     }
 
@@ -164,18 +172,33 @@ fun BottomSheetDatePicker(
 
     val paddingCount = WHEEL_VISIBLE_COUNT / 2
 
-    // 婊氳疆鐘舵€侊紙鑰冭檻椤堕儴 padding锛?
+    val initialYearIndex = if (initialIsLunar && currentLunar != null) {
+        currentLunar.year - yearRange.first
+    } else {
+        selectedDate.year - yearRange.first
+    }.coerceIn(0, years.lastIndex)
+    val initialMonthIndex = if (initialIsLunar && currentLunar != null && lunarMonths.isNotEmpty()) {
+        lunarMonths.indexOf(currentLunar.month).takeIf { it >= 0 } ?: 0
+    } else {
+        selectedDate.monthValue - 1
+    }.coerceAtLeast(0)
+    val initialDayIndex = if (initialIsLunar && currentLunar != null) {
+        currentLunar.day - 1
+    } else {
+        selectedDate.dayOfMonth - 1
+    }.coerceAtLeast(0)
+
     val yearState = rememberLazyListState(
-        initialFirstVisibleItemIndex = (selectedDate.year - yearRange.first).coerceAtLeast(0)
+        initialFirstVisibleItemIndex = initialYearIndex
     )
     val monthState = rememberLazyListState(
-        initialFirstVisibleItemIndex = selectedDate.monthValue - 1
+        initialFirstVisibleItemIndex = initialMonthIndex
     )
     val dayState = rememberLazyListState(
-        initialFirstVisibleItemIndex = selectedDate.dayOfMonth - 1
+        initialFirstVisibleItemIndex = initialDayIndex
     )
 
-    // 褰撴粴杞彉鍖栨椂鏇存柊閫変腑鏃ユ湡锛堟粴杞?鈫?杈撳叆妗嗭級
+    // Keep wheels, selected date, and input fields synchronized.
     WheelSyncEffect(
         listState = yearState,
         items = years,
@@ -210,6 +233,7 @@ fun BottomSheetDatePicker(
             yearInput = selectedDate.year.toString()
             monthInput = selectedDate.monthValue.toString().padStart(2, '0')
             dayInput = selectedDate.dayOfMonth.toString().padStart(2, '0')
+            lunarInputError = null
         }
     )
     WheelSyncEffect(
@@ -246,6 +270,7 @@ fun BottomSheetDatePicker(
             yearInput = selectedDate.year.toString()
             monthInput = selectedDate.monthValue.toString().padStart(2, '0')
             dayInput = selectedDate.dayOfMonth.toString().padStart(2, '0')
+            lunarInputError = null
         }
     )
     WheelSyncEffect(
@@ -280,56 +305,9 @@ fun BottomSheetDatePicker(
             yearInput = selectedDate.year.toString()
             monthInput = selectedDate.monthValue.toString().padStart(2, '0')
             dayInput = selectedDate.dayOfMonth.toString().padStart(2, '0')
+            lunarInputError = null
         }
     )
-
-    // 杈撳叆妗?鈫?婊氳疆 & 鏃ユ湡
-    fun applyInputAndSyncWheels() {
-        if (isLunarMode) {
-            // 鍐滃巻妯″紡涓嬫殏涓嶆敮鎸侀€氳繃杈撳叆妗嗙洿鎺ヤ慨鏀硅仈鍔紝鐩存帴杩樺師涓哄綋鍓嶉€変腑鏃ユ湡
-            yearInput = selectedDate.year.toString()
-            monthInput = selectedDate.monthValue.toString().padStart(2, '0')
-            dayInput = selectedDate.dayOfMonth.toString().padStart(2, '0')
-            return
-        }
-
-        val year = yearInput.toIntOrNull()
-        val month = monthInput.toIntOrNull()
-        val day = dayInput.toIntOrNull()
-
-        if (year == null || month == null || day == null) {
-            // 闈炴硶杈撳叆锛氳繕鍘熶负褰撳墠閫変腑鏃ユ湡
-            yearInput = selectedDate.year.toString()
-            monthInput = selectedDate.monthValue.toString().padStart(2, '0')
-            dayInput = selectedDate.dayOfMonth.toString().padStart(2, '0')
-            return
-        }
-
-        if (year !in yearRange || month !in 1..12) {
-            yearInput = selectedDate.year.toString()
-            monthInput = selectedDate.monthValue.toString().padStart(2, '0')
-            dayInput = selectedDate.dayOfMonth.toString().padStart(2, '0')
-            return
-        }
-
-        val ym = YearMonth.of(year, month)
-        if (day !in 1..ym.lengthOfMonth()) {
-            yearInput = selectedDate.year.toString()
-            monthInput = selectedDate.monthValue.toString().padStart(2, '0')
-            dayInput = selectedDate.dayOfMonth.toString().padStart(2, '0')
-            return
-        }
-
-        // 鍚堟硶杈撳叆锛氭洿鏂版棩鏈熷苟婊氬姩婊氳疆
-        selectedDate = LocalDate.of(year, month, day)
-        scope.launch {
-            isProgrammaticScroll = true
-            yearState.animateScrollToItem((year - yearRange.first).coerceAtLeast(0))
-            monthState.animateScrollToItem(month - 1)
-            dayState.animateScrollToItem(day - 1)
-            isProgrammaticScroll = false
-        }
-    }
 
     fun syncInputFieldsToSelectedDate() {
         yearInput = selectedDate.year.toString()
@@ -337,11 +315,62 @@ fun BottomSheetDatePicker(
         dayInput = selectedDate.dayOfMonth.toString().padStart(2, '0')
     }
 
+    fun validateAndSyncLunarYearInput(): Boolean {
+        val lunar = currentLunar
+        val targetYear = lunarYearInput.toIntOrNull()
+        if (lunar == null || targetYear == null || targetYear !in yearRange) {
+            lunarInputError = invalidDateInputMessage
+            return false
+        }
+
+        val monthObj = try {
+            LunarMonth.fromYm(targetYear, lunar.month)
+        } catch (_: Throwable) {
+            null
+        }
+        val safeDay = if (monthObj != null) {
+            lunar.day.coerceAtMost(monthObj.dayCount)
+        } else {
+            lunar.day
+        }
+        val solar = try {
+            Lunar.fromYmd(targetYear, lunar.month, safeDay).solar
+        } catch (_: Throwable) {
+            lunarInputError = invalidDateInputMessage
+            return false
+        }
+        val parsedDate = runCatching {
+            LocalDate.of(solar.year, solar.month, solar.day)
+        }.getOrNull()
+        if (parsedDate == null) {
+            lunarInputError = invalidDateInputMessage
+            return false
+        }
+
+        lunarInputError = null
+        lunarYearInput = targetYear.toString()
+        selectedDate = parsedDate
+        syncInputFieldsToSelectedDate()
+        scope.launch {
+            val targetMonths = try {
+                @Suppress("UNCHECKED_CAST")
+                (LunarYear.fromYear(targetYear).monthsInYear as List<LunarMonth>).map { it.month }
+            } catch (_: Throwable) {
+                lunarMonths
+            }
+            val monthIndex = targetMonths.indexOf(lunar.month).takeIf { it >= 0 } ?: 0
+            isProgrammaticScroll = true
+            yearState.animateScrollToItem((targetYear - yearRange.first).coerceIn(0, years.lastIndex))
+            monthState.animateScrollToItem(monthIndex)
+            dayState.animateScrollToItem((safeDay - 1).coerceAtLeast(0))
+            isProgrammaticScroll = false
+        }
+        return true
+    }
+
     fun validateAndSyncInputWheels(): Boolean {
         if (isLunarMode) {
-            solarInputError = null
-            syncInputFieldsToSelectedDate()
-            return true
+            return validateAndSyncLunarYearInput()
         }
 
         val parsedDate = parseSolarDateInput(yearInput, monthInput, dayInput, yearRange)
@@ -382,7 +411,7 @@ fun BottomSheetDatePicker(
                 .background(MaterialTheme.colorScheme.surface)
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
-            // 椤堕儴鎿嶄綔鍖?
+            // Header actions.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -403,7 +432,7 @@ fun BottomSheetDatePicker(
                 )
                 TextButton(onClick = {
                     focusManager.clearFocus()
-                    if (!isLunarMode && !validateAndSyncInputWheels()) {
+                    if (!validateAndSyncInputWheels()) {
                         return@TextButton
                     }
                     val millis = selectedDate
@@ -417,7 +446,7 @@ fun BottomSheetDatePicker(
                 }
             }
 
-            // 鍏巻 / 鍐滃巻 妯″紡鍒囨崲锛堝綋鍓嶄粎鏍囪绫诲瀷锛屾棩鏈熶緷鐒朵娇鐢ㄥ叕鍘嗘粴杞€夋嫨锛?
+            // Solar/lunar mode switch.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -453,7 +482,7 @@ fun BottomSheetDatePicker(
                 )
             }
 
-            // 鎵嬪姩杈撳叆鍖猴紙骞?/ 鏈?/ 鏃ワ級
+            // Manual date input.
             if (!isLunarMode) {
                 Row(
                     modifier = Modifier
@@ -513,12 +542,47 @@ fun BottomSheetDatePicker(
                     )
                 }
             } else {
-                // 鍐滃巻妯″紡涓嬮殣钘忔墜鍔ㄨ緭鍏ユ锛屼粎淇濈暀鍗犱綅浠ラ槻楂樺害绐佸彉锛屾垨鑰呯洿鎺ョЩ闄?
-                // 杩欓噷閫夋嫨鐩存帴绉婚櫎锛岃婊氳疆鍖哄煙鏇村ぇ鎴栬€呬繚鎸佺揣鍑?
-                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    DatePartField(
+                        label = stringResource(R.string.date_part_year),
+                        value = lunarYearInput,
+                        onValueChange = { new ->
+                            lunarInputError = null
+                            lunarYearInput = new.filter { it.isDigit() }.take(4)
+                        },
+                        onDone = {
+                            focusManager.clearFocus()
+                            validateAndSyncInputWheels()
+                        },
+                        isError = lunarInputError != null,
+                        modifier = Modifier.weight(1.4f)
+                    )
+                    Text(
+                        text = currentLunar?.let { lunar ->
+                            "${monthLabel(lunar.month)} ${dayLabel(lunar.day)}"
+                        }.orEmpty(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(2f)
+                    )
+                }
+                lunarInputError?.let { errorMessage ->
+                    Text(
+                        text = errorMessage,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(start = 4.dp, bottom = 12.dp)
+                    )
+                }
             }
 
-            // 婊氳疆閫夋嫨鍖?
+            // Wheel picker.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -588,7 +652,7 @@ private fun DatePartField(
         modifier = modifier.onFocusChanged { state ->
             val nowFocused = state.isFocused
             if (hasFocus && !nowFocused) {
-                // 澶卞幓鐒︾偣鏃惰Е鍙戜竴娆℃牎楠?
+                // Validate when the field loses focus.
                 onDone()
             }
             hasFocus = nowFocused
@@ -663,7 +727,7 @@ private fun <T> WheelColumn(
             }
         }
 
-        // 涓棿閫変腑鍖哄煙鐨勨€滃畫寮忊€濊竟妗嗛珮浜?
+        // Center selection indicator.
         val primaryColor = MaterialTheme.colorScheme.primary
         Box(
             modifier = Modifier
@@ -713,6 +777,4 @@ private fun <T> WheelSyncEffect(
         }
     }
 }
-
-
 

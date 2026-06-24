@@ -38,7 +38,6 @@ private val DATE_FORMAT_MODE = intPreferencesKey("date_format_mode")
 private val DATE_DELTA_DISPLAY_MODE = intPreferencesKey("date_delta_display_mode")
 private val PER_EVENT_DATE_DELTA_MODES = stringPreferencesKey("per_event_date_delta_modes")
 private val CUSTOM_MILESTONES_JSON = stringPreferencesKey("custom_milestones_json")
-private val HAS_SEEN_SWIPE_HINT = booleanPreferencesKey("has_seen_swipe_hint")
 private val CUSTOM_EVENT_ORDER_JSON = stringPreferencesKey("custom_event_order_json")
 private val PINNED_EVENT_IDS_JSON = stringPreferencesKey("pinned_event_ids_json")
 private val MILESTONE_REMIND_ENABLED = booleanPreferencesKey("milestone_remind_enabled")
@@ -136,7 +135,6 @@ class UserPreferencesRepository(private val context: Context) {
         val raw = prefs[PER_EVENT_DATE_DELTA_MODES] ?: return@map emptyMap()
         parsePerEventDateDeltaModes(raw)
     }
-    val hasSeenSwipeHintFlow: Flow<Boolean> = context.dataStore.data.map { it[HAS_SEEN_SWIPE_HINT] ?: false }
     val customEventOrderFlow: Flow<List<Int>> = context.dataStore.data.map { prefs ->
         parseCustomEventOrder(prefs[CUSTOM_EVENT_ORDER_JSON] ?: "")
     }
@@ -298,10 +296,6 @@ class UserPreferencesRepository(private val context: Context) {
             val next = current + (eventId to m)
             prefs[PER_EVENT_DATE_DELTA_MODES] = JSONObject(next.mapKeys { it.key.toString() }).toString()
         }
-    }
-
-    suspend fun setHasSeenSwipeHint(seen: Boolean) {
-        context.dataStore.edit { it[HAS_SEEN_SWIPE_HINT] = seen }
     }
 
     suspend fun setCustomEventOrder(orderedIds: List<Int>) {

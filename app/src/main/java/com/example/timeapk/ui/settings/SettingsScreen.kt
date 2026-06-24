@@ -26,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -39,12 +40,15 @@ fun SettingsScreen(
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var currentCategory by remember { mutableStateOf<SettingsCategory?>(null) }
+    var currentCategoryName by rememberSaveable { mutableStateOf<String?>(null) }
+    val currentCategory = currentCategoryName?.let { name ->
+        SettingsCategory.entries.firstOrNull { it.name == name }
+    }
     val snackbarHostState = remember { SnackbarHostState() }
 
     // Intercept back press when in a sub-screen
     BackHandler(enabled = currentCategory != null) {
-        currentCategory = null
+        currentCategoryName = null
     }
 
     Scaffold(
@@ -70,7 +74,7 @@ fun SettingsScreen(
                     IconButton(
                         onClick = {
                             if (currentCategory != null) {
-                                currentCategory = null
+                                currentCategoryName = null
                             } else {
                                 onNavigateBack()
                             }
@@ -101,7 +105,7 @@ fun SettingsScreen(
                 modifier = baseModifier.verticalScroll(rememberScrollState())
             ) {
                 SettingsCategoryList(
-                    onCategoryClick = { currentCategory = it }
+                    onCategoryClick = { currentCategoryName = it.name }
                 )
             }
         } else {
@@ -123,7 +127,6 @@ fun SettingsScreen(
                     snackbarHostState = snackbarHostState,
                     modifier = baseModifier
                 )
-                else -> {}
             }
         }
     }

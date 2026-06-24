@@ -7,6 +7,11 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import com.example.timeapk.ui.theme.AnimationSpecs
 import androidx.compose.runtime.LaunchedEffect
@@ -16,8 +21,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -34,6 +42,7 @@ import com.example.timeapk.ui.home.toEventUiState
 import com.example.timeapk.ui.splash.SplashScreen
 import com.example.timeapk.data.DEFAULT_MILESTONE_DAYS
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.launch
 
 object Routes {
     const val Splash = "Splash"
@@ -100,6 +109,11 @@ fun TimeApp(
                 }
             }
 
+            val homeSnackbarHostState = remember { SnackbarHostState() }
+            val scope = androidx.compose.runtime.rememberCoroutineScope()
+            val deletedMessage = stringResource(R.string.event_deleted)
+            val undoLabel = stringResource(R.string.action_undo)
+
             Box(Modifier.fillMaxSize()) {
                 HomeScreen(
                     navigateToItemEntry = { navController.navigate(Routes.Add) },
@@ -111,21 +125,51 @@ fun TimeApp(
                     val eventId = selectedEventIdForDetail!!
                     val context = LocalContext.current
                     val app = context.applicationContext as TimeApplication
-                    val event by app.repository.getEventFlow(eventId).collectAsState(initial = null)
+                    val eventLoadState by androidx.compose.runtime.produceState(
+                        initialValue = false to null as com.example.timeapk.data.Event?,
+                        key1 = eventId
+                    ) {
+                        app.repository.getEventFlow(eventId).collect { event ->
+                            value = true to event
+                        }
+                    }
+                    val event = eventLoadState.second
                     val milestones by app.userPrefs.customMilestonesFlow.collectAsState(initial = DEFAULT_MILESTONE_DAYS)
                     val eventState = event?.toEventUiState(milestones)
                     val homeViewModel: com.example.timeapk.ui.home.HomeViewModel = viewModel(factory = AppViewModelProvider.Factory)
                     DetailScreen(
                         eventState = eventState,
+                        eventMissing = eventLoadState.first && eventState == null,
                         onNavigateBack = { selectedEventIdForDetail = null },
                         onEditClick = {
                             selectedEventIdForDetail = null
                             navController.navigate(Routes.edit(eventId)) { launchSingleTop = true }
                         },
-                        onDeleteClick = { eventState?.event?.let { homeViewModel.deleteEvent(it) } },
+                        onDeleteClick = {
+                            eventState?.event?.let { deletedEvent ->
+                                homeViewModel.deleteEvent(deletedEvent)
+                                scope.launch {
+                                    val result = homeSnackbarHostState.showSnackbar(
+                                        message = deletedMessage,
+                                        actionLabel = undoLabel,
+                                        withDismissAction = true,
+                                        duration = SnackbarDuration.Short
+                                    )
+                                    if (result == SnackbarResult.ActionPerformed) {
+                                        homeViewModel.restoreEvent(deletedEvent)
+                                    }
+                                }
+                            }
+                        },
                         modifier = Modifier.fillMaxSize()
                     )
                 }
+                SnackbarHost(
+                    hostState = homeSnackbarHostState,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 88.dp)
+                )
             }
         }
         composable(Routes.Settings) {

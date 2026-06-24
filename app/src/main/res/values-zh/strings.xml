@@ -38,6 +38,7 @@
     <string name="sort_menu">排序</string>
     <string name="display_mode_card">卡片</string>
     <string name="display_mode_list">列表</string>
+    <string name="home_custom_sort_hint">自定义排序：长按事件卡片并拖动可调整顺序</string>
     <string name="home_density_title">首页信息</string>
     <string name="home_density_compact">简洁</string>
     <string name="home_density_detailed">详细</string>
@@ -85,15 +86,26 @@
     <string name="search_hint">搜索标题、分类、备注</string>
     <string name="export_import">导出 / 导入</string>
     <string name="export_events">导出事件</string>
+    <string name="export_events_file">保存 JSON 文件</string>
     <string name="import_events">导入事件</string>
-    <string name="import_hint">粘贴 JSON 或从文件导入</string>
+    <string name="import_hint">粘贴 JSON，或导入 JSON / 记得日子 .mdb 备份文件</string>
     <string name="import_from_file">从文件选择</string>
+    <string name="import_preview_action">预览导入</string>
+    <string name="import_preview_summary">识别%1$d条，可导入%2$d条，跳过重复%3$d条，解析失败%4$d条</string>
+    <string name="import_preview_more">还有 %1$d 条</string>
+    <string name="import_preview_empty_after_duplicates">这些事件已存在，没有新的可导入事件。</string>
     <string name="export_csv">导出 CSV</string>
+    <string name="export_csv_file">保存 CSV 文件</string>
     <string name="export_plain_text">分享为纯文本</string>
+    <string name="export_file_saved">文件已保存</string>
+    <string name="export_file_failed">文件保存失败</string>
     <plurals name="import_success">
         <item quantity="other">已导入 %d 条</item>
     </plurals>
     <string name="import_error">导入失败</string>
+    <string name="import_error_empty_file">文件为空，未导入任何事件</string>
+    <string name="import_error_unsupported_format">无法识别该文件。请导入 JSON 或“记得日子” .mdb 备份。</string>
+    <string name="import_error_no_events">未识别到可导入事件</string>
     <string name="title_new_event">新建事件</string>
     <string name="title_edit_event">编辑事件</string>
     <string name="field_title">标题</string>
@@ -101,6 +113,10 @@
     <string name="field_date">日期</string>
     <string name="field_note">备注</string>
     <string name="field_card_color">卡片颜色</string>
+    <string name="cd_event_color_option">卡片颜色 %1$s</string>
+    <string name="cd_event_color_selected">%1$s，已选择</string>
+    <string name="cd_custom_event_color">自定义卡片颜色</string>
+    <string name="cd_no_event_color">不使用卡片颜色</string>
     <string name="button_save_event">保存</string>
     <string name="date_picker_ok">确定</string>
     <string name="date_picker_cancel">取消</string>
@@ -115,6 +131,8 @@
     <string name="delete_confirm_message">确定要删除「%1$s」吗？</string>
     <string name="delete_confirm_ok">删除</string>
     <string name="delete_confirm_cancel">取消</string>
+    <string name="event_deleted">事件已删除</string>
+    <string name="action_undo">撤销</string>
     <plurals name="share_text_countdown">
         <item quantity="other">距离 %1$s 还有 %2$d 天</item>
     </plurals>
@@ -262,6 +280,7 @@
     <string name="save_event_partial_warning">事件已保存，但部分提醒/同步操作失败，请检查权限与系统设置。</string>
     <string name="save_event_partial_warning_no_writable_calendar">事件已保存，但当前系统中没有可写日历，未能同步到系统日程。请检查日历账户或同步设置。</string>
     <string name="import_partial_summary">导入完成：成功%1$d，失败%2$d，警告%3$d</string>
+    <string name="import_completed_detailed">导入完成：识别%1$d，导入%2$d，跳过重复%3$d，失败%4$d，警告%5$d</string>
     <string name="settings_milestone_remind_time_title">里程碑提醒时间</string>
     <string name="settings_milestone_remind_time_hint">HH:mm（例如 08:30）</string>
     <string name="display_mode_calendar">月历</string>

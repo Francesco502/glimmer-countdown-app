@@ -46,6 +46,7 @@
     <string name="sort_menu">Sort</string>
     <string name="display_mode_card">Cards</string>
     <string name="display_mode_list">List</string>
+    <string name="home_custom_sort_hint">Custom order: long-press an event card and drag to reorder.</string>
     <string name="home_density_title">Home info</string>
     <string name="home_density_compact">Compact</string>
     <string name="home_density_detailed">Detailed</string>
@@ -105,16 +106,27 @@
     <!-- Export / Import -->
     <string name="export_import">Export / Import</string>
     <string name="export_events">Export events</string>
+    <string name="export_events_file">Save JSON file</string>
     <string name="import_events">Import events</string>
-    <string name="import_hint">Paste JSON or import from file</string>
+    <string name="import_hint">Paste JSON, or import JSON / Remember Days .mdb backups</string>
     <string name="import_from_file">Choose file</string>
+    <string name="import_preview_action">Preview import</string>
+    <string name="import_preview_summary">Found %1$d, ready %2$d, duplicates skipped %3$d, parse failed %4$d</string>
+    <string name="import_preview_more">%1$d more</string>
+    <string name="import_preview_empty_after_duplicates">These events already exist. There are no new events to import.</string>
     <string name="export_csv">Export CSV</string>
+    <string name="export_csv_file">Save CSV file</string>
     <string name="export_plain_text">Share as plain text</string>
+    <string name="export_file_saved">File saved</string>
+    <string name="export_file_failed">Could not save file</string>
     <plurals name="import_success">
         <item quantity="one">Imported %d item</item>
         <item quantity="other">Imported %d items</item>
     </plurals>
     <string name="import_error">Import failed</string>
+    <string name="import_error_empty_file">The file is empty. No events were imported.</string>
+    <string name="import_error_unsupported_format">This file could not be recognized. Import JSON or a Remember Days .mdb backup.</string>
+    <string name="import_error_no_events">No importable events were found</string>
 
     <!-- Event entry / Edit -->
     <string name="title_new_event">New event</string>
@@ -124,6 +136,10 @@
     <string name="field_date">Date</string>
     <string name="field_note">Note</string>
     <string name="field_card_color">Card color</string>
+    <string name="cd_event_color_option">Card color %1$s</string>
+    <string name="cd_event_color_selected">%1$s, selected</string>
+    <string name="cd_custom_event_color">Custom card color</string>
+    <string name="cd_no_event_color">No card color</string>
     <string name="button_save_event">Save</string>
     <string name="date_picker_ok">OK</string>
     <string name="date_picker_cancel">Cancel</string>
@@ -140,6 +156,8 @@
     <string name="delete_confirm_message">Delete \"%1$s\"?</string>
     <string name="delete_confirm_ok">Delete</string>
     <string name="delete_confirm_cancel">Cancel</string>
+    <string name="event_deleted">Event deleted</string>
+    <string name="action_undo">Undo</string>
 
     <!-- Share -->
     <plurals name="share_text_countdown">
@@ -318,6 +336,7 @@
     <string name="save_event_partial_warning">Event saved, but some reminder/sync steps failed. Please check permissions and system settings.</string>
     <string name="save_event_partial_warning_no_writable_calendar">Event saved, but it could not sync to your system calendar because no writable calendar is available. Check your calendar account or sync settings.</string>
     <string name="import_partial_summary">Import completed: success %1$d, failed %2$d, warnings %3$d</string>
+    <string name="import_completed_detailed">Import completed: found %1$d, imported %2$d, duplicates skipped %3$d, failed %4$d, warnings %5$d</string>
     <string name="settings_milestone_remind_time_title">Milestone reminder time</string>
     <string name="settings_milestone_remind_time_hint">HH:mm (e.g. 08:30)</string>
     <string name="display_mode_calendar">Calendar</string>
@@ -368,11 +387,6 @@
     <string name="discard_changes_dialog_confirm">Discard</string>
     <string name="discard_changes_dialog_dismiss">Keep editing</string>
 </resources>
-
-
-
-
-
 
 
 

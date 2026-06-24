@@ -178,7 +178,7 @@ fun formatLunarDateString(solarDate: LocalDate, context: Context? = null): Strin
  * @param lunarMonth 农历月，1..12，闰月为负
  * @param lunarDay 农历日，1..31
  */
-private fun buildLunarSolarDateForYear(
+internal fun buildLunarSolarDateForYear(
     year: Int,
     lunarMonth: Int,
     lunarDay: Int

@@ -29,9 +29,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CalendarMonth
-import androidx.compose.material.icons.automirrored.outlined.ViewList
-import androidx.compose.material.icons.outlined.ViewModule
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
@@ -119,6 +116,7 @@ fun HomeScreen(
     viewModel: HomeViewModel = viewModel(factory = com.example.timeapk.ui.AppViewModelProvider.Factory)
 ) {
     val homeUiState by viewModel.homeUiState.collectAsState()
+    val calendarUiState by viewModel.calendarUiState.collectAsState()
     val context = LocalContext.current
     val prefs = (context.applicationContext as TimeApplication).userPrefs
     val today = LocalDate.now()
@@ -259,7 +257,6 @@ fun HomeScreen(
                 containerColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f),
                 labelColor = MaterialTheme.colorScheme.onBackground
             )
-            val nextMode = (homeDisplayMode + 1) % 3
             val hasActiveFilter = filterType != FilterType.All
             var showFilterPanel by remember { mutableStateOf(hasActiveFilter) }
             var showSearchBar by remember { mutableStateOf(searchQuery.isNotBlank()) }
@@ -330,21 +327,14 @@ fun HomeScreen(
                         )
                     }
                 }
-                InlineActionIconButton(
-                    icon = when (homeDisplayMode) {
-                        0 -> Icons.Outlined.ViewModule
-                        1 -> Icons.AutoMirrored.Outlined.ViewList
-                        else -> Icons.Outlined.CalendarMonth
-                    },
-                    contentDescription = when (homeDisplayMode) {
-                        0 -> stringResource(R.string.display_mode_card)
-                        1 -> stringResource(R.string.display_mode_list)
-                        else -> stringResource(R.string.display_mode_calendar)
-                    },
-                    active = homeDisplayMode == 2,
-                    onClick = { homeDisplayMode = nextMode }
-                )
             }
+            HomeDisplayModeSegmentedControl(
+                selectedMode = homeDisplayMode,
+                onModeSelected = { homeDisplayMode = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+            )
 
             if (hasActiveFilter) {
                 val activeLabel = when {
@@ -427,13 +417,21 @@ fun HomeScreen(
                     }
                 }
             }
+            if (sortType == SortType.Custom && homeDisplayMode != 2 && displayedList.isNotEmpty()) {
+                Text(
+                    text = stringResource(R.string.home_custom_sort_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
+                )
+            }
             // Event list / month view
             if (homeDisplayMode == 2) {
-                if (displayedList.isEmpty()) {
+                if (calendarUiState.isEmpty()) {
                     EmptyState(modifier = Modifier.fillMaxSize())
                 } else {
                     MonthCalendarView(
-                        events = displayedList,
+                        events = calendarUiState,
                         selectedDate = today,
                         onEventClick = { navigateToDetail(it) },
                         onEventLongClick = null,
@@ -597,6 +595,37 @@ fun HomeScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun HomeDisplayModeSegmentedControl(
+    selectedMode: Int,
+    onModeSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val modes = listOf(
+        0 to stringResource(R.string.display_mode_card),
+        1 to stringResource(R.string.display_mode_list),
+        2 to stringResource(R.string.display_mode_calendar)
+    )
+    SingleChoiceSegmentedButtonRow(modifier = modifier) {
+        modes.forEachIndexed { index, (mode, label) ->
+            SegmentedButton(
+                selected = selectedMode == mode,
+                onClick = { onModeSelected(mode) },
+                shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size),
+                icon = {},
+                label = {
+                    Text(
+                        text = label,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            )
         }
     }
 }
@@ -1261,7 +1290,10 @@ private fun MonthCalendarView(
     val selectedDateFormatter = remember(locale, selectedDatePattern) {
         DateTimeFormatter.ofPattern(selectedDatePattern, locale)
     }
-    val eventsByDate = remember(events) { events.groupBy { it.nextOccurrenceDate } }
+    val occurrences = remember(events, currentMonth) {
+        calendarOccurrencesForMonth(events, currentMonth)
+    }
+    val eventsByDate = remember(occurrences) { occurrences.groupBy { it.date } }
 
     val daysInMonth = currentMonth.lengthOfMonth()
     val monthStart = currentMonth.atDay(1)
@@ -1335,7 +1367,7 @@ private fun MonthCalendarView(
                     val dayPreview = if (dayEvents.isEmpty()) {
                         ""
                     } else {
-                        val firstTitle = dayEvents.first().event.title
+                        val firstTitle = dayEvents.first().eventState.event.title
                         if (dayEvents.size > 1) "$firstTitle +${dayEvents.size - 1}" else firstTitle
                     }
                     Surface(
@@ -1419,7 +1451,7 @@ private fun MonthCalendarView(
             modifier = Modifier.padding(top = 4.dp)
         )
 
-        val selectedEvents = eventsByDate[pickedDate].orEmpty().sortedBy { it.daysRemaining }
+        val selectedEvents = eventsByDate[pickedDate].orEmpty()
         if (selectedEvents.isEmpty()) {
             Text(
                 text = stringResource(R.string.calendar_no_events),
@@ -1432,18 +1464,18 @@ private fun MonthCalendarView(
                 verticalArrangement = Arrangement.spacedBy(6.dp),
                 contentPadding = PaddingValues(bottom = 8.dp)
             ) {
-                items(selectedEvents, key = { it.event.id }) { state ->
+                items(selectedEvents, key = { "${it.eventState.event.id}-${it.date}" }) { occurrence ->
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
                             .then(
                                 if (onEventLongClick != null) {
                                     Modifier.combinedClickable(
-                                        onClick = { onEventClick(state.event.id) },
-                                        onLongClick = { onEventLongClick(state.event.id) }
+                                        onClick = { onEventClick(occurrence.eventState.event.id) },
+                                        onLongClick = { onEventLongClick(occurrence.eventState.event.id) }
                                     )
                                 } else {
-                                    Modifier.clickable { onEventClick(state.event.id) }
+                                    Modifier.clickable { onEventClick(occurrence.eventState.event.id) }
                                 }
                             ),
                         shape = MaterialTheme.shapes.medium,
@@ -1458,7 +1490,7 @@ private fun MonthCalendarView(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = state.event.title,
+                                text = occurrence.eventState.event.title,
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1,
@@ -1472,10 +1504,6 @@ private fun MonthCalendarView(
         }
     }
 }
-
-
-
-
 
 
 
