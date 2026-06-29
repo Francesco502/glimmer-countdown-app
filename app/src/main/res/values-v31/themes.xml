@@ -12,7 +12,7 @@
     </style>
 
     <style name="Theme.TimeAPK.Widget" parent="android:Theme.DeviceDefault.DayNight">
-        <item name="widgetBackgroundRadius">@android:dimen/system_app_widget_background_radius</item>
+        <item name="widgetBackgroundRadius">@dimen/widget_background_radius</item>
         <item name="widgetItemRadius">@dimen/widget_item_radius</item>
         <item name="widgetSurfaceColor">@color/widget_surface_color</item>
         <item name="widgetSurfaceHighlightColor">@color/widget_surface_highlight_color</item>

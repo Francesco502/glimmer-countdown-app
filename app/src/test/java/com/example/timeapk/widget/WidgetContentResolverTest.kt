@@ -1,5 +1,6 @@
 package com.example.timeapk.widget
 
+import com.example.timeapk.data.CATEGORY_BIRTHDAY
 import com.example.timeapk.data.CATEGORY_OTHER
 import com.example.timeapk.data.Event
 import com.example.timeapk.data.REPEAT_NONE
@@ -46,6 +47,95 @@ class WidgetContentResolverTest {
         )
 
         assertEquals(DisplayModes.UNTIL_DAYS, resolved)
+    }
+
+    @Test
+    fun filterAndSortStates_appliesContentScopes() {
+        val birthday = Event(
+            id = 1,
+            title = "birthday",
+            date = epochMillisOf(LocalDate.now().plusDays(3)),
+            category = CATEGORY_BIRTHDAY,
+            repeatType = REPEAT_NONE
+        )
+        val normal = Event(
+            id = 2,
+            title = "normal",
+            date = epochMillisOf(LocalDate.now().plusDays(8)),
+            category = CATEGORY_OTHER,
+            repeatType = REPEAT_NONE
+        )
+        val past = Event(
+            id = 3,
+            title = "past",
+            date = epochMillisOf(LocalDate.now().minusDays(2)),
+            category = CATEGORY_OTHER,
+            repeatType = REPEAT_NONE
+        )
+        val states = listOf(birthday, normal, past).map { it.toEventUiState() }
+
+        assertEquals(
+            listOf(1),
+            WidgetContentResolver.filterAndSortStates(
+                states = states,
+                config = WidgetConfig.default().copy(contentScope = CONTENT_BIRTHDAY),
+                pinnedEventIds = emptyList(),
+                customEventOrder = emptyList()
+            ).map { it.event.id }
+        )
+        assertEquals(
+            listOf(1, 2),
+            WidgetContentResolver.filterAndSortStates(
+                states = states,
+                config = WidgetConfig.default().copy(contentScope = CONTENT_FUTURE),
+                pinnedEventIds = emptyList(),
+                customEventOrder = emptyList()
+            ).map { it.event.id }
+        )
+        assertEquals(
+            listOf(2),
+            WidgetContentResolver.filterAndSortStates(
+                states = states,
+                config = WidgetConfig.default().copy(contentScope = CONTENT_PINNED),
+                pinnedEventIds = listOf(2),
+                customEventOrder = emptyList()
+            ).map { it.event.id }
+        )
+    }
+
+    @Test
+    fun filterAndSortStates_homeSortUsesPinnedThenCustomOrder() {
+        val first = Event(
+            id = 1,
+            title = "first",
+            date = epochMillisOf(LocalDate.now().plusDays(8)),
+            category = CATEGORY_OTHER,
+            repeatType = REPEAT_NONE
+        )
+        val pinned = Event(
+            id = 2,
+            title = "pinned",
+            date = epochMillisOf(LocalDate.now().plusDays(4)),
+            category = CATEGORY_OTHER,
+            repeatType = REPEAT_NONE
+        )
+        val past = Event(
+            id = 3,
+            title = "past",
+            date = epochMillisOf(LocalDate.now().minusDays(2)),
+            category = CATEGORY_OTHER,
+            repeatType = REPEAT_NONE
+        )
+        val states = listOf(first, pinned, past).map { it.toEventUiState() }
+
+        val orderedIds = WidgetContentResolver.filterAndSortStates(
+            states = states,
+            config = WidgetConfig.default().copy(sortMode = SORT_HOME),
+            pinnedEventIds = listOf(2),
+            customEventOrder = listOf(3, 1)
+        ).map { it.event.id }
+
+        assertEquals(listOf(2, 3, 1), orderedIds)
     }
 
     private fun epochMillisOf(localDate: LocalDate): Long {

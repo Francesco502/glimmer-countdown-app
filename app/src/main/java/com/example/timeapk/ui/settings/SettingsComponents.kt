@@ -18,11 +18,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Backup
-import androidx.compose.material.icons.filled.ColorLens
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Style
+import androidx.compose.material.icons.outlined.Backup
+import androidx.compose.material.icons.outlined.ColorLens
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Style
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -50,27 +50,27 @@ enum class SettingsCategory(
     APPEARANCE(
         R.string.theme_title,
         R.string.settings_entry_appearance_desc,
-        Icons.Default.ColorLens
+        Icons.Outlined.ColorLens
     ),
     DISPLAY(
         R.string.settings_category_display_title,
         R.string.settings_entry_display_desc,
-        Icons.Default.Style
+        Icons.Outlined.Style
     ),
     MILESTONE(
         R.string.settings_milestone_entry_title,
         R.string.settings_entry_milestone_desc,
-        Icons.Default.Notifications
+        Icons.Outlined.Notifications
     ),
     DATA(
         R.string.export_import,
         R.string.settings_entry_data_desc,
-        Icons.Default.Backup
+        Icons.Outlined.Backup
     ),
     ABOUT(
         R.string.settings_about_entry_title,
         R.string.settings_entry_about_desc,
-        Icons.Default.Info
+        Icons.Outlined.Info
     )
 }
 
@@ -206,7 +206,6 @@ fun SettingsGroupHeader(
     )
     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
 }
-
 
 
 

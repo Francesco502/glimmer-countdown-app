@@ -9,9 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.material.icons.Icons
@@ -51,6 +49,9 @@ import com.example.timeapk.data.REPEAT_YEARLY
 import com.example.timeapk.ui.home.EventUiState
 import com.example.timeapk.ui.home.milestoneLabel
 import com.example.timeapk.ui.theme.AnimationSpecs
+import com.example.timeapk.ui.theme.SongDesignTokens
+import com.example.timeapk.ui.theme.SongPaperSurface
+import com.example.timeapk.ui.theme.SongSealLabel
 import com.example.timeapk.ui.utils.formatBetweenAsYMD
 import com.example.timeapk.ui.utils.formatDaysSmart
 import com.example.timeapk.ui.utils.getDisplayDateFormatter
@@ -204,17 +205,10 @@ fun DetailScreen(
                 .widthIn(max = DetailContentMaxWidth)
                 .padding(24.dp)
         ) {
-            Card(
+            SongPaperSurface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.medium,
-                colors = CardDefaults.cardColors(
-                    containerColor = detailCardColor
-                ),
-                border = BorderStroke(
-                    width = com.example.timeapk.ui.theme.SongDesignTokens.BorderWidth.dp,
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong)
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                backgroundColor = detailCardColor,
+                borderColor = MaterialTheme.colorScheme.outline.copy(alpha = SongDesignTokens.BorderAlphaStrong)
             ) {
                 Column(
                     modifier = Modifier.padding(32.dp),
@@ -233,29 +227,16 @@ fun DetailScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            // 鍗扮珷缁勪欢灞曠ず鍒嗙被
                             val categoryName = when (eventState.event.category) {
                                 CATEGORY_BIRTHDAY -> stringResource(R.string.category_birthday)
                                 CATEGORY_ANNIVERSARY -> stringResource(R.string.category_anniversary)
                                 CATEGORY_OTHER -> stringResource(R.string.category_other)
                                 else -> eventState.event.category
                             }
-                            Box(
-                                modifier = Modifier
-                                    .border(
-                                        BorderStroke(1.dp, detailBaseColor.copy(alpha = 0.8f)),
-                                        shape = RoundedCornerShape(2.dp)
-                                    )
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                            ) {
-                                Text(
-                                    text = categoryName,
-                                    style = MaterialTheme.typography.labelMedium.copy(
-                                        letterSpacing = 2.sp
-                                    ),
-                                    color = detailBaseColor
-                                )
-                            }
+                            SongSealLabel(
+                                text = categoryName,
+                                color = detailBaseColor
+                            )
                             
                             Spacer(modifier = Modifier.width(12.dp))
                             
@@ -274,31 +255,18 @@ fun DetailScreen(
                         )
                     }
                     
-                    androidx.compose.foundation.Canvas(
+                    HorizontalDivider(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 24.dp)
-                            .height(1.dp)
-                    ) {
-                        val brush = androidx.compose.ui.graphics.Brush.horizontalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                detailContentColor.copy(alpha = 0.2f),
-                                Color.Transparent
-                            )
-                        )
-                        drawLine(
-                            brush = brush,
-                            start = androidx.compose.ui.geometry.Offset(0f, size.height / 2),
-                            end = androidx.compose.ui.geometry.Offset(size.width, size.height / 2),
-                            strokeWidth = 1f
-                        )
-                    }
+                            .height(SongDesignTokens.BorderWidth.dp),
+                        color = detailContentColor.copy(alpha = SongDesignTokens.BorderAlphaSoft)
+                    )
 
                     Text(
                         text = eventState.event.title,
                         style = MaterialTheme.typography.displayMedium.copy(
-                            letterSpacing = 2.sp
+                            letterSpacing = 0.sp
                         ),
                         textAlign = TextAlign.Center,
                         color = detailContentColor.copy(alpha = 0.9f),
@@ -396,32 +364,18 @@ fun DetailScreen(
                             text = labelText,
                             style = MaterialTheme.typography.titleLarge,
                             color = detailContentColor.copy(alpha = 0.65f),
-                            letterSpacing = 4.sp
+                            letterSpacing = 0.sp
                         )
                     }
 
                     Spacer(modifier = Modifier.height(32.dp))
-                    androidx.compose.foundation.Canvas(
+                    HorizontalDivider(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(1.dp)
                             .padding(horizontal = 24.dp)
-                    ) {
-                        val brush = androidx.compose.ui.graphics.Brush.horizontalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                detailContentColor.copy(alpha = 0.2f),
-                                detailContentColor.copy(alpha = 0.2f),
-                                Color.Transparent
-                            )
-                        )
-                        drawLine(
-                            brush = brush,
-                            start = androidx.compose.ui.geometry.Offset(0f, 0f),
-                            end = androidx.compose.ui.geometry.Offset(size.width, 0f),
-                            strokeWidth = 1f
-                        )
-                    }
+                            .height(SongDesignTokens.BorderWidth.dp),
+                        color = detailContentColor.copy(alpha = SongDesignTokens.BorderAlphaSoft)
+                    )
                     Spacer(modifier = Modifier.height(32.dp))
 
                     if (effectiveCategory == CATEGORY_ANNIVERSARY && isRepeating) {
@@ -604,7 +558,7 @@ fun DetailScreen(
                             text = eventState.event.note,
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontStyle = androidx.compose.ui.text.font.FontStyle.Normal,
-                                letterSpacing = 0.5.sp
+                                letterSpacing = 0.sp
                             ),
                             color = detailContentColor.copy(alpha = 0.85f),
                             textAlign = TextAlign.Center
@@ -657,7 +611,11 @@ private fun ResponsiveDetailActionButtons(
         ResponsiveDetailActionButton(
             modifier = Modifier.weight(1f),
             interactionSource = reminderInteractionSource,
-            scale = animateFloatAsState(if (reminderPressed) 0.96f else 1f, AnimationSpecs.springButton, label = "responsiveReminder").value,
+            scale = animateFloatAsState(
+                AnimationSpecs.responsiveScale(if (reminderPressed) 0.96f else 1f),
+                AnimationSpecs.springButton,
+                label = "responsiveReminder"
+            ).value,
             onClick = onReminderCalendarClick,
             icon = Icons.Outlined.Notifications,
             label = stringResource(R.string.button_reminder_calendar),
@@ -675,7 +633,11 @@ private fun ResponsiveDetailActionButtons(
         ResponsiveDetailActionButton(
             modifier = Modifier.weight(1f),
             interactionSource = pinInteractionSource,
-            scale = animateFloatAsState(if (pinPressed) 0.96f else 1f, AnimationSpecs.springButton, label = "responsivePin").value,
+            scale = animateFloatAsState(
+                AnimationSpecs.responsiveScale(if (pinPressed) 0.96f else 1f),
+                AnimationSpecs.springButton,
+                label = "responsivePin"
+            ).value,
             onClick = onPinClick,
             icon = Icons.Outlined.PushPin,
             label = if (isPinned) stringResource(R.string.button_unpin) else stringResource(R.string.button_pin),
@@ -685,7 +647,11 @@ private fun ResponsiveDetailActionButtons(
         ResponsiveDetailActionButton(
             modifier = Modifier.weight(1f),
             interactionSource = editInteractionSource,
-            scale = animateFloatAsState(if (editPressed) 0.96f else 1f, AnimationSpecs.springButton, label = "responsiveEdit").value,
+            scale = animateFloatAsState(
+                AnimationSpecs.responsiveScale(if (editPressed) 0.96f else 1f),
+                AnimationSpecs.springButton,
+                label = "responsiveEdit"
+            ).value,
             onClick = onEditClick,
             icon = Icons.Outlined.Edit,
             label = stringResource(R.string.button_edit),
@@ -696,7 +662,11 @@ private fun ResponsiveDetailActionButtons(
         ResponsiveDetailActionButton(
             modifier = Modifier.weight(1f),
             interactionSource = deleteInteractionSource,
-            scale = animateFloatAsState(if (deletePressed) 0.96f else 1f, AnimationSpecs.springButton, label = "responsiveDelete").value,
+            scale = animateFloatAsState(
+                AnimationSpecs.responsiveScale(if (deletePressed) 0.96f else 1f),
+                AnimationSpecs.springButton,
+                label = "responsiveDelete"
+            ).value,
             onClick = onDeleteClick,
             icon = Icons.Outlined.Delete,
             label = stringResource(R.string.button_delete),
@@ -771,4 +741,3 @@ private fun DetailLabelRow(label: String, value: String, contentColor: androidx.
         )
     }
 }
-

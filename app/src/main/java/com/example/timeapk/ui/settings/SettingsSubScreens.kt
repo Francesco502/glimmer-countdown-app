@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.input.KeyboardType
@@ -49,6 +50,10 @@ import com.example.timeapk.ui.components.PermissionActionDialog
 import com.example.timeapk.ui.components.PermissionDialogSpec
 import com.example.timeapk.ui.components.SnapWheelPicker
 import com.example.timeapk.ui.theme.ColorContrastGuardrail
+import com.example.timeapk.ui.theme.SongColorBoundary
+import com.example.timeapk.widget.CountdownAppWidgetProvider
+import com.example.timeapk.widget.WidgetConfig
+import com.example.timeapk.widget.WidgetConfigRepository
 import com.example.timeapk.widget.WidgetUpdater
 import com.example.timeapk.update.CheckUpdateResult
 import com.example.timeapk.update.UpdateInstaller
@@ -57,6 +62,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.example.timeapk.ui.theme.SongDesignTokens
+import com.example.timeapk.ui.theme.SongFilterChip
 import androidx.compose.ui.window.Dialog
 import com.example.timeapk.ui.utils.eventDateToLocalDate
 import com.example.timeapk.ui.utils.findActivity
@@ -98,11 +104,7 @@ fun ClassicalToggle(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     )
 }
 
-private val PRESET_COLOR_HEX = listOf(
-    "#AF4E31", "#AC8F62", "#457080", "#5B8E79", "#86351C",
-    "#4A4933", "#785B64", "#3A4550", "#F5F3ED", "#EDE8DD",
-    "#1F1F1F", "#FFFFFF"
-)
+private val PRESET_COLOR_HEX = SongColorBoundary.recommendedPresetHexes()
 
 @Composable
 fun AppearanceSettingsContent(
@@ -112,6 +114,7 @@ fun AppearanceSettingsContent(
     val app = context.applicationContext as? TimeApplication
     if (app == null) return
     val prefs = app.userPrefs
+    val widgetConfigRepository = remember(app) { WidgetConfigRepository(app) }
     val scope = rememberCoroutineScope()
     fun launchWidgetSettingsUpdate(update: suspend () -> Unit) {
         app.launchAppTask {
@@ -128,8 +131,11 @@ fun AppearanceSettingsContent(
     val fontPreset by prefs.fontPresetFlow.collectAsState(initial = 4)
     val appBaseFontScale by prefs.appBaseFontScaleFlow.collectAsState(initial = 1f)
     val widgetFontScale by prefs.widgetFontScaleFlow.collectAsState(initial = 1f)
+    val defaultWidgetConfig by widgetConfigRepository.defaultConfigFlow.collectAsState(initial = WidgetConfig.default())
+    val widgetInstanceConfigs by widgetConfigRepository.instanceConfigsFlow.collectAsState(initial = emptyMap())
     var appBaseFontScaleDraft by remember(appBaseFontScale) { mutableStateOf(appBaseFontScale) }
     var widgetFontScaleDraft by remember(widgetFontScale) { mutableStateOf(widgetFontScale) }
+    var editingWidgetId by remember { mutableStateOf<Int?>(null) }
     var colorPickerKey by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(appBaseFontScale) {
@@ -266,6 +272,9 @@ fun AppearanceSettingsContent(
                     evaluateContrastAuditForKey(currentColorScheme, key, it)
                 }
             }
+            val candidateSongColor = remember(customHexInput) {
+                SongColorBoundary.classify(customHexInput)
+            }
 
             fun tryApplyColor(hex: String) {
                 val parsed = parseHexColor(hex) ?: return
@@ -340,6 +349,13 @@ fun AppearanceSettingsContent(
                                 ),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                        if (isValidHex && !candidateSongColor.isRecommended) {
+                            Text(
+                                text = stringResource(R.string.custom_color_song_boundary_hint),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary
                             )
                         }
                         contrastErrorRatio?.let { minRatio ->
@@ -475,6 +491,56 @@ fun AppearanceSettingsContent(
         ) {
             Text(stringResource(R.string.settings_font_scale_reset))
         }
+
+        SettingsGroupHeader(
+            title = stringResource(R.string.widget_config_defaults_title),
+            modifier = Modifier.padding(top = 20.dp)
+        )
+        Text(
+            text = stringResource(R.string.widget_config_defaults_summary),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+        )
+        WidgetConfigEditor(
+            config = defaultWidgetConfig,
+            onConfigChange = { next ->
+                app.launchAppTask {
+                    widgetConfigRepository.setDefaultConfig(next)
+                }
+            },
+            showDefaultActions = true,
+            onApplyToAllWidgets = {
+                launchWidgetSettingsUpdate {
+                    val ids = CountdownAppWidgetProvider.getAppWidgetIds(app)
+                    widgetConfigRepository.setAllInstanceConfigs(
+                        ids.associateWith { defaultWidgetConfig }
+                    )
+                }
+            },
+            modifier = Modifier.padding(top = 4.dp)
+        )
+        WidgetInstanceManager(
+            appWidgetIds = CountdownAppWidgetProvider.getAppWidgetIds(app).toList(),
+            instanceConfigs = widgetInstanceConfigs,
+            defaultConfig = defaultWidgetConfig,
+            editingWidgetId = editingWidgetId,
+            onEditWidget = { editingWidgetId = it },
+            onConfigChange = { appWidgetId, next ->
+                launchWidgetSettingsUpdate {
+                    widgetConfigRepository.setConfigForWidget(appWidgetId, next)
+                }
+            },
+            onResetWidget = { appWidgetId ->
+                launchWidgetSettingsUpdate {
+                    widgetConfigRepository.removeConfigForWidget(appWidgetId)
+                }
+                if (editingWidgetId == appWidgetId) {
+                    editingWidgetId = null
+                }
+            },
+            modifier = Modifier.padding(top = 12.dp)
+        )
     }
 }
 @Composable
@@ -759,7 +825,7 @@ fun LegacyDisplaySettingsContent(
                     3 to R.string.settings_milestone_remind_days_3,
                     7 to R.string.settings_milestone_remind_days_7,
                     14 to R.string.settings_milestone_remind_days_14).forEach { (days, resId) ->
-                    FilterChip(
+                    SongFilterChip(
                         selected = milestoneRemindDaysAhead == days,
                         onClick = {
                             scope.launch {
@@ -767,8 +833,7 @@ fun LegacyDisplaySettingsContent(
                                 rescheduleMilestoneReminders(app)
                             }
                         },
-                        label = { Text(stringResource(resId)) },
-                        shape = RoundedCornerShape(4.dp)
+                        label = stringResource(resId)
                     )
                 }
             }
@@ -822,7 +887,7 @@ fun LegacyDisplaySettingsContent(
                     stringResource(R.string.reminder_time_12) to 720,
                     stringResource(R.string.reminder_time_18) to 1080
                 ).forEach { (label, minutes) ->
-                    FilterChip(
+                    SongFilterChip(
                         selected = milestoneRemindTimeMinutesOfDay == minutes,
                         onClick = {
                             scope.launch {
@@ -830,8 +895,7 @@ fun LegacyDisplaySettingsContent(
                                 rescheduleMilestoneReminders(app)
                             }
                         },
-                        label = { Text(label) },
-                        shape = RoundedCornerShape(4.dp)
+                        label = label
                     )
                 }
             }
@@ -2240,7 +2304,7 @@ fun DataSettingsContent(
                             val remaining = preview.importableEvents.size - sampleEvents.size
                             if (remaining > 0) {
                                 Text(
-                                    text = stringResource(R.string.import_preview_more, remaining),
+                                    text = pluralStringResource(R.plurals.import_preview_more, remaining, remaining),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )

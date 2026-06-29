@@ -112,18 +112,16 @@
     <string name="import_from_file">Choose file</string>
     <string name="import_preview_action">Preview import</string>
     <string name="import_preview_summary">Found %1$d, ready %2$d, duplicates skipped %3$d, parse failed %4$d</string>
-    <string name="import_preview_more">%1$d more</string>
+    <plurals name="import_preview_more">
+        <item quantity="one">%1$d more</item>
+        <item quantity="other">%1$d more</item>
+    </plurals>
     <string name="import_preview_empty_after_duplicates">These events already exist. There are no new events to import.</string>
     <string name="export_csv">Export CSV</string>
     <string name="export_csv_file">Save CSV file</string>
     <string name="export_plain_text">Share as plain text</string>
     <string name="export_file_saved">File saved</string>
     <string name="export_file_failed">Could not save file</string>
-    <plurals name="import_success">
-        <item quantity="one">Imported %d item</item>
-        <item quantity="other">Imported %d items</item>
-    </plurals>
-    <string name="import_error">Import failed</string>
     <string name="import_error_empty_file">The file is empty. No events were imported.</string>
     <string name="import_error_unsupported_format">This file could not be recognized. Import JSON or a Remember Days .mdb backup.</string>
     <string name="import_error_no_events">No importable events were found</string>
@@ -149,7 +147,6 @@
     <string name="button_edit">Edit</string>
     <string name="button_reminder_calendar">Reminder</string>
     <string name="button_delete">Delete</string>
-    <string name="button_share">Share</string>
     <string name="button_pin">Pin</string>
     <string name="button_unpin">Unpin</string>
     <string name="delete_confirm_title">Delete event</string>
@@ -160,16 +157,6 @@
     <string name="action_undo">Undo</string>
 
     <!-- Share -->
-    <plurals name="share_text_countdown">
-        <item quantity="one">%1$s in %2$d day</item>
-        <item quantity="other">%1$s in %2$d days</item>
-    </plurals>
-    <string name="share_text_today">%1$s · Today!</string>
-    <plurals name="share_text_past">
-        <item quantity="one">%1$s has been %2$d day</item>
-        <item quantity="other">%1$s has been %2$d days</item>
-    </plurals>
-    <string name="share_chooser_title">Share countdown</string>
     <string name="nav_back">Back</string>
 
     <!-- Content descriptions -->
@@ -179,7 +166,6 @@
     <string name="date_format_dash">2025‐01‐01</string>
     <string name="cd_edit">Edit</string>
     <string name="cd_delete">Delete</string>
-    <string name="cd_share">Share</string>
     <string name="cd_reminder_on">Reminder on</string>
     <string name="cd_reminder_off">Reminder off</string>
 
@@ -210,6 +196,7 @@
     <string name="custom_color_pick">Pick</string>
     <string name="custom_color_hex_hint">Hex Color (#RRGGBB)</string>
     <string name="custom_color_accessibility_hint">If custom colors are too light or too dark, text readability may be affected.</string>
+    <string name="custom_color_song_boundary_hint">This color is outside the recommended Song-style palette and may weaken theme consistency.</string>
     <string name="settings_show_hours">Show hours</string>
     <string name="settings_show_hours_summary">Show remaining hours on cards (within the day)</string>
     <string name="settings_show_milestone">Show milestones</string>
@@ -223,7 +210,7 @@
     <string name="font_title">Font</string>
     <string name="font_default">Default</string>
     <string name="font_serif">Serif</string>
-    <string name="font_slender_gold">Slender Gold (Serif Thin)</string>
+    <string name="font_slender_gold">Song-style thin serif</string>
     <string name="language_title">Language</string>
     <string name="language_zh">Chinese</string>
     <string name="language_en">English</string>
@@ -264,8 +251,6 @@
     <string name="settings_schedule_target_calendar_title">Target calendar</string>
     <string name="settings_schedule_calendar_auto">Auto-select writable calendar</string>
     <string name="settings_schedule_calendar_no_writable">No writable calendar found. Please grant permission or enable a calendar account.</string>
-    <string name="calendar_no_writable_toggle_message">No writable calendar is available. Add or enable a calendar account in system sync settings or your calendar app before turning on system calendar sync.</string>
-    <string name="calendar_no_writable_save_message">No writable calendar is available, so the event cannot sync to your system calendar right now. Open system sync settings to fix the calendar account, or save without calendar sync.</string>
     <string name="settings_schedule_request_calendar_permission">Grant calendar permission</string>
     <string name="settings_schedule_rrule_title">Use RRULE strategy</string>
     <string name="settings_schedule_rrule_summary">For weekly/monthly/yearly recurring events with same-day reminders, prefer RRULE sync.</string>
@@ -335,7 +320,6 @@
     <string name="save_event_failed">Save failed. Please try again.</string>
     <string name="save_event_partial_warning">Event saved, but some reminder/sync steps failed. Please check permissions and system settings.</string>
     <string name="save_event_partial_warning_no_writable_calendar">Event saved, but it could not sync to your system calendar because no writable calendar is available. Check your calendar account or sync settings.</string>
-    <string name="import_partial_summary">Import completed: success %1$d, failed %2$d, warnings %3$d</string>
     <string name="import_completed_detailed">Import completed: found %1$d, imported %2$d, duplicates skipped %3$d, failed %4$d, warnings %5$d</string>
     <string name="settings_milestone_remind_time_title">Milestone reminder time</string>
     <string name="settings_milestone_remind_time_hint">HH:mm (e.g. 08:30)</string>
@@ -362,7 +346,6 @@
     <string name="widget_past_days_semantic">%1$s days ago</string>
     <string name="widget_until_ymd_semantic">%1$s left</string>
     <string name="widget_past_ymd_semantic">%1$s ago</string>
-    <string name="settings_overview_hint">Settings are grouped by task so each entry is easier to find.</string>
     <string name="settings_entry_appearance_desc">Theme, colors, fonts, and base text size</string>
     <string name="settings_entry_display_desc">Language, density, date format, and motion</string>
     <string name="settings_milestone_entry_title">Milestones &amp; reminders</string>
@@ -386,10 +369,57 @@
     <string name="discard_changes_dialog_message">You have unsaved edits. Leave this page and discard them?</string>
     <string name="discard_changes_dialog_confirm">Discard</string>
     <string name="discard_changes_dialog_dismiss">Keep editing</string>
+    <string name="widget_config_title">Widget settings</string>
+    <string name="widget_config_save">Save widget</string>
+    <string name="widget_config_defaults_title">Widget appearance and content</string>
+    <string name="widget_config_defaults_summary">Used as the default for newly added widgets. Existing widgets keep their own settings.</string>
+    <string name="widget_config_preview_title">Live preview</string>
+    <string name="widget_config_preview_event_primary">Spring gathering</string>
+    <string name="widget_config_preview_value_primary">12d</string>
+    <string name="widget_config_preview_event_secondary">Lunar birthday</string>
+    <string name="widget_config_preview_value_secondary">Today</string>
+    <string name="widget_config_size_template">Size template</string>
+    <string name="widget_config_size_2x2">2x2 compact</string>
+    <string name="widget_config_size_3x3">3x3 standard</string>
+    <string name="widget_config_size_4x2">4x2 wide</string>
+    <string name="widget_config_appearance">Background style</string>
+    <string name="widget_config_appearance_system">Follow system</string>
+    <string name="widget_config_appearance_solid">Paper</string>
+    <string name="widget_config_appearance_translucent">Ink line</string>
+    <string name="widget_config_appearance_transparent">Transparent ink</string>
+    <string name="widget_config_appearance_celadon">Celadon</string>
+    <string name="widget_config_appearance_seal">Cinnabar seal</string>
+    <string name="widget_config_opacity">Background opacity</string>
+    <string name="widget_config_percent">%1$d%%</string>
+    <string name="widget_config_content_scope">Content</string>
+    <string name="widget_config_content_all">All events</string>
+    <string name="widget_config_content_pinned">Pinned only</string>
+    <string name="widget_config_content_future">Future only</string>
+    <string name="widget_config_content_birthday">Birthdays only</string>
+    <string name="widget_config_sort">Sort order</string>
+    <string name="widget_config_sort_home">Follow home</string>
+    <string name="widget_config_sort_pinned">Pinned first</string>
+    <string name="widget_config_sort_nearest">Nearest first</string>
+    <string name="widget_config_density">Display density</string>
+    <string name="widget_config_density_compact">Compact</string>
+    <string name="widget_config_density_standard">Standard</string>
+    <string name="widget_config_density_comfortable">Comfortable</string>
+    <string name="widget_config_border">Border</string>
+    <string name="widget_config_auto">Auto</string>
+    <string name="widget_config_corner">Corners</string>
+    <string name="widget_config_corner_system">Follow system</string>
+    <string name="widget_config_corner_small">Small</string>
+    <string name="widget_config_corner_medium">Medium</string>
+    <string name="widget_config_corner_large">Large</string>
+    <string name="widget_config_contrast">Text contrast</string>
+    <string name="widget_config_contrast_light">Light text</string>
+    <string name="widget_config_contrast_dark">Dark text</string>
+    <string name="widget_config_show_lunar_prefix">Show lunar prefix</string>
+    <string name="widget_config_apply_to_all">Apply to existing widgets</string>
+    <string name="widget_config_existing_widgets">Existing widgets</string>
+    <string name="widget_config_no_existing_widgets">There are no active home screen widgets.</string>
+    <string name="widget_config_existing_widget_title">Widget %1$d</string>
+    <string name="widget_config_edit">Edit</string>
+    <string name="widget_config_collapse">Collapse</string>
+    <string name="widget_config_reset_instance">Reset</string>
 </resources>
-
-
-
-
-
-

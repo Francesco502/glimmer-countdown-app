@@ -1,5 +1,6 @@
 package com.example.timeapk.permissions
 
+import android.annotation.SuppressLint
 import android.Manifest
 import android.app.Activity
 import android.content.Context
@@ -12,6 +13,7 @@ import android.provider.Settings
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.edit
 
 private const val PERMISSION_PREFS = "permission_prompt_state"
 private const val KEY_NOTIFICATION_REQUESTED = "notification_requested"
@@ -26,13 +28,16 @@ fun Context.canPostAppNotifications(): Boolean {
         return false
     }
     return Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-        hasPermission(Manifest.permission.POST_NOTIFICATIONS)
+        hasPermission(notificationRuntimePermissionName())
 }
 
 fun Context.hasNotificationRuntimePermission(): Boolean {
     return Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-        hasPermission(Manifest.permission.POST_NOTIFICATIONS)
+        hasPermission(notificationRuntimePermissionName())
 }
+
+@SuppressLint("InlinedApi")
+fun notificationRuntimePermissionName(): String = Manifest.permission.POST_NOTIFICATIONS
 
 fun Context.hasCalendarReadWritePermission(): Boolean {
     return hasPermission(Manifest.permission.READ_CALENDAR) &&
@@ -63,7 +68,7 @@ fun Context.shouldShowNotificationPermissionRationaleCompat(): Boolean {
     val activity = findActivityForPermissions() ?: return false
     return ActivityCompat.shouldShowRequestPermissionRationale(
         activity,
-        Manifest.permission.POST_NOTIFICATIONS
+        notificationRuntimePermissionName()
     )
 }
 
@@ -92,11 +97,11 @@ fun Context.wasCalendarPermissionRequestedBefore(): Boolean {
 }
 
 fun Context.markNotificationPermissionRequested() {
-    permissionPrefs().edit().putBoolean(KEY_NOTIFICATION_REQUESTED, true).apply()
+    permissionPrefs().edit { putBoolean(KEY_NOTIFICATION_REQUESTED, true) }
 }
 
 fun Context.markCalendarPermissionRequested() {
-    permissionPrefs().edit().putBoolean(KEY_CALENDAR_REQUESTED, true).apply()
+    permissionPrefs().edit { putBoolean(KEY_CALENDAR_REQUESTED, true) }
 }
 
 fun Context.openAppNotificationSettings() {

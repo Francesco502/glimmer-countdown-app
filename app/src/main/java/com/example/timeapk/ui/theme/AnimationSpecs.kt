@@ -28,6 +28,10 @@ object AnimationSpecs {
         reducedMotionEnabled = enabled
     }
 
+    fun responsiveScale(target: Float): Float = if (reducedMotionEnabled) 1f else target
+
+    fun responsiveAlpha(target: Float): Float = if (reducedMotionEnabled) 1f else target
+
     fun microTween() = tween<Float>(effectiveDuration(DurationMicroMs), easing = EaseOut)
 
     fun smallTween() = tween<Float>(effectiveDuration(DurationSmallMs), easing = EaseOut)

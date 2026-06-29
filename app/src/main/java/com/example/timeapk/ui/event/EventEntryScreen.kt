@@ -1,5 +1,6 @@
 package com.example.timeapk.ui.event
 
+import android.Manifest
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
@@ -36,7 +37,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import android.Manifest
 import android.os.Build
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
@@ -51,6 +51,7 @@ import com.example.timeapk.permissions.hasCalendarReadWritePermission
 import com.example.timeapk.permissions.hasNotificationRuntimePermission
 import com.example.timeapk.permissions.markCalendarPermissionRequested
 import com.example.timeapk.permissions.markNotificationPermissionRequested
+import com.example.timeapk.permissions.notificationRuntimePermissionName
 import com.example.timeapk.permissions.openAppDetailsSettings
 import com.example.timeapk.permissions.openAppNotificationSettings
 import com.example.timeapk.permissions.shouldShowCalendarPermissionRationaleCompat
@@ -75,6 +76,9 @@ import com.example.timeapk.ui.components.PermissionActionDialog
 import com.example.timeapk.ui.components.PermissionDialogSpec
 import com.example.timeapk.ui.components.SnapWheelPicker
 import com.example.timeapk.ui.theme.AnimationSpecs
+import com.example.timeapk.ui.theme.SongDesignTokens
+import com.example.timeapk.ui.theme.SongFilterChip
+import com.example.timeapk.ui.theme.SongPaperSurface
 import com.example.timeapk.ui.utils.eventDateToLocalDate
 import com.example.timeapk.ui.utils.getDisplayDateFormatter
 import com.example.timeapk.ui.utils.formatLunarDateString
@@ -335,7 +339,7 @@ fun EventEntryScreen(
     launchNotificationPermissionRequest = {
         pendingSaveAfterNotificationPermission = true
         context.markNotificationPermissionRequested()
-        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        notificationPermissionLauncher.launch(notificationRuntimePermissionName())
     }
 
     launchCalendarPermissionRequest = {
@@ -519,13 +523,10 @@ fun EventEntryBody(
                 .widthIn(max = EventEntryContentMaxWidth),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // Keep a clear paper layer for form content.
-            Card(
+            SongPaperSurface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(4.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.24f)),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                backgroundColor = MaterialTheme.colorScheme.surface,
+                borderColor = MaterialTheme.colorScheme.outline.copy(alpha = SongDesignTokens.BorderAlphaStrong)
             ) {
                 Column(
                     modifier = Modifier.padding(20.dp),
@@ -550,36 +551,43 @@ private fun EventEntrySaveBar(
 ) {
     Surface(
         color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 2.dp
+        shadowElevation = 0.dp,
+        tonalElevation = 0.dp
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .imePadding()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Button(
-                onClick = onSaveClick,
-                enabled = enabled,
+        Column {
+            HorizontalDivider(
+                thickness = SongDesignTokens.BorderWidth.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = SongDesignTokens.BorderAlphaSoft)
+            )
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .widthIn(max = EventEntryContentMaxWidth),
-                shape = RoundedCornerShape(4.dp)
+                    .navigationBarsPadding()
+                    .imePadding()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                contentAlignment = Alignment.Center
             ) {
-                if (isSaving) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimary
+                Button(
+                    onClick = onSaveClick,
+                    enabled = enabled,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .widthIn(max = EventEntryContentMaxWidth),
+                    shape = RoundedCornerShape(4.dp)
+                ) {
+                    if (isSaving) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    Text(
+                        text = stringResource(R.string.button_save_event),
+                        style = MaterialTheme.typography.titleMedium
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
                 }
-                Text(
-                    text = stringResource(R.string.button_save_event),
-                    style = MaterialTheme.typography.titleMedium
-                )
             }
         }
     }
@@ -648,7 +656,7 @@ fun EventInputForm(
     fun launchNotificationPermissionRequest() {
         pendingReminderEnableAfterPermission = true
         context.markNotificationPermissionRequested()
-        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        notificationPermissionLauncher.launch(notificationRuntimePermissionName())
     }
 
     fun launchCalendarPermissionRequest() {
@@ -960,12 +968,6 @@ fun EventInputForm(
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onBackground
         )
-        val categoryChipColors = FilterChipDefaults.filterChipColors(
-            selectedContainerColor = MaterialTheme.colorScheme.primary,
-            selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-            containerColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f),
-            labelColor = MaterialTheme.colorScheme.onBackground
-        )
         val currentCategory = eventDetails.category.takeIf { it in listOf(CATEGORY_BIRTHDAY, CATEGORY_ANNIVERSARY, CATEGORY_OTHER) } ?: CATEGORY_OTHER
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -976,12 +978,10 @@ fun EventInputForm(
                 stringResource(R.string.category_anniversary) to CATEGORY_ANNIVERSARY,
                 stringResource(R.string.category_other) to CATEGORY_OTHER
             ).forEach { (label, value) ->
-                FilterChip(
+                SongFilterChip(
                     selected = currentCategory == value,
                     onClick = { onValueChange(eventDetails.copy(category = value)) },
-                    label = { Text(label) },
-                    shape = MaterialTheme.shapes.small,
-                    colors = categoryChipColors
+                    label = label
                 )
             }
         }
@@ -1025,17 +1025,11 @@ fun EventInputForm(
             colors = textFieldColors
         )
 
-        // 閲嶅璁剧疆
+        // 重复设置
         Text(
             text = stringResource(R.string.field_repeat),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onBackground
-        )
-        val formChipColors = FilterChipDefaults.filterChipColors(
-            selectedContainerColor = MaterialTheme.colorScheme.primary,
-            selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-            containerColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f),
-            labelColor = MaterialTheme.colorScheme.onBackground
         )
         Row(
             modifier = Modifier
@@ -1044,12 +1038,10 @@ fun EventInputForm(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             repeatOptions.forEach { (value, label) ->
-                FilterChip(
+                SongFilterChip(
                     selected = eventDetails.repeatType == value,
                     onClick = { onValueChange(eventDetails.copy(repeatType = value)) },
-                    label = { Text(label) },
-                    shape = MaterialTheme.shapes.small,
-                    colors = formChipColors
+                    label = label
                 )
             }
             OutlinedButton(
@@ -1443,11 +1435,6 @@ fun CustomColorDialog(
         }
     )
 }
-
-
-
-
-
 
 
 

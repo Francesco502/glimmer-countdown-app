@@ -2,11 +2,7 @@ package com.example.timeapk.ui.home
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -26,7 +22,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
@@ -41,10 +36,7 @@ import androidx.compose.runtime.*
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
@@ -88,7 +80,12 @@ import com.example.timeapk.R
 import com.example.timeapk.TimeApplication
 import com.example.timeapk.data.Event
 import com.example.timeapk.ui.theme.AnimationSpecs
+import com.example.timeapk.ui.theme.SongCalendarCell
 import com.example.timeapk.ui.theme.SongDesignTokens
+import com.example.timeapk.ui.theme.SongFilterChip
+import com.example.timeapk.ui.theme.SongPaperSurface
+import com.example.timeapk.ui.theme.SongSegmentedControl
+import com.example.timeapk.ui.utils.formatLunarMonthDay
 
 import androidx.compose.foundation.LocalOverscrollConfiguration
 import androidx.compose.foundation.OverscrollConfiguration
@@ -251,12 +248,6 @@ fun HomeScreen(
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
         ) {
-            val chipColors = FilterChipDefaults.filterChipColors(
-                selectedContainerColor = MaterialTheme.colorScheme.primary,
-                selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-                containerColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f),
-                labelColor = MaterialTheme.colorScheme.onBackground
-            )
             val hasActiveFilter = filterType != FilterType.All
             var showFilterPanel by remember { mutableStateOf(hasActiveFilter) }
             var showSearchBar by remember { mutableStateOf(searchQuery.isNotBlank()) }
@@ -386,33 +377,25 @@ fun HomeScreen(
                             .horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        FilterChip(
+                        SongFilterChip(
                             selected = filterType == FilterType.All,
                             onClick = { viewModel.updateFilterType(FilterType.All) },
-                            label = { Text(stringResource(R.string.filter_all)) },
-                            shape = RoundedCornerShape(4.dp),
-                            colors = chipColors
+                            label = stringResource(R.string.filter_all)
                         )
-                        FilterChip(
+                        SongFilterChip(
                             selected = filterType == FilterType.Birthday,
                             onClick = { viewModel.updateFilterType(FilterType.Birthday) },
-                            label = { Text(stringResource(R.string.category_birthday)) },
-                            shape = RoundedCornerShape(4.dp),
-                            colors = chipColors
+                            label = stringResource(R.string.category_birthday)
                         )
-                        FilterChip(
+                        SongFilterChip(
                             selected = filterType == FilterType.Anniversary,
                             onClick = { viewModel.updateFilterType(FilterType.Anniversary) },
-                            label = { Text(stringResource(R.string.category_anniversary)) },
-                            shape = RoundedCornerShape(4.dp),
-                            colors = chipColors
+                            label = stringResource(R.string.category_anniversary)
                         )
-                        FilterChip(
+                        SongFilterChip(
                             selected = filterType == FilterType.Other,
                             onClick = { viewModel.updateFilterType(FilterType.Other) },
-                            label = { Text(stringResource(R.string.category_other)) },
-                            shape = RoundedCornerShape(4.dp),
-                            colors = chipColors
+                            label = stringResource(R.string.category_other)
                         )
                     }
                 }
@@ -599,7 +582,6 @@ fun HomeScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun HomeDisplayModeSegmentedControl(
     selectedMode: Int,
@@ -611,23 +593,12 @@ private fun HomeDisplayModeSegmentedControl(
         1 to stringResource(R.string.display_mode_list),
         2 to stringResource(R.string.display_mode_calendar)
     )
-    SingleChoiceSegmentedButtonRow(modifier = modifier) {
-        modes.forEachIndexed { index, (mode, label) ->
-            SegmentedButton(
-                selected = selectedMode == mode,
-                onClick = { onModeSelected(mode) },
-                shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size),
-                icon = {},
-                label = {
-                    Text(
-                        text = label,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            )
-        }
-    }
+    SongSegmentedControl(
+        options = modes,
+        selected = selectedMode,
+        onSelected = onModeSelected,
+        modifier = modifier
+    )
 }
 
 @Composable
@@ -707,30 +678,24 @@ fun EventCard(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (isDragging) 1.02f else if (isPressed) 0.98f else 1f,
-        animationSpec = spring(dampingRatio = 0.7f, stiffness = 200f),
+        targetValue = AnimationSpecs.responsiveScale(if (isDragging) 1.02f else if (isPressed) 0.98f else 1f),
+        animationSpec = AnimationSpecs.springItem,
         label = "cardScale"
     )
     val cardAlpha by animateFloatAsState(
-        targetValue = if (isDragging) 0.85f else if (isPressed) 0.92f else 1f,
-        animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
+        targetValue = AnimationSpecs.responsiveAlpha(if (isDragging) 0.85f else if (isPressed) 0.92f else 1f),
+        animationSpec = AnimationSpecs.mediumTween(),
         label = "cardAlpha"
     )
 
-    val juanbenTint = if (isPast) 0.85f else 1.0f
-    val cardContainerColor = baseCardColor.copy(alpha = juanbenTint)
-
-    // 方案一：动态计算文字颜色，保留“宋式美学”的雅致高级感，同时提高对比度
-    val isLight = baseCardColor.luminance() > 0.45f
-    val baseTextColor = if (isLight) {
-        Color(0xFF1A1A1A) // 雅致墨黑
+    val cardContainerColor = if (isPast) {
+        MaterialTheme.colorScheme.surface.copy(alpha = 0.86f)
     } else {
-        Color(0xFFFDFBF7) // 宣纸白
+        MaterialTheme.colorScheme.surface
     }
-    // 降低混合比例，生成专属的“同频文字色”，保证高对比度
-    val cardContentColor = lerp(baseTextColor, baseCardColor, 0.05f)
+    val cardContentColor = lerp(MaterialTheme.colorScheme.onSurface, baseCardColor, 0.06f)
+    val cardAccentColor = baseCardColor.copy(alpha = if (isPast) 0.42f else 0.78f)
 
-    val view = androidx.compose.ui.platform.LocalView.current
     val locale = androidx.compose.ui.platform.LocalContext.current.resources.configuration.locales[0]
 
     val targetLocalDate = remember(eventState.event.date) {
@@ -814,7 +779,7 @@ fun EventCard(
         else append(labelText).append(" ").append(displayContent).append(displayUnit)
     }
 
-    Card(
+    SongPaperSurface(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = 110.dp)
@@ -842,13 +807,12 @@ fun EventCard(
                 }
             )
             .semantics(mergeDescendants = true) { contentDescription = cardDescription },
-        shape = RoundedCornerShape(2.dp),
-        colors = CardDefaults.cardColors(containerColor = cardContainerColor),
-        border = BorderStroke(
-            width = if (isDragging) 1.dp else 0.5.dp, // 拖拽时边框加粗
-            color = if (isDragging) MaterialTheme.colorScheme.primary.copy(alpha = 0.6f) else baseCardColor.copy(alpha = if (isPast) 0.3f else 0.8f)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        backgroundColor = cardContainerColor,
+        borderColor = if (isDragging) {
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.62f)
+        } else {
+            cardAccentColor.copy(alpha = if (isPast) 0.34f else 0.52f)
+        }
     ) {
         Row(
             modifier = Modifier
@@ -857,10 +821,14 @@ fun EventCard(
                 .padding(24.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Left color indicator dot - Removed to let the whole card color speak
-            // Instead, we use the whole card background as the indicator
-            
-            // 鏍囬涓庢棩鏈熷尯鍩燂細涓嶅啀鍗曠嫭澶勭悊鐐瑰嚮锛屼氦鐢辨暣鍗＄墖鐨?clickable 缁熶竴澶勭悊
+            Box(
+                modifier = Modifier
+                    .width(3.dp)
+                    .height(52.dp)
+                    .background(cardAccentColor, RoundedCornerShape(2.dp))
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -945,7 +913,7 @@ fun EventCard(
                         text = labelText,
                         style = MaterialTheme.typography.bodySmall,
                         color = timeColor.copy(alpha = 0.85f),
-                        letterSpacing = 1.sp
+                        letterSpacing = 0.sp
                     )
                 }
             }
@@ -971,13 +939,13 @@ private fun EventListItem(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (isDragging) 1.02f else if (isPressed) 0.98f else 1f,
-        animationSpec = spring(dampingRatio = 0.7f, stiffness = 200f),
+        targetValue = AnimationSpecs.responsiveScale(if (isDragging) 1.02f else if (isPressed) 0.98f else 1f),
+        animationSpec = AnimationSpecs.springItem,
         label = "listItemScale"
     )
     val itemAlpha by animateFloatAsState(
-        targetValue = if (isDragging) 0.85f else if (isPressed) 0.92f else 1f,
-        animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
+        targetValue = AnimationSpecs.responsiveAlpha(if (isDragging) 0.85f else if (isPressed) 0.92f else 1f),
+        animationSpec = AnimationSpecs.mediumTween(),
         label = "listItemAlpha"
     )
     val isPast = eventState.isPast
@@ -1158,7 +1126,7 @@ private fun EventListItem(
                 Text(
                     text = eventState.event.title,
                     style = MaterialTheme.typography.titleMedium.copy(
-                        letterSpacing = 0.3.sp
+                        letterSpacing = 0.sp
                     ),
                     color = itemContentColor.copy(alpha = if (isPast) 0.84f else 1f),
                     maxLines = 1,
@@ -1237,7 +1205,7 @@ private fun EventListItem(
                         text = labelText,
                         style = MaterialTheme.typography.labelSmall,
                         color = itemContentColor.copy(alpha = 0.64f),
-                        letterSpacing = 0.6.sp,
+                        letterSpacing = 0.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         textAlign = TextAlign.End,
@@ -1370,75 +1338,25 @@ private fun MonthCalendarView(
                         val firstTitle = dayEvents.first().eventState.event.title
                         if (dayEvents.size > 1) "$firstTitle +${dayEvents.size - 1}" else firstTitle
                     }
-                    Surface(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(62.dp)
-                            .clickable(enabled = date != null) { if (date != null) pickedDate = date },
-                        shape = MaterialTheme.shapes.medium,
-                        color = if (isSelected) {
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                        } else if (hasEvents) {
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-                        } else {
-                            MaterialTheme.colorScheme.surface
-                        },
-                        border = BorderStroke(
-                            width = when {
-                                isSelected || isToday -> 1.dp
-                                hasEvents -> 0.8.dp
-                                else -> 0.6.dp
-                            },
-                            color = when {
-                                isSelected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)
-                                isToday -> MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
-                                hasEvents -> MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-                                else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
-                            }
+                    if (date == null) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(68.dp)
                         )
-                    ) {
-                        if (date != null) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(horizontal = 6.dp, vertical = 4.dp),
-                                verticalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = date.dayOfMonth.toString(),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = if (hasEvents) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurface
-                                    }
-                                )
-                                if (hasEvents) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(4.dp)
-                                                .background(
-                                                    color = MaterialTheme.colorScheme.primary,
-                                                    shape = MaterialTheme.shapes.small
-                                                )
-                                        )
-                                        Text(
-                                            text = dayPreview,
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.primary,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                    }
-                                }
-                            }
-                        }
+                    } else {
+                        SongCalendarCell(
+                            dayText = date.dayOfMonth.toString(),
+                            lunarText = formatLunarMonthDay(date),
+                            previewText = dayPreview,
+                            selected = isSelected,
+                            today = isToday,
+                            hasEvents = hasEvents,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(68.dp),
+                            onClick = { pickedDate = date }
+                        )
                     }
                 }
             }
@@ -1465,7 +1383,7 @@ private fun MonthCalendarView(
                 contentPadding = PaddingValues(bottom = 8.dp)
             ) {
                 items(selectedEvents, key = { "${it.eventState.event.id}-${it.date}" }) { occurrence ->
-                    Surface(
+                    SongPaperSurface(
                         modifier = Modifier
                             .fillMaxWidth()
                             .then(
@@ -1478,9 +1396,7 @@ private fun MonthCalendarView(
                                     Modifier.clickable { onEventClick(occurrence.eventState.event.id) }
                                 }
                             ),
-                        shape = MaterialTheme.shapes.medium,
-                        color = MaterialTheme.colorScheme.surface,
-                        border = BorderStroke(SongDesignTokens.BorderWidth.dp, MaterialTheme.colorScheme.outline.copy(alpha = SongDesignTokens.BorderAlphaStrong))
+                        borderColor = MaterialTheme.colorScheme.outline.copy(alpha = SongDesignTokens.BorderAlphaStrong)
                     ) {
                         Row(
                             modifier = Modifier
@@ -1504,12 +1420,3 @@ private fun MonthCalendarView(
         }
     }
 }
-
-
-
-
-
-
-
-
-

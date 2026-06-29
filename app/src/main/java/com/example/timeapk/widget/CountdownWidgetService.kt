@@ -24,9 +24,17 @@ private class CountdownRemoteViewsFactory(
         WidgetSizeBucket.EXTRA_SIZE_BUCKET,
         WidgetSizeBucket.MEDIUM
     )
+    private val appWidgetId: Int = intent.getIntExtra(
+        AppWidgetManager.EXTRA_APPWIDGET_ID,
+        AppWidgetManager.INVALID_APPWIDGET_ID
+    )
 
     private val items = mutableListOf<WidgetRenderedItem>()
     private var textStyle: WidgetTextStyle = WidgetStylePolicy.resolve(widgetSizeBucket, 1f)
+    private var renderStyle: WidgetRenderStyle = WidgetRenderPolicy.resolve(
+        WidgetConfig.default(),
+        WidgetThemeResolver.resolve(context)
+    )
 
     override fun onCreate() = Unit
 
@@ -37,10 +45,15 @@ private class CountdownRemoteViewsFactory(
     override fun onDataSetChanged() {
         val identityToken = Binder.clearCallingIdentity()
         try {
-            val snapshot = WidgetContentResolver.load(context, widgetSizeBucket)
+            val snapshot = WidgetContentResolver.load(
+                context = context,
+                appWidgetId = appWidgetId.takeIf { it != AppWidgetManager.INVALID_APPWIDGET_ID },
+                sizeBucket = widgetSizeBucket
+            )
             items.clear()
             items.addAll(snapshot.items)
             textStyle = snapshot.textStyle
+            renderStyle = snapshot.renderStyle
         } finally {
             Binder.restoreCallingIdentity(identityToken)
         }
@@ -54,6 +67,8 @@ private class CountdownRemoteViewsFactory(
         return RemoteViews(context.packageName, R.layout.widget_countdown_item).apply {
             setTextViewText(R.id.widget_item_title, item.title)
             setTextViewText(R.id.widget_item_value, item.value)
+            setTextColor(R.id.widget_item_title, renderStyle.primaryTextColor)
+            setTextColor(R.id.widget_item_value, renderStyle.accentTextColor)
             setTextViewTextSize(R.id.widget_item_title, TypedValue.COMPLEX_UNIT_SP, textStyle.titleSp)
             setTextViewTextSize(R.id.widget_item_value, TypedValue.COMPLEX_UNIT_SP, textStyle.valueSp)
             setViewPadding(

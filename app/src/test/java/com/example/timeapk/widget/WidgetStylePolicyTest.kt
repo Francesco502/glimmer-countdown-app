@@ -32,4 +32,45 @@ class WidgetStylePolicyTest {
         assertEquals(17.60f, tooLarge.titleSp, 0.01f)
         assertTrue(tooSmall.titleSp < tooLarge.titleSp)
     }
+
+    @Test
+    fun densityMode_changesVerticalSpacingWithoutChangingBaseFont() {
+        val compact = WidgetStylePolicy.resolve(
+            WidgetSizeBucket.STANDARD_SQUARE,
+            1.0f,
+            DENSITY_COMPACT
+        )
+        val standard = WidgetStylePolicy.resolve(
+            WidgetSizeBucket.STANDARD_SQUARE,
+            1.0f,
+            DENSITY_STANDARD
+        )
+        val comfortable = WidgetStylePolicy.resolve(
+            WidgetSizeBucket.STANDARD_SQUARE,
+            1.0f,
+            DENSITY_COMFORTABLE
+        )
+
+        assertTrue(compact.paddingVerticalDp < standard.paddingVerticalDp)
+        assertTrue(comfortable.paddingVerticalDp > standard.paddingVerticalDp)
+        assertTrue(compact.valueMaxEms <= standard.valueMaxEms)
+        assertEquals(standard.titleSp, comfortable.titleSp, 0.01f)
+    }
+
+    @Test
+    fun wideShortBucket_expandsHorizontalValueBudget() {
+        val standard = WidgetStylePolicy.resolve(
+            WidgetSizeBucket.STANDARD_SQUARE,
+            1.0f,
+            DENSITY_STANDARD
+        )
+        val wide = WidgetStylePolicy.resolve(
+            WidgetSizeBucket.WIDE_SHORT,
+            1.0f,
+            DENSITY_STANDARD
+        )
+
+        assertTrue(wide.valueMaxEms > standard.valueMaxEms)
+        assertTrue(wide.useShortValueText)
+    }
 }

@@ -8,10 +8,13 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.util.TypedValue
 import android.widget.RemoteViews
 import androidx.core.net.toUri
 import com.example.timeapk.MainActivity
 import com.example.timeapk.R
+import com.example.timeapk.TimeApplication
+import kotlinx.coroutines.runBlocking
 
 class CountdownAppWidgetProvider : AppWidgetProvider() {
     companion object {
@@ -47,26 +50,46 @@ class CountdownAppWidgetProvider : AppWidgetProvider() {
             themeSnapshot: WidgetThemeSnapshot
         ) {
             val sizeBucket = resolveSizeBucket(appWidgetManager.getAppWidgetOptions(appWidgetId))
-            val openAppPendingIntent = createOpenAppPendingIntent(context, appWidgetId)
+            val config = runBlocking { WidgetConfigRepository(context).getConfigForWidget(appWidgetId) }
+            val views = buildWidgetRemoteViews(context, appWidgetId, sizeBucket, config, themeSnapshot)
+            appWidgetManager.updateAppWidget(appWidgetId, views)
+            notifyWidgetListChanged(appWidgetManager, appWidgetId)
+        }
 
-            val views = RemoteViews(context.packageName, R.layout.widget_countdown).apply {
-                setWidgetListRemoteAdapter(
-                    createRemoteAdapterIntent(context, appWidgetId, sizeBucket, themeSnapshot)
-                )
+        internal fun buildWidgetRemoteViews(
+            context: Context,
+            appWidgetId: Int,
+            sizeBucket: Int,
+            config: WidgetConfig,
+            themeSnapshot: WidgetThemeSnapshot,
+            attachRemoteAdapter: Boolean = true
+        ): RemoteViews {
+            val openAppPendingIntent = createOpenAppPendingIntent(context, appWidgetId)
+            val renderStyle = WidgetRenderPolicy.resolve(config, themeSnapshot)
+            val textStyle = WidgetStylePolicy.resolve(sizeBucket, config.fontScale, config.densityMode)
+
+            return RemoteViews(context.packageName, R.layout.widget_countdown).apply {
+                setInt(android.R.id.background, "setBackgroundResource", renderStyle.backgroundResId)
+                setTextColor(R.id.widget_empty, renderStyle.secondaryTextColor)
+                setTextViewTextSize(R.id.widget_empty, TypedValue.COMPLEX_UNIT_SP, textStyle.emptyTextSp)
+                if (attachRemoteAdapter) {
+                    setWidgetListRemoteAdapter(
+                        createRemoteAdapterIntent(context, appWidgetId, sizeBucket, config, themeSnapshot)
+                    )
+                    setPendingIntentTemplate(R.id.widget_list, openAppPendingIntent)
+                }
                 setEmptyView(R.id.widget_list, R.id.widget_empty)
-                setPendingIntentTemplate(R.id.widget_list, openAppPendingIntent)
                 setOnClickPendingIntent(R.id.widget_root, openAppPendingIntent)
                 setOnClickPendingIntent(R.id.widget_empty, openAppPendingIntent)
             }
-
-            appWidgetManager.updateAppWidget(appWidgetId, views)
-            notifyWidgetListChanged(appWidgetManager, appWidgetId)
         }
 
         private fun resolveSizeBucket(options: Bundle): Int {
             val minWidthDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 110)
             val maxWidthDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, minWidthDp)
-            return WidgetSizeBucket.resolve(minWidthDp, maxWidthDp)
+            val minHeightDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 110)
+            val maxHeightDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, minHeightDp)
+            return WidgetSizeBucket.resolve(minWidthDp, maxWidthDp, minHeightDp, maxHeightDp)
         }
 
         private fun createOpenAppPendingIntent(
@@ -91,14 +114,18 @@ class CountdownAppWidgetProvider : AppWidgetProvider() {
             context: Context,
             appWidgetId: Int,
             sizeBucket: Int,
+            config: WidgetConfig,
             themeSnapshot: WidgetThemeSnapshot
         ): Intent {
             return Intent(context, CountdownWidgetService::class.java).apply {
                 putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
                 putExtra(WidgetSizeBucket.EXTRA_SIZE_BUCKET, sizeBucket)
-                data =
-                    "glimmer://widget/$appWidgetId?size=$sizeBucket&theme=${themeSnapshot.remoteCollectionKey}"
-                        .toUri()
+                data = buildWidgetRemoteAdapterDataUri(
+                    appWidgetId = appWidgetId,
+                    sizeBucket = sizeBucket,
+                    config = config,
+                    themeKey = themeSnapshot.remoteCollectionKey
+                )
             }
         }
 
@@ -140,4 +167,49 @@ class CountdownAppWidgetProvider : AppWidgetProvider() {
         super.onAppWidgetOptionsChanged(context, appWidgetManager, appWidgetId, newOptions)
         refreshWidgets(context, appWidgetManager, intArrayOf(appWidgetId))
     }
+
+    override fun onDeleted(context: Context, appWidgetIds: IntArray) {
+        super.onDeleted(context, appWidgetIds)
+        val app = context.applicationContext as? TimeApplication ?: return
+        app.launchAppTask {
+            val repository = WidgetConfigRepository(app)
+            appWidgetIds.forEach { id ->
+                repository.removeConfigForWidget(id)
+            }
+        }
+    }
+}
+
+internal fun buildWidgetRemoteAdapterDataUri(
+    appWidgetId: Int,
+    sizeBucket: Int,
+    config: WidgetConfig,
+    themeKey: String
+): android.net.Uri {
+    return buildWidgetRemoteAdapterDataUriString(
+        appWidgetId = appWidgetId,
+        sizeBucket = sizeBucket,
+        config = config,
+        themeKey = themeKey
+    ).toUri()
+}
+
+internal fun buildWidgetRemoteAdapterDataUriString(
+    appWidgetId: Int,
+    sizeBucket: Int,
+    config: WidgetConfig,
+    themeKey: String
+): String {
+    val clean = config.sanitize()
+    return ("glimmer://widget/$appWidgetId" +
+        "?size=$sizeBucket" +
+        "&template=${clean.sizeTemplate}" +
+        "&appearance=${clean.appearancePreset}" +
+        "&opacity=${clean.backgroundOpacityPercent}" +
+        "&density=${clean.densityMode}" +
+        "&scope=${clean.contentScope}" +
+        "&sort=${clean.sortMode}" +
+        "&font=${(clean.fontScale * 100).toInt()}" +
+        "&theme=$themeKey" +
+        "&key=${clean.cacheKey}")
 }
