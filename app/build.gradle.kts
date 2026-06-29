@@ -64,11 +64,13 @@ android {
     productFlavors {
         create("direct") {
             dimension = "channel"
+            buildConfigField("boolean", "DIRECT_APK_UPDATES_ENABLED", "true")
         }
         create("play") {
             dimension = "channel"
             applicationIdSuffix = ".play"
             versionNameSuffix = "-play"
+            buildConfigField("boolean", "DIRECT_APK_UPDATES_ENABLED", "false")
         }
     }
 

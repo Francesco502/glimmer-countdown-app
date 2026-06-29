@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -50,6 +51,12 @@ import com.example.timeapk.ui.components.PermissionActionDialog
 import com.example.timeapk.ui.components.PermissionDialogSpec
 import com.example.timeapk.ui.components.SnapWheelPicker
 import com.example.timeapk.ui.theme.ColorContrastGuardrail
+import com.example.timeapk.ui.theme.FONT_PRESET_DEFAULT
+import com.example.timeapk.ui.theme.FONT_PRESET_NOTO_SERIF_SC
+import com.example.timeapk.ui.theme.FONT_PRESET_SYSTEM_SANS
+import com.example.timeapk.ui.theme.FONT_PRESET_SYSTEM_SERIF
+import com.example.timeapk.ui.theme.FONT_PRESET_ZCOOL_XIAOWEI
+import com.example.timeapk.ui.theme.FontPresetValues
 import com.example.timeapk.ui.theme.SongColorBoundary
 import com.example.timeapk.widget.CountdownAppWidgetProvider
 import com.example.timeapk.widget.WidgetConfig
@@ -63,6 +70,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.example.timeapk.ui.theme.SongDesignTokens
 import com.example.timeapk.ui.theme.SongFilterChip
+import com.example.timeapk.ui.theme.typographyForFontPreset
 import androidx.compose.ui.window.Dialog
 import com.example.timeapk.ui.utils.eventDateToLocalDate
 import com.example.timeapk.ui.utils.findActivity
@@ -137,6 +145,7 @@ fun AppearanceSettingsContent(
     var widgetFontScaleDraft by remember(widgetFontScale) { mutableStateOf(widgetFontScale) }
     var editingWidgetId by remember { mutableStateOf<Int?>(null) }
     var colorPickerKey by remember { mutableStateOf<String?>(null) }
+    var showFontPresetDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(appBaseFontScale) {
         appBaseFontScaleDraft = appBaseFontScale
@@ -151,90 +160,85 @@ fun AppearanceSettingsContent(
             .verticalScroll(rememberScrollState())
             .padding(24.dp)
     ) {
-        SettingsGroupHeader(title = stringResource(R.string.theme_title))
-
-        listOf(
-            THEME_FOLLOW_SYSTEM to stringResource(R.string.theme_follow_system),
-            THEME_LIGHT to stringResource(R.string.theme_light),
-            THEME_DARK to stringResource(R.string.theme_dark)
-        ).forEach { (value, label) ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        launchWidgetSettingsUpdate {
-                            prefs.setThemeMode(value)
+        SettingsExpandableSection(
+            title = stringResource(R.string.theme_title),
+            summary = stringResource(R.string.settings_section_theme_summary),
+            initiallyExpanded = true
+        ) {
+            listOf(
+                THEME_FOLLOW_SYSTEM to stringResource(R.string.theme_follow_system),
+                THEME_LIGHT to stringResource(R.string.theme_light),
+                THEME_DARK to stringResource(R.string.theme_dark)
+            ).forEach { (value, label) ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            launchWidgetSettingsUpdate {
+                                prefs.setThemeMode(value)
+                            }
                         }
-                    }
-                    .padding(vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                RadioButton(
-                    selected = themeMode == value,
-                    onClick = {
-                        launchWidgetSettingsUpdate {
-                            prefs.setThemeMode(value)
+                        .padding(vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = themeMode == value,
+                        onClick = {
+                            launchWidgetSettingsUpdate {
+                                prefs.setThemeMode(value)
+                            }
                         }
-                    }
-                )
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(start = 8.dp),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+                    )
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.padding(start = 8.dp),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
             }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
         }
 
-        SettingsGroupHeader(
+        SettingsExpandableSection(
             title = stringResource(R.string.custom_colors_title),
-            modifier = Modifier.padding(top = 20.dp)
-        )
-
-        CustomColorRow(
-            label = stringResource(R.string.custom_color_background),
-            currentHex = customBackgroundHex,
-            defaultColor = MaterialTheme.colorScheme.background,
-            onPick = { colorPickerKey = "background" },
-            onReset = { scope.launch { prefs.setCustomBackgroundHex(null) } }
-        )
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
-
-        CustomColorRow(
-            label = stringResource(R.string.custom_color_surface),
-            currentHex = customSurfaceHex,
-            defaultColor = MaterialTheme.colorScheme.surfaceVariant,
-            onPick = { colorPickerKey = "surface" },
-            onReset = { scope.launch { prefs.setCustomSurfaceHex(null) } }
-        )
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
-
-        CustomColorRow(
-            label = stringResource(R.string.custom_color_primary),
-            currentHex = customPrimaryHex,
-            defaultColor = MaterialTheme.colorScheme.primary,
-            onPick = { colorPickerKey = "primary" },
-            onReset = { scope.launch { prefs.setCustomPrimaryHex(null) } }
-        )
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
-
-        CustomColorRow(
-            label = stringResource(R.string.custom_color_on_background),
-            currentHex = customOnBackgroundHex,
-            defaultColor = MaterialTheme.colorScheme.onBackground,
-            showBorder = true,
-            onPick = { colorPickerKey = "on_background" },
-            onReset = { scope.launch { prefs.setCustomOnBackgroundHex(null) } }
-        )
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
-
-        Text(
-            text = stringResource(R.string.custom_color_accessibility_hint),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
-        )
+            summary = stringResource(R.string.settings_section_color_summary)
+        ) {
+            CustomColorRow(
+                label = stringResource(R.string.custom_color_background),
+                currentHex = customBackgroundHex,
+                defaultColor = MaterialTheme.colorScheme.background,
+                onPick = { colorPickerKey = "background" },
+                onReset = { scope.launch { prefs.setCustomBackgroundHex(null) } }
+            )
+            CustomColorRow(
+                label = stringResource(R.string.custom_color_surface),
+                currentHex = customSurfaceHex,
+                defaultColor = MaterialTheme.colorScheme.surfaceVariant,
+                onPick = { colorPickerKey = "surface" },
+                onReset = { scope.launch { prefs.setCustomSurfaceHex(null) } }
+            )
+            CustomColorRow(
+                label = stringResource(R.string.custom_color_primary),
+                currentHex = customPrimaryHex,
+                defaultColor = MaterialTheme.colorScheme.primary,
+                onPick = { colorPickerKey = "primary" },
+                onReset = { scope.launch { prefs.setCustomPrimaryHex(null) } }
+            )
+            CustomColorRow(
+                label = stringResource(R.string.custom_color_on_background),
+                currentHex = customOnBackgroundHex,
+                defaultColor = MaterialTheme.colorScheme.onBackground,
+                showBorder = true,
+                onPick = { colorPickerKey = "on_background" },
+                onReset = { scope.launch { prefs.setCustomOnBackgroundHex(null) } }
+            )
+            Text(
+                text = stringResource(R.string.custom_color_accessibility_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+            )
+        }
 
         colorPickerKey?.let { key ->
             val (label, setter) = when (key) {
@@ -385,164 +389,262 @@ fun AppearanceSettingsContent(
             )
         }
 
-        SettingsGroupHeader(
+        if (showFontPresetDialog) {
+            FontPresetPickerDialog(
+                selectedPreset = fontPreset,
+                onPresetSelected = { preset ->
+                    scope.launch { prefs.setFontPreset(preset) }
+                    showFontPresetDialog = false
+                },
+                onDismiss = { showFontPresetDialog = false }
+            )
+        }
+
+        SettingsExpandableSection(
             title = stringResource(R.string.font_title),
-            modifier = Modifier.padding(top = 20.dp)
-        )
-
-        listOf(
-            4 to stringResource(R.string.font_slender_gold),
-            1 to stringResource(R.string.font_serif),
-            0 to stringResource(R.string.font_default)
-        ).forEach { (value, label) ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { scope.launch { prefs.setFontPreset(value) } }
-                    .padding(vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                RadioButton(
-                    selected = fontPreset == value,
-                    onClick = { scope.launch { prefs.setFontPreset(value) } }
-                )
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(start = 8.dp),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
-        }
-
-        Text(
-            text = stringResource(R.string.settings_app_font_scale_title),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(top = 12.dp)
-        )
-        Text(
-            text = stringResource(R.string.settings_font_scale_summary, (appBaseFontScaleDraft * 100).roundToInt()),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 2.dp)
-        )
-        Slider(
-            value = appBaseFontScaleDraft,
-            onValueChange = {
-                appBaseFontScaleDraft = it.coerceIn(
-                    SongDesignTokens.BaseFontScaleMin,
-                    SongDesignTokens.BaseFontScaleMax
-                )
-            },
-            valueRange = SongDesignTokens.BaseFontScaleMin..SongDesignTokens.BaseFontScaleMax,
-            onValueChangeFinished = {
-                scope.launch { prefs.setAppBaseFontScale(appBaseFontScaleDraft) }
-            },
-            modifier = Modifier.padding(top = 4.dp)
-        )
-        TextButton(
-            onClick = {
-                appBaseFontScaleDraft = 1f
-                scope.launch { prefs.setAppBaseFontScale(1f) }
-            }
+            summary = stringResource(R.string.settings_section_font_summary, fontPresetTitle(fontPreset))
         ) {
-            Text(stringResource(R.string.settings_font_scale_reset))
-        }
-
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
-
-        Text(
-            text = stringResource(R.string.settings_widget_font_scale_title),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(top = 12.dp)
-        )
-        Text(
-            text = stringResource(R.string.settings_font_scale_summary, (widgetFontScaleDraft * 100).roundToInt()),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 2.dp)
-        )
-        Slider(
-            value = widgetFontScaleDraft,
-            onValueChange = {
-                widgetFontScaleDraft = it.coerceIn(
-                    SongDesignTokens.WidgetFontScaleMin,
-                    SongDesignTokens.WidgetFontScaleMax
-                )
-            },
-            valueRange = SongDesignTokens.WidgetFontScaleMin..SongDesignTokens.WidgetFontScaleMax,
-            onValueChangeFinished = {
-                launchWidgetSettingsUpdate {
-                    prefs.setWidgetFontScale(widgetFontScaleDraft)
-                }
-            },
-            modifier = Modifier.padding(top = 4.dp)
-        )
-        TextButton(
-            onClick = {
-                widgetFontScaleDraft = 1f
-                launchWidgetSettingsUpdate {
-                    prefs.setWidgetFontScale(1f)
-                }
-            }
-        ) {
-            Text(stringResource(R.string.settings_font_scale_reset))
-        }
-
-        SettingsGroupHeader(
-            title = stringResource(R.string.widget_config_defaults_title),
-            modifier = Modifier.padding(top = 20.dp)
-        )
-        Text(
-            text = stringResource(R.string.widget_config_defaults_summary),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
-        )
-        WidgetConfigEditor(
-            config = defaultWidgetConfig,
-            onConfigChange = { next ->
-                app.launchAppTask {
-                    widgetConfigRepository.setDefaultConfig(next)
-                }
-            },
-            showDefaultActions = true,
-            onApplyToAllWidgets = {
-                launchWidgetSettingsUpdate {
-                    val ids = CountdownAppWidgetProvider.getAppWidgetIds(app)
-                    widgetConfigRepository.setAllInstanceConfigs(
-                        ids.associateWith { defaultWidgetConfig }
+            SettingsPressableRow(onClick = { showFontPresetDialog = true }) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.settings_font_picker_title),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = fontPresetDescription(fontPreset),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-            },
-            modifier = Modifier.padding(top = 4.dp)
-        )
-        WidgetInstanceManager(
-            appWidgetIds = CountdownAppWidgetProvider.getAppWidgetIds(app).toList(),
-            instanceConfigs = widgetInstanceConfigs,
-            defaultConfig = defaultWidgetConfig,
-            editingWidgetId = editingWidgetId,
-            onEditWidget = { editingWidgetId = it },
-            onConfigChange = { appWidgetId, next ->
-                launchWidgetSettingsUpdate {
-                    widgetConfigRepository.setConfigForWidget(appWidgetId, next)
+                Text(
+                    text = fontPresetTitle(fontPreset),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+
+        SettingsExpandableSection(
+            title = stringResource(R.string.settings_typography_scale_title),
+            summary = stringResource(
+                R.string.settings_typography_scale_summary,
+                (appBaseFontScaleDraft * 100).roundToInt(),
+                (widgetFontScaleDraft * 100).roundToInt()
+            )
+        ) {
+            Text(
+                text = stringResource(R.string.settings_app_font_scale_title),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = stringResource(R.string.settings_font_scale_summary, (appBaseFontScaleDraft * 100).roundToInt()),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+            Slider(
+                value = appBaseFontScaleDraft,
+                onValueChange = {
+                    appBaseFontScaleDraft = it.coerceIn(
+                        SongDesignTokens.BaseFontScaleMin,
+                        SongDesignTokens.BaseFontScaleMax
+                    )
+                },
+                valueRange = SongDesignTokens.BaseFontScaleMin..SongDesignTokens.BaseFontScaleMax,
+                onValueChangeFinished = {
+                    scope.launch { prefs.setAppBaseFontScale(appBaseFontScaleDraft) }
+                },
+                modifier = Modifier.padding(top = 4.dp)
+            )
+            TextButton(
+                onClick = {
+                    appBaseFontScaleDraft = 1f
+                    scope.launch { prefs.setAppBaseFontScale(1f) }
                 }
-            },
-            onResetWidget = { appWidgetId ->
-                launchWidgetSettingsUpdate {
-                    widgetConfigRepository.removeConfigForWidget(appWidgetId)
+            ) {
+                Text(stringResource(R.string.settings_font_scale_reset))
+            }
+
+            Text(
+                text = stringResource(R.string.settings_widget_font_scale_title),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(top = 12.dp)
+            )
+            Text(
+                text = stringResource(R.string.settings_font_scale_summary, (widgetFontScaleDraft * 100).roundToInt()),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+            Slider(
+                value = widgetFontScaleDraft,
+                onValueChange = {
+                    widgetFontScaleDraft = it.coerceIn(
+                        SongDesignTokens.WidgetFontScaleMin,
+                        SongDesignTokens.WidgetFontScaleMax
+                    )
+                },
+                valueRange = SongDesignTokens.WidgetFontScaleMin..SongDesignTokens.WidgetFontScaleMax,
+                onValueChangeFinished = {
+                    launchWidgetSettingsUpdate {
+                        prefs.setWidgetFontScale(widgetFontScaleDraft)
+                    }
+                },
+                modifier = Modifier.padding(top = 4.dp)
+            )
+            TextButton(
+                onClick = {
+                    widgetFontScaleDraft = 1f
+                    launchWidgetSettingsUpdate {
+                        prefs.setWidgetFontScale(1f)
+                    }
                 }
-                if (editingWidgetId == appWidgetId) {
-                    editingWidgetId = null
-                }
-            },
-            modifier = Modifier.padding(top = 12.dp)
-        )
+            ) {
+                Text(stringResource(R.string.settings_font_scale_reset))
+            }
+        }
+
+        SettingsExpandableSection(
+            title = stringResource(R.string.widget_config_defaults_title),
+            summary = stringResource(R.string.widget_config_defaults_summary)
+        ) {
+            WidgetConfigEditor(
+                config = defaultWidgetConfig,
+                onConfigChange = { next ->
+                    app.launchAppTask {
+                        widgetConfigRepository.setDefaultConfig(next)
+                    }
+                },
+                showDefaultActions = true,
+                onApplyToAllWidgets = {
+                    launchWidgetSettingsUpdate {
+                        val ids = CountdownAppWidgetProvider.getAppWidgetIds(app)
+                        widgetConfigRepository.setAllInstanceConfigs(
+                            ids.associateWith { defaultWidgetConfig }
+                        )
+                    }
+                },
+                modifier = Modifier.padding(top = 4.dp)
+            )
+            WidgetInstanceManager(
+                appWidgetIds = CountdownAppWidgetProvider.getAppWidgetIds(app).toList(),
+                instanceConfigs = widgetInstanceConfigs,
+                defaultConfig = defaultWidgetConfig,
+                editingWidgetId = editingWidgetId,
+                onEditWidget = { editingWidgetId = it },
+                onConfigChange = { appWidgetId, next ->
+                    launchWidgetSettingsUpdate {
+                        widgetConfigRepository.setConfigForWidget(appWidgetId, next)
+                    }
+                },
+                onResetWidget = { appWidgetId ->
+                    launchWidgetSettingsUpdate {
+                        widgetConfigRepository.removeConfigForWidget(appWidgetId)
+                    }
+                    if (editingWidgetId == appWidgetId) {
+                        editingWidgetId = null
+                    }
+                },
+                modifier = Modifier.padding(top = 12.dp)
+            )
+        }
     }
 }
+
+@Composable
+private fun FontPresetPickerDialog(
+    selectedPreset: Int,
+    onPresetSelected: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(SongDesignTokens.StandardRadius.dp),
+        title = { Text(stringResource(R.string.settings_font_picker_title)) },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                FontPresetValues.forEach { preset ->
+                    val previewTypography = typographyForFontPreset(preset)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onPresetSelected(preset) }
+                            .padding(vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = selectedPreset == preset,
+                            onClick = { onPresetSelected(preset) }
+                        )
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(start = 8.dp)
+                        ) {
+                            Text(
+                                text = fontPresetTitle(preset),
+                                style = previewTypography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = stringResource(R.string.settings_font_preview_text),
+                                style = previewTypography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 2.dp)
+                            )
+                            Text(
+                                text = fontPresetDescription(preset),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 2.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(android.R.string.cancel))
+            }
+        }
+    )
+}
+
+@Composable
+private fun fontPresetTitle(preset: Int): String {
+    return stringResource(
+        when (preset) {
+            FONT_PRESET_NOTO_SERIF_SC -> R.string.font_noto_serif_sc
+            FONT_PRESET_SYSTEM_SANS -> R.string.font_system_sans
+            FONT_PRESET_ZCOOL_XIAOWEI -> R.string.font_zcool_xiaowei
+            FONT_PRESET_SYSTEM_SERIF -> R.string.font_serif
+            FONT_PRESET_DEFAULT -> R.string.font_default
+            else -> R.string.font_noto_serif_sc
+        }
+    )
+}
+
+@Composable
+private fun fontPresetDescription(preset: Int): String {
+    return stringResource(
+        when (preset) {
+            FONT_PRESET_NOTO_SERIF_SC -> R.string.font_noto_serif_sc_desc
+            FONT_PRESET_SYSTEM_SANS -> R.string.font_system_sans_desc
+            FONT_PRESET_ZCOOL_XIAOWEI -> R.string.font_zcool_xiaowei_desc
+            FONT_PRESET_SYSTEM_SERIF -> R.string.font_serif_desc
+            FONT_PRESET_DEFAULT -> R.string.font_default_desc
+            else -> R.string.font_noto_serif_sc_desc
+        }
+    )
+}
+
 @Composable
 fun LegacyDisplaySettingsContent(
     modifier: Modifier = Modifier
@@ -1292,6 +1394,7 @@ fun MilestoneSettingsContent(
     var writableCalendars by remember { mutableStateOf<List<ScheduleSyncManager.CalendarOption>>(emptyList()) }
     var latestScheduleSyncEvent by remember { mutableStateOf<Event?>(null) }
     var syncStatusLoading by remember { mutableStateOf(false) }
+    var scheduleSyncStatusLoaded by rememberSaveable { mutableStateOf(false) }
     var permissionDialog by remember { mutableStateOf<PermissionDialogSpec?>(null) }
     val calendarPermissions = remember {
         arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR)
@@ -1303,17 +1406,21 @@ fun MilestoneSettingsContent(
 
     val refreshScheduleSyncStatus: suspend () -> Unit = {
         syncStatusLoading = true
-        latestScheduleSyncEvent = withContext(Dispatchers.IO) {
-            app.repository.getLatestScheduleSyncEvent()
-        }
-        writableCalendars = if (hasCalendarPermission()) {
-            withContext(Dispatchers.IO) {
-                ScheduleSyncManager.getWritableCalendars(context)
+        try {
+            latestScheduleSyncEvent = withContext(Dispatchers.IO) {
+                app.repository.getLatestScheduleSyncEvent()
             }
-        } else {
-            emptyList()
+            writableCalendars = if (hasCalendarPermission()) {
+                withContext(Dispatchers.IO) {
+                    ScheduleSyncManager.getWritableCalendars(context)
+                }
+            } else {
+                emptyList()
+            }
+            scheduleSyncStatusLoaded = true
+        } finally {
+            syncStatusLoading = false
         }
-        syncStatusLoading = false
     }
 
     val calendarPermissionLauncher = rememberLauncherForActivityResult(
@@ -1362,11 +1469,8 @@ fun MilestoneSettingsContent(
         }
     }
 
-    LaunchedEffect(Unit) {
-        refreshScheduleSyncStatus()
-    }
-
-    LaunchedEffect(writableCalendars, scheduleTargetCalendarId) {
+    LaunchedEffect(writableCalendars, scheduleTargetCalendarId, scheduleSyncStatusLoaded) {
+        if (!scheduleSyncStatusLoaded) return@LaunchedEffect
         if (!hasCalendarPermission()) return@LaunchedEffect
         val selected = scheduleTargetCalendarId
         if (selected != null && writableCalendars.none { it.id == selected }) {
@@ -1383,8 +1487,11 @@ fun MilestoneSettingsContent(
         permissionDialog?.let { dialog ->
             PermissionActionDialog(spec = dialog)
         }
-        SettingsGroupHeader(title = stringResource(R.string.settings_milestone_entry_title))
-
+        SettingsExpandableSection(
+            title = stringResource(R.string.settings_section_default_reminder_title),
+            summary = stringResource(R.string.settings_section_default_reminder_summary),
+            initiallyExpanded = true
+        ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1523,8 +1630,12 @@ fun MilestoneSettingsContent(
                 }
             }
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
+        }
 
+        SettingsExpandableSection(
+            title = stringResource(R.string.settings_section_milestone_display_title),
+            summary = stringResource(R.string.settings_section_milestone_display_summary)
+        ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1580,8 +1691,12 @@ fun MilestoneSettingsContent(
                 }
             )
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
+        }
 
+        SettingsExpandableSection(
+            title = stringResource(R.string.settings_section_milestone_reminder_title),
+            summary = stringResource(R.string.settings_section_milestone_reminder_summary)
+        ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1724,18 +1839,17 @@ fun MilestoneSettingsContent(
                 }
             }
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
+        }
 
-        SettingsGroupHeader(
-            title = stringResource(R.string.settings_schedule_sync_title),
-            modifier = Modifier.padding(top = 12.dp)
-        )
-        Text(
-            text = stringResource(R.string.settings_schedule_sync_summary),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 8.dp)
-        )
+        SettingsExpandableSection(
+            title = stringResource(R.string.settings_section_schedule_sync_title),
+            summary = stringResource(R.string.settings_schedule_sync_summary),
+            onExpandedChange = { expanded ->
+                if (expanded && !scheduleSyncStatusLoaded) {
+                    scope.launch { refreshScheduleSyncStatus() }
+                }
+            }
+        ) {
 
         Text(
             text = stringResource(R.string.settings_schedule_target_calendar_title),
@@ -1934,12 +2048,17 @@ fun MilestoneSettingsContent(
                 Text(stringResource(R.string.settings_schedule_refresh_status))
             }
         }
+        }
 
+        SettingsExpandableSection(
+            title = stringResource(R.string.settings_section_custom_milestones_title),
+            summary = stringResource(R.string.settings_section_custom_milestones_summary)
+        ) {
         Text(
             text = stringResource(R.string.settings_custom_milestones_title),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(top = 12.dp, bottom = 8.dp)
+            modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -2017,6 +2136,7 @@ fun MilestoneSettingsContent(
             modifier = Modifier.padding(top = 8.dp)
         ) {
             Text(stringResource(R.string.settings_custom_milestones_restore))
+        }
         }
     }
 }
@@ -2499,6 +2619,7 @@ fun AboutSettingsContent(
     val app = context.applicationContext as? TimeApplication
     if (app == null) return
     val scope = rememberCoroutineScope()
+    val directApkUpdatesEnabled = BuildConfig.DIRECT_APK_UPDATES_ENABLED
     
     var updateResult by remember { mutableStateOf<CheckUpdateResult?>(null) }
     var updateCheckInProgress by remember { mutableStateOf(false) }
@@ -2530,30 +2651,32 @@ fun AboutSettingsContent(
                 }
             },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        val url = result.downloadUrl ?: return@TextButton
-                        updateDownloading = true
-                        scope.launch {
-                            val ok = UpdateInstaller.downloadAndInstall(context, url)
-                            updateDownloading = false
-                            updateResult = null
-                            if (!ok) {
-                                snackbarHostState.showSnackbar(context.getString(R.string.update_download_failed))
+                if (directApkUpdatesEnabled) {
+                    TextButton(
+                        onClick = {
+                            val url = result.downloadUrl ?: return@TextButton
+                            updateDownloading = true
+                            scope.launch {
+                                val ok = UpdateInstaller.downloadAndInstall(context, url)
+                                updateDownloading = false
+                                updateResult = null
+                                if (!ok) {
+                                    snackbarHostState.showSnackbar(context.getString(R.string.update_download_failed))
+                                }
                             }
                         }
+                    ) {
+                        Text(
+                            if (updateDownloading) context.getString(R.string.update_downloading)
+                            else context.getString(R.string.update_download_install),
+                            color = MaterialTheme.colorScheme.primary
+                        )
                     }
-                ) {
-                    Text(
-                        if (updateDownloading) context.getString(R.string.update_downloading)
-                        else context.getString(R.string.update_download_install),
-                        color = MaterialTheme.colorScheme.primary
-                    )
                 }
             },
             dismissButton = {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    result.downloadUrl?.let { url ->
+                    result.downloadUrl?.takeIf { directApkUpdatesEnabled }?.let { url ->
                         TextButton(onClick = {
                             UpdateInstaller.openDownloadPageInBrowser(context, url)
                             updateResult = null

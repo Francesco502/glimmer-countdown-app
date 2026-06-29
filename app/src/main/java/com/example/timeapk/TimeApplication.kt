@@ -6,8 +6,8 @@ import com.example.timeapk.data.AppDatabase
 import com.example.timeapk.data.EventRepository
 import com.example.timeapk.data.UserPreferencesRepository
 import com.example.timeapk.notifications.RescheduleAllWorker
-import com.example.timeapk.update.GitHubReleaseUpdateChecker
 import com.example.timeapk.update.UpdateChecker
+import com.example.timeapk.update.UpdateCheckerFactory
 import com.example.timeapk.widget.WidgetUpdater
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -23,7 +23,7 @@ class TimeApplication : Application() {
     val database by lazy { AppDatabase.getDatabase(this) }
     val repository by lazy { EventRepository(database.eventDao()) }
     val userPrefs by lazy { UserPreferencesRepository(this) }
-    val updateChecker: UpdateChecker by lazy { GitHubReleaseUpdateChecker() }
+    val updateChecker: UpdateChecker by lazy { UpdateCheckerFactory.create() }
     var initialCategoryForAdd: String? = null
 
     fun launchAppTask(block: suspend CoroutineScope.() -> Unit) {

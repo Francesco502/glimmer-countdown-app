@@ -13,6 +13,8 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import com.example.timeapk.ui.theme.FONT_PRESET_NOTO_SERIF_SC
+import com.example.timeapk.ui.theme.sanitizeFontPreset
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -117,7 +119,9 @@ class UserPreferencesRepository(private val context: Context) {
     val showMilestoneFlow: Flow<Boolean> = context.dataStore.data.map { it[SHOW_MILESTONE] ?: true }
     val homeDisplayModeFlow: Flow<Int> = context.dataStore.data.map { (it[HOME_DISPLAY_MODE] ?: 0).coerceIn(0, 2) }
     val homeDensityModeFlow: Flow<Int> = context.dataStore.data.map { it[HOME_DENSITY_MODE] ?: 1 }
-    val fontPresetFlow: Flow<Int> = context.dataStore.data.map { it[FONT_PRESET] ?: 4 }
+    val fontPresetFlow: Flow<Int> = context.dataStore.data.map {
+        sanitizeFontPreset(it[FONT_PRESET] ?: FONT_PRESET_NOTO_SERIF_SC)
+    }
     val appBaseFontScaleFlow: Flow<Float> = context.dataStore.data.map {
         sanitizeAppBaseFontScale(it[APP_BASE_FONT_SCALE] ?: 1f)
     }
@@ -250,7 +254,7 @@ class UserPreferencesRepository(private val context: Context) {
     }
 
     suspend fun setFontPreset(preset: Int) {
-        context.dataStore.edit { it[FONT_PRESET] = preset }
+        context.dataStore.edit { it[FONT_PRESET] = sanitizeFontPreset(preset) }
     }
 
     suspend fun setAppBaseFontScale(scale: Float) {

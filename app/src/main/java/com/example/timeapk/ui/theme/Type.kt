@@ -18,17 +18,45 @@ private val SongSerifFontFamily = FontFamily(
     Font(R.font.noto_serif_sc, weight = FontWeight.SemiBold)
 )
 
+private val ZcoolXiaoWeiFontFamily = FontFamily(
+    Font(R.font.zcool_xiaowei_regular, weight = FontWeight.Normal)
+)
+
 fun typographyForFontPreset(preset: Int, baseScale: Float = 1f): Typography {
     val scale = baseScale.coerceIn(SongDesignTokens.BaseFontScaleMin, SongDesignTokens.BaseFontScaleMax)
-    val isSongThinSerif = preset == 4
-    val bodyFamily = if (isSongThinSerif) SongSerifFontFamily else FontFamily.Serif
-    val displayFamily = if (isSongThinSerif) SongSerifFontFamily else FontFamily.Serif
-    val numbersFamily = if (isSongThinSerif) SongSerifFontFamily else FontFamily.Serif
+    val sanitizedPreset = sanitizeFontPreset(preset)
+    val isSongThinSerif = sanitizedPreset == FONT_PRESET_NOTO_SERIF_SC
+    val isDisplaySerif = sanitizedPreset == FONT_PRESET_ZCOOL_XIAOWEI
+    val bodyFamily = when (sanitizedPreset) {
+        FONT_PRESET_NOTO_SERIF_SC -> SongSerifFontFamily
+        FONT_PRESET_SYSTEM_SANS -> FontFamily.SansSerif
+        FONT_PRESET_ZCOOL_XIAOWEI -> SongSerifFontFamily
+        FONT_PRESET_SYSTEM_SERIF -> FontFamily.Serif
+        else -> FontFamily.Default
+    }
+    val displayFamily = when (sanitizedPreset) {
+        FONT_PRESET_NOTO_SERIF_SC -> SongSerifFontFamily
+        FONT_PRESET_SYSTEM_SANS -> FontFamily.SansSerif
+        FONT_PRESET_ZCOOL_XIAOWEI -> ZcoolXiaoWeiFontFamily
+        FONT_PRESET_SYSTEM_SERIF -> FontFamily.Serif
+        else -> FontFamily.Default
+    }
+    val numbersFamily = when (sanitizedPreset) {
+        FONT_PRESET_NOTO_SERIF_SC -> SongSerifFontFamily
+        FONT_PRESET_SYSTEM_SANS -> FontFamily.SansSerif
+        FONT_PRESET_ZCOOL_XIAOWEI -> SongSerifFontFamily
+        FONT_PRESET_SYSTEM_SERIF -> FontFamily.Serif
+        else -> FontFamily.Default
+    }
 
-    val displayWeight = if (isSongThinSerif) FontWeight.Light else FontWeight.SemiBold
-    val titleWeight = if (isSongThinSerif) FontWeight.Normal else FontWeight.Medium
+    val displayWeight = when {
+        isSongThinSerif -> FontWeight.Light
+        isDisplaySerif -> FontWeight.Normal
+        else -> FontWeight.SemiBold
+    }
+    val titleWeight = if (isSongThinSerif || isDisplaySerif) FontWeight.Normal else FontWeight.Medium
     val bodyWeight = if (isSongThinSerif) FontWeight.Light else FontWeight.Normal
-    val labelWeight = if (isSongThinSerif) FontWeight.Normal else FontWeight.Medium
+    val labelWeight = if (isSongThinSerif || isDisplaySerif) FontWeight.Normal else FontWeight.Medium
 
     return Typography(
         displayLarge = TextStyle(

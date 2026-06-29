@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import com.example.timeapk.R
 import com.example.timeapk.TimeApplication
 import com.example.timeapk.ui.settings.WidgetConfigEditor
+import com.example.timeapk.ui.theme.FONT_PRESET_NOTO_SERIF_SC
 import com.example.timeapk.ui.theme.TimeAPKTheme
 import kotlinx.coroutines.launch
 
@@ -65,7 +66,7 @@ class WidgetConfigActivity : ComponentActivity() {
             val customSurfaceHex by prefs.customSurfaceHexFlow.collectAsState(initial = null)
             val customPrimaryHex by prefs.customPrimaryHexFlow.collectAsState(initial = null)
             val customOnBackgroundHex by prefs.customOnBackgroundHexFlow.collectAsState(initial = null)
-            val fontPreset by prefs.fontPresetFlow.collectAsState(initial = 0)
+            val fontPreset by prefs.fontPresetFlow.collectAsState(initial = FONT_PRESET_NOTO_SERIF_SC)
             val appBaseFontScale by prefs.appBaseFontScaleFlow.collectAsState(initial = 1f)
 
             TimeAPKTheme(
