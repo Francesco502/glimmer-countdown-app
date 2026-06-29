@@ -1,7 +1,7 @@
-# Publish the direct APK and Play AAB to GitHub Release.
+# Publish the direct APK to GitHub Release.
 # Usage:
 #   .\scripts\publish-release.ps1
-#   .\scripts\publish-release.ps1 -Tag v3.11 -ReleaseName v3.11
+#   .\scripts\publish-release.ps1 -Tag v3.13 -ReleaseName v3.13
 
 param(
     [string]$Tag,
@@ -19,7 +19,7 @@ $changelogPath = Join-Path $rootDir 'CHANGELOG.md'
 function Get-VersionName {
     param([string]$Path)
 
-    $fallback = '3.11'
+    $fallback = '3.13'
     if (-not (Test-Path $Path)) {
         return $fallback
     }
@@ -94,8 +94,6 @@ if (-not $ReleaseName) {
 $releaseNotes = Get-ReleaseNotes -Path $changelogPath -VersionName $versionName
 $apkName = 'glimmer-countdown-' + ($versionName -replace '\.', '-') + '.apk'
 $apkPath = Join-Path $rootDir ("app/build/outputs/apk/direct/release/$apkName")
-$aabName = 'app-play-release.aab'
-$aabPath = Join-Path $rootDir 'app/build/outputs/bundle/playRelease/app-play-release.aab'
 
 $token = Get-AuthToken
 if (-not $token) {
@@ -107,11 +105,6 @@ if (-not $token) {
 if (-not (Test-Path $apkPath)) {
     Write-Host 'ERROR: APK not found. Run .\gradlew assembleDirectRelease first.' -ForegroundColor Red
     Write-Host $apkPath -ForegroundColor Yellow
-    exit 1
-}
-if (-not (Test-Path $aabPath)) {
-    Write-Host 'ERROR: AAB not found. Run .\gradlew bundlePlayRelease first.' -ForegroundColor Red
-    Write-Host $aabPath -ForegroundColor Yellow
     exit 1
 }
 
@@ -203,15 +196,6 @@ Upload-ReleaseAsset `
     -AssetName $apkName `
     -AssetPath $apkPath `
     -ContentType 'application/vnd.android.package-archive' `
-    -Headers $headers `
-    -Owner $owner `
-    -Repo $repo
-
-Upload-ReleaseAsset `
-    -Release $release `
-    -AssetName $aabName `
-    -AssetPath $aabPath `
-    -ContentType 'application/octet-stream' `
     -Headers $headers `
     -Owner $owner `
     -Repo $repo

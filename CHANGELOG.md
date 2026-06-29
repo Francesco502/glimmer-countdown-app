@@ -2,6 +2,39 @@
 
 本文档记录拾光（Glimmer）各版本的主要变更。
 
+## [3.13] - 2026-06-29
+
+### 变更
+
+- 升级应用版本至 `3.13`（`versionCode=18`）
+- 桌面小组件新增 2x2、3x3、4x2 尺寸模板，支持透明、半透明、宣纸、青瓷、朱印等背景风格
+- 小组件支持按全部事件、置顶、未来、生日筛选，并可配置首页排序、置顶优先或最近优先
+- 小组件新增紧凑、标准、宽松密度，支持边框、圆角、文字对比、农历前缀与独立字号设置
+- 新增小组件配置 Activity，添加小组件时可配置；设置页支持管理默认配置并应用到已有小组件
+- 设置页改为分类入口 + 折叠分组结构，字体、字号、小组件、里程碑、提醒、日程同步等细节不再平铺
+- 内置 Noto Serif SC 与 ZCOOL XiaoWei 字体，默认使用真实宋体主视觉，并保留系统黑体、系统衬线与默认字体选项
+- Play 渠道移除直接 APK 安装权限，GitHub Release 仅作为 Direct 渠道应用内更新来源
+- GitHub Release 资产只上传 Direct APK，避免 Direct 应用内更新误下载 Play 包
+
+### 修复
+
+- 修复字体默认值与首帧初始值不一致导致的启动字体闪动风险
+- 修复设置页日程同步区块折叠时仍立即刷新同步状态的问题
+- 补充设置折叠区的无障碍 button role、展开 / 折叠状态和图标说明
+- 移除完整 Noto Sans SC 随包字体，将 Release APK 体积从约 36M 收口到约 25M
+
+### 验证
+
+- `testDirectDebugUnitTest`
+- `testPlayDebugUnitTest`
+- `compileDirectDebugAndroidTestKotlin`
+- `lintDirectRelease`
+- `lintPlayRelease`
+- `assembleDirectRelease`
+- `assemblePlayRelease`
+- `bundlePlayRelease`
+- Direct / Play APK 签名与权限核验
+
 ## [3.12] - 2026-06-24
 
 ### 变更

@@ -1,47 +1,41 @@
-# 发布检查清单（v3.12）
+# 发布检查清单（v3.13）
 
-**版本**：`3.12`（`versionCode=17`）  **发布日期**：`2026-06-24`
+**版本**：`3.13`（`versionCode=18`）  **发布日期**：`2026-06-29`
 
 ## 一、自动校验
 
-- [ ] `gradle.properties` 中 `VERSION_CODE=17`、`VERSION_NAME=3.12` 正确
-- [ ] `app/build.gradle.kts` 的版本读取、APK 重命名与 Play AAB 构建逻辑正常
-- [ ] `README.md`、`CHANGELOG.md` 与发布文档已切换到 `3.12`
-- [ ] `./gradlew assembleDirectDebug` 通过
-- [ ] `./gradlew testDirectDebugUnitTest` 通过
-- [ ] `./gradlew lintDirectDebug` 通过
-- [ ] `./gradlew testPlayDebugUnitTest --tests "com.example.timeapk.ui.event.EventEntryValidationTest" --tests "com.example.timeapk.notifications.ReminderDateCalculatorEdgeTest" --tests "com.example.timeapk.notifications.ScheduleSyncManagerTest"` 通过
-- [ ] `./gradlew assembleDirectRelease` 通过
-- [ ] `./gradlew bundlePlayRelease` 通过
-- [ ] Direct APK 已输出到 `app/build/outputs/apk/direct/release/glimmer-countdown-3-12.apk`
-- [ ] Play AAB 已输出到 `app/build/outputs/bundle/playRelease/app-play-release.aab`
+- [ ] `gradle.properties` 中 `VERSION_CODE=18`、`VERSION_NAME=3.13` 正确
+- [ ] `app/build.gradle.kts` 的版本读取、APK 重命名、Direct / Play flavor 与 BuildConfig 开关正常
+- [ ] `README.md`、`CHANGELOG.md` 与发布文档已切换到 `3.13`
 - [ ] `git diff --check` 未发现尾随空格或冲突标记
+- [ ] `./gradlew testDirectDebugUnitTest` 通过
+- [ ] `./gradlew testPlayDebugUnitTest` 通过
+- [ ] `./gradlew compileDirectDebugAndroidTestKotlin` 通过
+- [ ] `./gradlew lintDirectRelease lintPlayRelease` 通过
+- [ ] `./gradlew assembleDirectRelease assemblePlayRelease bundlePlayRelease` 通过
+- [ ] Direct APK 已输出到 `app/build/outputs/apk/direct/release/glimmer-countdown-3-13.apk`
+- [ ] Play AAB 已输出到 `app/build/outputs/bundle/playRelease/app-play-release.aab`
+- [ ] Direct / Play APK 签名验证通过
+- [ ] Direct APK 包含 `REQUEST_INSTALL_PACKAGES`，Play APK 不包含 `REQUEST_INSTALL_PACKAGES`
+- [ ] GitHub Release 资产只包含 Direct APK，不上传 Play APK / AAB
 
 ## 二、发布前人工复核
 
-- [ ] 每周/每月/每半年重复事件在非发生日显示的“已过去天数”不再为 0
-- [ ] 暗色模式下首页列表项文字颜色可读性良好
-- [ ] 编辑页快速切换权限对话框不再崩溃
-- [ ] 导入格式错误的 JSON 文件时，能正常解析有效事件并提示错误数
-- [ ] 导入“记得日子” `.mdb` 备份文件时，预览页能显示识别、可导入、重复跳过与失败数量
-- [ ] 确认导入“记得日子” `.mdb` 备份后，能恢复事件并避免重复导入 Realm 历史快照
-- [ ] 重复导入同一个备份文件时，已有的同名同日同分类事件会被跳过
-- [ ] 导入空文件或无法识别的二进制文件时，会显示明确失败原因且不会写入事件
-- [ ] 删除事件后旋转屏幕，不会卡在已删除事件的详情页
-- [ ] 详情页加载失败时显示返回按钮而非无限 spinner
-- [ ] 里程碑模式下无即将到来节点时显示“无即将到来的节点”
-- [ ] 触控目标（设置按钮、操作栏按钮、颜色选择器）在真机上易点击
-- [ ] 系统通知设置中可分别配置”倒计时提醒”和”节点提醒”两个 channel
-- [ ] 快速连续修改多项设置时，不会出现频繁的 reschedule 重启
-- [ ] 新建普通事件时，默认提醒开关为开启，默认提前天数为 7 天，默认提醒时间为 10:00
-- [ ] 在设置中修改“新建事件默认提醒”后，新建事件会使用新默认值
-- [ ] 编辑已有事件时，不会被新的默认提醒设置覆盖
-- [ ] 里程碑提醒、系统日历同步、小组件与现有提醒链路保持正常
-- [ ] “里程碑与提醒”页在浅色 / 深色主题下显示正常，滚轮与开关样式一致
+- [ ] 首页卡片、列表、月历在浅色 / 深色主题下文字可读
+- [ ] 设置首页分类入口、折叠分组、字体弹窗和小组件配置区显示正常
+- [ ] 字体切换到 Noto Serif SC、ZCOOL XiaoWei、系统黑体、系统衬线、默认字体后无明显布局溢出
+- [ ] 小组件添加配置页可保存 2x2、3x3、4x2 模板
+- [ ] 小组件透明、半透明、宣纸、青瓷、朱印背景在桌面显示正常
+- [ ] 小组件内容筛选、排序、密度、边框、圆角、文字对比和农历前缀配置生效
+- [ ] 设置页默认小组件配置可以应用到已有小组件
+- [ ] 新建 / 编辑 / 删除事件、提醒、系统日历同步和小组件刷新链路保持正常
+- [ ] Play 渠道关于页不出现直接 APK 下载 / 安装入口
+- [ ] Direct 渠道关于页检查更新仍可读取 GitHub Release
 
 ## 三、发布动作
 
-- [ ] 提交并 push 当前代码到远端分支
-- [ ] 创建或更新 `v3.12` 标签
-- [ ] 在 GitHub Release 中上传最新 APK 与 AAB
-- [ ] 以 `CHANGELOG.md` 中的 `3.12` 小节作为 Release Notes
+- [ ] 提交并 push 当前分支到 GitHub
+- [ ] 创建或更新 `v3.13` 标签
+- [ ] 在 GitHub Release 中发布 `glimmer-countdown-3-13.apk`
+- [ ] 以 `CHANGELOG.md` 中的 `3.13` 小节作为 Release Notes
+- [ ] 确认 GitHub Release 页面标题、标签、说明和资产均对应 `v3.13`

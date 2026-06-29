@@ -24,6 +24,34 @@ class ReleaseReadinessTest {
     }
 
     @Test
+    fun releaseDocsTarget313AndDirectGithubApkOnly() {
+        val docs = listOf(
+            existingFile("README.md", "../README.md"),
+            existingFile("CHANGELOG.md", "../CHANGELOG.md"),
+            existingFile("docs/RELEASE_CHECKLIST.md", "../docs/RELEASE_CHECKLIST.md"),
+            existingFile("docs/GITHUB_AND_RELEASE.md", "../docs/GITHUB_AND_RELEASE.md"),
+            existingFile("docs/release_and_update_guide.md", "../docs/release_and_update_guide.md")
+        )
+        val combined = docs.joinToString("\n") { it.readText(Charsets.UTF_8) }
+
+        assertTrue(combined.contains("3.13"))
+        assertTrue(combined.contains("versionCode=18") || combined.contains("versionCode`：`18"))
+        assertTrue(combined.contains("glimmer-countdown-3-13.apk"))
+        assertFalse(combined.contains("glimmer-countdown-3-12.apk"))
+        assertFalse(combined.contains("versionName`：`3.12"))
+        assertFalse(combined.contains("versionCode`：`17"))
+
+        val script = existingFile(
+            "scripts/publish-release.ps1",
+            "../scripts/publish-release.ps1"
+        ).readText(Charsets.UTF_8)
+
+        assertTrue(script.contains("Publish the direct APK to GitHub Release"))
+        assertFalse(script.contains("Upload-ReleaseAsset `\n    -Release ${'$'}release `\n    -AssetName ${'$'}aabName"))
+        assertFalse(script.contains("ERROR: AAB not found"))
+    }
+
+    @Test
     fun songTypographyUsesBundledNotoSerifFont() {
         val source = mainSource("ui/theme/Type.kt").readText(Charsets.UTF_8)
 
