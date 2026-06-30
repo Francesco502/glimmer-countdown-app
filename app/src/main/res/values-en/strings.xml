@@ -30,13 +30,13 @@
     </plurals>
     <string name="milestone_7">7 days</string>
     <string name="milestone_30">30 days</string>
-    <string name="milestone_100">100 days</string>
+    <string name="milestone_100">100-day mark</string>
     <string name="milestone_365">1 year</string>
     <string name="milestone_none">No upcoming milestone</string>
     <string name="milestone_520">520 days</string>
-    <string name="milestone_1000">1000 days</string>
+    <string name="milestone_1000">1000-day mark</string>
     <string name="milestone_days_format">Day %d</string>
-    <string name="milestone_label_prefix">Until %1$s</string>
+    <string name="milestone_label_prefix">Next: %1$s</string>
 
     <!-- Filter & Sort -->
     <string name="filter_all">All</string>
@@ -339,6 +339,7 @@
     <string name="calendar_prev_month">Previous month</string>
     <string name="calendar_next_month">Next month</string>
     <string name="calendar_selected_date_events">Events on %1$s</string>
+    <string name="calendar_selected_date_lunar">Lunar %1$s</string>
     <string name="calendar_no_events">No events on this day</string>
     <string name="settings_app_font_scale_title">App base font size</string>
     <string name="settings_widget_font_scale_title">Widget base font size</string>

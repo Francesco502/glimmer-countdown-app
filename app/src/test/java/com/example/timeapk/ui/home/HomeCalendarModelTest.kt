@@ -131,6 +131,36 @@ class HomeCalendarModelTest {
         assertEquals((1..180).toList(), occurrences.map { it.eventState.event.id })
     }
 
+    @Test
+    fun calendarDayCellContent_keepsCompactCellsFreeOfLunarText() {
+        val content = calendarDayCellContent(
+            date = LocalDate.of(2026, 5, 20),
+            occurrences = emptyList()
+        )
+
+        assertEquals("20", content.dayText)
+        assertEquals(null, content.eventIndicatorText)
+    }
+
+    @Test
+    fun calendarDayCellContent_usesShortCountInsteadOfEventTitleForCrowdedCells() {
+        val date = LocalDate.of(2026, 6, 24)
+        val occurrences = listOf(
+            CalendarEventOccurrence(
+                eventState(1, "A very long birthday title", date, REPEAT_NONE),
+                date
+            ),
+            CalendarEventOccurrence(
+                eventState(2, "Another long event title", date, REPEAT_NONE),
+                date
+            )
+        )
+
+        val content = calendarDayCellContent(date, occurrences)
+
+        assertEquals("2", content.eventIndicatorText)
+    }
+
     private fun eventState(
         id: Int,
         title: String,

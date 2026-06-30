@@ -19,6 +19,25 @@ data class CalendarEventOccurrence(
     val date: LocalDate
 )
 
+data class CalendarDayCellContent(
+    val dayText: String,
+    val eventIndicatorText: String?
+)
+
+fun calendarDayCellContent(
+    date: LocalDate,
+    occurrences: List<CalendarEventOccurrence>
+): CalendarDayCellContent {
+    return CalendarDayCellContent(
+        dayText = date.dayOfMonth.toString(),
+        eventIndicatorText = when {
+            occurrences.size <= 1 -> null
+            occurrences.size > 99 -> "99+"
+            else -> occurrences.size.toString()
+        }
+    )
+}
+
 fun calendarOccurrencesForMonth(
     events: List<EventUiState>,
     month: YearMonth

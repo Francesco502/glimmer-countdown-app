@@ -1,6 +1,9 @@
 package com.example.timeapk.ui.home
 
 import com.example.timeapk.data.Event
+import com.example.timeapk.data.CATEGORY_ANNIVERSARY
+import com.example.timeapk.data.CATEGORY_BIRTHDAY
+import com.example.timeapk.data.CATEGORY_OTHER
 import com.example.timeapk.data.REPEAT_NONE
 import com.example.timeapk.data.REPEAT_MONTHLY
 import com.example.timeapk.data.REPEAT_YEARLY
@@ -83,7 +86,7 @@ class EventUiStateTest {
         val event = Event(
             title = "progress event",
             date = epochMillisOf(start),
-            category = "other",
+            category = CATEGORY_OTHER,
             repeatType = REPEAT_NONE
         )
 
@@ -100,5 +103,68 @@ class EventUiStateTest {
         assertEquals(5L, stateWithSmart.nextMilestoneDays)
         assertNull(stateWithoutSmart.nextMilestoneValue)
         assertNull(stateWithoutSmart.nextMilestoneDays)
+    }
+
+    @Test
+    fun birthdaySmartMilestones_prefersHalfYearOverSmallDynamicStep() {
+        val today = LocalDate.now()
+        val start = today.minusDays(181)
+        val event = Event(
+            title = "birthday",
+            date = epochMillisOf(start),
+            category = CATEGORY_BIRTHDAY,
+            repeatType = REPEAT_NONE
+        )
+
+        val state = event.toEventUiState(
+            milestones = emptyList(),
+            smartMilestonesEnabled = true
+        )
+
+        assertEquals(183L, state.nextMilestoneValue)
+        assertEquals(2L, state.nextMilestoneDays)
+        assertEquals(MilestoneReason.BIRTHDAY_HALF_YEAR, state.nextMilestoneReason)
+    }
+
+    @Test
+    fun anniversarySmartMilestones_exposesYearlyReason() {
+        val today = LocalDate.now()
+        val start = today.minusDays(364)
+        val event = Event(
+            title = "anniversary",
+            date = epochMillisOf(start),
+            category = CATEGORY_ANNIVERSARY,
+            repeatType = REPEAT_NONE
+        )
+
+        val state = event.toEventUiState(
+            milestones = emptyList(),
+            smartMilestonesEnabled = true
+        )
+
+        assertEquals(365L, state.nextMilestoneValue)
+        assertEquals(1L, state.nextMilestoneDays)
+        assertEquals(MilestoneReason.ANNIVERSARY_YEAR, state.nextMilestoneReason)
+    }
+
+    @Test
+    fun futureCountdownSmartMilestones_skipsSameDayDynamicThreshold() {
+        val today = LocalDate.now()
+        val target = today.plusDays(95)
+        val event = Event(
+            title = "countdown",
+            date = epochMillisOf(target),
+            category = CATEGORY_OTHER,
+            repeatType = REPEAT_NONE
+        )
+
+        val state = event.toEventUiState(
+            milestones = emptyList(),
+            smartMilestonesEnabled = true
+        )
+
+        assertEquals(90L, state.nextMilestoneValue)
+        assertEquals(5L, state.nextMilestoneDays)
+        assertEquals(MilestoneReason.COUNTDOWN_THRESHOLD, state.nextMilestoneReason)
     }
 }

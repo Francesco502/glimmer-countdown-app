@@ -83,9 +83,10 @@ import com.example.timeapk.ui.theme.AnimationSpecs
 import com.example.timeapk.ui.theme.SongCalendarCell
 import com.example.timeapk.ui.theme.SongDesignTokens
 import com.example.timeapk.ui.theme.SongFilterChip
+import com.example.timeapk.ui.theme.SongModeTabRow
+import com.example.timeapk.ui.theme.SongPalette
 import com.example.timeapk.ui.theme.SongPaperSurface
-import com.example.timeapk.ui.theme.SongSegmentedControl
-import com.example.timeapk.ui.utils.formatLunarMonthDay
+import com.example.timeapk.ui.utils.formatLunarDateString
 
 import androidx.compose.foundation.LocalOverscrollConfiguration
 import androidx.compose.foundation.OverscrollConfiguration
@@ -131,9 +132,15 @@ fun HomeScreen(
     val savedHomeDisplayMode by prefs.homeDisplayModeFlow.collectAsState(initial = 0)
     var homeDisplayMode by remember(savedHomeDisplayMode) { mutableStateOf(savedHomeDisplayMode) }
     var showSortMenu by remember { mutableStateOf(false) }
+    val hasActiveFilter = filterType != FilterType.All
+    var showFilterPanel by remember { mutableStateOf(false) }
+    var showSearchBar by remember { mutableStateOf(searchQuery.isNotBlank()) }
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(homeDisplayMode) {
         prefs.setHomeDisplayMode(homeDisplayMode)
+    }
+    LaunchedEffect(searchQuery) {
+        if (searchQuery.isNotBlank()) showSearchBar = true
     }
     val displayedList = homeUiState
 
@@ -186,26 +193,89 @@ fun HomeScreen(
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            CenterAlignedTopAppBar(
+            TopAppBar(
                 title = {
-                    Text(
-                        text = stringResource(R.string.app_name),
-                        style = MaterialTheme.typography.titleLarge
-                    )
-                },
-                actions = {
-                    IconButton(
-                        onClick = navigateToSettings,
-                        modifier = Modifier.size(48.dp)
-                    ) {
-                        Icon(
-                            Icons.Outlined.Settings,
-                            contentDescription = stringResource(R.string.settings_title),
-                            modifier = Modifier.size(20.dp)
+                    if (showSearchBar) {
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = viewModel::updateSearchQuery,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 48.dp),
+                            placeholder = { Text(stringResource(R.string.search_hint)) },
+                            textStyle = MaterialTheme.typography.bodyMedium,
+                            singleLine = true,
+                            shape = RoundedCornerShape(4.dp)
+                        )
+                    } else {
+                        Text(
+                            text = stringResource(R.string.app_name),
+                            style = MaterialTheme.typography.titleLarge,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                actions = {
+                    InlineActionIconButton(
+                        icon = Icons.Outlined.Search,
+                        contentDescription = stringResource(R.string.search_hint),
+                        active = showSearchBar || searchQuery.isNotBlank(),
+                        onClick = {
+                            if (showSearchBar && searchQuery.isBlank()) {
+                                showSearchBar = false
+                            } else {
+                                showSearchBar = !showSearchBar
+                            }
+                        }
+                    )
+                    InlineActionIconButton(
+                        icon = Icons.Outlined.Tune,
+                        contentDescription = stringResource(R.string.home_filter_panel_toggle),
+                        active = hasActiveFilter || showFilterPanel,
+                        onClick = { showFilterPanel = !showFilterPanel }
+                    )
+                    Box {
+                        InlineActionIconButton(
+                            icon = Icons.AutoMirrored.Outlined.Sort,
+                            contentDescription = stringResource(R.string.sort_menu),
+                            active = sortType != SortType.Custom || showSortMenu,
+                            onClick = { showSortMenu = true }
+                        )
+                        DropdownMenu(
+                            expanded = showSortMenu,
+                            onDismissRequest = { showSortMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.sort_by_created)) },
+                                onClick = {
+                                    viewModel.updateSortType(SortType.Custom)
+                                    showSortMenu = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.sort_by_days)) },
+                                onClick = {
+                                    viewModel.updateSortType(SortType.ByDays)
+                                    showSortMenu = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.sort_by_date)) },
+                                onClick = {
+                                    viewModel.updateSortType(SortType.ByDate)
+                                    showSortMenu = false
+                                }
+                            )
+                        }
+                    }
+                    InlineActionIconButton(
+                        icon = Icons.Outlined.Settings,
+                        contentDescription = stringResource(R.string.settings_title),
+                        onClick = navigateToSettings
+                    )
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.Transparent,
                     titleContentColor = MaterialTheme.colorScheme.onBackground,
                     actionIconContentColor = MaterialTheme.colorScheme.onBackground,
@@ -248,77 +318,6 @@ fun HomeScreen(
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
         ) {
-            val hasActiveFilter = filterType != FilterType.All
-            var showFilterPanel by remember { mutableStateOf(hasActiveFilter) }
-            var showSearchBar by remember { mutableStateOf(searchQuery.isNotBlank()) }
-            LaunchedEffect(hasActiveFilter) {
-                if (hasActiveFilter) showFilterPanel = true
-            }
-            LaunchedEffect(searchQuery) {
-                if (searchQuery.isNotBlank()) showSearchBar = true
-            }
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 2.dp)
-                    .wrapContentWidth(Alignment.End),
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                InlineActionIconButton(
-                    icon = Icons.Outlined.Search,
-                    contentDescription = stringResource(R.string.search_hint),
-                    active = showSearchBar || searchQuery.isNotBlank(),
-                    onClick = {
-                        if (showSearchBar && searchQuery.isBlank()) {
-                            showSearchBar = false
-                        } else {
-                            showSearchBar = !showSearchBar
-                        }
-                    }
-                )
-                InlineActionIconButton(
-                    icon = Icons.Outlined.Tune,
-                    contentDescription = stringResource(R.string.home_filter_panel_toggle),
-                    active = hasActiveFilter || showFilterPanel,
-                    onClick = { showFilterPanel = !showFilterPanel }
-                )
-                Box {
-                    InlineActionIconButton(
-                        icon = Icons.AutoMirrored.Outlined.Sort,
-                        contentDescription = stringResource(R.string.sort_menu),
-                        active = sortType != SortType.Custom || showSortMenu,
-                        onClick = { showSortMenu = true }
-                    )
-                    DropdownMenu(
-                        expanded = showSortMenu,
-                        onDismissRequest = { showSortMenu = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.sort_by_created)) },
-                            onClick = {
-                                viewModel.updateSortType(SortType.Custom)
-                                showSortMenu = false
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.sort_by_days)) },
-                            onClick = {
-                                viewModel.updateSortType(SortType.ByDays)
-                                showSortMenu = false
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.sort_by_date)) },
-                            onClick = {
-                                viewModel.updateSortType(SortType.ByDate)
-                                showSortMenu = false
-                            }
-                        )
-                    }
-                }
-            }
             HomeDisplayModeSegmentedControl(
                 selectedMode = homeDisplayMode,
                 onModeSelected = { homeDisplayMode = it },
@@ -349,19 +348,6 @@ fun HomeScreen(
                         )
                     )
                 }
-            }
-
-            AnimatedVisibility(visible = showSearchBar) {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = viewModel::updateSearchQuery,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 6.dp),
-                    placeholder = { Text(stringResource(R.string.search_hint)) },
-                    singleLine = true,
-                    shape = RoundedCornerShape(4.dp)
-                )
             }
 
             AnimatedVisibility(visible = showFilterPanel) {
@@ -593,7 +579,7 @@ private fun HomeDisplayModeSegmentedControl(
         1 to stringResource(R.string.display_mode_list),
         2 to stringResource(R.string.display_mode_calendar)
     )
-    SongSegmentedControl(
+    SongModeTabRow(
         options = modes,
         selected = selectedMode,
         onSelected = onModeSelected,
@@ -688,13 +674,15 @@ fun EventCard(
         label = "cardAlpha"
     )
 
-    val cardContainerColor = if (isPast) {
-        MaterialTheme.colorScheme.surface.copy(alpha = 0.86f)
-    } else {
-        MaterialTheme.colorScheme.surface
+    val lightSurface = MaterialTheme.colorScheme.surface.luminance() > 0.5f
+    val cardContainerColor = when {
+        isPast && lightSurface -> SongPalette.PaperMuted
+        isPast -> MaterialTheme.colorScheme.surface.copy(alpha = 0.86f)
+        else -> MaterialTheme.colorScheme.surface
     }
     val cardContentColor = lerp(MaterialTheme.colorScheme.onSurface, baseCardColor, 0.06f)
-    val cardAccentColor = baseCardColor.copy(alpha = if (isPast) 0.42f else 0.78f)
+    val cardAccentColor = baseCardColor.copy(alpha = if (isPast) 0.30f else 0.58f)
+    val cardBorderColor = baseCardColor.copy(alpha = if (isPast) 0.16f else 0.22f)
 
     val locale = androidx.compose.ui.platform.LocalContext.current.resources.configuration.locales[0]
 
@@ -809,9 +797,9 @@ fun EventCard(
             .semantics(mergeDescendants = true) { contentDescription = cardDescription },
         backgroundColor = cardContainerColor,
         borderColor = if (isDragging) {
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.62f)
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.42f)
         } else {
-            cardAccentColor.copy(alpha = if (isPast) 0.34f else 0.52f)
+            cardBorderColor
         }
     ) {
         Row(
@@ -1063,9 +1051,6 @@ private fun EventListItem(
         else -> Color.Transparent
     }
 
-    // 方案一：动态计算文字颜色，保留“宋式美学”的雅致高级感
-    // 在列表模式下，背景通常是透明或白色的，文字颜色应主要受系统主题影响，
-    // 降低混入事件颜色的比例，提高对比度
     val baseTextColorListItem = MaterialTheme.colorScheme.onSurface
     val itemContentColor = lerp(baseTextColorListItem, eventColor, 0.04f)
 
@@ -1105,16 +1090,16 @@ private fun EventListItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 88.dp)
-                .padding(horizontal = 12.dp, vertical = 12.dp),
+                .heightIn(min = 64.dp)
+                .padding(horizontal = 8.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .width(3.dp)
-                    .height(40.dp)
+                    .width(2.dp)
+                    .height(18.dp)
                     .background(
-                        color = eventColor.copy(alpha = if (isPast) 0.45f else 0.85f),
+                        color = eventColor.copy(alpha = if (isPast) 0.26f else 0.50f),
                         shape = RoundedCornerShape(2.dp)
                     )
             )
@@ -1145,7 +1130,7 @@ private fun EventListItem(
                     Text(
                         text = metaLine,
                         style = MaterialTheme.typography.labelSmall,
-                        color = eventColor.copy(alpha = if (isPast) 0.68f else 0.9f),
+                        color = eventColor.copy(alpha = if (isPast) 0.56f else 0.74f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -1163,9 +1148,9 @@ private fun EventListItem(
             }
             Spacer(modifier = Modifier.width(12.dp))
             VerticalDivider(
-                modifier = Modifier.height(34.dp),
+                modifier = Modifier.height(28.dp),
                 thickness = 0.6.dp,
-                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.18f)
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
             )
             Spacer(modifier = Modifier.width(12.dp))
             Column(
@@ -1215,8 +1200,9 @@ private fun EventListItem(
             }
         }
         HorizontalDivider(
-            thickness = 0.6.dp,
-            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f)
+            modifier = Modifier.padding(start = 24.dp),
+            thickness = SongDesignTokens.BorderWidth.dp,
+            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
         )
     }
 }
@@ -1332,29 +1318,23 @@ private fun MonthCalendarView(
                     val isSelected = date != null && date == pickedDate
                     val isToday = date != null && date == selectedDate
                     val hasEvents = dayEvents.isNotEmpty()
-                    val dayPreview = if (dayEvents.isEmpty()) {
-                        ""
-                    } else {
-                        val firstTitle = dayEvents.first().eventState.event.title
-                        if (dayEvents.size > 1) "$firstTitle +${dayEvents.size - 1}" else firstTitle
-                    }
                     if (date == null) {
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .height(68.dp)
+                                .height(60.dp)
                         )
                     } else {
+                        val cellContent = calendarDayCellContent(date, dayEvents)
                         SongCalendarCell(
-                            dayText = date.dayOfMonth.toString(),
-                            lunarText = formatLunarMonthDay(date),
-                            previewText = dayPreview,
+                            dayText = cellContent.dayText,
+                            eventIndicatorText = cellContent.eventIndicatorText,
                             selected = isSelected,
                             today = isToday,
                             hasEvents = hasEvents,
                             modifier = Modifier
                                 .weight(1f)
-                                .height(68.dp),
+                                .height(60.dp),
                             onClick = { pickedDate = date }
                         )
                     }
@@ -1362,12 +1342,26 @@ private fun MonthCalendarView(
             }
         }
 
-        Text(
-            text = stringResource(R.string.calendar_selected_date_events, pickedDate.format(selectedDateFormatter)),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 4.dp)
-        )
+        Column(
+            modifier = Modifier.padding(top = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.calendar_selected_date_events, pickedDate.format(selectedDateFormatter)),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = stringResource(
+                    R.string.calendar_selected_date_lunar,
+                    formatLunarDateString(pickedDate, context)
+                ),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.82f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
 
         val selectedEvents = eventsByDate[pickedDate].orEmpty()
         if (selectedEvents.isEmpty()) {
@@ -1379,44 +1373,71 @@ private fun MonthCalendarView(
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(0.dp),
                 contentPadding = PaddingValues(bottom = 8.dp)
             ) {
                 items(selectedEvents, key = { "${it.eventState.event.id}-${it.date}" }) { occurrence ->
-                    SongPaperSurface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .then(
-                                if (onEventLongClick != null) {
-                                    Modifier.combinedClickable(
-                                        onClick = { onEventClick(occurrence.eventState.event.id) },
-                                        onLongClick = { onEventLongClick(occurrence.eventState.event.id) }
-                                    )
-                                } else {
-                                    Modifier.clickable { onEventClick(occurrence.eventState.event.id) }
-                                }
-                            ),
-                        borderColor = MaterialTheme.colorScheme.outline.copy(alpha = SongDesignTokens.BorderAlphaStrong)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 10.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = occurrence.eventState.event.title,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    }
+                    CalendarOccurrenceRow(
+                        occurrence = occurrence,
+                        onEventClick = onEventClick,
+                        onEventLongClick = onEventLongClick
+                    )
                 }
             }
         }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun CalendarOccurrenceRow(
+    occurrence: CalendarEventOccurrence,
+    onEventClick: (Int) -> Unit,
+    onEventLongClick: ((Int) -> Unit)?
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (onEventLongClick != null) {
+                    Modifier.combinedClickable(
+                        onClick = { onEventClick(occurrence.eventState.event.id) },
+                        onLongClick = { onEventLongClick(occurrence.eventState.event.id) }
+                    )
+                } else {
+                    Modifier.clickable { onEventClick(occurrence.eventState.event.id) }
+                }
+            )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 44.dp)
+                .padding(horizontal = 4.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(2.dp)
+                    .height(14.dp)
+                    .background(
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.38f),
+                        RoundedCornerShape(1.dp)
+                    )
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(
+                text = occurrence.eventState.event.title,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+        }
+        HorizontalDivider(
+            thickness = SongDesignTokens.BorderWidth.dp,
+            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.10f)
+        )
     }
 }

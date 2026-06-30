@@ -28,6 +28,7 @@ object SongDesignTokens {
 object SongPalette {
     val Paper = Color(0xFFF5F3ED)
     val PaperWarm = Color(0xFFFFFBF5)
+    val PaperMuted = Color(0xFFF2EDE3)
     val PaperDeep = Color(0xFFEDE8DD)
     val Ink = Color(0xFF1F1F1F)
     val InkMuted = Color(0xFF6A6256)

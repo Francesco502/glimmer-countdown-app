@@ -64,7 +64,7 @@ private class CountdownRemoteViewsFactory(
     override fun getViewAt(position: Int): RemoteViews? {
         val item = items.getOrNull(position) ?: return null
 
-        return RemoteViews(context.packageName, R.layout.widget_countdown_item).apply {
+        return RemoteViews(context.packageName, renderStyle.itemLayoutResId).apply {
             setTextViewText(R.id.widget_item_title, item.title)
             setTextViewText(R.id.widget_item_value, item.value)
             setTextColor(R.id.widget_item_title, renderStyle.primaryTextColor)

@@ -4,7 +4,7 @@ import androidx.compose.ui.graphics.Color
 
 // Song-style palette
 val SongLightBackground = Color(0xFFF5F3ED)
-val SongLightSurface = Color(0xFFFFFFFF)
+val SongLightSurface = Color(0xFFFFFBF5)
 val SongLightSurfaceVariant = Color(0xFFEDE8DD)
 val SongLightPrimary = Color(0xFFAF4E31)
 val SongLightSecondary = Color(0xFF457080)

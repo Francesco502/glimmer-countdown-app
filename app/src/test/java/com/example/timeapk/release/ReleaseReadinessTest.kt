@@ -9,22 +9,22 @@ import java.util.Properties
 
 class ReleaseReadinessTest {
     @Test
-    fun versionConfigTargets313Release() {
+    fun versionConfigTargets314Release() {
         val properties = Properties().apply {
             rootGradlePropertiesFile().inputStream().use(::load)
         }
 
-        assertEquals("18", properties.getProperty("VERSION_CODE"))
-        assertEquals("3.13", properties.getProperty("VERSION_NAME"))
+        assertEquals("19", properties.getProperty("VERSION_CODE"))
+        assertEquals("3.14", properties.getProperty("VERSION_NAME"))
 
         val buildFile = appBuildGradleFile().readText(Charsets.UTF_8)
-        assertTrue(buildFile.contains("versionCode = versionCodeOverride ?: 18"))
-        assertTrue(buildFile.contains("versionName = versionNameOverride ?: \"3.13\""))
-        assertTrue(buildFile.contains("val versionNameForApk = versionNameOverride ?: \"3.13\""))
+        assertTrue(buildFile.contains("versionCode = versionCodeOverride ?: 19"))
+        assertTrue(buildFile.contains("versionName = versionNameOverride ?: \"3.14\""))
+        assertTrue(buildFile.contains("val versionNameForApk = versionNameOverride ?: \"3.14\""))
     }
 
     @Test
-    fun releaseDocsTarget313AndDirectGithubApkOnly() {
+    fun releaseDocsTarget314AndDirectGithubApkOnly() {
         val docs = listOf(
             existingFile("README.md", "../README.md"),
             existingFile("CHANGELOG.md", "../CHANGELOG.md"),
@@ -34,9 +34,9 @@ class ReleaseReadinessTest {
         )
         val combined = docs.joinToString("\n") { it.readText(Charsets.UTF_8) }
 
-        assertTrue(combined.contains("3.13"))
-        assertTrue(combined.contains("versionCode=18") || combined.contains("versionCode`：`18"))
-        assertTrue(combined.contains("glimmer-countdown-3-13.apk"))
+        assertTrue(combined.contains("3.14"))
+        assertTrue(combined.contains("versionCode=19") || combined.contains("versionCode`：`19"))
+        assertTrue(combined.contains("glimmer-countdown-3-14.apk"))
         assertFalse(combined.contains("glimmer-countdown-3-12.apk"))
         assertFalse(combined.contains("versionName`：`3.12"))
         assertFalse(combined.contains("versionCode`：`17"))

@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -61,6 +62,8 @@ import com.example.timeapk.widget.SORT_HOME
 import com.example.timeapk.widget.SORT_NEAREST_FIRST
 import com.example.timeapk.widget.SORT_PINNED_FIRST
 import com.example.timeapk.widget.WidgetConfig
+import com.example.timeapk.widget.WidgetRenderPolicy
+import com.example.timeapk.widget.WidgetThemeSnapshot
 
 @Composable
 fun WidgetConfigEditor(
@@ -297,31 +300,12 @@ private fun WidgetConfigPreview(
     modifier: Modifier = Modifier
 ) {
     val clean = config.sanitize()
-    val backgroundColor = when (clean.appearancePreset) {
-        APPEARANCE_SEAL -> SongPalette.Seal
-        APPEARANCE_CELADON -> SongPalette.CeladonWash
-        APPEARANCE_TRANSLUCENT -> SongPalette.Paper.copy(alpha = 0.72f)
-        APPEARANCE_TRANSPARENT -> Color.Transparent
-        else -> SongPalette.Paper
-    }
-    val contentColor = if (clean.appearancePreset == APPEARANCE_SEAL || clean.contrastMode == CONTRAST_LIGHT_TEXT) {
-        SongPalette.PaperWarm
-    } else {
-        SongPalette.Ink
-    }
-    val accentColor = if (clean.appearancePreset == APPEARANCE_SEAL) {
-        SongPalette.Gold
-    } else {
-        SongPalette.Seal
-    }
-    val borderColor = when (clean.borderMode) {
-        BORDER_OFF -> Color.Transparent
-        else -> if (clean.appearancePreset == APPEARANCE_SEAL) {
-            SongPalette.Gold.copy(alpha = 0.48f)
-        } else {
-            SongPalette.Ink.copy(alpha = 0.22f)
-        }
-    }
+    val previewStyle = resolveWidgetPreviewStyle(clean, isSystemInDarkTheme())
+    val backgroundColor = Color(previewStyle.backgroundColorArgb)
+    val contentColor = Color(previewStyle.contentColorArgb)
+    val secondaryContentColor = Color(previewStyle.secondaryContentColorArgb)
+    val accentColor = Color(previewStyle.accentColorArgb)
+    val borderColor = Color(previewStyle.borderColorArgb)
     val height = when (clean.sizeTemplate) {
         SIZE_TEMPLATE_4X2 -> 112.dp
         SIZE_TEMPLATE_3X3 -> 168.dp
@@ -353,11 +337,70 @@ private fun WidgetConfigPreview(
             WidgetPreviewRow(
                 title = stringResource(R.string.widget_config_preview_event_secondary),
                 value = stringResource(R.string.widget_config_preview_value_secondary),
-                contentColor = contentColor.copy(alpha = 0.78f),
+                contentColor = secondaryContentColor,
                 accentColor = accentColor.copy(alpha = 0.82f)
             )
         }
     }
+}
+
+internal data class WidgetPreviewStyle(
+    val backgroundColorArgb: Int,
+    val borderColorArgb: Int,
+    val contentColorArgb: Int,
+    val secondaryContentColorArgb: Int,
+    val accentColorArgb: Int
+)
+
+internal fun resolveWidgetPreviewStyle(
+    config: WidgetConfig,
+    isDark: Boolean
+): WidgetPreviewStyle {
+    val clean = config.sanitize()
+    val renderStyle = WidgetRenderPolicy.resolve(
+        clean,
+        WidgetThemeSnapshot(isDark = isDark, usesSystemPalette = true)
+    )
+    return WidgetPreviewStyle(
+        backgroundColorArgb = resolveWidgetPreviewBackgroundArgb(clean, isDark),
+        borderColorArgb = resolveWidgetPreviewBorderArgb(clean, isDark),
+        contentColorArgb = renderStyle.primaryTextColor,
+        secondaryContentColorArgb = renderStyle.secondaryTextColor,
+        accentColorArgb = renderStyle.accentTextColor
+    )
+}
+
+private fun resolveWidgetPreviewBackgroundArgb(config: WidgetConfig, isDark: Boolean): Int {
+    return when (config.appearancePreset) {
+        APPEARANCE_SEAL -> if (isDark) 0xFF86351C.toInt() else 0xFFAF4E31.toInt()
+        APPEARANCE_CELADON -> if (isDark) 0xD9272F2A.toInt() else 0xDDE8EEE6.toInt()
+        APPEARANCE_TRANSPARENT -> 0x00000000
+        APPEARANCE_TRANSLUCENT -> resolveWidgetPreviewGlassArgb(config.backgroundOpacityPercent, isDark)
+        APPEARANCE_SOLID -> if (isDark) 0xF21C1C1E.toInt() else 0xFFF5F3ED.toInt()
+        else -> when (config.backgroundOpacityPercent) {
+            0 -> 0x00000000
+            25, 50, 75 -> resolveWidgetPreviewGlassArgb(config.backgroundOpacityPercent, isDark)
+            else -> if (isDark) 0xFF1C1C1E.toInt() else 0xFFF5F3ED.toInt()
+        }
+    }
+}
+
+private fun resolveWidgetPreviewGlassArgb(opacityPercent: Int, isDark: Boolean): Int {
+    return when (opacityPercent) {
+        25 -> if (isDark) 0x59141618 else 0x42F7F3EA
+        50 -> if (isDark) 0x8A171719.toInt() else 0x80F5F1E8.toInt()
+        else -> if (isDark) 0xB81C1C1E.toInt() else 0xB8F5F3ED.toInt()
+    }
+}
+
+private fun resolveWidgetPreviewBorderArgb(config: WidgetConfig, isDark: Boolean): Int {
+    if (config.borderMode == BORDER_OFF) return 0x00000000
+    return when (config.appearancePreset) {
+        APPEARANCE_SEAL -> if (isDark) 0x66F6D9A6 else 0x667A2F20
+        APPEARANCE_CELADON -> if (isDark) 0x665B8E79 else 0x66457080
+        APPEARANCE_TRANSPARENT -> 0x66FFFFFF
+        else -> if (isDark) 0x52EDE8DD else 0x331F1F1F
+    }.toInt()
 }
 
 @Composable

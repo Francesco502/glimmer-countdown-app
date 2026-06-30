@@ -96,12 +96,22 @@ fun Event.toEventUiState(
         else -> daysPassed
     }
 
-    val (nextMilestoneDays, nextMilestoneValue) = when {
+    val nextMilestone = when {
         repeatType == REPEAT_NONE && !isPast -> {
-            computeNextCountdownMilestone(milestones, daysRemainingAbs, smartMilestonesEnabled)
+            computeNextCountdownMilestone(
+                milestones = milestones,
+                daysRemaining = daysRemainingAbs,
+                smartMilestonesEnabled = smartMilestonesEnabled,
+                category = category
+            )
         }
         else -> {
-            computeNextMilestone(milestones, milestoneCurrent, smartMilestonesEnabled)
+            computeNextMilestone(
+                milestones = milestones,
+                current = milestoneCurrent,
+                smartMilestonesEnabled = smartMilestonesEnabled,
+                category = category
+            )
         }
     }
 
@@ -113,43 +123,79 @@ fun Event.toEventUiState(
         daysPassed = daysPassed,
         isPast = isPast,
         hoursRemaining = hoursRemaining,
-        nextMilestoneDays = nextMilestoneDays,
-        nextMilestoneValue = nextMilestoneValue,
-        nextOccurrenceDate = nextTargetDate
+        nextMilestoneDays = nextMilestone?.daysUntil,
+        nextMilestoneValue = nextMilestone?.value,
+        nextOccurrenceDate = nextTargetDate,
+        nextMilestoneReason = nextMilestone?.reason
     )
 }
 
 private fun computeNextMilestone(
     milestones: List<Long>,
     current: Long,
-    smartMilestonesEnabled: Boolean
-): Pair<Long?, Long?> {
-    val list = buildProgressMilestonePool(milestones, current, smartMilestonesEnabled)
-    if (list.isEmpty()) return null to null
-    val next = list.firstOrNull { it > current } ?: return null to null
-    return (next - current) to next
+    smartMilestonesEnabled: Boolean,
+    category: String
+): MilestoneSelection? {
+    val candidates = buildProgressMilestoneCandidates(
+        customMilestones = milestones,
+        current = current,
+        smartEnabled = smartMilestonesEnabled,
+        category = category
+    )
+    val next = candidates
+        .filter { it.value > current }
+        .sortedWith(
+            compareByDescending<MilestoneCandidate> { progressMilestoneScore(it, current) }
+                .thenBy { it.value - current }
+        )
+        .firstOrNull() ?: return null
+
+    return MilestoneSelection(
+        daysUntil = next.value - current,
+        value = next.value,
+        reason = next.reason
+    )
 }
 
 private fun computeNextCountdownMilestone(
     milestones: List<Long>,
     daysRemaining: Long,
-    smartMilestonesEnabled: Boolean
-): Pair<Long?, Long?> {
-    val list = buildCountdownMilestonePool(milestones, daysRemaining, smartMilestonesEnabled)
-    if (list.isEmpty()) return null to null
-    val next = list.maxOrNull() ?: return null to null
-    return (daysRemaining - next) to next
+    smartMilestonesEnabled: Boolean,
+    category: String
+): MilestoneSelection? {
+    val candidates = buildCountdownMilestoneCandidates(
+        customMilestones = milestones,
+        daysRemaining = daysRemaining,
+        smartEnabled = smartMilestonesEnabled,
+        category = category
+    )
+    val next = candidates
+        .filter { it.value in 1..daysRemaining }
+        .sortedWith(
+            compareByDescending<MilestoneCandidate> { countdownMilestoneScore(it, daysRemaining) }
+                .thenBy { daysRemaining - it.value }
+        )
+        .firstOrNull() ?: return null
+
+    return MilestoneSelection(
+        daysUntil = daysRemaining - next.value,
+        value = next.value,
+        reason = next.reason
+    )
 }
 
-private fun buildProgressMilestonePool(
+private fun buildProgressMilestoneCandidates(
     customMilestones: List<Long>,
     current: Long,
-    smartEnabled: Boolean
-): List<Long> {
-    val base = customMilestones.filter { it > 0 }
-    if (!smartEnabled) return base.distinct().sorted()
+    smartEnabled: Boolean,
+    category: String
+): List<MilestoneCandidate> {
+    val custom = customMilestones
+        .filter { it > 0 }
+        .map { MilestoneCandidate(it, MilestoneReason.CUSTOM, priority = 82) }
+    if (!smartEnabled) return dedupeMilestoneCandidates(custom)
 
-    val dynamic = mutableListOf<Long>()
+    val dynamic = mutableListOf<MilestoneCandidate>()
     val step = when {
         current < 30 -> 1L
         current < 200 -> 5L
@@ -158,25 +204,56 @@ private fun buildProgressMilestonePool(
         else -> 100L
     }
     val start = ((current / step) + 1) * step
-    repeat(8) { idx -> dynamic += start + idx * step }
+    repeat(8) { idx ->
+        dynamic += MilestoneCandidate(
+            value = start + idx * step,
+            reason = MilestoneReason.DYNAMIC_STEP,
+            priority = 24
+        )
+    }
 
-    return (base + SMART_BASE_MILESTONES + dynamic)
-        .filter { it > 0 }
-        .distinct()
-        .sorted()
+    val base = SMART_BASE_MILESTONES.map {
+        MilestoneCandidate(
+            value = it,
+            reason = MilestoneReason.ROUND_NUMBER,
+            priority = progressBasePriority(it)
+        )
+    }
+    val typed = when (category) {
+        CATEGORY_BIRTHDAY -> buildYearCycleMilestones(
+            current = current,
+            yearReason = MilestoneReason.BIRTHDAY_YEAR,
+            halfYearReason = MilestoneReason.BIRTHDAY_HALF_YEAR,
+            yearPriority = 96,
+            halfYearPriority = 86
+        )
+        CATEGORY_ANNIVERSARY -> buildYearCycleMilestones(
+            current = current,
+            yearReason = MilestoneReason.ANNIVERSARY_YEAR,
+            halfYearReason = MilestoneReason.ANNIVERSARY_HALF_YEAR,
+            yearPriority = 98,
+            halfYearPriority = 74
+        )
+        else -> emptyList()
+    }
+
+    return dedupeMilestoneCandidates(custom + base + typed + dynamic)
 }
 
-private fun buildCountdownMilestonePool(
+private fun buildCountdownMilestoneCandidates(
     customMilestones: List<Long>,
     daysRemaining: Long,
-    smartEnabled: Boolean
-): List<Long> {
+    smartEnabled: Boolean,
+    category: String
+): List<MilestoneCandidate> {
     if (daysRemaining <= 0) return emptyList()
 
-    val base = customMilestones.filter { it > 0 && it <= daysRemaining }
-    if (!smartEnabled) return base.distinct().sorted()
+    val custom = customMilestones
+        .filter { it > 0 && it <= daysRemaining }
+        .map { MilestoneCandidate(it, MilestoneReason.CUSTOM, priority = 84) }
+    if (!smartEnabled) return dedupeMilestoneCandidates(custom)
 
-    val dynamic = mutableListOf<Long>()
+    val dynamic = mutableListOf<MilestoneCandidate>()
     val step = when {
         daysRemaining < 30 -> 1L
         daysRemaining < 200 -> 5L
@@ -187,13 +264,125 @@ private fun buildCountdownMilestonePool(
     val floor = (daysRemaining / step) * step
     repeat(8) { idx ->
         val value = floor - idx * step
-        if (value > 0) dynamic += value
+        if (value > 0) {
+            dynamic += MilestoneCandidate(
+                value = value,
+                reason = MilestoneReason.DYNAMIC_STEP,
+                priority = 18
+            )
+        }
     }
 
-    return (base + SMART_BASE_MILESTONES.filter { it <= daysRemaining } + dynamic)
-        .filter { it > 0 && it <= daysRemaining }
-        .distinct()
-        .sorted()
+    val base = SMART_BASE_MILESTONES
+        .filter { it <= daysRemaining }
+        .map {
+            MilestoneCandidate(
+                value = it,
+                reason = MilestoneReason.COUNTDOWN_THRESHOLD,
+                priority = countdownBasePriority(it, category)
+            )
+        }
+
+    return dedupeMilestoneCandidates(custom + base + dynamic)
+        .filter { it.value <= daysRemaining }
+}
+
+private fun buildYearCycleMilestones(
+    current: Long,
+    yearReason: MilestoneReason,
+    halfYearReason: MilestoneReason,
+    yearPriority: Int,
+    halfYearPriority: Int
+): List<MilestoneCandidate> {
+    val startCycle = maxOf(0L, current / 365L - 1L)
+    return (startCycle..startCycle + 6L).flatMap { cycle ->
+        listOf(
+            MilestoneCandidate(
+                value = cycle * 365L + 183L,
+                reason = halfYearReason,
+                priority = halfYearPriority
+            ),
+            MilestoneCandidate(
+                value = (cycle + 1L) * 365L,
+                reason = yearReason,
+                priority = yearPriority
+            )
+        )
+    }
+}
+
+private fun dedupeMilestoneCandidates(candidates: List<MilestoneCandidate>): List<MilestoneCandidate> {
+    val byValue = linkedMapOf<Long, MilestoneCandidate>()
+    candidates.filter { it.value > 0 }.forEach { candidate ->
+        val existing = byValue[candidate.value]
+        if (existing == null || candidate.priority > existing.priority) {
+            byValue[candidate.value] = candidate
+        }
+    }
+    return byValue.values.toList()
+}
+
+private fun progressBasePriority(value: Long): Int = when (value) {
+    100L, 365L, 520L, 1000L -> 78
+    7L, 30L, 90L, 180L, 730L -> 66
+    else -> 52
+}
+
+private fun countdownBasePriority(value: Long, category: String): Int {
+    val categoryBoost = when (category) {
+        CATEGORY_BIRTHDAY, CATEGORY_ANNIVERSARY -> 4
+        else -> 0
+    }
+    return when (value) {
+        1L, 3L, 7L, 14L, 30L, 60L, 90L, 100L -> 82 + categoryBoost
+        180L, 270L, 365L -> 72 + categoryBoost
+        else -> 62 + categoryBoost
+    }
+}
+
+private fun progressMilestoneScore(candidate: MilestoneCandidate, current: Long): Double {
+    val daysUntil = candidate.value - current
+    val distancePenalty = when {
+        daysUntil <= 7L -> daysUntil * 0.75
+        daysUntil <= 30L -> daysUntil * 0.55
+        daysUntil <= 120L -> daysUntil * 0.38
+        else -> daysUntil * 0.18
+    }
+    return candidate.priority - distancePenalty
+}
+
+private fun countdownMilestoneScore(candidate: MilestoneCandidate, daysRemaining: Long): Double {
+    val daysUntil = daysRemaining - candidate.value
+    val distancePenalty = when {
+        daysUntil <= 7L -> daysUntil * 0.75
+        daysUntil <= 30L -> daysUntil * 0.48
+        daysUntil <= 120L -> daysUntil * 0.28
+        else -> daysUntil * 0.14
+    }
+    return candidate.priority - distancePenalty
+}
+
+private data class MilestoneCandidate(
+    val value: Long,
+    val reason: MilestoneReason,
+    val priority: Int
+)
+
+private data class MilestoneSelection(
+    val daysUntil: Long,
+    val value: Long,
+    val reason: MilestoneReason
+)
+
+enum class MilestoneReason {
+    CUSTOM,
+    DYNAMIC_STEP,
+    ROUND_NUMBER,
+    BIRTHDAY_HALF_YEAR,
+    BIRTHDAY_YEAR,
+    ANNIVERSARY_HALF_YEAR,
+    ANNIVERSARY_YEAR,
+    COUNTDOWN_THRESHOLD
 }
 
 data class EventUiState(
@@ -206,7 +395,8 @@ data class EventUiState(
     val hoursRemaining: Long = 0,
     val nextMilestoneDays: Long? = null,
     val nextMilestoneValue: Long? = null,
-    val nextOccurrenceDate: LocalDate
+    val nextOccurrenceDate: LocalDate,
+    val nextMilestoneReason: MilestoneReason? = null
 )
 
 class HomeViewModel(

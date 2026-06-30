@@ -9,9 +9,15 @@ class SongPaletteTest {
     @Test
     fun coreLightPalette_exposesSongSemanticColors() {
         assertEquals(Color(0xFFF5F3ED), SongPalette.Paper)
+        assertEquals(Color(0xFFF2EDE3), SongPalette.PaperMuted)
         assertEquals(Color(0xFF1F1F1F), SongPalette.Ink)
         assertEquals(Color(0xFFAF4E31), SongPalette.Seal)
         assertEquals(Color(0xFFE8EEE6), SongPalette.CeladonWash)
+    }
+
+    @Test
+    fun lightThemeSurface_usesWarmPaperInsteadOfPureWhite() {
+        assertEquals(Color(0xFFFFFBF5), SongLightSurface)
     }
 
     @Test

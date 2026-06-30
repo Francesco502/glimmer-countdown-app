@@ -24,12 +24,12 @@
     </plurals>
     <string name="milestone_7">7 天</string>
     <string name="milestone_30">30 天</string>
-    <string name="milestone_100">100 天</string>
+    <string name="milestone_100">百日</string>
     <string name="milestone_365">一周年</string>
     <string name="milestone_520">520 天</string>
-    <string name="milestone_1000">1000 天</string>
+    <string name="milestone_1000">千日</string>
     <string name="milestone_days_format">%d 天</string>
-    <string name="milestone_label_prefix">距离 %1$s</string>
+    <string name="milestone_label_prefix">下一个：%1$s</string>
     <string name="milestone_none">无即将到来的节点</string>
     <string name="filter_all">全部</string>
     <string name="sort_by_days">按剩余天数</string>
@@ -285,6 +285,7 @@
     <string name="calendar_prev_month">上个月</string>
     <string name="calendar_next_month">下个月</string>
     <string name="calendar_selected_date_events">%1$s 的事件</string>
+    <string name="calendar_selected_date_lunar">农历 %1$s</string>
     <string name="calendar_no_events">当天无事件</string>
     <string name="settings_app_font_scale_title">应用字号基准</string>
     <string name="settings_widget_font_scale_title">小组件字号基准</string>

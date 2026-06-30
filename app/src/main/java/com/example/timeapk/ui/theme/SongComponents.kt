@@ -30,6 +30,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -73,13 +74,14 @@ fun <T> SongSegmentedControl(
     options: List<Pair<T, String>>,
     selected: T,
     onSelected: (T) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    height: Dp = 40.dp
 ) {
     val shape = RoundedCornerShape(SongDesignTokens.StandardRadius.dp)
     val borderColor = MaterialTheme.colorScheme.outline.copy(alpha = SongDesignTokens.BorderAlphaStrong)
     Row(
         modifier = modifier
-            .height(40.dp)
+            .height(height)
             .clip(shape)
             .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.86f), shape)
             .border(BorderStroke(SongDesignTokens.BorderWidth.dp, borderColor), shape),
@@ -121,6 +123,67 @@ fun <T> SongSegmentedControl(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     textAlign = TextAlign.Center
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun <T> SongModeTabRow(
+    options: List<Pair<T, String>>,
+    selected: T,
+    onSelected: (T) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val dividerColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
+    Column(modifier = modifier.height(32.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            options.forEach { (value, label) ->
+                val isSelected = selected == value
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clickable { onSelected(value) }
+                        .padding(horizontal = 4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = if (isSelected) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+        Row(modifier = Modifier.fillMaxWidth()) {
+            options.forEach { (value, _) ->
+                val isSelected = selected == value
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(1.dp)
+                        .background(
+                            if (isSelected) {
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.74f)
+                            } else {
+                                dividerColor
+                            }
+                        )
                 )
             }
         }
@@ -188,8 +251,7 @@ fun SongDivider(
 @Composable
 fun SongCalendarCell(
     dayText: String,
-    lunarText: String?,
-    previewText: String?,
+    eventIndicatorText: String?,
     selected: Boolean,
     today: Boolean,
     hasEvents: Boolean,
@@ -198,15 +260,15 @@ fun SongCalendarCell(
 ) {
     val primary = MaterialTheme.colorScheme.primary
     val borderColor = when {
-        selected -> primary.copy(alpha = 0.82f)
-        today -> SongPalette.Gold.copy(alpha = 0.75f)
-        hasEvents -> primary.copy(alpha = 0.46f)
-        else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.22f)
+        selected -> primary.copy(alpha = 0.58f)
+        today -> SongPalette.Gold.copy(alpha = 0.46f)
+        hasEvents -> primary.copy(alpha = 0.24f)
+        else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
     }
     val backgroundColor = when {
-        selected -> SongPalette.PaperDeep.copy(alpha = 0.72f)
-        hasEvents -> SongPalette.PaperWarm.copy(alpha = 0.72f)
-        else -> MaterialTheme.colorScheme.surface.copy(alpha = 0.84f)
+        selected -> SongPalette.PaperDeep.copy(alpha = 0.54f)
+        hasEvents -> SongPalette.PaperWarm.copy(alpha = 0.45f)
+        else -> Color.Transparent
     }
     val cellModifier = modifier
         .clip(RoundedCornerShape(SongDesignTokens.StandardRadius.dp))
@@ -237,15 +299,6 @@ fun SongCalendarCell(
                     )
                 }
             }
-            if (!lunarText.isNullOrBlank()) {
-                Text(
-                    text = lunarText,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
             Spacer(modifier = Modifier.weight(1f))
             if (hasEvents) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -254,17 +307,17 @@ fun SongCalendarCell(
                             .size(4.dp)
                             .background(primary, RoundedCornerShape(1.dp))
                     )
-                    Text(
-                        text = previewText.orEmpty(),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = primary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Start,
-                        modifier = Modifier
-                            .padding(start = 4.dp)
-                            .fillMaxWidth()
-                    )
+                    if (!eventIndicatorText.isNullOrBlank()) {
+                        Text(
+                            text = eventIndicatorText,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Clip,
+                            textAlign = TextAlign.Start,
+                            modifier = Modifier.padding(start = 4.dp)
+                        )
+                    }
                 }
             }
         }
