@@ -9,22 +9,22 @@ import java.util.Properties
 
 class ReleaseReadinessTest {
     @Test
-    fun versionConfigTargets314Release() {
+    fun versionConfigTargets315Release() {
         val properties = Properties().apply {
             rootGradlePropertiesFile().inputStream().use(::load)
         }
 
-        assertEquals("19", properties.getProperty("VERSION_CODE"))
-        assertEquals("3.14", properties.getProperty("VERSION_NAME"))
+        assertEquals("20", properties.getProperty("VERSION_CODE"))
+        assertEquals("3.15", properties.getProperty("VERSION_NAME"))
 
         val buildFile = appBuildGradleFile().readText(Charsets.UTF_8)
-        assertTrue(buildFile.contains("versionCode = versionCodeOverride ?: 19"))
-        assertTrue(buildFile.contains("versionName = versionNameOverride ?: \"3.14\""))
-        assertTrue(buildFile.contains("val versionNameForApk = versionNameOverride ?: \"3.14\""))
+        assertTrue(buildFile.contains("versionCode = versionCodeOverride ?: 20"))
+        assertTrue(buildFile.contains("versionName = versionNameOverride ?: \"3.15\""))
+        assertTrue(buildFile.contains("val versionNameForApk = versionNameOverride ?: \"3.15\""))
     }
 
     @Test
-    fun releaseDocsTarget314AndDirectGithubApkOnly() {
+    fun releaseDocsTarget315AndDirectGithubApkOnly() {
         val docs = listOf(
             existingFile("README.md", "../README.md"),
             existingFile("CHANGELOG.md", "../CHANGELOG.md"),
@@ -34,9 +34,12 @@ class ReleaseReadinessTest {
         )
         val combined = docs.joinToString("\n") { it.readText(Charsets.UTF_8) }
 
-        assertTrue(combined.contains("3.14"))
-        assertTrue(combined.contains("versionCode=19") || combined.contains("versionCode`：`19"))
-        assertTrue(combined.contains("glimmer-countdown-3-14.apk"))
+        assertTrue(combined.contains("3.15"))
+        assertTrue(combined.contains("versionCode=20") || combined.contains("versionCode`：`20"))
+        assertTrue(combined.contains("glimmer-countdown-3-15.apk"))
+        assertFalse(combined.contains("glimmer-countdown-3-14.apk"))
+        assertFalse(combined.contains("versionName`：`3.14"))
+        assertFalse(combined.contains("versionCode`：`19"))
         assertFalse(combined.contains("glimmer-countdown-3-12.apk"))
         assertFalse(combined.contains("versionName`：`3.12"))
         assertFalse(combined.contains("versionCode`：`17"))
@@ -116,6 +119,22 @@ class ReleaseReadinessTest {
             )
             assertFalse(sourceFile.path, source.contains("fontPresetFlow.collectAsState(initial = 0)"))
         }
+    }
+
+    @Test
+    fun splashAndLauncherAssetsMeet315BrandRequirements() {
+        val splashSource = mainSource("ui/splash/SplashScreen.kt").readText(Charsets.UTF_8)
+        assertTrue(splashSource.contains("stringResource(R.string.app_name)"))
+        assertTrue(splashSource.contains("durationMillis = 520"))
+        assertTrue(splashSource.contains("delay(260)"))
+
+        val adaptiveIcon = existingFile(
+            "src/main/res/drawable-anydpi/ic_launcher.xml",
+            "app/src/main/res/drawable-anydpi/ic_launcher.xml"
+        ).readText(Charsets.UTF_8)
+        assertTrue(adaptiveIcon.contains("<monochrome android:drawable=\"@drawable/ic_launcher_monochrome\""))
+        assertTrue(existingFile("src/main/res/drawable/ic_launcher_monochrome.xml", "app/src/main/res/drawable/ic_launcher_monochrome.xml").isFile)
+        assertTrue(existingFile("src/main/res/drawable/ic_launcher_foreground.xml", "app/src/main/res/drawable/ic_launcher_foreground.xml").isFile)
     }
 
     @Test

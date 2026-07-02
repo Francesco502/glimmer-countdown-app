@@ -58,6 +58,47 @@ class SettingsStructureTest {
         assertTrue(section.contains("contentDescription = toggleContentDescription"))
     }
 
+    @Test
+    fun songSharedUiComponentsProvide315PolishBuildingBlocks() {
+        val source = readSource("ui/common/SongUiComponents.kt")
+
+        assertTrue(source.contains("fun SongSectionHeader("))
+        assertTrue(source.contains("fun SongReminderStatusStrip("))
+        assertTrue(source.contains("fun SongEventPreviewCard("))
+        assertTrue(source.contains("fun SongBottomActionBar("))
+        assertTrue(source.contains("fun SongMiniPreviewSurface("))
+        assertTrue(source.contains("contentDescription"))
+        assertTrue(source.contains("Role.Button"))
+    }
+
+    @Test
+    fun detailScreenUses315ReminderStatusAndBottomActions() {
+        val source = readSource("ui/detail/DetailScreen.kt")
+
+        assertTrue(source.contains("SongReminderStatusStrip("))
+        assertTrue(source.contains("buildReminderStatus("))
+        assertTrue(source.contains("SongBottomActionBar("))
+    }
+
+    @Test
+    fun eventEntryUses315TemplatesPreviewAndNamedColors() {
+        val source = readSource("ui/event/EventEntryScreen.kt")
+
+        assertTrue(source.contains("eventEntryTemplates"))
+        assertTrue(source.contains("SongEventPreviewCard("))
+        assertTrue(source.contains("songNamedColors"))
+        assertTrue(source.contains("defaultTemplateForCategory("))
+    }
+
+    @Test
+    fun settingsScreensExpose315PreviewsAndReminderHealth() {
+        val source = readSource("ui/settings/SettingsSubScreens.kt")
+
+        assertTrue(source.contains("SongMiniPreviewSurface("))
+        assertTrue(source.contains("SongReminderStatusStrip("))
+        assertTrue(source.contains("buildReminderStatus("))
+    }
+
     private fun String.substringBetween(start: String, end: String): String {
         val startIndex = indexOf(start)
         val endIndex = indexOf(end, startIndex + start.length)

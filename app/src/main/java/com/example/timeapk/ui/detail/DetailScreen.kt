@@ -46,8 +46,16 @@ import androidx.compose.ui.unit.sp
 import com.example.timeapk.R
 import com.example.timeapk.TimeApplication
 import com.example.timeapk.data.REPEAT_YEARLY
+import com.example.timeapk.permissions.areAppNotificationsEnabledCompat
+import com.example.timeapk.permissions.hasCalendarReadWritePermission
+import com.example.timeapk.ui.common.SongBottomAction
+import com.example.timeapk.ui.common.SongBottomActionBar
+import com.example.timeapk.ui.common.SongReminderStatusStrip
 import com.example.timeapk.ui.home.EventUiState
 import com.example.timeapk.ui.home.milestoneLabel
+import com.example.timeapk.ui.reminder.ReminderStatusAction
+import com.example.timeapk.ui.reminder.ReminderStatusSummary
+import com.example.timeapk.ui.reminder.buildReminderStatus
 import com.example.timeapk.ui.theme.AnimationSpecs
 import com.example.timeapk.ui.theme.SongDesignTokens
 import com.example.timeapk.ui.theme.SongPaperSurface
@@ -564,24 +572,100 @@ fun DetailScreen(
                             textAlign = TextAlign.Center
                         )
                     }
+
+                    Spacer(modifier = Modifier.height(28.dp))
+                    val reminderStatus = buildReminderStatus(
+                        event = eventState.event,
+                        notificationsEnabled = context.areAppNotificationsEnabledCompat(),
+                        calendarPermissionGranted = context.hasCalendarReadWritePermission(),
+                        hasWritableCalendar = true
+                    )
+                    SongReminderStatusStrip(
+                        status = reminderStatus,
+                        title = reminderStatusTitle(context, reminderStatus),
+                        actionLabel = reminderStatusActionLabel(context, reminderStatus),
+                        onActionClick = reminderStatus.primaryAction.takeIf { it != ReminderStatusAction.None }?.let {
+                            { onEditClick() }
+                        }
+                    )
                 }
             }
             
             Spacer(modifier = Modifier.height(32.dp))
             
-            // Bottom action row.
-            ResponsiveDetailActionButtons(
-                isPinned = eventState.event.id in pinnedEventIds,
-                isReminderOrScheduleEnabled = eventState.event.remindEnabled || eventState.event.syncToScheduleEnabled,
-                onReminderCalendarClick = onEditClick,
-                onPinClick = { scope.launch { prefs.togglePinnedEventId(eventState.event.id) } },
-                onEditClick = onEditClick,
-                onDeleteClick = { showDeleteConfirm = true }
+            SongBottomActionBar(
+                actions = listOf(
+                    SongBottomAction(
+                        label = stringResource(R.string.button_reminder_calendar),
+                        icon = Icons.Outlined.Notifications,
+                        tint = if (eventState.event.remindEnabled || eventState.event.syncToScheduleEnabled) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        onClick = onEditClick
+                    ),
+                    SongBottomAction(
+                        label = if (eventState.event.id in pinnedEventIds) stringResource(R.string.button_unpin) else stringResource(R.string.button_pin),
+                        icon = Icons.Outlined.PushPin,
+                        tint = if (eventState.event.id in pinnedEventIds) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        onClick = { scope.launch { prefs.togglePinnedEventId(eventState.event.id) } }
+                    ),
+                    SongBottomAction(
+                        label = stringResource(R.string.button_edit),
+                        icon = Icons.Outlined.Edit,
+                        contentDescription = stringResource(R.string.cd_edit),
+                        onClick = onEditClick
+                    ),
+                    SongBottomAction(
+                        label = stringResource(R.string.button_delete),
+                        icon = Icons.Outlined.Delete,
+                        contentDescription = stringResource(R.string.cd_delete),
+                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.72f),
+                        onClick = { showDeleteConfirm = true }
+                    )
+                )
             )
         }
         }
         }
     }
+}
+
+private fun reminderStatusTitle(
+    context: android.content.Context,
+    status: ReminderStatusSummary
+): String {
+    val resId = when (status.messageKey) {
+        "reminder_status_off" -> R.string.reminder_status_off
+        "reminder_status_notification_permission_needed" -> R.string.reminder_status_notification_permission_needed
+        "reminder_status_calendar_permission_needed" -> R.string.reminder_status_calendar_permission_needed
+        "reminder_status_no_writable_calendar" -> R.string.reminder_status_no_writable_calendar
+        "reminder_status_schedule_sync_failed" -> R.string.reminder_status_schedule_sync_failed
+        "reminder_status_app_and_schedule_ready" -> R.string.reminder_status_app_and_schedule_ready
+        "reminder_status_app_ready" -> R.string.reminder_status_app_ready
+        else -> R.string.reminder_status_schedule_pending
+    }
+    return context.getString(resId)
+}
+
+private fun reminderStatusActionLabel(
+    context: android.content.Context,
+    status: ReminderStatusSummary
+): String? {
+    val resId = when (status.primaryAction) {
+        ReminderStatusAction.None -> return null
+        ReminderStatusAction.EnableReminder -> R.string.reminder_status_action_edit
+        ReminderStatusAction.OpenNotificationSettings -> R.string.reminder_status_action_open_settings
+        ReminderStatusAction.OpenCalendarSettings -> R.string.reminder_status_action_open_settings
+        ReminderStatusAction.DisableScheduleSync -> R.string.reminder_status_action_edit
+        ReminderStatusAction.RebuildScheduleSync -> R.string.reminder_status_action_edit
+    }
+    return context.getString(resId)
 }
 
 @Composable

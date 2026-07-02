@@ -129,12 +129,14 @@ fun HomeScreen(
     val dateFormatter = remember(dateFormatMode) { getDisplayDateFormatter(dateFormatMode) }
     val dateDeltaDisplayMode by prefs.dateDeltaDisplayModeFlow.collectAsState(initial = 0)
     val perEventDateDeltaModes by prefs.perEventDateDeltaDisplayModesFlow.collectAsState(initial = emptyMap())
+    val pinnedEventIds by prefs.pinnedEventIdsFlow.collectAsState(initial = emptyList())
     val savedHomeDisplayMode by prefs.homeDisplayModeFlow.collectAsState(initial = 0)
     var homeDisplayMode by remember(savedHomeDisplayMode) { mutableStateOf(savedHomeDisplayMode) }
     var showSortMenu by remember { mutableStateOf(false) }
     val hasActiveFilter = filterType != FilterType.All
     var showFilterPanel by remember { mutableStateOf(false) }
     var showSearchBar by remember { mutableStateOf(searchQuery.isNotBlank()) }
+    var timelineFocus by remember { mutableStateOf<TimelineBucketType?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(homeDisplayMode) {
         prefs.setHomeDisplayMode(homeDisplayMode)
@@ -142,7 +144,19 @@ fun HomeScreen(
     LaunchedEffect(searchQuery) {
         if (searchQuery.isNotBlank()) showSearchBar = true
     }
-    val displayedList = homeUiState
+    val timelineDigest = remember(calendarUiState, today, pinnedEventIds) {
+        buildHomeTimelineDigest(
+            events = calendarUiState,
+            today = today,
+            pinnedEventIds = pinnedEventIds
+        )
+    }
+    val focusedTimelineList = remember(timelineFocus, calendarUiState, today) {
+        timelineFocus?.let { type ->
+            filterEventsForTimelineBucket(calendarUiState, today, type)
+        }
+    }
+    val displayedList = focusedTimelineList ?: homeUiState
 
     // Reorder list state is seeded synchronously to avoid first-frame jump/glitch.
     val orderedList = remember { mutableStateListOf<EventUiState>() }
@@ -321,6 +335,16 @@ fun HomeScreen(
             HomeDisplayModeSegmentedControl(
                 selectedMode = homeDisplayMode,
                 onModeSelected = { homeDisplayMode = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+            )
+            HomeTimelineDigestRow(
+                digest = timelineDigest,
+                selectedBucket = timelineFocus,
+                onBucketClick = { bucket ->
+                    timelineFocus = if (timelineFocus == bucket) null else bucket
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 4.dp)
@@ -585,6 +609,98 @@ private fun HomeDisplayModeSegmentedControl(
         onSelected = onModeSelected,
         modifier = modifier
     )
+}
+
+@Composable
+private fun HomeTimelineDigestRow(
+    digest: HomeTimelineDigest,
+    selectedBucket: TimelineBucketType?,
+    onBucketClick: (TimelineBucketType) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        TimelineDigestChip(
+            label = stringResource(R.string.home_timeline_today),
+            bucket = digest.today,
+            selected = selectedBucket == TimelineBucketType.Today,
+            onClick = { onBucketClick(TimelineBucketType.Today) }
+        )
+        TimelineDigestChip(
+            label = stringResource(R.string.home_timeline_seven_days),
+            bucket = digest.sevenDays,
+            selected = selectedBucket == TimelineBucketType.SevenDays,
+            onClick = { onBucketClick(TimelineBucketType.SevenDays) }
+        )
+        TimelineDigestChip(
+            label = stringResource(R.string.home_timeline_month),
+            bucket = digest.month,
+            selected = selectedBucket == TimelineBucketType.Month,
+            onClick = { onBucketClick(TimelineBucketType.Month) }
+        )
+        TimelineDigestChip(
+            label = stringResource(R.string.home_timeline_milestone),
+            bucket = digest.milestone,
+            selected = selectedBucket == TimelineBucketType.Milestone,
+            onClick = { onBucketClick(TimelineBucketType.Milestone) }
+        )
+    }
+}
+
+@Composable
+private fun TimelineDigestChip(
+    label: String,
+    bucket: TimelineBucket,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val borderColor = if (selected) {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.72f)
+    } else {
+        MaterialTheme.colorScheme.outline.copy(alpha = SongDesignTokens.BorderAlphaSoft)
+    }
+    val backgroundColor = if (selected) {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+    } else {
+        MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
+    }
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(4.dp),
+        color = backgroundColor,
+        border = BorderStroke(SongDesignTokens.BorderWidth.dp, borderColor),
+        shadowElevation = 0.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .widthIn(min = 96.dp, max = 132.dp)
+                .padding(horizontal = 12.dp, vertical = 9.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = stringResource(R.string.home_timeline_count_format, bucket.count),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1
+            )
+            Text(
+                text = bucket.topItem?.event?.title ?: stringResource(R.string.home_timeline_empty),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
 }
 
 @Composable
@@ -1247,6 +1363,9 @@ private fun MonthCalendarView(
     val occurrences = remember(events, currentMonth) {
         calendarOccurrencesForMonth(events, currentMonth)
     }
+    val monthHighlights = remember(occurrences) {
+        monthHighlightsForOccurrences(occurrences)
+    }
     val eventsByDate = remember(occurrences) { occurrences.groupBy { it.date } }
 
     val daysInMonth = currentMonth.lengthOfMonth()
@@ -1342,6 +1461,14 @@ private fun MonthCalendarView(
             }
         }
 
+        MonthHighlightsSection(
+            highlights = monthHighlights,
+            onEventClick = onEventClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp)
+        )
+
         Column(
             modifier = Modifier.padding(top = 4.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp)
@@ -1384,6 +1511,111 @@ private fun MonthCalendarView(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun MonthHighlightsSection(
+    highlights: MonthHighlightSummary,
+    onEventClick: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (
+        highlights.birthdays.totalCount == 0 &&
+        highlights.anniversaries.totalCount == 0 &&
+        highlights.countdowns.totalCount == 0 &&
+        highlights.milestones.totalCount == 0
+    ) {
+        return
+    }
+
+    Surface(
+        modifier = modifier,
+        color = Color.Transparent,
+        shape = RoundedCornerShape(3.dp),
+        border = BorderStroke(
+            SongDesignTokens.BorderWidth.dp,
+            MaterialTheme.colorScheme.outline.copy(alpha = SongDesignTokens.BorderAlphaSoft)
+        ),
+        shadowElevation = 0.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.month_highlights_title),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            MonthHighlightGroupRow(
+                label = stringResource(R.string.month_highlights_birthdays),
+                group = highlights.birthdays,
+                onEventClick = onEventClick
+            )
+            MonthHighlightGroupRow(
+                label = stringResource(R.string.month_highlights_anniversaries),
+                group = highlights.anniversaries,
+                onEventClick = onEventClick
+            )
+            MonthHighlightGroupRow(
+                label = stringResource(R.string.month_highlights_countdowns),
+                group = highlights.countdowns,
+                onEventClick = onEventClick
+            )
+            MonthHighlightGroupRow(
+                label = stringResource(R.string.month_highlights_milestones),
+                group = highlights.milestones,
+                onEventClick = onEventClick
+            )
+        }
+    }
+}
+
+@Composable
+private fun MonthHighlightGroupRow(
+    label: String,
+    group: MonthHighlightGroup,
+    onEventClick: (Int) -> Unit
+) {
+    if (group.totalCount == 0) return
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.86f),
+                maxLines = 1
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = stringResource(R.string.home_timeline_count_format, group.totalCount),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
+            )
+        }
+        group.items.forEach { occurrence ->
+            Text(
+                text = occurrence.eventState.event.title,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onEventClick(occurrence.eventState.event.id) }
+                    .padding(vertical = 2.dp)
+            )
+        }
+        val hiddenCount = group.totalCount - group.items.size
+        if (hiddenCount > 0) {
+            Text(
+                text = stringResource(R.string.month_highlights_more_format, hiddenCount),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f)
+            )
         }
     }
 }

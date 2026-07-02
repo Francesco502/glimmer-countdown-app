@@ -35,6 +35,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.toColorInt
 import com.example.timeapk.BuildConfig
+import com.example.timeapk.permissions.areAppNotificationsEnabledCompat
 import com.example.timeapk.permissions.hasCalendarReadWritePermission
 import com.example.timeapk.permissions.markCalendarPermissionRequested
 import com.example.timeapk.permissions.openAppDetailsSettings
@@ -50,6 +51,11 @@ import com.example.timeapk.notifications.ScheduleSyncManager
 import com.example.timeapk.ui.components.PermissionActionDialog
 import com.example.timeapk.ui.components.PermissionDialogSpec
 import com.example.timeapk.ui.components.SnapWheelPicker
+import com.example.timeapk.ui.common.SongMiniPreviewSurface
+import com.example.timeapk.ui.common.SongReminderStatusStrip
+import com.example.timeapk.ui.reminder.ReminderStatusAction
+import com.example.timeapk.ui.reminder.ReminderStatusSummary
+import com.example.timeapk.ui.reminder.buildReminderStatus
 import com.example.timeapk.ui.theme.ColorContrastGuardrail
 import com.example.timeapk.ui.theme.FONT_PRESET_DEFAULT
 import com.example.timeapk.ui.theme.FONT_PRESET_NOTO_SERIF_SC
@@ -160,6 +166,30 @@ fun AppearanceSettingsContent(
             .verticalScroll(rememberScrollState())
             .padding(24.dp)
     ) {
+        SongMiniPreviewSurface(
+            contentDescription = stringResource(R.string.settings_appearance_preview_cd),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    text = stringResource(R.string.settings_appearance_preview_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = stringResource(R.string.widget_config_preview_event_primary),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = stringResource(R.string.widget_config_preview_value_primary),
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
         SettingsExpandableSection(
             title = stringResource(R.string.theme_title),
             summary = stringResource(R.string.settings_section_theme_summary),
@@ -1858,6 +1888,35 @@ fun MilestoneSettingsContent(
             modifier = Modifier.padding(top = 12.dp)
         )
         val calendarPermissionGranted = hasCalendarPermission()
+        val scheduleHealthEvent = latestScheduleSyncEvent ?: Event(
+            id = 0,
+            title = stringResource(R.string.settings_section_schedule_sync_title),
+            date = System.currentTimeMillis(),
+            category = CATEGORY_OTHER,
+            remindEnabled = true,
+            syncToScheduleEnabled = true
+        )
+        val scheduleHealthStatus = buildReminderStatus(
+            event = scheduleHealthEvent.copy(remindEnabled = true, syncToScheduleEnabled = true),
+            notificationsEnabled = context.areAppNotificationsEnabledCompat(),
+            calendarPermissionGranted = calendarPermissionGranted,
+            hasWritableCalendar = writableCalendars.isNotEmpty()
+        )
+        SongReminderStatusStrip(
+            status = scheduleHealthStatus,
+            title = settingsReminderStatusTitle(context, scheduleHealthStatus),
+            actionLabel = if (scheduleHealthStatus.primaryAction != ReminderStatusAction.None) {
+                stringResource(R.string.reminder_status_action_open_settings)
+            } else {
+                null
+            },
+            onActionClick = if (scheduleHealthStatus.primaryAction != ReminderStatusAction.None) {
+                { requestCalendarPermissionAccess() }
+            } else {
+                null
+            },
+            modifier = Modifier.padding(top = 8.dp, bottom = 6.dp)
+        )
 
         Row(
             modifier = Modifier
@@ -2792,6 +2851,23 @@ private fun formatScheduleSyncTime(millis: Long): String {
     return Instant.ofEpochMilli(millis)
         .atZone(ZoneId.systemDefault())
         .format(formatter)
+}
+
+private fun settingsReminderStatusTitle(
+    context: Context,
+    status: ReminderStatusSummary
+): String {
+    val resId = when (status.messageKey) {
+        "reminder_status_off" -> R.string.reminder_status_off
+        "reminder_status_notification_permission_needed" -> R.string.reminder_status_notification_permission_needed
+        "reminder_status_calendar_permission_needed" -> R.string.reminder_status_calendar_permission_needed
+        "reminder_status_no_writable_calendar" -> R.string.reminder_status_no_writable_calendar
+        "reminder_status_schedule_sync_failed" -> R.string.reminder_status_schedule_sync_failed
+        "reminder_status_app_and_schedule_ready" -> R.string.reminder_status_app_and_schedule_ready
+        "reminder_status_app_ready" -> R.string.reminder_status_app_ready
+        else -> R.string.reminder_status_schedule_pending
+    }
+    return context.getString(resId)
 }
 
 private fun formatImportPreviewDate(event: Event): String {

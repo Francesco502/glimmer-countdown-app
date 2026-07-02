@@ -38,6 +38,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.os.Build
+import android.widget.Toast
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -75,6 +76,7 @@ import com.example.timeapk.ui.components.BottomSheetDatePicker
 import com.example.timeapk.ui.components.PermissionActionDialog
 import com.example.timeapk.ui.components.PermissionDialogSpec
 import com.example.timeapk.ui.components.SnapWheelPicker
+import com.example.timeapk.ui.common.SongEventPreviewCard
 import com.example.timeapk.ui.theme.AnimationSpecs
 import com.example.timeapk.ui.theme.SongDesignTokens
 import com.example.timeapk.ui.theme.SongFilterChip
@@ -268,14 +270,10 @@ fun EventEntryScreen(
                     navigateBack()
                 }
                 is SaveEventResult.PartialSuccess -> {
+                    Toast.makeText(context, result.message, Toast.LENGTH_LONG).show()
                     isSaving = false
-                    val shouldNavigateBack = saveOrigin == SaveRequestOrigin.PermissionFallback
                     pendingSaveOrigin = SaveRequestOrigin.Standard
-                    if (shouldNavigateBack) {
-                        navigateBack()
-                    } else {
-                        snackbarHostState.showSnackbar(result.message)
-                    }
+                    navigateBack()
                 }
                 is SaveEventResult.Failure -> {
                     pendingSaveOrigin = SaveRequestOrigin.Standard
@@ -508,6 +506,26 @@ fun EventEntryBody(
     onEventValueChange: (EventDetails) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val dateFormatMode by (context.applicationContext as TimeApplication).userPrefs.dateFormatModeFlow.collectAsState(initial = 0)
+    val dateFormatter = remember(dateFormatMode) { getDisplayDateFormatter(dateFormatMode) }
+    val previewDetails = eventUiState.eventDetails
+    val previewDate = eventDateToLocalDate(previewDetails.date)
+    val previewDateText = if (previewDetails.isLunar) {
+        formatLunarDateString(previewDate, context)
+    } else {
+        previewDate.format(dateFormatter)
+    }
+    val previewCategoryLabel = when (previewDetails.category) {
+        CATEGORY_BIRTHDAY -> stringResource(R.string.category_birthday)
+        CATEGORY_ANNIVERSARY -> stringResource(R.string.category_anniversary)
+        else -> stringResource(R.string.category_other)
+    }
+    val previewColor = remember(previewDetails.colorHex) {
+        previewDetails.colorHex?.let { hex ->
+            try { Color(hex.toColorInt()) } catch (_: Exception) { null }
+        } ?: Color(0xFF83ACA2)
+    }
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -523,6 +541,18 @@ fun EventEntryBody(
                 .widthIn(max = EventEntryContentMaxWidth),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
+            SongEventPreviewCard(
+                title = previewDetails.title.ifBlank { stringResource(R.string.event_preview_untitled) },
+                categoryLabel = previewCategoryLabel,
+                dateText = previewDateText,
+                color = previewColor,
+                reminderText = if (previewDetails.remindEnabled) {
+                    stringResource(R.string.cd_reminder_on)
+                } else {
+                    stringResource(R.string.cd_reminder_off)
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
             SongPaperSurface(
                 modifier = Modifier.fillMaxWidth(),
                 backgroundColor = MaterialTheme.colorScheme.surface,
@@ -798,6 +828,9 @@ fun EventInputForm(
     var showCustomRepeatPicker by remember { mutableStateOf(false) }
     var showCustomRemindDaysPicker by remember { mutableStateOf(false) }
     var showCustomRemindTimePicker by remember { mutableStateOf(false) }
+    val currentCategory = eventDetails.category.takeIf {
+        it in listOf(CATEGORY_BIRTHDAY, CATEGORY_ANNIVERSARY, CATEGORY_OTHER)
+    } ?: CATEGORY_OTHER
 
     if (showCustomRepeatPicker) {
         var draftRepeat by remember(eventDetails.repeatType) {
@@ -945,6 +978,40 @@ fun EventInputForm(
     }
 
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Text(
+            text = stringResource(R.string.event_template_title),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            val selectedTemplate = defaultTemplateForCategory(currentCategory)
+            eventEntryTemplates.forEach { template ->
+                val label = when (template.type) {
+                    EventEntryTemplateType.Birthday -> stringResource(R.string.event_template_birthday)
+                    EventEntryTemplateType.Anniversary -> stringResource(R.string.event_template_anniversary)
+                    EventEntryTemplateType.Countdown -> stringResource(R.string.event_template_countdown)
+                }
+                SongFilterChip(
+                    selected = selectedTemplate.type == template.type,
+                    onClick = {
+                        onValueChange(
+                            eventDetails.copy(
+                                category = template.category,
+                                repeatType = template.repeatType,
+                                isLunar = if (template.allowLunar) eventDetails.isLunar else false
+                            )
+                        )
+                    },
+                    label = label
+                )
+            }
+        }
+
         TextField(
             value = eventDetails.title,
             onValueChange = {
@@ -968,7 +1035,6 @@ fun EventInputForm(
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onBackground
         )
-        val currentCategory = eventDetails.category.takeIf { it in listOf(CATEGORY_BIRTHDAY, CATEGORY_ANNIVERSARY, CATEGORY_OTHER) } ?: CATEGORY_OTHER
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1203,19 +1269,20 @@ fun EventInputForm(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            PRESET_COLORS.forEach { hex ->
+            songNamedColors.forEach { namedColor ->
+                val hex = namedColor.hex
                 val color = try { Color(hex.toColorInt()) } catch (_: Exception) { Color.Gray }
                 val selected = eventDetails.colorHex?.uppercase() == hex.uppercase()
                 ColorChip(
                     color = color,
                     selected = selected,
                     onClick = { onValueChange(eventDetails.copy(colorHex = hex)) },
-                    contentDescription = stringResource(R.string.cd_event_color_option, hex)
+                    contentDescription = stringResource(R.string.cd_event_color_option, namedColor.nameKey)
                 )
             }
             
             // Custom color display (if selected color is not in presets)
-            val isCustomSelected = eventDetails.colorHex != null && !PRESET_COLORS.any { it.equals(eventDetails.colorHex, ignoreCase = true) }
+            val isCustomSelected = eventDetails.colorHex != null && !songNamedColors.any { it.hex.equals(eventDetails.colorHex, ignoreCase = true) }
             if (isCustomSelected) {
                 val hex = eventDetails.colorHex!!
                 val color = try { Color(hex.toColorInt()) } catch (_: Exception) { Color.Gray }
@@ -1435,8 +1502,6 @@ fun CustomColorDialog(
         }
     )
 }
-
-
 
 
 

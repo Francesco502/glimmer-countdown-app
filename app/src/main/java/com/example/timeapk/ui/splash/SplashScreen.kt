@@ -38,14 +38,14 @@ fun SplashScreen(
         // Fade in
         alpha.animateTo(
             targetValue = 1f,
-            animationSpec = tween(durationMillis = 800)
+            animationSpec = tween(durationMillis = 520)
         )
         // Hold
-        delay(1200)
+        delay(260)
         // Fade out
         alpha.animateTo(
             targetValue = 0f,
-            animationSpec = tween(durationMillis = 500)
+            animationSpec = tween(durationMillis = 220)
         )
         onSplashFinished()
     }
@@ -65,13 +65,22 @@ fun SplashScreen(
             Image(
                 painter = painterResource(id = R.drawable.ic_launcher_foreground),
                 contentDescription = null,
-                modifier = Modifier.size(260.dp)
+                modifier = Modifier.size(188.dp)
             )
             Spacer(modifier = Modifier.weight(1f))
             Text(
+                text = stringResource(R.string.app_name),
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontWeight = FontWeight.Medium,
+                    letterSpacing = 1.sp
+                ),
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.88f)
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
                 text = stringResource(R.string.splash_tagline),
                 style = MaterialTheme.typography.titleMedium.copy(
-                    letterSpacing = 2.sp,
+                    letterSpacing = 1.sp,
                     lineHeight = 28.sp
                 ),
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f)

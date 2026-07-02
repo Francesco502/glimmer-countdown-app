@@ -1,5 +1,7 @@
 package com.example.timeapk.ui.home
 
+import com.example.timeapk.data.CATEGORY_ANNIVERSARY
+import com.example.timeapk.data.CATEGORY_BIRTHDAY
 import com.example.timeapk.data.REPEAT_DAILY
 import com.example.timeapk.data.REPEAT_HALF_YEARLY
 import com.example.timeapk.data.REPEAT_MONTHLY
@@ -24,6 +26,39 @@ data class CalendarDayCellContent(
     val eventIndicatorText: String?
 )
 
+data class MonthHighlightSummary(
+    val birthdays: MonthHighlightGroup,
+    val anniversaries: MonthHighlightGroup,
+    val countdowns: MonthHighlightGroup,
+    val milestones: MonthHighlightGroup
+)
+
+data class MonthHighlightGroup(
+    val totalCount: Int,
+    val items: List<CalendarEventOccurrence>
+)
+
+fun monthHighlightsForOccurrences(
+    occurrences: List<CalendarEventOccurrence>,
+    maxItemsPerGroup: Int = 3
+): MonthHighlightSummary {
+    val ordered = occurrences.sortedWith(
+        compareBy<CalendarEventOccurrence> { it.date }
+            .thenBy { it.eventState.event.id }
+    )
+    val birthdays = ordered.filter { it.eventState.event.category == CATEGORY_BIRTHDAY }
+    val anniversaries = ordered.filter { it.eventState.event.category == CATEGORY_ANNIVERSARY }
+    val countdowns = ordered.filter { it.eventState.event.category !in setOf(CATEGORY_BIRTHDAY, CATEGORY_ANNIVERSARY) }
+    val milestones = ordered.filter { (it.eventState.nextMilestoneDays ?: Long.MAX_VALUE) >= 0L && it.eventState.nextMilestoneDays != null }
+
+    return MonthHighlightSummary(
+        birthdays = birthdays.toHighlightGroup(maxItemsPerGroup),
+        anniversaries = anniversaries.toHighlightGroup(maxItemsPerGroup),
+        countdowns = countdowns.toHighlightGroup(maxItemsPerGroup),
+        milestones = milestones.toHighlightGroup(maxItemsPerGroup)
+    )
+}
+
 fun calendarDayCellContent(
     date: LocalDate,
     occurrences: List<CalendarEventOccurrence>
@@ -35,6 +70,13 @@ fun calendarDayCellContent(
             occurrences.size > 99 -> "99+"
             else -> occurrences.size.toString()
         }
+    )
+}
+
+private fun List<CalendarEventOccurrence>.toHighlightGroup(maxItems: Int): MonthHighlightGroup {
+    return MonthHighlightGroup(
+        totalCount = size,
+        items = take(maxItems.coerceAtLeast(0))
     )
 }
 
