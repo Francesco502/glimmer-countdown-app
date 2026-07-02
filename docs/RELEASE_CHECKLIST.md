@@ -17,7 +17,7 @@
 - [x] Play AAB 已输出到 `app/build/outputs/bundle/playRelease/app-play-release.aab`
 - [x] Direct / Play APK 签名验证通过
 - [x] Direct APK 包含 `REQUEST_INSTALL_PACKAGES`，Play APK 不包含 `REQUEST_INSTALL_PACKAGES`
-- [ ] GitHub Release 资产只包含 Direct APK，不上传 Play APK / AAB
+- [x] GitHub Release 资产只包含 Direct APK，不上传 Play APK / AAB
 
 ## 二、发布前人工复核
 
@@ -57,11 +57,13 @@
 - 详情页：确认提醒可信度状态条、`调整` 入口和底部 `提醒 / 置顶 / 编辑 / 删除` 工具栏无重叠。
 - 设置页：确认设置总览、主题样张预览、字体 / 字号分组、里程碑与提醒、系统日程同步分组均渲染正常。
 - logcat：未发现 `AndroidRuntime` 崩溃；系统日历无可写日历只记录为可预期的同步 warning。
+- GitHub Release：`https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v3.15`
+- Release 资产：仅包含 `glimmer-countdown-3-15.apk`，大小 `26331930` bytes，GitHub 返回 digest `sha256:970ef07cf663f1a2362d930449a9aaf59f75be8d828be40a1cd3985347752f89`。
 
 ## 四、发布动作
 
-- [ ] 提交并 push 当前分支到 GitHub
-- [ ] 创建或更新 `v3.15` 标签
-- [ ] 在 GitHub Release 中发布 `glimmer-countdown-3-15.apk`
-- [ ] 以 `CHANGELOG.md` 中的 `3.15` 小节作为 Release Notes
-- [ ] 确认 GitHub Release 页面标题、标签、说明和资产均对应 `v3.15`
+- [x] 提交并 push 当前分支到 GitHub
+- [x] 创建或更新 `v3.15` 标签
+- [x] 在 GitHub Release 中发布 `glimmer-countdown-3-15.apk`
+- [x] 以 `CHANGELOG.md` 中的 `3.15` 小节作为 Release Notes
+- [x] 确认 GitHub Release 页面标题、标签、说明和资产均对应 `v3.15`
