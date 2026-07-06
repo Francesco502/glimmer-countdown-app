@@ -2,7 +2,6 @@ package com.example.timeapk.data
 
 import androidx.room.testing.MigrationTestHelper
 import androidx.sqlite.db.SupportSQLiteDatabase
-import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
@@ -17,8 +16,7 @@ class AppDatabaseMigrationTest {
     @get:Rule
     val helper = MigrationTestHelper(
         InstrumentationRegistry.getInstrumentation(),
-        requireNotNull(AppDatabase::class.java.canonicalName),
-        FrameworkSQLiteOpenHelperFactory()
+        AppDatabase::class.java
     )
 
     @Test

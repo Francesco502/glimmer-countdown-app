@@ -8,7 +8,6 @@ import com.example.timeapk.data.REPEAT_YEARLY
 
 data class EventEntryTemplate(
     val type: EventEntryTemplateType,
-    val labelKey: String,
     val category: String,
     val repeatType: String,
     val allowLunar: Boolean
@@ -28,21 +27,18 @@ data class SongNamedColor(
 val eventEntryTemplates: List<EventEntryTemplate> = listOf(
     EventEntryTemplate(
         type = EventEntryTemplateType.Birthday,
-        labelKey = "event_template_birthday",
         category = CATEGORY_BIRTHDAY,
         repeatType = REPEAT_YEARLY,
         allowLunar = true
     ),
     EventEntryTemplate(
         type = EventEntryTemplateType.Anniversary,
-        labelKey = "event_template_anniversary",
         category = CATEGORY_ANNIVERSARY,
         repeatType = REPEAT_YEARLY,
         allowLunar = true
     ),
     EventEntryTemplate(
         type = EventEntryTemplateType.Countdown,
-        labelKey = "event_template_countdown",
         category = CATEGORY_OTHER,
         repeatType = REPEAT_NONE,
         allowLunar = false
@@ -67,4 +63,13 @@ fun defaultTemplateForCategory(category: String): EventEntryTemplate {
         CATEGORY_ANNIVERSARY -> eventEntryTemplates.first { it.type == EventEntryTemplateType.Anniversary }
         else -> eventEntryTemplates.first { it.type == EventEntryTemplateType.Countdown }
     }
+}
+
+fun applyTemplateForCategory(details: EventDetails, category: String): EventDetails {
+    val template = defaultTemplateForCategory(category)
+    return details.copy(
+        category = template.category,
+        repeatType = template.repeatType,
+        isLunar = if (template.allowLunar) details.isLunar else false
+    )
 }

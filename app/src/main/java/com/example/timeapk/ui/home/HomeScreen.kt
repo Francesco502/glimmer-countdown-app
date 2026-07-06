@@ -1,7 +1,7 @@
 package com.example.timeapk.ui.home
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -9,13 +9,13 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
@@ -23,45 +23,45 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.Tune
-import androidx.compose.material.icons.automirrored.outlined.Sort
-import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import com.example.timeapk.data.CATEGORY_ANNIVERSARY
 import com.example.timeapk.data.CATEGORY_BIRTHDAY
-import com.example.timeapk.data.CATEGORY_OTHER
 import com.example.timeapk.data.REPEAT_NONE
 import com.example.timeapk.data.REPEAT_DAILY
 import com.example.timeapk.data.REPEAT_HALF_YEARLY
 import com.example.timeapk.data.REPEAT_MONTHLY
 import com.example.timeapk.data.REPEAT_WEEKLY
 import com.example.timeapk.data.REPEAT_YEARLY
-import com.example.timeapk.ui.utils.formatDays
+import com.example.timeapk.ui.components.SongDateWheelPickerDialog
 import com.example.timeapk.ui.utils.formatBetweenAsYMD
 import com.example.timeapk.ui.utils.formatDaysSmart
 import com.example.timeapk.ui.utils.getDisplayDateFormatter
@@ -70,22 +70,23 @@ import com.example.timeapk.ui.utils.eventDateToLocalDate
 import com.example.timeapk.ui.utils.DisplayModes
 import com.example.timeapk.ui.utils.getAvailableDisplayModes
 import java.time.format.DateTimeFormatter
-import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
-import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
-import java.util.Locale
 import com.example.timeapk.R
 import com.example.timeapk.TimeApplication
-import com.example.timeapk.data.Event
+import com.example.timeapk.ui.sound.SongSoundEffect
+import com.example.timeapk.ui.sound.rememberSongSoundscape
 import com.example.timeapk.ui.theme.AnimationSpecs
 import com.example.timeapk.ui.theme.SongCalendarCell
 import com.example.timeapk.ui.theme.SongDesignTokens
-import com.example.timeapk.ui.theme.SongFilterChip
+import com.example.timeapk.ui.theme.SongLineIcon
+import com.example.timeapk.ui.theme.SongLineIconKind
 import com.example.timeapk.ui.theme.SongModeTabRow
 import com.example.timeapk.ui.theme.SongPalette
 import com.example.timeapk.ui.theme.SongPaperSurface
+import com.example.timeapk.ui.theme.SongSealLabel
 import com.example.timeapk.ui.utils.formatLunarDateString
 
 import androidx.compose.foundation.LocalOverscrollConfiguration
@@ -96,12 +97,7 @@ import org.burnoutcrew.reorderable.rememberReorderableLazyListState
 import org.burnoutcrew.reorderable.reorderable
 import org.burnoutcrew.reorderable.ReorderableItem
 
-// Event category type for unified display
-sealed class EventType {
-    object Birthday : EventType()
-    object Anniversary : EventType()
-    object Regular : EventType()
-}
+private val HomeOverflowActionItemHeight = 42.dp
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -132,17 +128,11 @@ fun HomeScreen(
     val pinnedEventIds by prefs.pinnedEventIdsFlow.collectAsState(initial = emptyList())
     val savedHomeDisplayMode by prefs.homeDisplayModeFlow.collectAsState(initial = 0)
     var homeDisplayMode by remember(savedHomeDisplayMode) { mutableStateOf(savedHomeDisplayMode) }
-    var showSortMenu by remember { mutableStateOf(false) }
-    val hasActiveFilter = filterType != FilterType.All
-    var showFilterPanel by remember { mutableStateOf(false) }
-    var showSearchBar by remember { mutableStateOf(searchQuery.isNotBlank()) }
+    var showOverflowMenu by remember { mutableStateOf(false) }
     var timelineFocus by remember { mutableStateOf<TimelineBucketType?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(homeDisplayMode) {
         prefs.setHomeDisplayMode(homeDisplayMode)
-    }
-    LaunchedEffect(searchQuery) {
-        if (searchQuery.isNotBlank()) showSearchBar = true
     }
     val timelineDigest = remember(calendarUiState, today, pinnedEventIds) {
         buildHomeTimelineDigest(
@@ -209,84 +199,32 @@ fun HomeScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    if (showSearchBar) {
-                        OutlinedTextField(
-                            value = searchQuery,
-                            onValueChange = viewModel::updateSearchQuery,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 48.dp),
-                            placeholder = { Text(stringResource(R.string.search_hint)) },
-                            textStyle = MaterialTheme.typography.bodyMedium,
-                            singleLine = true,
-                            shape = RoundedCornerShape(4.dp)
-                        )
-                    } else {
-                        Text(
-                            text = stringResource(R.string.app_name),
-                            style = MaterialTheme.typography.titleLarge,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
+                    Text(
+                        text = stringResource(R.string.app_name),
+                        style = MaterialTheme.typography.titleLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 },
                 actions = {
-                    InlineActionIconButton(
-                        icon = Icons.Outlined.Search,
-                        contentDescription = stringResource(R.string.search_hint),
-                        active = showSearchBar || searchQuery.isNotBlank(),
-                        onClick = {
-                            if (showSearchBar && searchQuery.isBlank()) {
-                                showSearchBar = false
-                            } else {
-                                showSearchBar = !showSearchBar
-                            }
-                        }
+                    HomeOverflowActionMenu(
+                        selectedBucket = timelineFocus,
+                        searchQuery = searchQuery,
+                        filterType = filterType,
+                        sortType = sortType,
+                        expanded = showOverflowMenu,
+                        onExpandedChange = { showOverflowMenu = it }
                     )
+                    val soundscape = rememberSongSoundscape()
                     InlineActionIconButton(
-                        icon = Icons.Outlined.Tune,
-                        contentDescription = stringResource(R.string.home_filter_panel_toggle),
-                        active = hasActiveFilter || showFilterPanel,
-                        onClick = { showFilterPanel = !showFilterPanel }
-                    )
-                    Box {
-                        InlineActionIconButton(
-                            icon = Icons.AutoMirrored.Outlined.Sort,
-                            contentDescription = stringResource(R.string.sort_menu),
-                            active = sortType != SortType.Custom || showSortMenu,
-                            onClick = { showSortMenu = true }
-                        )
-                        DropdownMenu(
-                            expanded = showSortMenu,
-                            onDismissRequest = { showSortMenu = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.sort_by_created)) },
-                                onClick = {
-                                    viewModel.updateSortType(SortType.Custom)
-                                    showSortMenu = false
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.sort_by_days)) },
-                                onClick = {
-                                    viewModel.updateSortType(SortType.ByDays)
-                                    showSortMenu = false
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.sort_by_date)) },
-                                onClick = {
-                                    viewModel.updateSortType(SortType.ByDate)
-                                    showSortMenu = false
-                                }
-                            )
-                        }
-                    }
-                    InlineActionIconButton(
-                        icon = Icons.Outlined.Settings,
+                        icon = SongLineIconKind.Ruyi,
                         contentDescription = stringResource(R.string.settings_title),
-                        onClick = navigateToSettings
+                        active = false,
+                        onClick = {
+                            soundscape.play(SongSoundEffect.Action)
+                            showOverflowMenu = false
+                            navigateToSettings()
+                        }
                     )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -316,108 +254,31 @@ fun HomeScreen(
                 shadowElevation = 0.dp
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.Outlined.Add,
+                    SongLineIcon(
+                        kind = SongLineIconKind.Add,
                         contentDescription = stringResource(R.string.cd_add_event),
                         tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                        modifier = Modifier.size(24.dp)
+                        size = 24.dp
                     )
                 }
             }
         }
     ) { innerPadding ->
-        Column(
+        Box(
             modifier = modifier
                 .padding(innerPadding)
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
         ) {
-            HomeDisplayModeSegmentedControl(
-                selectedMode = homeDisplayMode,
-                onModeSelected = { homeDisplayMode = it },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp)
-            )
-            HomeTimelineDigestRow(
-                digest = timelineDigest,
-                selectedBucket = timelineFocus,
-                onBucketClick = { bucket ->
-                    timelineFocus = if (timelineFocus == bucket) null else bucket
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp)
-            )
-
-            if (hasActiveFilter) {
-                val activeLabel = when {
-                    filterType == FilterType.Birthday -> stringResource(R.string.category_birthday)
-                    filterType == FilterType.Anniversary -> stringResource(R.string.category_anniversary)
-                    filterType == FilterType.Other -> stringResource(R.string.category_other)
-                    else -> stringResource(R.string.filter_all)
-                }
-                Row(
+            Column(modifier = Modifier.fillMaxSize()) {
+                HomeDisplayModeSegmentedControl(
+                    selectedMode = homeDisplayMode,
+                    onModeSelected = { homeDisplayMode = it },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 2.dp),
-                    horizontalArrangement = Arrangement.Start
-                ) {
-                    AssistChip(
-                        onClick = { showFilterPanel = true },
-                        label = { Text(activeLabel) },
-                        colors = AssistChipDefaults.assistChipColors(
-                            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                            labelColor = MaterialTheme.colorScheme.onSurface
-                        )
-                    )
-                }
-            }
-
-            AnimatedVisibility(visible = showFilterPanel) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 6.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        SongFilterChip(
-                            selected = filterType == FilterType.All,
-                            onClick = { viewModel.updateFilterType(FilterType.All) },
-                            label = stringResource(R.string.filter_all)
-                        )
-                        SongFilterChip(
-                            selected = filterType == FilterType.Birthday,
-                            onClick = { viewModel.updateFilterType(FilterType.Birthday) },
-                            label = stringResource(R.string.category_birthday)
-                        )
-                        SongFilterChip(
-                            selected = filterType == FilterType.Anniversary,
-                            onClick = { viewModel.updateFilterType(FilterType.Anniversary) },
-                            label = stringResource(R.string.category_anniversary)
-                        )
-                        SongFilterChip(
-                            selected = filterType == FilterType.Other,
-                            onClick = { viewModel.updateFilterType(FilterType.Other) },
-                            label = stringResource(R.string.category_other)
-                        )
-                    }
-                }
-            }
-            if (sortType == SortType.Custom && homeDisplayMode != 2 && displayedList.isNotEmpty()) {
-                Text(
-                    text = stringResource(R.string.home_custom_sort_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
                 )
-            }
+
             // Event list / month view
             if (homeDisplayMode == 2) {
                 if (calendarUiState.isEmpty()) {
@@ -556,7 +417,6 @@ fun HomeScreen(
                                                     EventListItem(
                                                         eventState = eventState,
                                                         today = today,
-                                                        dateFormatter = dateFormatter,
                                                         dateDeltaDisplayMode = itemDisplayMode,
                                                         onToggleDateDeltaDisplayMode = {
                                                             val availableModes = getAvailableDisplayModes(eventState, showMilestone = true)
@@ -588,6 +448,39 @@ fun HomeScreen(
                     }
                 }
             }
+            }
+            AnimatedVisibility(
+                visible = showOverflowMenu,
+                enter = fadeIn(animationSpec = AnimationSpecs.mistDissolveTween()) +
+                    slideInVertically(animationSpec = AnimationSpecs.handscrollTweenIntOffset()) { -it / 10 },
+                exit = fadeOut(animationSpec = AnimationSpecs.mistDissolveTween()) +
+                    slideOutVertically(animationSpec = AnimationSpecs.handscrollTweenIntOffset()) { -it / 10 },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 8.dp, end = 16.dp)
+                    .zIndex(2f)
+            ) {
+                HomeOverflowPanel(
+                    digest = timelineDigest,
+                    selectedBucket = timelineFocus,
+                    searchQuery = searchQuery,
+                    filterType = filterType,
+                    sortType = sortType,
+                    onSearchQueryChange = viewModel::updateSearchQuery,
+                    onBucketClick = { bucket ->
+                        timelineFocus = if (timelineFocus == bucket) null else bucket
+                        showOverflowMenu = false
+                    },
+                    onFilterClick = { type ->
+                        viewModel.updateFilterType(type)
+                        showOverflowMenu = false
+                    },
+                    onSortClick = { type ->
+                        viewModel.updateSortType(type)
+                        showOverflowMenu = false
+                    }
+                )
+            }
         }
     }
 }
@@ -612,92 +505,545 @@ private fun HomeDisplayModeSegmentedControl(
 }
 
 @Composable
-private fun HomeTimelineDigestRow(
-    digest: HomeTimelineDigest,
+private fun HomeOverflowActionMenu(
     selectedBucket: TimelineBucketType?,
-    onBucketClick: (TimelineBucketType) -> Unit,
-    modifier: Modifier = Modifier
+    searchQuery: String,
+    filterType: FilterType,
+    sortType: SortType,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit
 ) {
-    Row(
-        modifier = modifier.horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        TimelineDigestChip(
-            label = stringResource(R.string.home_timeline_today),
-            bucket = digest.today,
-            selected = selectedBucket == TimelineBucketType.Today,
-            onClick = { onBucketClick(TimelineBucketType.Today) }
-        )
-        TimelineDigestChip(
-            label = stringResource(R.string.home_timeline_seven_days),
-            bucket = digest.sevenDays,
-            selected = selectedBucket == TimelineBucketType.SevenDays,
-            onClick = { onBucketClick(TimelineBucketType.SevenDays) }
-        )
-        TimelineDigestChip(
-            label = stringResource(R.string.home_timeline_month),
-            bucket = digest.month,
-            selected = selectedBucket == TimelineBucketType.Month,
-            onClick = { onBucketClick(TimelineBucketType.Month) }
-        )
-        TimelineDigestChip(
-            label = stringResource(R.string.home_timeline_milestone),
-            bucket = digest.milestone,
-            selected = selectedBucket == TimelineBucketType.Milestone,
-            onClick = { onBucketClick(TimelineBucketType.Milestone) }
+    val hasActiveTool = selectedBucket != null ||
+        searchQuery.isNotBlank() ||
+        filterType != FilterType.All ||
+        sortType != SortType.Custom
+    val soundscape = rememberSongSoundscape()
+    Box {
+        InlineActionIconButton(
+            icon = SongLineIconKind.More,
+            contentDescription = stringResource(R.string.home_timeline_action_menu),
+            active = hasActiveTool || expanded,
+            onClick = {
+                soundscape.play(SongSoundEffect.Action)
+                onExpandedChange(!expanded)
+            }
         )
     }
 }
 
 @Composable
-private fun TimelineDigestChip(
-    label: String,
-    bucket: TimelineBucket,
-    selected: Boolean,
-    onClick: () -> Unit
+private fun HomeOverflowPanel(
+    digest: HomeTimelineDigest,
+    selectedBucket: TimelineBucketType?,
+    searchQuery: String,
+    filterType: FilterType,
+    sortType: SortType,
+    onSearchQueryChange: (String) -> Unit,
+    onBucketClick: (TimelineBucketType) -> Unit,
+    onFilterClick: (FilterType) -> Unit,
+    onSortClick: (SortType) -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    val borderColor = if (selected) {
-        MaterialTheme.colorScheme.primary.copy(alpha = 0.72f)
-    } else {
-        MaterialTheme.colorScheme.outline.copy(alpha = SongDesignTokens.BorderAlphaSoft)
+    val soundscape = rememberSongSoundscape()
+    fun playActionThen(action: () -> Unit) {
+        soundscape.play(SongSoundEffect.Action)
+        action()
     }
-    val backgroundColor = if (selected) {
-        MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+
+    SongActionSlip(
+        modifier = modifier,
+        content = {
+            HomeMenuSectionLabel(text = stringResource(R.string.home_timeline_action_menu))
+            TimelineActionTileGrid(
+                items = listOf(
+                    TimelineActionTileSpec(
+                        label = stringResource(R.string.home_timeline_today),
+                        bucket = digest.today,
+                        selected = selectedBucket == TimelineBucketType.Today,
+                        onClick = { playActionThen { onBucketClick(TimelineBucketType.Today) } }
+                    ),
+                    TimelineActionTileSpec(
+                        label = stringResource(R.string.home_timeline_seven_days),
+                        bucket = digest.sevenDays,
+                        selected = selectedBucket == TimelineBucketType.SevenDays,
+                        onClick = { playActionThen { onBucketClick(TimelineBucketType.SevenDays) } }
+                    ),
+                    TimelineActionTileSpec(
+                        label = stringResource(R.string.home_timeline_month),
+                        bucket = digest.month,
+                        selected = selectedBucket == TimelineBucketType.Month,
+                        onClick = { playActionThen { onBucketClick(TimelineBucketType.Month) } }
+                    ),
+                    TimelineActionTileSpec(
+                        label = stringResource(R.string.home_timeline_milestone),
+                        bucket = digest.milestone,
+                        selected = selectedBucket == TimelineBucketType.Milestone,
+                        onClick = { playActionThen { onBucketClick(TimelineBucketType.Milestone) } }
+                    )
+                )
+            )
+            SongActionSlipDivider()
+            HomeMenuSectionLabel(text = stringResource(R.string.home_filter_panel_toggle))
+            SongActionOptionGrid(
+                items = listOf(
+                    SongActionOptionSpec(
+                        label = stringResource(R.string.filter_all),
+                        selected = filterType == FilterType.All,
+                        onClick = { playActionThen { onFilterClick(FilterType.All) } }
+                    ),
+                    SongActionOptionSpec(
+                        label = stringResource(R.string.category_birthday),
+                        selected = filterType == FilterType.Birthday,
+                        onClick = { playActionThen { onFilterClick(FilterType.Birthday) } }
+                    ),
+                    SongActionOptionSpec(
+                        label = stringResource(R.string.category_anniversary),
+                        selected = filterType == FilterType.Anniversary,
+                        onClick = { playActionThen { onFilterClick(FilterType.Anniversary) } }
+                    ),
+                    SongActionOptionSpec(
+                        label = stringResource(R.string.category_other),
+                        selected = filterType == FilterType.Other,
+                        onClick = { playActionThen { onFilterClick(FilterType.Other) } }
+                    )
+                )
+            )
+            SongActionSlipDivider()
+            HomeMenuSectionLabel(text = stringResource(R.string.sort_menu))
+            SongActionOptionGrid(
+                items = listOf(
+                    SongActionOptionSpec(
+                        label = stringResource(R.string.sort_by_created),
+                        selected = sortType == SortType.Custom,
+                        onClick = { playActionThen { onSortClick(SortType.Custom) } }
+                    ),
+                    SongActionOptionSpec(
+                        label = stringResource(R.string.sort_by_days),
+                        selected = sortType == SortType.ByDays,
+                        onClick = { playActionThen { onSortClick(SortType.ByDays) } }
+                    ),
+                    SongActionOptionSpec(
+                        label = stringResource(R.string.sort_by_date),
+                        selected = sortType == SortType.ByDate,
+                        onClick = { playActionThen { onSortClick(SortType.ByDate) } }
+                    )
+                )
+            )
+        },
+        footer = {
+            HomeOverflowSearchField(
+                searchQuery = searchQuery,
+                onSearchQueryChange = onSearchQueryChange
+            )
+        }
+    )
+}
+
+@Composable
+private fun HomeOverflowSearchField(
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit
+) {
+    val shape = RoundedCornerShape(3.dp)
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val borderColor = if (searchQuery.isNotBlank()) {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.36f)
     } else {
-        MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
+        MaterialTheme.colorScheme.outline.copy(alpha = 0.14f)
     }
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(4.dp),
-        color = backgroundColor,
-        border = BorderStroke(SongDesignTokens.BorderWidth.dp, borderColor),
-        shadowElevation = 0.dp
+    val backgroundColor = if (searchQuery.isNotBlank()) {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.07f)
+    } else {
+        MaterialTheme.colorScheme.surface.copy(alpha = 0.22f)
+    }
+    BasicTextField(
+        value = searchQuery,
+        onValueChange = onSearchQueryChange,
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = HomeOverflowActionItemHeight)
+            .border(BorderStroke(SongDesignTokens.BorderWidth.dp, borderColor), shape)
+            .background(backgroundColor, shape)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        textStyle = MaterialTheme.typography.bodyMedium.copy(color = textColor),
+        singleLine = true,
+        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+        decorationBox = { innerTextField ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                SongLineIcon(
+                    kind = SongLineIconKind.Search,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.74f),
+                    size = 18.dp
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Box(
+                    modifier = Modifier.weight(1f),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    if (searchQuery.isBlank()) {
+                        Text(
+                            text = stringResource(R.string.search_hint),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.62f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    innerTextField()
+                }
+                if (searchQuery.isNotBlank()) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(26.dp)
+                            .clickable(onClick = { onSearchQueryChange("") }),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        SongLineIcon(
+                            kind = SongLineIconKind.Close,
+                            contentDescription = stringResource(R.string.date_picker_cancel),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.74f),
+                            size = 18.dp
+                        )
+                    }
+                }
+            }
+        }
+    )
+}
+
+private data class TimelineActionTileSpec(
+    val label: String,
+    val bucket: TimelineBucket,
+    val selected: Boolean,
+    val onClick: () -> Unit
+)
+
+private data class SongActionOptionSpec(
+    val label: String,
+    val selected: Boolean,
+    val onClick: () -> Unit
+)
+
+@Composable
+private fun SongActionSlip(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+    footer: (@Composable ColumnScope.() -> Unit)? = null
+) {
+    SongPaperSurface(
+        modifier = modifier
+            .widthIn(min = 228.dp, max = 276.dp)
+            .heightIn(max = 420.dp)
+            .padding(end = 8.dp),
+        backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+        borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.26f)
+    ) {
+        Box {
+            SongActionSlipFoldDecoration(modifier = Modifier.matchParentSize())
+            Column(
+                modifier = Modifier
+                    .padding(start = 12.dp, top = 12.dp, end = 18.dp, bottom = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    content = content
+                )
+                footer?.let { footerContent ->
+                    SongActionSlipDivider()
+                    footerContent()
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SongActionSlipFoldDecoration(modifier: Modifier = Modifier) {
+    val primary = MaterialTheme.colorScheme.primary
+    val outline = MaterialTheme.colorScheme.outline
+    Canvas(modifier = modifier) {
+        val fold = 30.dp.toPx()
+        val right = size.width
+        val path = Path().apply {
+            moveTo(right - fold, 0f)
+            lineTo(right, 0f)
+            lineTo(right, fold)
+            close()
+        }
+        drawPath(path, primary.copy(alpha = 0.055f))
+        drawLine(
+            color = primary.copy(alpha = 0.22f),
+            start = Offset(right - fold, 0f),
+            end = Offset(right, fold),
+            strokeWidth = SongDesignTokens.BorderWidth.dp.toPx()
+        )
+        drawLine(
+            color = outline.copy(alpha = 0.10f),
+            start = Offset(right - 8.dp.toPx(), fold + 8.dp.toPx()),
+            end = Offset(right - 8.dp.toPx(), size.height - 10.dp.toPx()),
+            strokeWidth = SongDesignTokens.BorderWidth.dp.toPx()
+        )
+        drawPath(
+            Path().apply {
+                moveTo(14.dp.toPx(), 8.dp.toPx())
+                cubicTo(
+                    64.dp.toPx(), 4.dp.toPx(),
+                    size.width - 72.dp.toPx(), 10.dp.toPx(),
+                    size.width - 44.dp.toPx(), 6.dp.toPx()
+                )
+            },
+            color = outline.copy(alpha = 0.12f),
+            style = Stroke(width = SongDesignTokens.BorderWidth.dp.toPx())
+        )
+    }
+}
+
+@Composable
+private fun SongActionSlipDivider() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 7.dp),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        HorizontalDivider(
+            modifier = Modifier.fillMaxWidth(0.72f),
+            thickness = SongDesignTokens.BorderWidth.dp,
+            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.13f)
+        )
+    }
+}
+
+@Composable
+private fun HomeMenuSectionLabel(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
+    )
+}
+
+@Composable
+private fun TimelineActionTileGrid(items: List<TimelineActionTileSpec>) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        items.chunked(2).forEach { rowItems ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                rowItems.forEach { item ->
+                    TimelineActionTile(
+                        spec = item,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                if (rowItems.size == 1) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TimelineActionTile(
+    spec: TimelineActionTileSpec,
+    modifier: Modifier = Modifier
+) {
+    val color = if (spec.selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+    val shape = RoundedCornerShape(3.dp)
+    Column(
+        modifier = modifier
+            .border(
+                BorderStroke(
+                    SongDesignTokens.BorderWidth.dp,
+                    if (spec.selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.42f)
+                    else MaterialTheme.colorScheme.outline.copy(alpha = 0.16f)
+                ),
+                shape
+            )
+            .background(
+                if (spec.selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.075f)
+                else MaterialTheme.colorScheme.surface.copy(alpha = 0.28f),
+                shape
+            )
+            .clickable(onClick = spec.onClick)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = spec.label,
+            style = MaterialTheme.typography.labelLarge,
+            color = color,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            SongSealLabel(
+                text = pluralStringResource(
+                    R.plurals.home_timeline_count_format,
+                    spec.bucket.count,
+                    spec.bucket.count
+                ),
+                color = color.copy(alpha = if (spec.selected) 0.88f else 0.62f)
+            )
+            spec.bucket.topItem?.event?.title?.let { title ->
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SongActionOptionGrid(items: List<SongActionOptionSpec>) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        items.chunked(2).forEach { rowItems ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                rowItems.forEach { item ->
+                    SongActionOptionTile(
+                        spec = item,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                if (rowItems.size == 1) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SongActionOptionTile(
+    spec: SongActionOptionSpec,
+    modifier: Modifier = Modifier
+) {
+    val color = if (spec.selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+    val shape = RoundedCornerShape(3.dp)
+    Row(
+        modifier = modifier
+            .heightIn(min = HomeOverflowActionItemHeight)
+            .border(
+                BorderStroke(
+                    SongDesignTokens.BorderWidth.dp,
+                    if (spec.selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.38f)
+                    else MaterialTheme.colorScheme.outline.copy(alpha = 0.14f)
+                ),
+                shape
+            )
+            .background(
+                if (spec.selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.07f)
+                else MaterialTheme.colorScheme.surface.copy(alpha = 0.22f),
+                shape
+            )
+            .clickable(onClick = spec.onClick)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = spec.label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = color,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+        if (spec.selected) {
+            Spacer(modifier = Modifier.width(8.dp))
+            SongLineIcon(
+                kind = SongLineIconKind.Seal,
+                tint = MaterialTheme.colorScheme.primary,
+                size = 14.dp
+            )
+        }
+    }
+}
+
+@Composable
+private fun SongActionSlipItem(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    meta: String? = null,
+    trailing: String? = null
+) {
+    val contentColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+    val shape = RoundedCornerShape(3.dp)
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(
+                if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.055f) else Color.Transparent,
+                shape
+            )
+            .border(
+                BorderStroke(
+                    SongDesignTokens.BorderWidth.dp,
+                    if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.22f) else Color.Transparent
+                ),
+                shape
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Column(
-            modifier = Modifier
-                .widthIn(min = 96.dp, max = 132.dp)
-                .padding(horizontal = 12.dp, vertical = 9.dp),
+            modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodyMedium,
+                color = contentColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            Text(
-                text = stringResource(R.string.home_timeline_count_format, bucket.count),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1
+            meta?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+        if (trailing != null) {
+            Spacer(modifier = Modifier.width(12.dp))
+            SongSealLabel(
+                text = trailing,
+                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Text(
-                text = bucket.topItem?.event?.title ?: stringResource(R.string.home_timeline_empty),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+        } else if (selected) {
+            Spacer(modifier = Modifier.width(12.dp))
+            SongLineIcon(
+                kind = SongLineIconKind.Seal,
+                tint = MaterialTheme.colorScheme.primary,
+                size = 16.dp
             )
         }
     }
@@ -705,7 +1051,7 @@ private fun TimelineDigestChip(
 
 @Composable
 private fun InlineActionIconButton(
-    icon: ImageVector,
+    icon: SongLineIconKind,
     contentDescription: String,
     onClick: () -> Unit,
     active: Boolean = false
@@ -714,15 +1060,15 @@ private fun InlineActionIconButton(
         onClick = onClick,
         modifier = Modifier.size(40.dp)
     ) {
-        Icon(
-            imageVector = icon,
+        SongLineIcon(
+            kind = icon,
             contentDescription = contentDescription,
             tint = if (active) {
                 MaterialTheme.colorScheme.primary
             } else {
                 MaterialTheme.colorScheme.onBackground.copy(alpha = 0.76f)
             },
-            modifier = Modifier.size(18.dp)
+            size = 18.dp
         )
     }
 }
@@ -731,23 +1077,17 @@ private fun InlineActionIconButton(
 private fun EmptyState(modifier: Modifier = Modifier) {
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                imageVector = Icons.Outlined.Add,
+            SongLineIcon(
+                kind = SongLineIconKind.Add,
                 contentDescription = stringResource(R.string.cd_add_event),
-                modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f)
+                tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f),
+                size = 64.dp
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = stringResource(R.string.home_empty_title),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onBackground
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = stringResource(R.string.home_empty_subtitle),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
             )
         }
     }
@@ -882,6 +1222,26 @@ fun EventCard(
         if (isToday) append(todayLabel)
         else append(labelText).append(" ").append(displayContent).append(displayUnit)
     }
+    val categoryLabel = when (eventState.event.category) {
+        CATEGORY_BIRTHDAY -> stringResource(R.string.category_birthday)
+        CATEGORY_ANNIVERSARY -> stringResource(R.string.category_anniversary)
+        else -> stringResource(R.string.category_other)
+    }
+    val repeatLabel = when (eventState.event.repeatType) {
+        REPEAT_DAILY -> stringResource(R.string.repeat_daily)
+        REPEAT_WEEKLY -> stringResource(R.string.repeat_weekly)
+        REPEAT_MONTHLY -> stringResource(R.string.repeat_monthly)
+        REPEAT_HALF_YEARLY -> stringResource(R.string.repeat_half_yearly)
+        REPEAT_YEARLY -> stringResource(R.string.repeat_yearly)
+        else -> null
+    }
+    val cardAuxiliaryLine = buildList {
+        add(categoryLabel)
+        if (eventState.event.isLunar) add(stringResource(R.string.lunar_calendar))
+        repeatLabel?.let(::add)
+        if (eventState.event.remindEnabled) add(stringResource(R.string.field_remind))
+    }.joinToString(" · ")
+    val toggleDateDeltaDescription = stringResource(R.string.cd_toggle_date_delta_display)
 
     SongPaperSurface(
         modifier = modifier
@@ -962,6 +1322,15 @@ fun EventCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                    if (showDetail && cardAuxiliaryLine.isNotBlank()) {
+                        Text(
+                            text = cardAuxiliaryLine,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = baseCardColor.copy(alpha = if (isPast) 0.54f else 0.74f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
             }
 
@@ -983,7 +1352,11 @@ fun EventCard(
                         } else {
                             Modifier
                         }
-                    ),
+                    )
+                    .semantics {
+                        role = Role.Button
+                        contentDescription = toggleDateDeltaDescription
+                    },
                 contentAlignment = Alignment.CenterEnd
             ) {
                 Column(
@@ -1030,7 +1403,6 @@ fun EventCard(
 private fun EventListItem(
     eventState: EventUiState,
     today: LocalDate,
-    dateFormatter: DateTimeFormatter,
     dateDeltaDisplayMode: Int,
     onToggleDateDeltaDisplayMode: () -> Unit,
     onClick: () -> Unit,
@@ -1122,33 +1494,6 @@ private fun EventListItem(
         hex = eventState.event.colorHex,
         fallback = MaterialTheme.colorScheme.primary
     )
-    val categoryLabel = when (eventState.event.category) {
-        CATEGORY_BIRTHDAY -> stringResource(R.string.category_birthday)
-        CATEGORY_ANNIVERSARY -> stringResource(R.string.category_anniversary)
-        else -> stringResource(R.string.category_other)
-    }
-    val repeatLabel = when (eventState.event.repeatType) {
-        REPEAT_DAILY -> stringResource(R.string.repeat_daily)
-        REPEAT_WEEKLY -> stringResource(R.string.repeat_weekly)
-        REPEAT_MONTHLY -> stringResource(R.string.repeat_monthly)
-        REPEAT_HALF_YEARLY -> stringResource(R.string.repeat_half_yearly)
-        REPEAT_YEARLY -> stringResource(R.string.repeat_yearly)
-        else -> null
-    }
-    val dateLine = targetLocalDate.format(dateFormatter)
-    val dateLineStyle = if (dateLine.length > 12) {
-        MaterialTheme.typography.labelSmall
-    } else {
-        MaterialTheme.typography.bodySmall
-    }
-    val metaLine = buildList {
-        add(categoryLabel)
-        if (eventState.event.isLunar) add(stringResource(R.string.lunar_calendar))
-        repeatLabel?.let(::add)
-    }.joinToString(" · ")
-    val supportLine = buildList {
-        if (eventState.event.remindEnabled) add(stringResource(R.string.field_remind))
-    }.joinToString(" · ")
     val itemDescription = buildString {
         append(eventState.event.title)
         append(", ")
@@ -1206,8 +1551,8 @@ private fun EventListItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 64.dp)
-                .padding(horizontal = 8.dp, vertical = 8.dp),
+                .heightIn(min = 52.dp)
+                .padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
@@ -1220,106 +1565,97 @@ private fun EventListItem(
                     )
             )
             Spacer(modifier = Modifier.width(12.dp))
-            Column(
+            Text(
+                text = eventState.event.title,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    letterSpacing = 0.sp
+                ),
+                color = itemContentColor.copy(alpha = if (isPast) 0.84f else 1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = eventState.event.title,
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        letterSpacing = 0.sp
-                    ),
-                    color = itemContentColor.copy(alpha = if (isPast) 0.84f else 1f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = dateLine,
-                    style = dateLineStyle,
-                    color = itemContentColor.copy(alpha = 0.72f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Clip
-                )
-                if (metaLine.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = metaLine,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = eventColor.copy(alpha = if (isPast) 0.56f else 0.74f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                if (supportLine.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = supportLine,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = itemContentColor.copy(alpha = 0.6f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            VerticalDivider(
-                modifier = Modifier.height(28.dp),
-                thickness = 0.6.dp,
-                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
             )
             Spacer(modifier = Modifier.width(12.dp))
-            Column(
-                modifier = Modifier
-                    .widthIn(min = 96.dp, max = 152.dp)
-                    .sizeIn(minHeight = 48.dp)
-                    .then(
-                        if (tapNavigationEnabled) {
-                            Modifier.clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = LocalIndication.current,
-                                onClick = onToggleDateDeltaDisplayMode
-                            )
-                        } else {
-                            Modifier
-                        }
-                    ),
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = daysDisplay,
-                    style = when {
-                        daysDisplay.length > 12 -> MaterialTheme.typography.bodySmall
-                        daysDisplay.length > 8 -> MaterialTheme.typography.bodyMedium
-                        else -> MaterialTheme.typography.titleMedium
-                    },
-                    color = if (isPast) displayColor.copy(alpha = 0.82f) else displayColor,
-                    maxLines = if (daysDisplay.length > 12) 3 else 2,
-                    overflow = TextOverflow.Clip,
-                    textAlign = TextAlign.End,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                if (labelText.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = labelText,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = itemContentColor.copy(alpha = 0.64f),
-                        letterSpacing = 0.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.End,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
+            CompactEventTime(
+                daysDisplay = daysDisplay,
+                labelText = labelText,
+                timeColor = if (isPast) displayColor.copy(alpha = 0.82f) else displayColor,
+                labelColor = itemContentColor.copy(alpha = 0.64f),
+                contentDescription = stringResource(R.string.cd_toggle_date_delta_display),
+                enabled = tapNavigationEnabled,
+                onClick = onToggleDateDeltaDisplayMode
+            )
         }
         HorizontalDivider(
             modifier = Modifier.padding(start = 24.dp),
             thickness = SongDesignTokens.BorderWidth.dp,
             color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
         )
+    }
+}
+
+@Composable
+private fun CompactEventTime(
+    daysDisplay: String,
+    labelText: String,
+    timeColor: Color,
+    labelColor: Color,
+    contentDescription: String,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .widthIn(min = 82.dp, max = 138.dp)
+            .heightIn(min = 42.dp)
+            .then(
+                if (enabled) {
+                    Modifier.clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = LocalIndication.current,
+                        onClick = onClick
+                    )
+                } else {
+                    Modifier
+                }
+            )
+            .semantics {
+                role = Role.Button
+                this.contentDescription = contentDescription
+            },
+        horizontalAlignment = Alignment.End,
+        verticalArrangement = Arrangement.Center
+    ) {
+        if (daysDisplay.isNotBlank()) {
+            Text(
+                text = daysDisplay,
+                style = when {
+                    daysDisplay.length > 12 -> MaterialTheme.typography.bodySmall
+                    daysDisplay.length > 8 -> MaterialTheme.typography.bodyMedium
+                    else -> MaterialTheme.typography.titleMedium
+                },
+                color = timeColor,
+                maxLines = if (daysDisplay.length > 12) 3 else 2,
+                overflow = TextOverflow.Clip,
+                textAlign = TextAlign.End,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        if (labelText.isNotBlank()) {
+            if (daysDisplay.isNotBlank()) {
+                Spacer(modifier = Modifier.height(2.dp))
+            }
+            Text(
+                text = labelText,
+                style = MaterialTheme.typography.labelSmall,
+                color = labelColor,
+                letterSpacing = 0.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.End,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }
 
@@ -1349,6 +1685,7 @@ private fun MonthCalendarView(
 ) {
     var currentMonth by remember(selectedDate) { mutableStateOf(YearMonth.from(selectedDate)) }
     var pickedDate by remember(selectedDate) { mutableStateOf(selectedDate) }
+    var showMonthPicker by remember { mutableStateOf(false) }
     val context = androidx.compose.ui.platform.LocalContext.current
 
     val locale = context.resources.configuration.locales[0]
@@ -1360,11 +1697,16 @@ private fun MonthCalendarView(
     val selectedDateFormatter = remember(locale, selectedDatePattern) {
         DateTimeFormatter.ofPattern(selectedDatePattern, locale)
     }
+    val currentMonthTitle = currentMonth.atDay(1).format(monthFormatter)
+    val monthPickerInitialDate = remember(currentMonth, pickedDate) {
+        val safeDay = pickedDate.dayOfMonth.coerceIn(1, currentMonth.lengthOfMonth())
+        currentMonth.atDay(safeDay)
+            .atStartOfDay(ZoneOffset.UTC)
+            .toInstant()
+            .toEpochMilli()
+    }
     val occurrences = remember(events, currentMonth) {
         calendarOccurrencesForMonth(events, currentMonth)
-    }
-    val monthHighlights = remember(occurrences) {
-        monthHighlightsForOccurrences(occurrences)
     }
     val eventsByDate = remember(occurrences) { occurrences.groupBy { it.date } }
 
@@ -1387,6 +1729,22 @@ private fun MonthCalendarView(
         pickedDate = currentMonth.atDay(1)
     }
 
+    if (showMonthPicker) {
+        SongDateWheelPickerDialog(
+            initialDateMillis = monthPickerInitialDate,
+            initialIsLunar = false,
+            title = stringResource(R.string.field_date),
+            onDismissRequest = { showMonthPicker = false },
+            onConfirm = { millis, _ ->
+                val pickedLocalDate = eventDateToLocalDate(millis)
+                val pickedMonth = YearMonth.from(pickedLocalDate)
+                currentMonth = pickedMonth
+                pickedDate = pickedMonth.atDay(pickedLocalDate.dayOfMonth.coerceIn(1, pickedMonth.lengthOfMonth()))
+                showMonthPicker = false
+            }
+        )
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -1399,15 +1757,30 @@ private fun MonthCalendarView(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = { currentMonth = currentMonth.minusMonths(1) }) {
-                Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, contentDescription = stringResource(R.string.calendar_prev_month))
+                SongLineIcon(
+                    kind = SongLineIconKind.ChevronLeft,
+                    contentDescription = stringResource(R.string.calendar_prev_month),
+                    tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.74f)
+                )
             }
             Text(
-                text = currentMonth.atDay(1).format(monthFormatter),
+                text = currentMonthTitle,
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onBackground
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier
+                    .clickable { showMonthPicker = true }
+                    .semantics {
+                        role = Role.Button
+                        this.contentDescription = currentMonthTitle
+                    }
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
             )
             IconButton(onClick = { currentMonth = currentMonth.plusMonths(1) }) {
-                Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = stringResource(R.string.calendar_next_month))
+                SongLineIcon(
+                    kind = SongLineIconKind.ChevronRight,
+                    contentDescription = stringResource(R.string.calendar_next_month),
+                    tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.74f)
+                )
             }
         }
 
@@ -1438,12 +1811,12 @@ private fun MonthCalendarView(
                     val isToday = date != null && date == selectedDate
                     val hasEvents = dayEvents.isNotEmpty()
                     if (date == null) {
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(60.dp)
-                        )
-                    } else {
+	                        Box(
+	                            modifier = Modifier
+	                                .weight(1f)
+	                                .heightIn(min = 48.dp, max = 72.dp)
+	                        )
+	                    } else {
                         val cellContent = calendarDayCellContent(date, dayEvents)
                         SongCalendarCell(
                             dayText = cellContent.dayText,
@@ -1451,23 +1824,15 @@ private fun MonthCalendarView(
                             selected = isSelected,
                             today = isToday,
                             hasEvents = hasEvents,
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(60.dp),
+	                            modifier = Modifier
+	                                .weight(1f)
+	                                .heightIn(min = 48.dp, max = 72.dp),
                             onClick = { pickedDate = date }
                         )
                     }
                 }
             }
         }
-
-        MonthHighlightsSection(
-            highlights = monthHighlights,
-            onEventClick = onEventClick,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 4.dp)
-        )
 
         Column(
             modifier = Modifier.padding(top = 4.dp),
@@ -1499,7 +1864,9 @@ private fun MonthCalendarView(
             )
         } else {
             LazyColumn(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f, fill = true),
                 verticalArrangement = Arrangement.spacedBy(0.dp),
                 contentPadding = PaddingValues(bottom = 8.dp)
             ) {
@@ -1515,111 +1882,6 @@ private fun MonthCalendarView(
     }
 }
 
-@Composable
-private fun MonthHighlightsSection(
-    highlights: MonthHighlightSummary,
-    onEventClick: (Int) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    if (
-        highlights.birthdays.totalCount == 0 &&
-        highlights.anniversaries.totalCount == 0 &&
-        highlights.countdowns.totalCount == 0 &&
-        highlights.milestones.totalCount == 0
-    ) {
-        return
-    }
-
-    Surface(
-        modifier = modifier,
-        color = Color.Transparent,
-        shape = RoundedCornerShape(3.dp),
-        border = BorderStroke(
-            SongDesignTokens.BorderWidth.dp,
-            MaterialTheme.colorScheme.outline.copy(alpha = SongDesignTokens.BorderAlphaSoft)
-        ),
-        shadowElevation = 0.dp
-    ) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.month_highlights_title),
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            MonthHighlightGroupRow(
-                label = stringResource(R.string.month_highlights_birthdays),
-                group = highlights.birthdays,
-                onEventClick = onEventClick
-            )
-            MonthHighlightGroupRow(
-                label = stringResource(R.string.month_highlights_anniversaries),
-                group = highlights.anniversaries,
-                onEventClick = onEventClick
-            )
-            MonthHighlightGroupRow(
-                label = stringResource(R.string.month_highlights_countdowns),
-                group = highlights.countdowns,
-                onEventClick = onEventClick
-            )
-            MonthHighlightGroupRow(
-                label = stringResource(R.string.month_highlights_milestones),
-                group = highlights.milestones,
-                onEventClick = onEventClick
-            )
-        }
-    }
-}
-
-@Composable
-private fun MonthHighlightGroupRow(
-    label: String,
-    group: MonthHighlightGroup,
-    onEventClick: (Int) -> Unit
-) {
-    if (group.totalCount == 0) return
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.86f),
-                maxLines = 1
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = stringResource(R.string.home_timeline_count_format, group.totalCount),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1
-            )
-        }
-        group.items.forEach { occurrence ->
-            Text(
-                text = occurrence.eventState.event.title,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onEventClick(occurrence.eventState.event.id) }
-                    .padding(vertical = 2.dp)
-            )
-        }
-        val hiddenCount = group.totalCount - group.items.size
-        if (hiddenCount > 0) {
-            Text(
-                text = stringResource(R.string.month_highlights_more_format, hiddenCount),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f)
-            )
-        }
-    }
-}
-
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun CalendarOccurrenceRow(
@@ -1627,6 +1889,52 @@ private fun CalendarOccurrenceRow(
     onEventClick: (Int) -> Unit,
     onEventLongClick: ((Int) -> Unit)?
 ) {
+    val context = LocalContext.current
+    val locale = context.resources.configuration.locales[0]
+    val today = LocalDate.now()
+    val selectedDatePattern = stringResource(R.string.calendar_selected_date_pattern)
+    val rowDateFormatter = remember(selectedDatePattern, locale) {
+        DateTimeFormatter.ofPattern(selectedDatePattern, locale)
+    }
+    val categoryLabel = when (occurrence.eventState.event.category) {
+        CATEGORY_BIRTHDAY -> stringResource(R.string.category_birthday)
+        CATEGORY_ANNIVERSARY -> stringResource(R.string.category_anniversary)
+        else -> stringResource(R.string.category_other)
+    }
+    val repeatLabel = when (occurrence.eventState.event.repeatType) {
+        REPEAT_DAILY -> stringResource(R.string.repeat_daily)
+        REPEAT_WEEKLY -> stringResource(R.string.repeat_weekly)
+        REPEAT_MONTHLY -> stringResource(R.string.repeat_monthly)
+        REPEAT_HALF_YEARLY -> stringResource(R.string.repeat_half_yearly)
+        REPEAT_YEARLY -> stringResource(R.string.repeat_yearly)
+        else -> null
+    }
+    val daysFromToday = ChronoUnit.DAYS.between(today, occurrence.date)
+    val relativeDateLabel = when {
+        daysFromToday == 0L -> stringResource(R.string.days_today_label)
+        daysFromToday > 0L -> buildString {
+            append(stringResource(R.string.days_left_label))
+            append(" ")
+            append(formatDaysSmart(daysFromToday, false, locale))
+            append(stringResource(R.string.days_unit))
+        }
+        else -> context.resources.getQuantityString(
+            R.plurals.days_elapsed_format,
+            (-daysFromToday).toInt(),
+            (-daysFromToday).toInt()
+        )
+    }
+    val calendarMetaLine = buildList {
+        add(categoryLabel)
+        repeatLabel?.let(::add)
+        if (occurrence.eventState.event.remindEnabled) add(stringResource(R.string.field_remind))
+    }.joinToString(" · ")
+    val calendarTimeLine = buildList {
+        add(occurrence.date.format(rowDateFormatter))
+        add(stringResource(R.string.calendar_selected_date_lunar, formatLunarDateString(occurrence.date, context)))
+        add(relativeDateLabel)
+    }.joinToString(" · ")
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1644,28 +1952,46 @@ private fun CalendarOccurrenceRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 44.dp)
-                .padding(horizontal = 4.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .heightIn(min = 68.dp)
+                .padding(horizontal = 4.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.Top
         ) {
             Box(
                 modifier = Modifier
                     .width(2.dp)
-                    .height(14.dp)
+                    .height(40.dp)
                     .background(
                         MaterialTheme.colorScheme.primary.copy(alpha = 0.38f),
                         RoundedCornerShape(1.dp)
                     )
             )
             Spacer(modifier = Modifier.width(10.dp))
-            Text(
-                text = occurrence.eventState.event.title,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+            Column(
                 modifier = Modifier.weight(1f)
-            )
+            ) {
+                Text(
+                    text = occurrence.eventState.event.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(3.dp))
+                Text(
+                    text = calendarTimeLine,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = calendarMetaLine,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.82f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
         HorizontalDivider(
             thickness = SongDesignTokens.BorderWidth.dp,

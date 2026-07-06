@@ -84,7 +84,7 @@ fun buildReminderStatus(
         return ReminderStatusSummary(
             level = ReminderStatusLevel.Error,
             messageKey = "reminder_status_schedule_sync_failed",
-            detail = event.lastScheduleSyncError,
+            detail = scheduleSyncDisplayDetail(event.lastScheduleSyncError),
             primaryAction = ReminderStatusAction.RebuildScheduleSync,
             appReminderAvailable = true,
             scheduleSyncAvailable = false
@@ -101,4 +101,10 @@ fun buildReminderStatus(
         appReminderAvailable = true,
         scheduleSyncAvailable = event.lastScheduleSyncAt != null
     )
+}
+
+internal fun scheduleSyncDisplayDetail(rawError: String?): String? {
+    return rawError
+        ?.takeIf { it.isNotBlank() }
+        ?.let { "日历暂未接住此笺，可稍后再试。" }
 }

@@ -9,22 +9,22 @@ import java.util.Properties
 
 class ReleaseReadinessTest {
     @Test
-    fun versionConfigTargets315Release() {
+    fun versionConfigTargets316Release() {
         val properties = Properties().apply {
             rootGradlePropertiesFile().inputStream().use(::load)
         }
 
-        assertEquals("20", properties.getProperty("VERSION_CODE"))
-        assertEquals("3.15", properties.getProperty("VERSION_NAME"))
+        assertEquals("21", properties.getProperty("VERSION_CODE"))
+        assertEquals("3.16", properties.getProperty("VERSION_NAME"))
 
         val buildFile = appBuildGradleFile().readText(Charsets.UTF_8)
-        assertTrue(buildFile.contains("versionCode = versionCodeOverride ?: 20"))
-        assertTrue(buildFile.contains("versionName = versionNameOverride ?: \"3.15\""))
-        assertTrue(buildFile.contains("val versionNameForApk = versionNameOverride ?: \"3.15\""))
+        assertTrue(buildFile.contains("versionCode = versionCodeOverride ?: 21"))
+        assertTrue(buildFile.contains("versionName = versionNameOverride ?: \"3.16\""))
+        assertTrue(buildFile.contains("val versionNameForApk = versionNameOverride ?: \"3.16\""))
     }
 
     @Test
-    fun releaseDocsTarget315AndDirectGithubApkOnly() {
+    fun releaseDocsTarget316AndDirectGithubApkOnly() {
         val docs = listOf(
             existingFile("README.md", "../README.md"),
             existingFile("CHANGELOG.md", "../CHANGELOG.md"),
@@ -34,9 +34,12 @@ class ReleaseReadinessTest {
         )
         val combined = docs.joinToString("\n") { it.readText(Charsets.UTF_8) }
 
-        assertTrue(combined.contains("3.15"))
-        assertTrue(combined.contains("versionCode=20") || combined.contains("versionCode`：`20"))
-        assertTrue(combined.contains("glimmer-countdown-3-15.apk"))
+        assertTrue(combined.contains("3.16"))
+        assertTrue(combined.contains("versionCode=21") || combined.contains("versionCode`：`21"))
+        assertTrue(combined.contains("glimmer-countdown-3-16.apk"))
+        assertFalse(combined.contains("glimmer-countdown-3-15.apk"))
+        assertFalse(combined.contains("versionName`：`3.15"))
+        assertFalse(combined.contains("versionCode`：`20"))
         assertFalse(combined.contains("glimmer-countdown-3-14.apk"))
         assertFalse(combined.contains("versionName`：`3.14"))
         assertFalse(combined.contains("versionCode`：`19"))
@@ -143,6 +146,17 @@ class ReleaseReadinessTest {
 
         assertTrue(source.contains("notificationRuntimePermissionName()"))
         assertFalse(source.contains("Manifest.permission.POST_NOTIFICATIONS"))
+    }
+
+    @Test
+    fun notificationDeepLinksNavigateHomeBeforeShowingDetailOverlay() {
+        val source = mainSource("TimeApp.kt").readText(Charsets.UTF_8)
+        val launchBlock = source.substringAfter("LaunchedEffect(initialOpenEventId)")
+            .substringBefore("val startDestination")
+
+        assertTrue(launchBlock.contains("navController.navigate(Routes.Home)"))
+        assertTrue(launchBlock.contains("launchSingleTop = true"))
+        assertTrue(launchBlock.contains("selectedEventIdForDetail = id"))
     }
 
     @Test

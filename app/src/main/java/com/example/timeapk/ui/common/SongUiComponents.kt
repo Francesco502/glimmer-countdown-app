@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -22,7 +21,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -32,6 +30,8 @@ import androidx.compose.ui.unit.dp
 import com.example.timeapk.ui.reminder.ReminderStatusLevel
 import com.example.timeapk.ui.reminder.ReminderStatusSummary
 import com.example.timeapk.ui.theme.SongDesignTokens
+import com.example.timeapk.ui.theme.SongLineIcon
+import com.example.timeapk.ui.theme.SongLineIconKind
 import com.example.timeapk.ui.theme.SongPaperSurface
 
 @Composable
@@ -182,7 +182,7 @@ fun SongEventPreviewCard(
 
 data class SongBottomAction(
     val label: String,
-    val icon: ImageVector,
+    val icon: SongLineIconKind,
     val contentDescription: String = label,
     val tint: Color? = null,
     val onClick: () -> Unit
@@ -191,15 +191,20 @@ data class SongBottomAction(
 @Composable
 fun SongBottomActionBar(
     actions: List<SongBottomAction>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    outlined: Boolean = true
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
         color = Color.Transparent,
-        border = BorderStroke(
-            SongDesignTokens.BorderWidth.dp,
-            MaterialTheme.colorScheme.outline.copy(alpha = SongDesignTokens.BorderAlphaSoft)
-        ),
+        border = if (outlined) {
+            BorderStroke(
+                SongDesignTokens.BorderWidth.dp,
+                MaterialTheme.colorScheme.outline.copy(alpha = SongDesignTokens.BorderAlphaSoft)
+            )
+        } else {
+            null
+        },
         shape = RoundedCornerShape(3.dp),
         shadowElevation = 0.dp
     ) {
@@ -221,8 +226,8 @@ fun SongBottomActionBar(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     val tint = action.tint ?: MaterialTheme.colorScheme.onSurfaceVariant
-                    Icon(
-                        imageVector = action.icon,
+                    SongLineIcon(
+                        kind = action.icon,
                         contentDescription = action.contentDescription,
                         tint = tint,
                         modifier = Modifier.size(20.dp)

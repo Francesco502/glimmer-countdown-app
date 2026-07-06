@@ -8,12 +8,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -33,6 +30,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.timeapk.R
+import com.example.timeapk.ui.theme.SongLineIcon
+import com.example.timeapk.ui.theme.SongLineIconKind
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,9 +79,10 @@ fun SettingsScreen(
                             }
                         }
                     ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.nav_back)
+                        SongLineIcon(
+                            kind = SongLineIconKind.Back,
+                            contentDescription = stringResource(R.string.nav_back),
+                            tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.78f)
                         )
                     }
                 },

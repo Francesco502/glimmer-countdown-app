@@ -5,6 +5,7 @@ import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -18,18 +19,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Backup
-import androidx.compose.material.icons.outlined.ColorLens
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.KeyboardArrowDown
-import androidx.compose.material.icons.outlined.KeyboardArrowUp
-import androidx.compose.material.icons.outlined.Notifications
-import androidx.compose.material.icons.outlined.Style
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -41,47 +33,52 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.toColorInt
 import com.example.timeapk.R
 import com.example.timeapk.ui.components.rememberPressScale
+import com.example.timeapk.ui.theme.SongDesignTokens
+import com.example.timeapk.ui.theme.SongLineIcon
+import com.example.timeapk.ui.theme.SongLineIconKind
+import com.example.timeapk.ui.theme.SongSettingMark
+import com.example.timeapk.ui.theme.SongSettingMarkKind
 
 enum class SettingsCategory(
     val titleRes: Int,
     val descriptionRes: Int,
-    val icon: ImageVector
+    val mark: SongSettingMarkKind
 ) {
     APPEARANCE(
         R.string.theme_title,
         R.string.settings_entry_appearance_desc,
-        Icons.Outlined.ColorLens
+        SongSettingMarkKind.Appearance
     ),
     DISPLAY(
         R.string.settings_category_display_title,
         R.string.settings_entry_display_desc,
-        Icons.Outlined.Style
+        SongSettingMarkKind.Display
     ),
     MILESTONE(
         R.string.settings_milestone_entry_title,
         R.string.settings_entry_milestone_desc,
-        Icons.Outlined.Notifications
+        SongSettingMarkKind.Milestone
     ),
     DATA(
         R.string.export_import,
         R.string.settings_entry_data_desc,
-        Icons.Outlined.Backup
+        SongSettingMarkKind.Data
     ),
     ABOUT(
         R.string.settings_about_entry_title,
         R.string.settings_entry_about_desc,
-        Icons.Outlined.Info
+        SongSettingMarkKind.About
     )
 }
 
@@ -104,11 +101,11 @@ fun SettingsCategoryRow(
             .padding(horizontal = 2.dp, vertical = 18.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            imageVector = category.icon,
+        SongSettingMark(
+            kind = category.mark,
             contentDescription = null,
-            modifier = Modifier.size(18.dp),
-            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.82f)
+            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.82f),
+            size = 18.dp
         )
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
@@ -118,20 +115,12 @@ fun SettingsCategoryRow(
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1
             )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = stringResource(category.descriptionRes),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
         }
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+        SongLineIcon(
+            kind = SongLineIconKind.ChevronRight,
             contentDescription = null,
-            modifier = Modifier.size(18.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f)
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+            size = 18.dp
         )
     }
 }
@@ -158,6 +147,176 @@ fun SettingsPressableRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         content()
+    }
+}
+
+@Composable
+fun SongToggle(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val stateDescriptionText = stringResource(if (checked) R.string.toggle_on else R.string.toggle_off)
+    Box(
+        modifier = modifier
+            .heightIn(min = 44.dp)
+            .clickable(
+                role = Role.Switch,
+                onClick = { onCheckedChange(!checked) }
+            )
+            .semantics {
+                role = Role.Switch
+                stateDescription = stateDescriptionText
+            }
+            .border(
+                width = SongDesignTokens.BorderWidth.dp,
+                color = if (checked) {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                } else {
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = SongDesignTokens.BorderAlphaSoft)
+                },
+                shape = RoundedCornerShape(SongDesignTokens.RadiusXs.dp)
+            )
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = stateDescriptionText,
+            style = MaterialTheme.typography.bodyLarge,
+            color = if (checked) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+            }
+        )
+    }
+}
+
+@Composable
+fun SettingsRadioRow(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    supportingText: String? = null,
+    labelStyle: TextStyle = MaterialTheme.typography.bodyLarge,
+    supportingContent: (@Composable ColumnScope.() -> Unit)? = null
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 44.dp)
+            .clickable(role = Role.RadioButton, onClick = onClick)
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RadioButton(
+            selected = selected,
+            onClick = onClick
+        )
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = label,
+                style = labelStyle,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            if (supportingContent != null) {
+                supportingContent()
+            } else {
+                supportingText?.takeIf { it.isNotBlank() }?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SettingsValueRow(
+    label: String,
+    value: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 44.dp)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f)
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+fun SettingsActionRow(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    supportingText: String? = null,
+    destructive: Boolean = false
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 44.dp)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(vertical = 10.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+            )
+            supportingText?.takeIf { it.isNotBlank() }?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        SongLineIcon(
+            kind = SongLineIconKind.ChevronRight,
+            contentDescription = null,
+            tint = if (destructive) {
+                MaterialTheme.colorScheme.error.copy(alpha = 0.78f)
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f)
+            },
+            size = 18.dp
+        )
     }
 }
 
@@ -264,20 +423,12 @@ fun SettingsExpandableSection(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Text(
-                    text = summary,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
             }
-            Icon(
-                imageVector = if (expanded) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
+            SongLineIcon(
+                kind = if (expanded) SongLineIconKind.ChevronUp else SongLineIconKind.ChevronDown,
                 contentDescription = toggleContentDescription,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(22.dp)
+                size = 22.dp
             )
         }
         if (expanded) {
@@ -290,4 +441,3 @@ fun SettingsExpandableSection(
         }
     }
 }
-

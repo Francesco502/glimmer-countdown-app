@@ -50,6 +50,7 @@ private val DEFAULT_EVENT_REMIND_DAYS_BEFORE = intPreferencesKey("default_event_
 private val DEFAULT_EVENT_REMIND_TIME_MINUTES_OF_DAY = intPreferencesKey("default_event_remind_time_minutes_of_day")
 private val SMART_MILESTONES_ENABLED = booleanPreferencesKey("smart_milestones_enabled")
 private val REDUCE_MOTION_ENABLED = booleanPreferencesKey("reduce_motion_enabled")
+private val SONG_SOUND_ENABLED = booleanPreferencesKey("song_sound_enabled")
 private val SCHEDULE_TARGET_CALENDAR_ID = longPreferencesKey("schedule_target_calendar_id")
 private val SCHEDULE_USE_RRULE_SYNC = booleanPreferencesKey("schedule_use_rrule_sync")
 
@@ -171,6 +172,9 @@ class UserPreferencesRepository(private val context: Context) {
     }
     val reduceMotionEnabledFlow: Flow<Boolean> = context.dataStore.data.map {
         it[REDUCE_MOTION_ENABLED] ?: false
+    }
+    val songSoundEnabledFlow: Flow<Boolean> = context.dataStore.data.map {
+        it[SONG_SOUND_ENABLED] ?: false
     }
     val scheduleTargetCalendarIdFlow: Flow<Long?> = context.dataStore.data.map {
         it[SCHEDULE_TARGET_CALENDAR_ID]
@@ -370,6 +374,10 @@ class UserPreferencesRepository(private val context: Context) {
 
     suspend fun setReduceMotionEnabled(enabled: Boolean) {
         context.dataStore.edit { it[REDUCE_MOTION_ENABLED] = enabled }
+    }
+
+    suspend fun setSongSoundEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[SONG_SOUND_ENABLED] = enabled }
     }
 
     suspend fun setScheduleTargetCalendarId(calendarId: Long?) {

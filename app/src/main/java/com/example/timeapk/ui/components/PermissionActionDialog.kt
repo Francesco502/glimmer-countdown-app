@@ -1,9 +1,5 @@
 package com.example.timeapk.ui.components
 
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 
 data class PermissionDialogSpec(
@@ -18,20 +14,13 @@ data class PermissionDialogSpec(
 
 @Composable
 fun PermissionActionDialog(spec: PermissionDialogSpec) {
-    AlertDialog(
-        onDismissRequest = spec.onRequestDismiss ?: spec.onDismiss,
-        shape = MaterialTheme.shapes.medium,
-        title = { Text(spec.title) },
-        text = { Text(spec.message) },
-        confirmButton = {
-            TextButton(onClick = spec.onConfirm) {
-                Text(spec.confirmText)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = spec.onDismiss) {
-                Text(spec.dismissText)
-            }
-        }
+    SongConfirmDialog(
+        title = spec.title,
+        message = spec.message,
+        confirmText = spec.confirmText,
+        dismissText = spec.dismissText,
+        onConfirm = spec.onConfirm,
+        onDismiss = spec.onDismiss,
+        onDismissRequest = spec.onRequestDismiss ?: spec.onDismiss
     )
 }

@@ -4,13 +4,14 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.timeapk.R
+import com.example.timeapk.ui.theme.SongDesignTokens
 import kotlinx.coroutines.delay
 
 @Composable
@@ -68,11 +70,12 @@ fun SplashScreen(
                 modifier = Modifier.size(188.dp)
             )
             Spacer(modifier = Modifier.weight(1f))
+            SongSplashSeal()
+            Spacer(modifier = Modifier.height(12.dp))
             Text(
                 text = stringResource(R.string.app_name),
                 style = MaterialTheme.typography.headlineMedium.copy(
-                    fontWeight = FontWeight.Medium,
-                    letterSpacing = 1.sp
+                    fontWeight = FontWeight.Medium
                 ),
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.88f)
             )
@@ -80,7 +83,6 @@ fun SplashScreen(
             Text(
                 text = stringResource(R.string.splash_tagline),
                 style = MaterialTheme.typography.titleMedium.copy(
-                    letterSpacing = 1.sp,
                     lineHeight = 28.sp
                 ),
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f)
@@ -88,12 +90,34 @@ fun SplashScreen(
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = stringResource(R.string.splash_subtitle),
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    letterSpacing = 1.sp
-                ),
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
             )
             Spacer(modifier = Modifier.height(48.dp))
         }
+    }
+}
+
+@Composable
+private fun SongSplashSeal() {
+    Box(
+        modifier = Modifier
+            .size(26.dp)
+            .background(
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                RoundedCornerShape(SongDesignTokens.RadiusXs.dp)
+            )
+            .border(
+                SongDesignTokens.BorderWidth.dp,
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.72f),
+                RoundedCornerShape(SongDesignTokens.RadiusXs.dp)
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = stringResource(R.string.app_name).take(1),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.primary
+        )
     }
 }

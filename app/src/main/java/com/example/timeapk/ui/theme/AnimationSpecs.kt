@@ -15,6 +15,8 @@ object AnimationSpecs {
     const val DurationMicroMs = SongDesignTokens.MotionFastMs
     const val DurationSmallMs = SongDesignTokens.MotionNormalMs
     const val DurationMediumMs = SongDesignTokens.MotionSlowMs
+    const val DurationHandscrollMs = 420
+    const val DurationMistMs = 360
 
     @Volatile
     private var reducedMotionEnabled: Boolean = false
@@ -41,6 +43,12 @@ object AnimationSpecs {
     fun mediumTween() = tween<Float>(effectiveDuration(DurationMediumMs), easing = EaseOut)
 
     fun mediumTweenIntOffset() = tween<IntOffset>(effectiveDuration(DurationMediumMs), easing = EaseOut)
+
+    fun handscrollTween() = tween<Float>(effectiveDuration(DurationHandscrollMs), easing = EaseOut)
+
+    fun handscrollTweenIntOffset() = tween<IntOffset>(effectiveDuration(DurationHandscrollMs), easing = EaseOut)
+
+    fun mistDissolveTween() = tween<Float>(effectiveDuration(DurationMistMs), easing = EaseOut)
 
     private val springButtonDefault = spring<Float>(
         dampingRatio = Spring.DampingRatioNoBouncy,

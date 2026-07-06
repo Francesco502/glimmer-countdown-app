@@ -68,6 +68,10 @@ fun TimeApp(
     LaunchedEffect(initialOpenEventId) {
         initialOpenEventId?.let { id ->
             selectedEventIdForDetail = id
+            navController.navigate(Routes.Home) {
+                popUpTo(Routes.Home) { inclusive = false }
+                launchSingleTop = true
+            }
             onOpenEventIdConsumed()
         }
     }
@@ -76,20 +80,20 @@ fun TimeApp(
         navController = navController,
         startDestination = startDestination,
         enterTransition = {
-            fadeIn(animationSpec = AnimationSpecs.mediumTween()) +
-                slideInVertically(animationSpec = AnimationSpecs.mediumTweenIntOffset()) { it / 4 }
+            fadeIn(animationSpec = AnimationSpecs.mistDissolveTween()) +
+                slideInVertically(animationSpec = AnimationSpecs.handscrollTweenIntOffset()) { it / 5 }
         },
         exitTransition = {
-            fadeOut(animationSpec = AnimationSpecs.mediumTween()) +
-                slideOutVertically(animationSpec = AnimationSpecs.mediumTweenIntOffset()) { -it / 4 }
+            fadeOut(animationSpec = AnimationSpecs.mistDissolveTween()) +
+                slideOutVertically(animationSpec = AnimationSpecs.handscrollTweenIntOffset()) { -it / 5 }
         },
         popEnterTransition = {
-            fadeIn(animationSpec = AnimationSpecs.mediumTween()) +
-                slideInVertically(animationSpec = AnimationSpecs.mediumTweenIntOffset()) { it / 4 }
+            fadeIn(animationSpec = AnimationSpecs.mistDissolveTween()) +
+                slideInVertically(animationSpec = AnimationSpecs.handscrollTweenIntOffset()) { it / 5 }
         },
         popExitTransition = {
-            fadeOut(animationSpec = AnimationSpecs.mediumTween()) +
-                slideOutVertically(animationSpec = AnimationSpecs.mediumTweenIntOffset()) { -it / 4 }
+            fadeOut(animationSpec = AnimationSpecs.mistDissolveTween()) +
+                slideOutVertically(animationSpec = AnimationSpecs.handscrollTweenIntOffset()) { -it / 5 }
         }
     ) {
         composable(Routes.Splash) {

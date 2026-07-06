@@ -77,7 +77,7 @@ class ReminderStatusModelsTest {
 
         assertEquals(ReminderStatusLevel.Error, status.level)
         assertEquals(ReminderStatusAction.RebuildScheduleSync, status.primaryAction)
-        assertEquals("provider failed", status.detail)
+        assertEquals("日历暂未接住此笺，可稍后再试。", status.detail)
     }
 
     @Test

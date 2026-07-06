@@ -2,6 +2,7 @@ package com.example.timeapk.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,12 +23,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.example.timeapk.ui.theme.AnimationSpecs
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlin.math.abs
@@ -107,6 +110,7 @@ fun <T> SnapWheelPicker(
     val selectedIndex = items.indexOf(selectedItem).coerceAtLeast(0)
     val state = rememberLazyListState(initialFirstVisibleItemIndex = selectedIndex)
     var isProgrammaticScroll by remember { mutableStateOf(false) }
+    val itemHeightPx = with(LocalDensity.current) { itemHeight.toPx() }
 
     LaunchedEffect(items, selectedItem) {
         if (items.isEmpty()) return@LaunchedEffect
@@ -120,7 +124,16 @@ fun <T> SnapWheelPicker(
             )
         ) {
             isProgrammaticScroll = true
-            state.animateScrollToItem(targetIndex)
+            if (currentCenteredVisibleIndex != null) {
+                val targetVisibleIndex = targetIndex + paddingCount
+                val scrollDelta = (targetVisibleIndex - currentCenteredVisibleIndex) * itemHeightPx
+                state.animateScrollBy(
+                    value = scrollDelta,
+                    animationSpec = AnimationSpecs.handscrollTween()
+                )
+            } else {
+                state.animateScrollToItem(targetIndex)
+            }
             isProgrammaticScroll = false
         }
     }

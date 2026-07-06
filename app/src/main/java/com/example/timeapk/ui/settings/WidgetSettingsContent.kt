@@ -8,6 +8,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,7 +20,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -78,114 +78,142 @@ fun WidgetConfigEditor(
             config = config,
             modifier = Modifier.padding(bottom = 12.dp)
         )
-        WidgetOptionGroup(
-            title = stringResource(R.string.widget_config_size_template),
-            options = listOf(
-                SIZE_TEMPLATE_2X2 to stringResource(R.string.widget_config_size_2x2),
-                SIZE_TEMPLATE_3X3 to stringResource(R.string.widget_config_size_3x3),
-                SIZE_TEMPLATE_4X2 to stringResource(R.string.widget_config_size_4x2)
-            ),
-            selected = config.sizeTemplate,
-            onSelected = { onConfigChange(config.copy(sizeTemplate = it).sanitize()) }
-        )
-        WidgetOptionGroup(
+        WidgetConfigSection(
             title = stringResource(R.string.widget_config_appearance),
-            options = listOf(
-                APPEARANCE_SYSTEM to stringResource(R.string.widget_config_appearance_system),
-                APPEARANCE_SOLID to stringResource(R.string.widget_config_appearance_solid),
-                APPEARANCE_TRANSLUCENT to stringResource(R.string.widget_config_appearance_translucent),
-                APPEARANCE_TRANSPARENT to stringResource(R.string.widget_config_appearance_transparent),
-                APPEARANCE_CELADON to stringResource(R.string.widget_config_appearance_celadon),
-                APPEARANCE_SEAL to stringResource(R.string.widget_config_appearance_seal)
-            ),
-            selected = config.appearancePreset,
-            onSelected = { onConfigChange(config.copy(appearancePreset = it).sanitize()) },
-            showSwatches = true
-        )
-        WidgetOptionGroup(
-            title = stringResource(R.string.widget_config_opacity),
-            options = listOf(0, 25, 50, 75, 100).map {
-                it to stringResource(R.string.widget_config_percent, it)
-            },
-            selected = config.backgroundOpacityPercent,
-            onSelected = { onConfigChange(config.copy(backgroundOpacityPercent = it).sanitize()) }
-        )
-        WidgetOptionGroup(
+            summary = stringResource(R.string.widget_config_defaults_summary),
+            initiallyExpanded = true
+        ) {
+            WidgetOptionGroup(
+                title = stringResource(R.string.widget_config_size_template),
+                options = listOf(
+                    SIZE_TEMPLATE_2X2 to stringResource(R.string.widget_config_size_2x2),
+                    SIZE_TEMPLATE_3X3 to stringResource(R.string.widget_config_size_3x3),
+                    SIZE_TEMPLATE_4X2 to stringResource(R.string.widget_config_size_4x2)
+                ),
+                selected = config.sizeTemplate,
+                onSelected = { onConfigChange(config.copy(sizeTemplate = it).sanitize()) }
+            )
+            WidgetOptionGroup(
+                title = stringResource(R.string.widget_config_appearance),
+                options = listOf(
+                    APPEARANCE_SYSTEM to stringResource(R.string.widget_config_appearance_system),
+                    APPEARANCE_SOLID to stringResource(R.string.widget_config_appearance_solid),
+                    APPEARANCE_TRANSLUCENT to stringResource(R.string.widget_config_appearance_translucent),
+                    APPEARANCE_TRANSPARENT to stringResource(R.string.widget_config_appearance_transparent),
+                    APPEARANCE_CELADON to stringResource(R.string.widget_config_appearance_celadon),
+                    APPEARANCE_SEAL to stringResource(R.string.widget_config_appearance_seal)
+                ),
+                selected = config.appearancePreset,
+                onSelected = { onConfigChange(config.copy(appearancePreset = it).sanitize()) },
+                showSwatches = true
+            )
+            WidgetOptionGroup(
+                title = stringResource(R.string.widget_config_opacity),
+                options = listOf(0, 25, 50, 75, 100).map {
+                    it to stringResource(R.string.widget_config_percent, it)
+                },
+                selected = config.backgroundOpacityPercent,
+                onSelected = { onConfigChange(config.copy(backgroundOpacityPercent = it).sanitize()) }
+            )
+            WidgetOptionGroup(
+                title = stringResource(R.string.widget_config_border),
+                options = listOf(
+                    BORDER_AUTO to stringResource(R.string.widget_config_auto),
+                    BORDER_ON to stringResource(R.string.toggle_on),
+                    BORDER_OFF to stringResource(R.string.toggle_off)
+                ),
+                selected = config.borderMode,
+                onSelected = { onConfigChange(config.copy(borderMode = it).sanitize()) }
+            )
+            WidgetOptionGroup(
+                title = stringResource(R.string.widget_config_corner),
+                options = listOf(
+                    CORNER_SYSTEM to stringResource(R.string.widget_config_corner_system),
+                    CORNER_SMALL to stringResource(R.string.widget_config_corner_small),
+                    CORNER_MEDIUM to stringResource(R.string.widget_config_corner_medium),
+                    CORNER_LARGE to stringResource(R.string.widget_config_corner_large)
+                ),
+                selected = config.cornerMode,
+                onSelected = { onConfigChange(config.copy(cornerMode = it).sanitize()) }
+            )
+            WidgetOptionGroup(
+                title = stringResource(R.string.widget_config_contrast),
+                options = listOf(
+                    CONTRAST_AUTO to stringResource(R.string.widget_config_auto),
+                    CONTRAST_LIGHT_TEXT to stringResource(R.string.widget_config_contrast_light),
+                    CONTRAST_DARK_TEXT to stringResource(R.string.widget_config_contrast_dark)
+                ),
+                selected = config.contrastMode,
+                onSelected = { onConfigChange(config.copy(contrastMode = it).sanitize()) }
+            )
+        }
+        WidgetConfigSection(
             title = stringResource(R.string.widget_config_content_scope),
-            options = listOf(
-                CONTENT_ALL to stringResource(R.string.widget_config_content_all),
-                CONTENT_PINNED to stringResource(R.string.widget_config_content_pinned),
-                CONTENT_FUTURE to stringResource(R.string.widget_config_content_future),
-                CONTENT_BIRTHDAY to stringResource(R.string.widget_config_content_birthday)
-            ),
-            selected = config.contentScope,
-            onSelected = { onConfigChange(config.copy(contentScope = it).sanitize()) }
-        )
-        WidgetOptionGroup(
-            title = stringResource(R.string.widget_config_sort),
-            options = listOf(
-                SORT_HOME to stringResource(R.string.widget_config_sort_home),
-                SORT_PINNED_FIRST to stringResource(R.string.widget_config_sort_pinned),
-                SORT_NEAREST_FIRST to stringResource(R.string.widget_config_sort_nearest)
-            ),
-            selected = config.sortMode,
-            onSelected = { onConfigChange(config.copy(sortMode = it).sanitize()) }
-        )
-        WidgetOptionGroup(
-            title = stringResource(R.string.widget_config_density),
-            options = listOf(
-                DENSITY_COMPACT to stringResource(R.string.widget_config_density_compact),
-                DENSITY_STANDARD to stringResource(R.string.widget_config_density_standard),
-                DENSITY_COMFORTABLE to stringResource(R.string.widget_config_density_comfortable)
-            ),
-            selected = config.densityMode,
-            onSelected = { onConfigChange(config.copy(densityMode = it).sanitize()) }
-        )
-        WidgetOptionGroup(
-            title = stringResource(R.string.widget_config_border),
-            options = listOf(
-                BORDER_AUTO to stringResource(R.string.widget_config_auto),
-                BORDER_ON to stringResource(R.string.toggle_on),
-                BORDER_OFF to stringResource(R.string.toggle_off)
-            ),
-            selected = config.borderMode,
-            onSelected = { onConfigChange(config.copy(borderMode = it).sanitize()) }
-        )
-        WidgetOptionGroup(
-            title = stringResource(R.string.widget_config_corner),
-            options = listOf(
-                CORNER_SYSTEM to stringResource(R.string.widget_config_corner_system),
-                CORNER_SMALL to stringResource(R.string.widget_config_corner_small),
-                CORNER_MEDIUM to stringResource(R.string.widget_config_corner_medium),
-                CORNER_LARGE to stringResource(R.string.widget_config_corner_large)
-            ),
-            selected = config.cornerMode,
-            onSelected = { onConfigChange(config.copy(cornerMode = it).sanitize()) }
-        )
-        WidgetOptionGroup(
-            title = stringResource(R.string.widget_config_contrast),
-            options = listOf(
-                CONTRAST_AUTO to stringResource(R.string.widget_config_auto),
-                CONTRAST_LIGHT_TEXT to stringResource(R.string.widget_config_contrast_light),
-                CONTRAST_DARK_TEXT to stringResource(R.string.widget_config_contrast_dark)
-            ),
-            selected = config.contrastMode,
-            onSelected = { onConfigChange(config.copy(contrastMode = it).sanitize()) }
-        )
-        WidgetSwitchRow(
-            title = stringResource(R.string.widget_config_show_lunar_prefix),
-            checked = config.showLunarPrefix,
-            onCheckedChange = { onConfigChange(config.copy(showLunarPrefix = it).sanitize()) }
-        )
-        if (showDefaultActions && onApplyToAllWidgets != null) {
-            TextButton(
-                onClick = onApplyToAllWidgets,
-                modifier = Modifier.padding(top = 8.dp)
-            ) {
-                Text(stringResource(R.string.widget_config_apply_to_all))
+            summary = stringResource(R.string.widget_config_defaults_summary)
+        ) {
+            WidgetOptionGroup(
+                title = stringResource(R.string.widget_config_content_scope),
+                options = listOf(
+                    CONTENT_ALL to stringResource(R.string.widget_config_content_all),
+                    CONTENT_PINNED to stringResource(R.string.widget_config_content_pinned),
+                    CONTENT_FUTURE to stringResource(R.string.widget_config_content_future),
+                    CONTENT_BIRTHDAY to stringResource(R.string.widget_config_content_birthday)
+                ),
+                selected = config.contentScope,
+                onSelected = { onConfigChange(config.copy(contentScope = it).sanitize()) }
+            )
+            WidgetOptionGroup(
+                title = stringResource(R.string.widget_config_sort),
+                options = listOf(
+                    SORT_HOME to stringResource(R.string.widget_config_sort_home),
+                    SORT_PINNED_FIRST to stringResource(R.string.widget_config_sort_pinned),
+                    SORT_NEAREST_FIRST to stringResource(R.string.widget_config_sort_nearest)
+                ),
+                selected = config.sortMode,
+                onSelected = { onConfigChange(config.copy(sortMode = it).sanitize()) }
+            )
+            WidgetOptionGroup(
+                title = stringResource(R.string.widget_config_density),
+                options = listOf(
+                    DENSITY_COMPACT to stringResource(R.string.widget_config_density_compact),
+                    DENSITY_STANDARD to stringResource(R.string.widget_config_density_standard),
+                    DENSITY_COMFORTABLE to stringResource(R.string.widget_config_density_comfortable)
+                ),
+                selected = config.densityMode,
+                onSelected = { onConfigChange(config.copy(densityMode = it).sanitize()) }
+            )
+            WidgetSwitchRow(
+                title = stringResource(R.string.widget_config_show_lunar_prefix),
+                checked = config.showLunarPrefix,
+                onCheckedChange = { onConfigChange(config.copy(showLunarPrefix = it).sanitize()) }
+            )
+            if (showDefaultActions && onApplyToAllWidgets != null) {
+                TextButton(
+                    onClick = onApplyToAllWidgets,
+                    modifier = Modifier.padding(top = 8.dp)
+                ) {
+                    Text(stringResource(R.string.widget_config_apply_to_all))
+                }
             }
         }
     }
+}
+
+@Composable
+private fun WidgetConfigSection(
+    title: String,
+    summary: String,
+    modifier: Modifier = Modifier,
+    initiallyExpanded: Boolean = false,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    SettingsExpandableSection(
+        title = title,
+        summary = summary,
+        initiallyExpanded = initiallyExpanded,
+        modifier = modifier,
+        content = content
+    )
 }
 
 @Composable
@@ -511,7 +539,7 @@ private fun WidgetSwitchRow(
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f)
         )
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        SongToggle(checked = checked, onCheckedChange = onCheckedChange)
     }
     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.24f))
 }

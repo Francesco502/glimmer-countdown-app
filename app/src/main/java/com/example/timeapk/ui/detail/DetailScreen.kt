@@ -1,7 +1,6 @@
 package com.example.timeapk.ui.detail
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.LocalIndication
@@ -11,14 +10,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.Notifications
-import androidx.compose.material.icons.outlined.NotificationsOff
-import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.collectAsState
@@ -31,26 +22,31 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.foundation.border
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.timeapk.R
 import com.example.timeapk.TimeApplication
+import com.example.timeapk.data.REPEAT_DAILY
+import com.example.timeapk.data.REPEAT_HALF_YEARLY
+import com.example.timeapk.data.REPEAT_MONTHLY
+import com.example.timeapk.data.REPEAT_WEEKLY
 import com.example.timeapk.data.REPEAT_YEARLY
 import com.example.timeapk.permissions.areAppNotificationsEnabledCompat
 import com.example.timeapk.permissions.hasCalendarReadWritePermission
+import com.example.timeapk.permissions.openAppDetailsSettings
+import com.example.timeapk.permissions.openAppNotificationSettings
 import com.example.timeapk.ui.common.SongBottomAction
 import com.example.timeapk.ui.common.SongBottomActionBar
 import com.example.timeapk.ui.common.SongReminderStatusStrip
+import com.example.timeapk.ui.components.SongConfirmDialog
+import com.example.timeapk.ui.components.SongDialogButton
+import com.example.timeapk.ui.components.SongFormDialog
 import com.example.timeapk.ui.home.EventUiState
 import com.example.timeapk.ui.home.milestoneLabel
 import com.example.timeapk.ui.reminder.ReminderStatusAction
@@ -58,6 +54,8 @@ import com.example.timeapk.ui.reminder.ReminderStatusSummary
 import com.example.timeapk.ui.reminder.buildReminderStatus
 import com.example.timeapk.ui.theme.AnimationSpecs
 import com.example.timeapk.ui.theme.SongDesignTokens
+import com.example.timeapk.ui.theme.SongLineIcon
+import com.example.timeapk.ui.theme.SongLineIconKind
 import com.example.timeapk.ui.theme.SongPaperSurface
 import com.example.timeapk.ui.theme.SongSealLabel
 import com.example.timeapk.ui.utils.formatBetweenAsYMD
@@ -83,8 +81,12 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.Period
 import java.time.temporal.ChronoUnit
+import java.util.Locale
 
 private val DetailContentMaxWidth = 760.dp
+private val DetailSupplementContentMaxWidth = 300.dp
+private val DetailSupplementLabelWidth = 64.dp
+private val DetailSupplementValueMaxWidth = 228.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -107,6 +109,8 @@ fun DetailScreen(
     val pinnedEventIds by prefs.pinnedEventIdsFlow.collectAsState(initial = emptyList())
     val dateFormatter = remember(dateFormatMode) { getDisplayDateFormatter(dateFormatMode) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showShareDialog by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
 
     if (eventState == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -134,27 +138,20 @@ fun DetailScreen(
     }
 
     if (showDeleteConfirm) {
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirm = false },
-            shape = MaterialTheme.shapes.medium,
-            title = { Text(stringResource(R.string.delete_confirm_title)) },
-            text = { Text(stringResource(R.string.delete_confirm_message, eventState.event.title)) },
-            confirmButton = {
-                TextButton(onClick = {
+        SongConfirmDialog(
+            title = stringResource(R.string.delete_confirm_title),
+            message = stringResource(R.string.delete_confirm_message, eventState.event.title),
+            confirmText = stringResource(R.string.delete_confirm_ok),
+            dismissText = stringResource(R.string.delete_confirm_cancel),
+            destructiveConfirm = true,
+            onConfirm = {
                     scope.launch {
                         onDeleteClick()
                         showDeleteConfirm = false
                         onNavigateBack()
                     }
-                }) {
-                    Text(stringResource(R.string.delete_confirm_ok), color = MaterialTheme.colorScheme.error)
-                }
             },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) {
-                    Text(stringResource(R.string.delete_confirm_cancel))
-                }
-            }
+            onDismiss = { showDeleteConfirm = false }
         )
     }
 
@@ -170,9 +167,134 @@ fun DetailScreen(
         if (isDark) 0.15f else 0.08f
     )
     val detailContentColor = MaterialTheme.colorScheme.onSurface
+    val today = LocalDate.now()
+    val targetLocalDate = eventDateToLocalDate(eventState.event.date)
+    val dateStr = targetLocalDate.format(dateFormatter)
+    val categoryName = when (eventState.event.category) {
+        CATEGORY_BIRTHDAY -> stringResource(R.string.category_birthday)
+        CATEGORY_ANNIVERSARY -> stringResource(R.string.category_anniversary)
+        CATEGORY_OTHER -> stringResource(R.string.category_other)
+        else -> eventState.event.category
+    }
+    val repeatLabel = when (eventState.event.repeatType) {
+        REPEAT_DAILY -> stringResource(R.string.repeat_daily)
+        REPEAT_WEEKLY -> stringResource(R.string.repeat_weekly)
+        REPEAT_MONTHLY -> stringResource(R.string.repeat_monthly)
+        REPEAT_HALF_YEARLY -> stringResource(R.string.repeat_half_yearly)
+        REPEAT_YEARLY -> stringResource(R.string.repeat_yearly)
+        else -> null
+    }
+    val calendarMetaLine = buildList {
+        if (eventState.event.isLunar) add(formatLunarDateString(targetLocalDate, context))
+        repeatLabel?.let(::add)
+        if (eventState.event.remindEnabled) add(stringResource(R.string.field_remind))
+        if (eventState.event.syncToScheduleEnabled) add(stringResource(R.string.sync_to_schedule))
+    }.joinToString(" · ")
+    val detailDisplayModeRaw = perEventDateDeltaModes[eventState.event.id] ?: dateDeltaDisplayMode
+    val availableModes = getAvailableDisplayModes(eventState, showMilestone = showMilestone)
+    val modeIndex = availableModes.indexOf(detailDisplayModeRaw)
+    val mode = if (modeIndex != -1) detailDisplayModeRaw else availableModes.first()
+    val timeDisplay = detailTimeDisplay(
+        eventState = eventState,
+        mode = mode,
+        targetLocalDate = targetLocalDate,
+        today = today,
+        locale = locale
+    )
+    val reminderStatus = buildReminderStatus(
+        event = eventState.event,
+        notificationsEnabled = context.areAppNotificationsEnabledCompat(),
+        calendarPermissionGranted = context.hasCalendarReadWritePermission(),
+        hasWritableCalendar = true
+    )
+    val shareData = buildEventShareCardData(
+        title = eventState.event.title,
+        categoryLabel = categoryName,
+        dateText = dateStr,
+        timeText = timeDisplay.value,
+        timeLabel = timeDisplay.label,
+        accentColor = detailBaseColor,
+        brandText = stringResource(R.string.app_name)
+    )
+    val shareImageName = remember(eventState.event.title) {
+        ShareImageStore.shareImageName(eventState.event.title)
+    }
+
+    if (showShareDialog) {
+        SongFormDialog(
+            title = stringResource(R.string.share_card_title),
+            onDismissRequest = { showShareDialog = false },
+            content = {
+                EventShareCard(
+                    data = shareData,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(4f / 5f)
+                )
+            },
+            buttons = {
+                SongDialogButton(
+                    text = stringResource(R.string.delete_confirm_cancel),
+                    onClick = { showShareDialog = false }
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                SongDialogButton(
+                    text = stringResource(R.string.share_save_image),
+                    onClick = {
+                        scope.launch {
+                            val savedUri = runCatching {
+                                val bitmap = EventShareImageRenderer().render(shareData)
+                                try {
+                                    ShareImageStore.saveShareImage(context, bitmap, shareImageName)
+                                } finally {
+                                    bitmap.recycle()
+                                }
+                            }.getOrNull()
+                            snackbarHostState.showSnackbar(
+                                context.getString(
+                                    if (savedUri != null) {
+                                        R.string.share_image_saved
+                                    } else {
+                                        R.string.share_image_failed
+                                    }
+                                )
+                            )
+                        }
+                    }
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                SongDialogButton(
+                    text = stringResource(R.string.share_send_image),
+                    onClick = {
+                        scope.launch {
+                            val shared = runCatching {
+                                val bitmap = EventShareImageRenderer().render(shareData)
+                                val uri = try {
+                                    ShareImageStore.cacheShareImage(context, bitmap, shareImageName)
+                                } finally {
+                                    bitmap.recycle()
+                                }
+                                ShareImageStore.shareImage(
+                                    context = context,
+                                    imageUri = uri,
+                                    chooserTitle = context.getString(R.string.share_chooser_title)
+                                )
+                            }.isSuccess
+                            if (shared) {
+                                showShareDialog = false
+                            } else {
+                                snackbarHostState.showSnackbar(context.getString(R.string.share_image_failed))
+                            }
+                        }
+                    }
+                )
+            }
+        )
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text(stringResource(R.string.detail_title), style = MaterialTheme.typography.titleLarge) },
@@ -180,7 +302,11 @@ fun DetailScreen(
                     IconButton(
                         onClick = onNavigateBack
                     ) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.nav_back))
+                        SongLineIcon(
+                            kind = SongLineIconKind.Back,
+                            contentDescription = stringResource(R.string.nav_back),
+                            tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.78f)
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
@@ -211,428 +337,480 @@ fun DetailScreen(
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
                 .widthIn(max = DetailContentMaxWidth)
-                .padding(24.dp)
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            SongPaperSurface(
-                modifier = Modifier.fillMaxWidth(),
-                backgroundColor = detailCardColor,
-                borderColor = MaterialTheme.colorScheme.outline.copy(alpha = SongDesignTokens.BorderAlphaStrong)
-            ) {
-                Column(
-                    modifier = Modifier.padding(32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    val today = LocalDate.now()
-                    val targetLocalDate = eventDateToLocalDate(eventState.event.date)
-                    val isYearly = eventState.event.repeatType == REPEAT_YEARLY
-                    val isAnniversary = isYearly
-                    val effectiveCategory = eventState.event.category.takeIf { it in listOf(CATEGORY_BIRTHDAY, CATEGORY_ANNIVERSARY, CATEGORY_OTHER) } ?: CATEGORY_OTHER
-                    val dateStr = targetLocalDate.format(dateFormatter)
-                    
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            val categoryName = when (eventState.event.category) {
-                                CATEGORY_BIRTHDAY -> stringResource(R.string.category_birthday)
-                                CATEGORY_ANNIVERSARY -> stringResource(R.string.category_anniversary)
-                                CATEGORY_OTHER -> stringResource(R.string.category_other)
-                                else -> eventState.event.category
-                            }
-                            SongSealLabel(
-                                text = categoryName,
-                                color = detailBaseColor
-                            )
-                            
-                            Spacer(modifier = Modifier.width(12.dp))
-                            
-                            Text(
-                                text = dateStr,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = detailContentColor.copy(alpha = 0.75f)
-                            )
-                        }
-                        
-                        Icon(
-                            imageVector = if (eventState.event.remindEnabled) Icons.Outlined.Notifications else Icons.Outlined.NotificationsOff,
-                            contentDescription = if (eventState.event.remindEnabled) stringResource(R.string.cd_reminder_on) else stringResource(R.string.cd_reminder_off),
-                            modifier = Modifier.size(20.dp),
-                            tint = if (eventState.event.remindEnabled) detailBaseColor else detailContentColor.copy(alpha = 0.35f)
-                        )
+            DetailHeroCard(
+                eventState = eventState,
+                categoryName = categoryName,
+                dateStr = dateStr,
+                timeDisplay = timeDisplay,
+                detailBaseColor = detailBaseColor,
+                detailCardColor = detailCardColor,
+                detailContentColor = detailContentColor,
+                availableModes = availableModes,
+                mode = mode,
+                onTimeDisplayClick = {
+                    scope.launch {
+                        val nextModeIndex = (availableModes.indexOf(mode) + 1) % availableModes.size
+                        val nextMode = availableModes[nextModeIndex]
+                        prefs.setDateDeltaDisplayModeForEvent(eventState.event.id, nextMode)
                     }
-                    
-                    HorizontalDivider(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 24.dp)
-                            .height(SongDesignTokens.BorderWidth.dp),
-                        color = detailContentColor.copy(alpha = SongDesignTokens.BorderAlphaSoft)
-                    )
-
-                    Text(
-                        text = eventState.event.title,
-                        style = MaterialTheme.typography.displayMedium.copy(
-                            letterSpacing = 0.sp
-                        ),
-                        textAlign = TextAlign.Center,
-                        color = detailContentColor.copy(alpha = 0.9f),
-                        maxLines = 3,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                    )
-                    
-                    Spacer(modifier = Modifier.height(40.dp))
-
-                    val isToday = eventState.daysRemaining == 0L && !eventState.isPast
-                    val todayLabel = stringResource(R.string.days_today_label)
-                    val isRepeating = eventState.event.repeatType != REPEAT_NONE
-
-                    val detailDisplayModeRaw = perEventDateDeltaModes[eventState.event.id] ?: dateDeltaDisplayMode
-                    val availableModes = getAvailableDisplayModes(eventState, showMilestone = true)
-                    val modeIndex = availableModes.indexOf(detailDisplayModeRaw)
-                    val mode = if (modeIndex != -1) detailDisplayModeRaw else availableModes.first()
-
-                    val labelText: String
-                    val daysDisplay: String
-
-                    when (mode) {
-                        DisplayModes.PAST_DAYS -> {
-                            val days = if (isRepeating) eventState.daysPassed else eventState.daysElapsed
-                            daysDisplay = formatDaysSmart(days, false, locale) + stringResource(R.string.days_unit)
-                            labelText = stringResource(R.string.days_past_label)
-                        }
-                        DisplayModes.PAST_YMD -> {
-                            val start = targetLocalDate
-                            val end = today
-                            daysDisplay = formatBetweenAsYMD(start, end, locale)
-                            labelText = stringResource(R.string.days_past_label)
-                        }
-                        DisplayModes.UNTIL_DAYS -> {
-                            if (isToday) {
-                                daysDisplay = todayLabel
-                                labelText = ""
-                            } else {
-                                val days = if (isRepeating) eventState.daysLeft else eventState.daysRemaining
-                                daysDisplay = formatDaysSmart(days, false, locale) + stringResource(R.string.days_unit)
-                                labelText = com.example.timeapk.ui.utils.getUntilLabel(androidx.compose.ui.platform.LocalContext.current, eventState)
-                            }
-                        }
-                        DisplayModes.UNTIL_YMD -> {
-                            if (isToday) {
-                                daysDisplay = todayLabel
-                                labelText = ""
-                            } else {
-                                val days = if (isRepeating) eventState.daysLeft else eventState.daysRemaining
-                                val end = today.plusDays(days)
-                                daysDisplay = formatBetweenAsYMD(today, end, locale)
-                                labelText = com.example.timeapk.ui.utils.getUntilLabel(androidx.compose.ui.platform.LocalContext.current, eventState)
-                            }
-                        }
-                        DisplayModes.MILESTONE -> {
-                            daysDisplay = formatDaysSmart(eventState.nextMilestoneDays ?: 0L, false, locale) + stringResource(R.string.days_unit)
-                            val milestoneVal = eventState.nextMilestoneValue ?: 0L
-                            val milestoneStr = milestoneLabel(milestoneVal)
-                            labelText = stringResource(R.string.milestone_label_prefix, milestoneStr)
-                        }
-                        else -> {
-                            daysDisplay = ""
-                            labelText = ""
-                        }
-                    }
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = LocalIndication.current,
-                                onClick = {
-                                    scope.launch {
-                                        val nextModeIndex = (availableModes.indexOf(mode) + 1) % availableModes.size
-                                        val nextMode = availableModes[nextModeIndex]
-                                        prefs.setDateDeltaDisplayModeForEvent(eventState.event.id, nextMode)
-                                    }
-                                }
-                            ),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = daysDisplay,
-                            style = MaterialTheme.typography.displayLarge,
-                            color = detailContentColor,
-                            textAlign = TextAlign.Center,
-                            maxLines = 2,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                        )
-                        
-                        Spacer(modifier = Modifier.height(16.dp))
-                        
-                        Text(
-                            text = labelText,
-                            style = MaterialTheme.typography.titleLarge,
-                            color = detailContentColor.copy(alpha = 0.65f),
-                            letterSpacing = 0.sp
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(32.dp))
-                    HorizontalDivider(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 24.dp)
-                            .height(SongDesignTokens.BorderWidth.dp),
-                        color = detailContentColor.copy(alpha = SongDesignTokens.BorderAlphaSoft)
-                    )
-                    Spacer(modifier = Modifier.height(32.dp))
-
-                    if (effectiveCategory == CATEGORY_ANNIVERSARY && isRepeating) {
-                        val originDate = targetLocalDate
-                        val isLunarAnniversary = eventState.event.isLunar && eventState.event.repeatType == REPEAT_YEARLY
-                        val nextDate = if (isLunarAnniversary) {
-                            getNextLunarOccurrence(originDate, today)
-                        } else {
-                            nextOccurrenceDate(originDate, today, eventState.event.repeatType)
-                        }
-                        val safeToday = if (originDate.isAfter(today)) originDate else today
-                        val elapsedPeriod = if (isLunarAnniversary) {
-                            getLunarElapsedPeriod(originDate, safeToday)
-                        } else {
-                            Period.between(originDate, safeToday)
-                        }
-                        val elapsedDays = ChronoUnit.DAYS.between(originDate, safeToday)
-                        Spacer(modifier = Modifier.height(32.dp))
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(start = 16.dp, top = 8.dp, bottom = 8.dp),
-                            horizontalAlignment = Alignment.Start
-                        ) {
-                            // 缂樿捣
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.Start,
-                                verticalAlignment = Alignment.Top
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.detail_repeat_origin),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = detailContentColor.copy(alpha = 0.75f),
-                                    modifier = Modifier.width(48.dp)
-                                )
-                                Spacer(modifier = Modifier.width(16.dp))
-                                Column(horizontalAlignment = Alignment.Start) {
-                                    if (isLunarAnniversary) {
-                                        Text(
-                                            text = formatLunarDateString(originDate, context),
-                                            style = MaterialTheme.typography.titleLarge,
-                                            color = detailContentColor.copy(alpha = 0.95f)
-                                        )
-                                        Text(
-                                            text = formatDateWithWeekday(originDate, context),
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = detailContentColor.copy(alpha = 0.75f)
-                                        )
-                                    } else {
-                                        Text(
-                                            text = formatDateWithWeekday(originDate, context),
-                                            style = MaterialTheme.typography.bodyLarge,
-                                            color = detailContentColor.copy(alpha = 0.95f)
-                                        )
-                                        Text(
-                                            text = formatLunarDateString(originDate, context),
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = detailContentColor.copy(alpha = 0.75f)
-                                        )
-                                    }
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(16.dp))
-                            // 宸插巻
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.Start,
-                                verticalAlignment = Alignment.Top
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.detail_repeat_elapsed),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = detailContentColor.copy(alpha = 0.75f),
-                                    modifier = Modifier.width(48.dp)
-                                )
-                                Spacer(modifier = Modifier.width(16.dp))
-                                Column(horizontalAlignment = Alignment.Start) {
-                                    Text(
-                                        text = formatElapsedLiterary(elapsedPeriod, context),
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = detailContentColor.copy(alpha = 0.95f)
-                                    )
-                                    Text(
-                                        text = formatElapsedDays(kotlin.math.abs(elapsedDays), context),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = detailContentColor.copy(alpha = 0.75f)
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.Start,
-                                verticalAlignment = Alignment.Top
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.detail_repeat_next),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = detailContentColor.copy(alpha = 0.75f),
-                                    modifier = Modifier.width(48.dp)
-                                )
-                                Spacer(modifier = Modifier.width(16.dp))
-                                Column(horizontalAlignment = Alignment.Start) {
-                                    if (isLunarAnniversary) {
-                                        Text(
-                                            text = formatLunarDateString(nextDate, context),
-                                            style = MaterialTheme.typography.bodyLarge,
-                                            color = detailContentColor.copy(alpha = 0.95f)
-                                        )
-                                        Text(
-                                            text = formatDateWithWeekday(nextDate, context),
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = detailContentColor.copy(alpha = 0.75f)
-                                        )
-                                    } else {
-                                        Text(
-                                            text = formatDateWithWeekday(nextDate, context),
-                                            style = MaterialTheme.typography.bodyLarge,
-                                            color = detailContentColor.copy(alpha = 0.95f)
-                                        )
-                                        Text(
-                                            text = formatLunarDateString(nextDate, context),
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = detailContentColor.copy(alpha = 0.75f)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    if (effectiveCategory == CATEGORY_OTHER) {
-                        Spacer(modifier = Modifier.height(24.dp))
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = dateStr,
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = detailContentColor.copy(alpha = 0.95f)
-                            )
-                            Text(
-                                text = formatLunarDateString(targetLocalDate, context),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = detailContentColor.copy(alpha = 0.75f)
-                            )
-                        }
-                    }
-
-                    if (effectiveCategory == CATEGORY_BIRTHDAY) {
-                        Spacer(modifier = Modifier.height(24.dp))
-                        val lunarLine = formatLunarDateString(targetLocalDate, context)
-                        val period = agePeriod(targetLocalDate, today)
-                        val ageYmd = context.getString(
-                            R.string.detail_birthday_age_format_ymd,
-                            period.years,
-                            period.months,
-                            period.days
-                        )
-                        val zodiac = zodiacAnimalFromDate(targetLocalDate)
-                        val constellation = constellationFromDate(targetLocalDate, context)
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(start = 16.dp, top = 8.dp, bottom = 8.dp),
-                            horizontalAlignment = Alignment.Start
-                        ) {
-                            DetailLabelRow(stringResource(R.string.detail_birthday_lunar), lunarLine, detailContentColor)
-                            DetailLabelRow(stringResource(R.string.detail_birthday_age), ageYmd, detailContentColor)
-                            if (zodiac != null) DetailLabelRow(stringResource(R.string.detail_birthday_zodiac), zodiac, detailContentColor)
-                            DetailLabelRow(stringResource(R.string.detail_birthday_constellation), constellation, detailContentColor)
-                        }
-                    }
-
-                    if (eventState.event.note.isNotBlank()) {
-                        Spacer(modifier = Modifier.height(48.dp))
-                        Text(
-                            text = eventState.event.note,
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontStyle = androidx.compose.ui.text.font.FontStyle.Normal,
-                                letterSpacing = 0.sp
-                            ),
-                            color = detailContentColor.copy(alpha = 0.85f),
-                            textAlign = TextAlign.Center
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(28.dp))
-                    val reminderStatus = buildReminderStatus(
-                        event = eventState.event,
-                        notificationsEnabled = context.areAppNotificationsEnabledCompat(),
-                        calendarPermissionGranted = context.hasCalendarReadWritePermission(),
-                        hasWritableCalendar = true
-                    )
-                    SongReminderStatusStrip(
-                        status = reminderStatus,
-                        title = reminderStatusTitle(context, reminderStatus),
-                        actionLabel = reminderStatusActionLabel(context, reminderStatus),
-                        onActionClick = reminderStatus.primaryAction.takeIf { it != ReminderStatusAction.None }?.let {
-                            { onEditClick() }
-                        }
-                    )
                 }
-            }
-            
-            Spacer(modifier = Modifier.height(32.dp))
-            
-            SongBottomActionBar(
-                actions = listOf(
-                    SongBottomAction(
-                        label = stringResource(R.string.button_reminder_calendar),
-                        icon = Icons.Outlined.Notifications,
-                        tint = if (eventState.event.remindEnabled || eventState.event.syncToScheduleEnabled) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                        onClick = onEditClick
-                    ),
-                    SongBottomAction(
-                        label = if (eventState.event.id in pinnedEventIds) stringResource(R.string.button_unpin) else stringResource(R.string.button_pin),
-                        icon = Icons.Outlined.PushPin,
-                        tint = if (eventState.event.id in pinnedEventIds) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                        onClick = { scope.launch { prefs.togglePinnedEventId(eventState.event.id) } }
-                    ),
-                    SongBottomAction(
-                        label = stringResource(R.string.button_edit),
-                        icon = Icons.Outlined.Edit,
-                        contentDescription = stringResource(R.string.cd_edit),
-                        onClick = onEditClick
-                    ),
-                    SongBottomAction(
-                        label = stringResource(R.string.button_delete),
-                        icon = Icons.Outlined.Delete,
-                        contentDescription = stringResource(R.string.cd_delete),
-                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.72f),
-                        onClick = { showDeleteConfirm = true }
-                    )
+            )
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            DetailSupplementSections(
+                eventState = eventState,
+                targetLocalDate = targetLocalDate,
+                today = today,
+                calendarMetaLine = calendarMetaLine,
+                reminderStatus = reminderStatus,
+                detailContentColor = detailContentColor,
+                onReminderActionClick = detailReminderStatusAction(
+                    context,
+                    reminderStatus.primaryAction,
+                    onEditClick
                 )
+            )
+
+            Spacer(modifier = Modifier.height(28.dp))
+
+            DetailBottomActions(
+                isPinned = eventState.event.id in pinnedEventIds,
+                onPinClick = { scope.launch { prefs.togglePinnedEventId(eventState.event.id) } },
+                onEditClick = onEditClick,
+                onShareClick = { showShareDialog = true },
+                onDeleteClick = { showDeleteConfirm = true }
             )
         }
         }
         }
+    }
+}
+
+private data class DetailTimeDisplay(
+    val value: String,
+    val label: String
+)
+
+@Composable
+private fun detailTimeDisplay(
+    eventState: EventUiState,
+    mode: Int,
+    targetLocalDate: LocalDate,
+    today: LocalDate,
+    locale: Locale
+): DetailTimeDisplay {
+    val isToday = eventState.daysRemaining == 0L && !eventState.isPast
+    val todayLabel = stringResource(R.string.days_today_label)
+    val isRepeating = eventState.event.repeatType != REPEAT_NONE
+    return when (mode) {
+        DisplayModes.PAST_DAYS -> {
+            val days = if (isRepeating) eventState.daysPassed else eventState.daysElapsed
+            DetailTimeDisplay(
+                value = formatDaysSmart(days, false, locale) + stringResource(R.string.days_unit),
+                label = stringResource(R.string.days_past_label)
+            )
+        }
+        DisplayModes.PAST_YMD -> {
+            DetailTimeDisplay(
+                value = formatBetweenAsYMD(targetLocalDate, today, locale),
+                label = stringResource(R.string.days_past_label)
+            )
+        }
+        DisplayModes.UNTIL_DAYS -> {
+            if (isToday) {
+                DetailTimeDisplay(value = todayLabel, label = "")
+            } else {
+                val days = if (isRepeating) eventState.daysLeft else eventState.daysRemaining
+                DetailTimeDisplay(
+                    value = formatDaysSmart(days, false, locale) + stringResource(R.string.days_unit),
+                    label = com.example.timeapk.ui.utils.getUntilLabel(LocalContext.current, eventState)
+                )
+            }
+        }
+        DisplayModes.UNTIL_YMD -> {
+            if (isToday) {
+                DetailTimeDisplay(value = todayLabel, label = "")
+            } else {
+                val days = if (isRepeating) eventState.daysLeft else eventState.daysRemaining
+                DetailTimeDisplay(
+                    value = formatBetweenAsYMD(today, today.plusDays(days), locale),
+                    label = com.example.timeapk.ui.utils.getUntilLabel(LocalContext.current, eventState)
+                )
+            }
+        }
+        DisplayModes.MILESTONE -> {
+            val milestoneVal = eventState.nextMilestoneValue ?: 0L
+            DetailTimeDisplay(
+                value = formatDaysSmart(eventState.nextMilestoneDays ?: 0L, false, locale) + stringResource(R.string.days_unit),
+                label = stringResource(R.string.milestone_label_prefix, milestoneLabel(milestoneVal))
+            )
+        }
+        else -> DetailTimeDisplay(value = "", label = "")
+    }
+}
+
+@Composable
+private fun DetailHeroCard(
+    eventState: EventUiState,
+    categoryName: String,
+    dateStr: String,
+    timeDisplay: DetailTimeDisplay,
+    detailBaseColor: Color,
+    detailCardColor: Color,
+    detailContentColor: Color,
+    availableModes: List<Int>,
+    mode: Int,
+    onTimeDisplayClick: () -> Unit
+) {
+    SongPaperSurface(
+        modifier = Modifier.fillMaxWidth(),
+        backgroundColor = detailCardColor,
+        borderColor = MaterialTheme.colorScheme.outline.copy(alpha = SongDesignTokens.BorderAlphaStrong)
+    ) {
+        Column(
+            modifier = Modifier.padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                SongSealLabel(
+                    text = categoryName,
+                    color = detailBaseColor
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = dateStr,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = detailContentColor.copy(alpha = 0.75f)
+                )
+            }
+
+            HorizontalDivider(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 24.dp)
+                    .height(SongDesignTokens.BorderWidth.dp),
+                color = detailContentColor.copy(alpha = SongDesignTokens.BorderAlphaSoft)
+            )
+
+            val titleStyle = when {
+                eventState.event.title.length > 18 -> MaterialTheme.typography.headlineMedium
+                eventState.event.title.length > 10 -> MaterialTheme.typography.displaySmall
+                else -> MaterialTheme.typography.displayMedium
+            }.copy(letterSpacing = 0.sp)
+            Text(
+                text = eventState.event.title,
+                style = titleStyle,
+                textAlign = TextAlign.Center,
+                color = detailContentColor.copy(alpha = 0.9f),
+                maxLines = 3,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+            )
+
+            Spacer(modifier = Modifier.height(40.dp))
+
+            val daysStyle = when {
+                timeDisplay.value.length > 12 -> MaterialTheme.typography.headlineLarge
+                timeDisplay.value.length > 8 -> MaterialTheme.typography.displayMedium
+                else -> MaterialTheme.typography.displayLarge
+            }.copy(letterSpacing = 0.sp)
+            val canCycleMode = availableModes.size > 1 && availableModes.contains(mode)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = LocalIndication.current,
+                        enabled = canCycleMode,
+                        onClick = onTimeDisplayClick
+                    ),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = timeDisplay.value,
+                    style = daysStyle,
+                    color = detailContentColor,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                )
+
+                if (timeDisplay.label.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = timeDisplay.label,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = detailContentColor.copy(alpha = 0.65f),
+                        letterSpacing = 0.sp
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DetailSupplementSections(
+    eventState: EventUiState,
+    targetLocalDate: LocalDate,
+    today: LocalDate,
+    calendarMetaLine: String,
+    reminderStatus: ReminderStatusSummary,
+    detailContentColor: Color,
+    onReminderActionClick: (() -> Unit)?
+) {
+    val context = LocalContext.current
+    val effectiveCategory = eventState.event.category
+        .takeIf { it in listOf(CATEGORY_BIRTHDAY, CATEGORY_ANNIVERSARY, CATEGORY_OTHER) }
+        ?: CATEGORY_OTHER
+    val isRepeating = eventState.event.repeatType != REPEAT_NONE
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(18.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        DetailSupplementTable {
+            if (calendarMetaLine.isNotBlank()) {
+                Text(
+                    text = calendarMetaLine,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = detailContentColor.copy(alpha = 0.62f),
+                    maxLines = 2,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+            }
+            val lunarText = formatLunarDateString(targetLocalDate, context)
+            DetailLabelRow(
+                stringResource(R.string.detail_birthday_lunar),
+                lunarText,
+                detailContentColor
+            )
+
+            if (effectiveCategory == CATEGORY_ANNIVERSARY && isRepeating) {
+                val originDate = targetLocalDate
+                val isLunarAnniversary = eventState.event.isLunar && eventState.event.repeatType == REPEAT_YEARLY
+                val nextDate = if (isLunarAnniversary) {
+                    getNextLunarOccurrence(originDate, today)
+                } else {
+                    nextOccurrenceDate(originDate, today, eventState.event.repeatType)
+                }
+                val safeToday = if (originDate.isAfter(today)) originDate else today
+                val elapsedPeriod = if (isLunarAnniversary) {
+                    getLunarElapsedPeriod(originDate, safeToday)
+                } else {
+                    Period.between(originDate, safeToday)
+                }
+                val elapsedDays = ChronoUnit.DAYS.between(originDate, safeToday)
+                DetailLabelRow(
+                    stringResource(R.string.detail_repeat_origin),
+                    if (isLunarAnniversary) {
+                        "${formatLunarDateString(originDate, context)} · ${formatDateWithWeekday(originDate, context)}"
+                    } else {
+                        "${formatDateWithWeekday(originDate, context)} · ${formatLunarDateString(originDate, context)}"
+                    },
+                    detailContentColor
+                )
+                DetailLabelRow(
+                    stringResource(R.string.detail_repeat_elapsed),
+                    "${formatElapsedLiterary(elapsedPeriod, context)} · ${formatElapsedDays(kotlin.math.abs(elapsedDays), context)}",
+                    detailContentColor
+                )
+                DetailLabelRow(
+                    stringResource(R.string.detail_repeat_next),
+                    if (isLunarAnniversary) {
+                        "${formatLunarDateString(nextDate, context)} · ${formatDateWithWeekday(nextDate, context)}"
+                    } else {
+                        "${formatDateWithWeekday(nextDate, context)} · ${formatLunarDateString(nextDate, context)}"
+                    },
+                    detailContentColor
+                )
+            }
+
+            if (effectiveCategory == CATEGORY_BIRTHDAY) {
+                val period = agePeriod(targetLocalDate, today)
+                val ageYmd = context.getString(
+                    R.string.detail_birthday_age_format_ymd,
+                    period.years,
+                    period.months,
+                    period.days
+                )
+                val zodiac = zodiacAnimalFromDate(targetLocalDate)
+                val constellationText = constellationDisplayText(context, targetLocalDate)
+                DetailLabelRow(
+                    stringResource(R.string.detail_birthday_age),
+                    ageYmd,
+                    detailContentColor
+                )
+                if (zodiac != null) {
+                    val zodiacText = zodiacDisplayText(context, zodiac)
+                    DetailLabelRow(
+                        stringResource(R.string.detail_birthday_zodiac),
+                        zodiacText,
+                        detailContentColor
+                    )
+                }
+                DetailLabelRow(
+                    stringResource(R.string.detail_birthday_constellation),
+                    constellationText,
+                    detailContentColor
+                )
+            }
+
+            if (eventState.event.note.isNotBlank()) {
+                DetailLabelRow(stringResource(R.string.field_note), eventState.event.note, detailContentColor)
+            }
+        }
+
+        SongReminderStatusStrip(
+            status = reminderStatus,
+            title = reminderStatusTitle(context, reminderStatus),
+            modifier = Modifier
+                .widthIn(max = DetailSupplementContentMaxWidth)
+                .fillMaxWidth(),
+            actionLabel = reminderStatusActionLabel(context, reminderStatus),
+            onActionClick = onReminderActionClick
+        )
+    }
+}
+
+@Composable
+private fun DetailSupplementTable(
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .widthIn(max = DetailSupplementContentMaxWidth)
+            .width(IntrinsicSize.Max)
+            .padding(horizontal = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+        content = content
+    )
+}
+
+@Composable
+private fun DetailBottomActions(
+    isPinned: Boolean,
+    onPinClick: () -> Unit,
+    onEditClick: () -> Unit,
+    onShareClick: () -> Unit,
+    onDeleteClick: () -> Unit
+) {
+    SongBottomActionBar(
+        actions = listOf(
+            SongBottomAction(
+                label = if (isPinned) stringResource(R.string.button_unpin) else stringResource(R.string.button_pin),
+                icon = SongLineIconKind.Pin,
+                tint = if (isPinned) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                onClick = onPinClick
+            ),
+            SongBottomAction(
+                label = stringResource(R.string.button_edit),
+                icon = SongLineIconKind.Edit,
+                contentDescription = stringResource(R.string.cd_edit),
+                onClick = onEditClick
+            ),
+            SongBottomAction(
+                label = stringResource(R.string.button_share),
+                icon = SongLineIconKind.Share,
+                onClick = onShareClick
+            ),
+            SongBottomAction(
+                label = stringResource(R.string.button_delete),
+                icon = SongLineIconKind.Delete,
+                tint = MaterialTheme.colorScheme.error,
+                onClick = onDeleteClick
+            )
+        ),
+        outlined = false
+    )
+}
+
+private fun detailReminderStatusAction(
+    context: android.content.Context,
+    action: ReminderStatusAction,
+    onEditClick: () -> Unit
+): (() -> Unit)? {
+    return when (action) {
+        ReminderStatusAction.None -> null
+        ReminderStatusAction.EnableReminder,
+        ReminderStatusAction.DisableScheduleSync,
+        ReminderStatusAction.RebuildScheduleSync -> onEditClick
+        ReminderStatusAction.OpenNotificationSettings -> {
+            { context.openAppNotificationSettings() }
+        }
+        ReminderStatusAction.OpenCalendarSettings -> {
+            { context.openAppDetailsSettings() }
+        }
+    }
+}
+
+private fun zodiacDisplayText(
+    context: android.content.Context,
+    zodiac: String
+): String {
+    val labels = when (zodiac) {
+        "鼠" -> R.string.zodiac_animal_rat to R.string.zodiac_branch_rat
+        "牛" -> R.string.zodiac_animal_ox to R.string.zodiac_branch_ox
+        "虎" -> R.string.zodiac_animal_tiger to R.string.zodiac_branch_tiger
+        "兔" -> R.string.zodiac_animal_rabbit to R.string.zodiac_branch_rabbit
+        "龙" -> R.string.zodiac_animal_dragon to R.string.zodiac_branch_dragon
+        "蛇" -> R.string.zodiac_animal_snake to R.string.zodiac_branch_snake
+        "马" -> R.string.zodiac_animal_horse to R.string.zodiac_branch_horse
+        "羊" -> R.string.zodiac_animal_goat to R.string.zodiac_branch_goat
+        "猴" -> R.string.zodiac_animal_monkey to R.string.zodiac_branch_monkey
+        "鸡" -> R.string.zodiac_animal_rooster to R.string.zodiac_branch_rooster
+        "狗" -> R.string.zodiac_animal_dog to R.string.zodiac_branch_dog
+        "猪" -> R.string.zodiac_animal_pig to R.string.zodiac_branch_pig
+        else -> null
+    } ?: return zodiac
+    return context.getString(
+        R.string.detail_zodiac_value_format,
+        context.getString(labels.first),
+        context.getString(labels.second)
+    )
+}
+
+private fun constellationDisplayText(
+    context: android.content.Context,
+    date: LocalDate
+): String {
+    return context.getString(
+        R.string.detail_constellation_value_format,
+        constellationFromDate(date, context).removeSuffix("座"),
+        context.getString(constellationElementResId(date))
+    )
+}
+
+private fun constellationElementResId(date: LocalDate): Int {
+    val month = date.monthValue
+    val day = date.dayOfMonth
+    return when {
+        month == 3 && day >= 21 || month == 4 && day <= 19 -> R.string.constellation_element_fire
+        month == 4 && day >= 20 || month == 5 && day <= 20 -> R.string.constellation_element_earth
+        month == 5 && day >= 21 || month == 6 && day <= 21 -> R.string.constellation_element_air
+        month == 6 && day >= 22 || month == 7 && day <= 22 -> R.string.constellation_element_water
+        month == 7 && day >= 23 || month == 8 && day <= 22 -> R.string.constellation_element_fire
+        month == 8 && day >= 23 || month == 9 && day <= 22 -> R.string.constellation_element_earth
+        month == 9 && day >= 23 || month == 10 && day <= 23 -> R.string.constellation_element_air
+        month == 10 && day >= 24 || month == 11 && day <= 22 -> R.string.constellation_element_water
+        month == 11 && day >= 23 || month == 12 && day <= 21 -> R.string.constellation_element_fire
+        month == 12 && day >= 22 || month == 1 && day <= 19 -> R.string.constellation_element_earth
+        month == 1 && day >= 20 || month == 2 && day <= 18 -> R.string.constellation_element_air
+        else -> R.string.constellation_element_water
     }
 }
 
@@ -669,143 +847,15 @@ private fun reminderStatusActionLabel(
 }
 
 @Composable
-private fun ResponsiveDetailActionButtons(
-    isPinned: Boolean,
-    isReminderOrScheduleEnabled: Boolean,
-    onReminderCalendarClick: () -> Unit,
-    onPinClick: () -> Unit,
-    onEditClick: () -> Unit,
-    onDeleteClick: () -> Unit
-) {
-    val reminderInteractionSource = remember { MutableInteractionSource() }
-    val pinInteractionSource = remember { MutableInteractionSource() }
-    val editInteractionSource = remember { MutableInteractionSource() }
-    val deleteInteractionSource = remember { MutableInteractionSource() }
-    val reminderPressed by reminderInteractionSource.collectIsPressedAsState()
-    val pinPressed by pinInteractionSource.collectIsPressedAsState()
-    val editPressed by editInteractionSource.collectIsPressedAsState()
-    val deletePressed by deleteInteractionSource.collectIsPressedAsState()
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 48.dp, bottom = 24.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        verticalAlignment = Alignment.Top
-    ) {
-        ResponsiveDetailActionButton(
-            modifier = Modifier.weight(1f),
-            interactionSource = reminderInteractionSource,
-            scale = animateFloatAsState(
-                AnimationSpecs.responsiveScale(if (reminderPressed) 0.96f else 1f),
-                AnimationSpecs.springButton,
-                label = "responsiveReminder"
-            ).value,
-            onClick = onReminderCalendarClick,
-            icon = Icons.Outlined.Notifications,
-            label = stringResource(R.string.button_reminder_calendar),
-            iconTint = if (isReminderOrScheduleEnabled) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
-            },
-            textColor = if (isReminderOrScheduleEnabled) {
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
-            } else {
-                MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
-            }
-        )
-        ResponsiveDetailActionButton(
-            modifier = Modifier.weight(1f),
-            interactionSource = pinInteractionSource,
-            scale = animateFloatAsState(
-                AnimationSpecs.responsiveScale(if (pinPressed) 0.96f else 1f),
-                AnimationSpecs.springButton,
-                label = "responsivePin"
-            ).value,
-            onClick = onPinClick,
-            icon = Icons.Outlined.PushPin,
-            label = if (isPinned) stringResource(R.string.button_unpin) else stringResource(R.string.button_pin),
-            iconTint = if (isPinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
-            textColor = if (isPinned) MaterialTheme.colorScheme.primary.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
-        )
-        ResponsiveDetailActionButton(
-            modifier = Modifier.weight(1f),
-            interactionSource = editInteractionSource,
-            scale = animateFloatAsState(
-                AnimationSpecs.responsiveScale(if (editPressed) 0.96f else 1f),
-                AnimationSpecs.springButton,
-                label = "responsiveEdit"
-            ).value,
-            onClick = onEditClick,
-            icon = Icons.Outlined.Edit,
-            label = stringResource(R.string.button_edit),
-            iconTint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
-            textColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
-            contentDescription = stringResource(R.string.cd_edit)
-        )
-        ResponsiveDetailActionButton(
-            modifier = Modifier.weight(1f),
-            interactionSource = deleteInteractionSource,
-            scale = animateFloatAsState(
-                AnimationSpecs.responsiveScale(if (deletePressed) 0.96f else 1f),
-                AnimationSpecs.springButton,
-                label = "responsiveDelete"
-            ).value,
-            onClick = onDeleteClick,
-            icon = Icons.Outlined.Delete,
-            label = stringResource(R.string.button_delete),
-            iconTint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f),
-            textColor = MaterialTheme.colorScheme.error.copy(alpha = 0.5f),
-            contentDescription = stringResource(R.string.cd_delete)
-        )
-    }
-}
-
-@Composable
-private fun ResponsiveDetailActionButton(
-    modifier: Modifier = Modifier,
-    interactionSource: MutableInteractionSource,
-    scale: Float,
-    onClick: () -> Unit,
-    icon: ImageVector,
+private fun DetailLabelRow(
     label: String,
-    iconTint: Color,
-    textColor: Color,
-    contentDescription: String = label
+    value: String,
+    contentColor: androidx.compose.ui.graphics.Color,
+    modifier: Modifier = Modifier
 ) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier
-            .clickable(
-                interactionSource = interactionSource,
-                indication = LocalIndication.current,
-                onClick = onClick
-            )
-            .graphicsLayer { scaleX = scale; scaleY = scale }
-            .padding(horizontal = 4.dp, vertical = 6.dp)
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            modifier = Modifier.size(24.dp),
-            tint = iconTint
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = textColor,
-            textAlign = TextAlign.Center,
-            maxLines = 1
-        )
-    }
-}
-
-@Composable
-private fun DetailLabelRow(label: String, value: String, contentColor: androidx.compose.ui.graphics.Color) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
+        modifier = modifier
+            .widthIn(max = DetailSupplementContentMaxWidth)
             .padding(vertical = 8.dp),
         horizontalArrangement = Arrangement.Start,
         verticalAlignment = Alignment.Top
@@ -814,14 +864,15 @@ private fun DetailLabelRow(label: String, value: String, contentColor: androidx.
             text = "$label:",
             style = MaterialTheme.typography.bodyLarge,
             color = contentColor.copy(alpha = 0.75f),
-            modifier = Modifier.width(80.dp)
+            modifier = Modifier.width(DetailSupplementLabelWidth)
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = value,
             style = MaterialTheme.typography.bodyLarge,
             color = contentColor.copy(alpha = 0.95f),
-            modifier = Modifier.weight(1f)
+            textAlign = TextAlign.Start,
+            modifier = Modifier.widthIn(max = DetailSupplementValueMaxWidth)
         )
     }
 }

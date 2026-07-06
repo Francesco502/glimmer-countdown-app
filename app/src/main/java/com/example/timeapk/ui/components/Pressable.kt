@@ -8,18 +8,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import com.example.timeapk.ui.theme.AnimationSpecs
+import com.example.timeapk.ui.theme.SongDesignTokens
 
 /**
- * 统一按压缩放反馈：
- * - 默认缩放到 0.96f
- * - 使用全局 AnimationSpecs.springButton
- *
- * 用法：
- * Modifier.pressScale()
- * Modifier.pressScale(scaleDown = 0.9f)
+ * 统一按压反馈：保持轻微尺度变化，主要依靠墨色和细线状态表达按下。
  */
 fun Modifier.pressScale(
-    scaleDown: Float = 0.96f,
+    scaleDown: Float = SongDesignTokens.PressScaleSubtle,
     interactionSource: MutableInteractionSource? = null
 ): Modifier {
     return this.then(
@@ -39,7 +34,7 @@ private fun PressScaleModifier(
 
 @Composable
 fun rememberPressScale(
-    scaleDown: Float = 0.96f,
+    scaleDown: Float = SongDesignTokens.PressScaleSubtle,
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() }
 ): Pair<Modifier, MutableInteractionSource> {
     val isPressed = interactionSource.collectIsPressedAsState().value
@@ -54,4 +49,3 @@ fun rememberPressScale(
     }
     return modifier to interactionSource
 }
-

@@ -1,13 +1,12 @@
 package com.example.timeapk.ui.event
 
 import android.Manifest
-import androidx.compose.animation.core.animateFloatAsState
+import android.content.Context
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -15,31 +14,21 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.Clear
-import androidx.compose.material.icons.outlined.KeyboardArrowDown
-import androidx.compose.material.icons.outlined.KeyboardArrowUp
-import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.os.Build
-import android.widget.Toast
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -72,38 +61,33 @@ import com.example.timeapk.data.REPEAT_WEEKLY
 import com.example.timeapk.data.REPEAT_YEARLY
 import com.example.timeapk.data.sanitizeReminderTimeMinutesOfDay
 import com.example.timeapk.ui.AppViewModelProvider
-import com.example.timeapk.ui.components.BottomSheetDatePicker
 import com.example.timeapk.ui.components.PermissionActionDialog
 import com.example.timeapk.ui.components.PermissionDialogSpec
+import com.example.timeapk.ui.components.SongDateWheelPickerDialog
+import com.example.timeapk.ui.components.SongConfirmDialog
+import com.example.timeapk.ui.components.SongDialogButton
+import com.example.timeapk.ui.components.SongFormDialog
+import com.example.timeapk.ui.components.SongWheelPickerDialog
 import com.example.timeapk.ui.components.SnapWheelPicker
 import com.example.timeapk.ui.common.SongEventPreviewCard
-import com.example.timeapk.ui.theme.AnimationSpecs
+import com.example.timeapk.ui.settings.ClassicalToggle
+import com.example.timeapk.ui.sound.SongSoundEffect
+import com.example.timeapk.ui.sound.rememberSongSoundscape
+import com.example.timeapk.ui.theme.SongColorSwatch
 import com.example.timeapk.ui.theme.SongDesignTokens
 import com.example.timeapk.ui.theme.SongFilterChip
+import com.example.timeapk.ui.theme.SongHexColorField
+import com.example.timeapk.ui.theme.SongLineIcon
+import com.example.timeapk.ui.theme.SongLineIconKind
 import com.example.timeapk.ui.theme.SongPaperSurface
+import com.example.timeapk.ui.theme.SongPaperTextureOverlay
 import com.example.timeapk.ui.utils.eventDateToLocalDate
 import com.example.timeapk.ui.utils.getDisplayDateFormatter
 import com.example.timeapk.ui.utils.formatLunarDateString
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.time.Instant
 import java.time.ZoneId
-import java.time.ZoneOffset
 import java.util.Locale
-
-private val PRESET_COLORS = listOf(
-    // Song-style preset palette for event cards.
-    "#4A4933",
-    "#457080",
-    "#5F856B",
-    "#AF4E31",
-    "#AC8F62",
-    "#86351C",
-    "#5B8E79",
-    "#3A4550",
-    "#785B64"
-)
-// CATEGORY_DEFAULT_COLOR map removed as explicit category selection is gone
 
 private val EventEntryContentMaxWidth = 720.dp
 
@@ -270,7 +254,7 @@ fun EventEntryScreen(
                     navigateBack()
                 }
                 is SaveEventResult.PartialSuccess -> {
-                    Toast.makeText(context, result.message, Toast.LENGTH_LONG).show()
+                    snackbarHostState.showSnackbar(result.message)
                     isSaving = false
                     pendingSaveOrigin = SaveRequestOrigin.Standard
                     navigateBack()
@@ -417,26 +401,16 @@ fun EventEntryScreen(
         PermissionActionDialog(spec = dialog)
     }
     if (showDiscardChangesDialog) {
-        AlertDialog(
-            onDismissRequest = { showDiscardChangesDialog = false },
-            shape = MaterialTheme.shapes.medium,
-            title = { Text(stringResource(R.string.discard_changes_dialog_title)) },
-            text = { Text(stringResource(R.string.discard_changes_dialog_message)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showDiscardChangesDialog = false
-                        navigateBack()
-                    }
-                ) {
-                    Text(stringResource(R.string.discard_changes_dialog_confirm))
-                }
+        SongConfirmDialog(
+            title = stringResource(R.string.discard_changes_dialog_title),
+            message = stringResource(R.string.discard_changes_dialog_message),
+            confirmText = stringResource(R.string.discard_changes_dialog_confirm),
+            dismissText = stringResource(R.string.discard_changes_dialog_dismiss),
+            onConfirm = {
+                showDiscardChangesDialog = false
+                navigateBack()
             },
-            dismissButton = {
-                TextButton(onClick = { showDiscardChangesDialog = false }) {
-                    Text(stringResource(R.string.discard_changes_dialog_dismiss))
-                }
-            }
+            onDismiss = { showDiscardChangesDialog = false }
         )
     }
     Scaffold(
@@ -465,9 +439,10 @@ fun EventEntryScreen(
                         onClick = ::requestNavigateBack,
                         enabled = !isSaving
                     ) {
-                        Icon(
-                            Icons.AutoMirrored.Outlined.ArrowBack,
-                            contentDescription = stringResource(R.string.nav_back)
+                        SongLineIcon(
+                            kind = SongLineIconKind.Back,
+                            contentDescription = stringResource(R.string.nav_back),
+                            tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.78f)
                         )
                     }
                 },
@@ -553,21 +528,11 @@ fun EventEntryBody(
                 },
                 modifier = Modifier.fillMaxWidth()
             )
-            SongPaperSurface(
-                modifier = Modifier.fillMaxWidth(),
-                backgroundColor = MaterialTheme.colorScheme.surface,
-                borderColor = MaterialTheme.colorScheme.outline.copy(alpha = SongDesignTokens.BorderAlphaStrong)
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    EventInputForm(
-                        eventDetails = eventUiState.eventDetails,
-                        onValueChange = onEventValueChange
-                    )
-                }
-            }
+            EventInputForm(
+                eventDetails = eventUiState.eventDetails,
+                onValueChange = onEventValueChange,
+                modifier = Modifier.fillMaxWidth()
+            )
 
         }
     }
@@ -579,8 +544,9 @@ private fun EventEntrySaveBar(
     isSaving: Boolean,
     onSaveClick: () -> Unit
 ) {
+    val soundscape = rememberSongSoundscape()
     Surface(
-        color = MaterialTheme.colorScheme.surface,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.86f),
         shadowElevation = 0.dp,
         tonalElevation = 0.dp
     ) {
@@ -597,28 +563,87 @@ private fun EventEntrySaveBar(
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Button(
-                    onClick = onSaveClick,
+                SongSaveSlip(
+                    onClick = {
+                        soundscape.play(SongSoundEffect.Commit)
+                        onSaveClick()
+                    },
                     enabled = enabled,
+                    isSaving = isSaving,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .widthIn(max = EventEntryContentMaxWidth),
-                    shape = RoundedCornerShape(4.dp)
-                ) {
-                    if (isSaving) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onPrimary
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                    }
-                    Text(
-                        text = stringResource(R.string.button_save_event),
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                }
+                        .widthIn(max = EventEntryContentMaxWidth)
+                )
             }
+        }
+    }
+}
+
+@Composable
+private fun SongSaveSlip(
+    enabled: Boolean,
+    isSaving: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val label = stringResource(R.string.button_save_event)
+    SongPaperSurface(
+        modifier = modifier
+            .heightIn(min = 48.dp)
+            .clickable(
+                enabled = enabled && !isSaving,
+                interactionSource = interactionSource,
+                indication = LocalIndication.current,
+                onClick = onClick
+            )
+            .semantics { contentDescription = label },
+        backgroundColor = if (enabled) {
+            MaterialTheme.colorScheme.surface.copy(alpha = 0.42f)
+        } else {
+            MaterialTheme.colorScheme.surface.copy(alpha = 0.30f)
+        },
+        borderColor = if (enabled) {
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.30f)
+        } else {
+            MaterialTheme.colorScheme.outline.copy(alpha = SongDesignTokens.BorderAlphaSoft)
+        }
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 18.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (isSaving) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 1.6.dp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+            } else {
+                SongLineIcon(
+                    kind = SongLineIconKind.Seal,
+                    tint = if (enabled) {
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.82f)
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.62f)
+                    },
+                    size = 17.dp
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+            }
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleMedium,
+                color = if (enabled) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                }
+            )
         }
     }
 }
@@ -663,7 +688,7 @@ fun EventInputForm(
     var showDatePicker by remember { mutableStateOf(false) }
 
     if (showDatePicker) {
-        BottomSheetDatePicker(
+        SongDateWheelPickerDialog(
             initialDateMillis = eventDetails.date,
             initialIsLunar = eventDetails.isLunar,
             title = stringResource(R.string.field_date),
@@ -777,21 +802,10 @@ fun EventInputForm(
         }
     }
 
-    val textFieldColors = TextFieldDefaults.colors(
-        focusedContainerColor = Color.Transparent,
-        unfocusedContainerColor = Color.Transparent,
-        disabledContainerColor = Color.Transparent,
-        focusedIndicatorColor = Color.Transparent,
-        unfocusedIndicatorColor = Color.Transparent,
-        disabledIndicatorColor = Color.Transparent,
-        focusedLabelColor = MaterialTheme.colorScheme.primary,
-        unfocusedLabelColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
-    )
-    
     var showCustomColorDialog by remember { mutableStateOf(false) }
     
     if (showCustomColorDialog) {
-        CustomColorDialog(
+        SongColorSpectrumDialog(
             initialColor = eventDetails.colorHex,
             onColorSelected = { 
                 onValueChange(eventDetails.copy(colorHex = it))
@@ -801,18 +815,17 @@ fun EventInputForm(
         )
     }
 
-    val haptic = LocalHapticFeedback.current
     val titleTouched = remember { mutableStateOf(false) }
     val showTitleError = titleTouched.value && eventDetails.title.isBlank()
     val reminderDayOptions = remember { (0..3650).toList() }
+    val reminderDayPresets = remember { listOf(0, 1, 7, 30) }
+    val reminderHourPresets = remember { listOf(0, 7, 10, 12, 18) }
     val reminderHourOptions = remember { (0..23).toList() }
     val reminderMinuteOptions = remember { (0..59).toList() }
-    val selectedRemindDays = eventDetails.remindDaysBefore.coerceIn(
-        reminderDayOptions.first(),
-        reminderDayOptions.last()
-    )
+    val selectedRemindDays = eventDetails.remindDaysBefore.coerceIn(0, 3650)
     val selectedRemindHour = (eventDetails.reminderTimeMinutesOfDay / 60).coerceIn(0, 23)
     val selectedRemindMinute = (eventDetails.reminderTimeMinutesOfDay % 60).coerceIn(0, 59)
+    fun remindDaysLabel(days: Int): String = formatRemindDaysBefore(days, context)
     val repeatOptions = supportedRepeatTypes(eventDetails.isLunar).map { repeatType ->
         repeatType to when (repeatType) {
             REPEAT_NONE -> stringResource(R.string.repeat_none)
@@ -824,7 +837,6 @@ fun EventInputForm(
             else -> repeatType
         }
     }
-    var reminderSettingsExpanded by remember { mutableStateOf(false) }
     var showCustomRepeatPicker by remember { mutableStateOf(false) }
     var showCustomRemindDaysPicker by remember { mutableStateOf(false) }
     var showCustomRemindTimePicker by remember { mutableStateOf(false) }
@@ -839,85 +851,59 @@ fun EventInputForm(
             )
         }
         var isRepeatPickerScrolling by remember { mutableStateOf(false) }
-        AlertDialog(
+        SongWheelPickerDialog(
             onDismissRequest = { showCustomRepeatPicker = false },
-            shape = MaterialTheme.shapes.medium,
-            title = { Text(stringResource(R.string.category_custom)) },
-            text = {
-                SnapWheelPicker(
-                    items = repeatOptions.map { it.first },
-                    selectedItem = draftRepeat,
-                    onItemSelected = { draftRepeat = it },
-                    onScrollStateChanged = { isRepeatPickerScrolling = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    itemLabel = { value ->
-                        repeatOptions.firstOrNull { it.first == value }?.second ?: value
-                    }
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        onValueChange(eventDetails.copy(repeatType = draftRepeat))
-                        showCustomRepeatPicker = false
-                    },
-                    enabled = !isRepeatPickerScrolling
-                ) {
-                    Text(stringResource(R.string.date_picker_ok))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showCustomRepeatPicker = false }) {
-                    Text(stringResource(R.string.date_picker_cancel))
-                }
+            title = stringResource(R.string.category_custom),
+            confirmEnabled = !isRepeatPickerScrolling,
+            onConfirm = {
+                onValueChange(eventDetails.copy(repeatType = draftRepeat))
+                showCustomRepeatPicker = false
             }
-        )
+        ) {
+            SnapWheelPicker(
+                items = repeatOptions.map { it.first },
+                selectedItem = draftRepeat,
+                onItemSelected = { draftRepeat = it },
+                onScrollStateChanged = { isRepeatPickerScrolling = it },
+                modifier = Modifier.fillMaxWidth(),
+                itemLabel = { value ->
+                    repeatOptions.firstOrNull { it.first == value }?.second ?: value
+                }
+            )
+        }
     }
 
     if (showCustomRemindDaysPicker) {
-        var draftDays by remember(eventDetails.remindDaysBefore) { mutableStateOf(selectedRemindDays) }
+        var draftDays by remember(eventDetails.remindDaysBefore) {
+            mutableStateOf(selectedRemindDays)
+        }
         var isDaysPickerScrolling by remember { mutableStateOf(false) }
-        AlertDialog(
+        SongWheelPickerDialog(
             onDismissRequest = { showCustomRemindDaysPicker = false },
-            shape = MaterialTheme.shapes.medium,
-            title = { Text(stringResource(R.string.custom_remind_days_label)) },
-            text = {
+            title = stringResource(R.string.custom_remind_days_label),
+            confirmEnabled = !isDaysPickerScrolling,
+            onConfirm = {
+                onValueChange(eventDetails.copy(remindDaysBefore = draftDays))
+                showCustomRemindDaysPicker = false
+            }
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                ReminderPresetChipRow(
+                    items = reminderDayPresets,
+                    isSelected = { days -> days == draftDays },
+                    onSelected = { days -> draftDays = days },
+                    itemLabel = { days -> remindDaysLabel(days) }
+                )
                 SnapWheelPicker(
                     items = reminderDayOptions,
                     selectedItem = draftDays,
                     onItemSelected = { draftDays = it },
                     onScrollStateChanged = { isDaysPickerScrolling = it },
                     modifier = Modifier.fillMaxWidth(),
-                    itemLabel = { days ->
-                        if (days == 0) {
-                            context.getString(R.string.remind_same_day)
-                        } else {
-                            context.resources.getQuantityString(
-                                R.plurals.remind_days_before_format,
-                                days,
-                                days
-                            )
-                        }
-                    }
+                    itemLabel = { days -> remindDaysLabel(days) }
                 )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        onValueChange(eventDetails.copy(remindDaysBefore = draftDays))
-                        showCustomRemindDaysPicker = false
-                    },
-                    enabled = !isDaysPickerScrolling
-                ) {
-                    Text(stringResource(R.string.date_picker_ok))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showCustomRemindDaysPicker = false }) {
-                    Text(stringResource(R.string.date_picker_cancel))
-                }
             }
-        )
+        }
     }
 
     if (showCustomRemindTimePicker) {
@@ -929,11 +915,27 @@ fun EventInputForm(
         }
         var isHourPickerScrolling by remember { mutableStateOf(false) }
         var isMinutePickerScrolling by remember { mutableStateOf(false) }
-        AlertDialog(
+        SongWheelPickerDialog(
             onDismissRequest = { showCustomRemindTimePicker = false },
-            shape = MaterialTheme.shapes.medium,
-            title = { Text(stringResource(R.string.custom_reminder_time_label)) },
-            text = {
+            title = stringResource(R.string.custom_reminder_time_label),
+            confirmEnabled = !isHourPickerScrolling && !isMinutePickerScrolling,
+            onConfirm = {
+                onValueChange(
+                    eventDetails.copy(reminderTimeMinutesOfDay = draftHour * 60 + draftMinute)
+                )
+                showCustomRemindTimePicker = false
+            }
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                ReminderPresetChipRow(
+                    items = reminderHourPresets,
+                    isSelected = { hour -> hour == draftHour && draftMinute == 0 },
+                    onSelected = { hour ->
+                        draftHour = hour
+                        draftMinute = 0
+                    },
+                    itemLabel = { hour -> stringResource(R.string.reminder_hour_preset_format, hour) }
+                )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -955,201 +957,90 @@ fun EventInputForm(
                         itemLabel = { value -> String.format(Locale.US, "%02d", value) }
                     )
                 }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        onValueChange(
-                            eventDetails.copy(reminderTimeMinutesOfDay = draftHour * 60 + draftMinute)
-                        )
-                        showCustomRemindTimePicker = false
-                    },
-                    enabled = !isHourPickerScrolling && !isMinutePickerScrolling
-                ) {
-                    Text(stringResource(R.string.date_picker_ok))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showCustomRemindTimePicker = false }) {
-                    Text(stringResource(R.string.date_picker_cancel))
-                }
             }
-        )
+        }
     }
 
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text(
-            text = stringResource(R.string.event_template_title),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+    val baseDate = eventDateToLocalDate(eventDetails.date)
+    val dateString = if (eventDetails.isLunar) {
+        formatLunarDateString(baseDate, context)
+    } else {
+        baseDate.format(dateFormatter)
+    }
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SongInkSection(
+            title = stringResource(R.string.event_entry_section_time)
         ) {
-            val selectedTemplate = defaultTemplateForCategory(currentCategory)
-            eventEntryTemplates.forEach { template ->
-                val label = when (template.type) {
-                    EventEntryTemplateType.Birthday -> stringResource(R.string.event_template_birthday)
-                    EventEntryTemplateType.Anniversary -> stringResource(R.string.event_template_anniversary)
-                    EventEntryTemplateType.Countdown -> stringResource(R.string.event_template_countdown)
+            SongInkDateRow(
+                value = dateString,
+                contentDescription = stringResource(R.string.field_date),
+                onClick = { showDatePicker = true }
+            )
+        }
+
+        SongInkSection(
+            title = stringResource(R.string.event_entry_section_content)
+        ) {
+            SongInkTextField(
+                value = eventDetails.title,
+                onValueChange = {
+                    titleTouched.value = true
+                    onValueChange(eventDetails.copy(title = it))
+                },
+                label = stringResource(R.string.field_title),
+                singleLine = true,
+                isError = showTitleError,
+                errorText = stringResource(R.string.field_title_required)
+            )
+            SongInkChoiceRow(
+                label = stringResource(R.string.field_category),
+                value = when (currentCategory) {
+                    CATEGORY_BIRTHDAY -> stringResource(R.string.category_birthday)
+                    CATEGORY_ANNIVERSARY -> stringResource(R.string.category_anniversary)
+                    else -> stringResource(R.string.category_other)
+                }
+            ) {
+                listOf(
+                    stringResource(R.string.category_birthday) to CATEGORY_BIRTHDAY,
+                    stringResource(R.string.category_anniversary) to CATEGORY_ANNIVERSARY,
+                    stringResource(R.string.category_other) to CATEGORY_OTHER
+                ).forEach { (label, value) ->
+                    SongFilterChip(
+                        selected = currentCategory == value,
+                        onClick = { onValueChange(applyTemplateForCategory(eventDetails, value)) },
+                        label = label
+                    )
+                }
+            }
+            SongInkTextField(
+                value = eventDetails.note,
+                onValueChange = { onValueChange(eventDetails.copy(note = it)) },
+                label = stringResource(R.string.field_note),
+                minLines = 2,
+                maxLines = 4
+            )
+        }
+
+        SongInkSection(
+            title = stringResource(R.string.event_entry_section_reminder)
+        ) {
+            SongInkChoiceRow(
+                label = stringResource(R.string.field_repeat),
+                value = repeatOptions.firstOrNull { it.first == eventDetails.repeatType }?.second ?: eventDetails.repeatType
+            ) {
+                repeatOptions.forEach { (value, label) ->
+                    SongFilterChip(
+                        selected = eventDetails.repeatType == value,
+                        onClick = { onValueChange(eventDetails.copy(repeatType = value)) },
+                        label = label
+                    )
                 }
                 SongFilterChip(
-                    selected = selectedTemplate.type == template.type,
-                    onClick = {
-                        onValueChange(
-                            eventDetails.copy(
-                                category = template.category,
-                                repeatType = template.repeatType,
-                                isLunar = if (template.allowLunar) eventDetails.isLunar else false
-                            )
-                        )
-                    },
-                    label = label
+                    selected = false,
+                    onClick = { showCustomRepeatPicker = true },
+                    label = stringResource(R.string.category_custom)
                 )
             }
-        }
-
-        TextField(
-            value = eventDetails.title,
-            onValueChange = {
-                titleTouched.value = true
-                onValueChange(eventDetails.copy(title = it))
-            },
-            label = { Text(stringResource(R.string.field_title)) },
-            modifier = Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(4.dp)),
-            singleLine = true,
-            isError = showTitleError,
-            supportingText = if (showTitleError) {
-                { Text(stringResource(R.string.field_title_required)) }
-            } else null,
-            shape = RoundedCornerShape(4.dp),
-            colors = textFieldColors
-        )
-
-        // Category selection.
-        Text(
-            text = stringResource(R.string.field_category),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            listOf(
-                stringResource(R.string.category_birthday) to CATEGORY_BIRTHDAY,
-                stringResource(R.string.category_anniversary) to CATEGORY_ANNIVERSARY,
-                stringResource(R.string.category_other) to CATEGORY_OTHER
-            ).forEach { (label, value) ->
-                SongFilterChip(
-                    selected = currentCategory == value,
-                    onClick = { onValueChange(eventDetails.copy(category = value)) },
-                    label = label
-                )
-            }
-        }
-        
-        // Date selection and display.
-        val baseDate = eventDateToLocalDate(eventDetails.date)
-        val dateString = if (eventDetails.isLunar) {
-                                            formatLunarDateString(baseDate, context)
-        } else {
-            baseDate.format(dateFormatter)
-        }
-
-        // Use an overlay click target so the read-only field opens the picker reliably.
-        Box(modifier = Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(4.dp))) {
-            TextField(
-                value = dateString,
-                onValueChange = { },
-                label = { Text(stringResource(R.string.field_date)) },
-                modifier = Modifier.fillMaxWidth(),
-                readOnly = true,
-                shape = RoundedCornerShape(4.dp),
-                colors = textFieldColors
-            )
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .clickable {
-                        showDatePicker = true
-                    }
-            )
-        }
-
-        TextField(
-            value = eventDetails.note,
-            onValueChange = { onValueChange(eventDetails.copy(note = it)) },
-            label = { Text(stringResource(R.string.field_note)) },
-            modifier = Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(4.dp)),
-            minLines = 2,
-            maxLines = 4,
-            shape = RoundedCornerShape(4.dp),
-            colors = textFieldColors
-        )
-
-        // 重复设置
-        Text(
-            text = stringResource(R.string.field_repeat),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            repeatOptions.forEach { (value, label) ->
-                SongFilterChip(
-                    selected = eventDetails.repeatType == value,
-                    onClick = { onValueChange(eventDetails.copy(repeatType = value)) },
-                    label = label
-                )
-            }
-            OutlinedButton(
-                onClick = { showCustomRepeatPicker = true },
-                shape = MaterialTheme.shapes.small
-            ) {
-                Text(stringResource(R.string.category_custom))
-            }
-        }
-        
-        // Reminder & schedule settings (collapsed secondary section)
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { reminderSettingsExpanded = !reminderSettingsExpanded },
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.reminder_and_calendar_title),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                Text(
-                    text = stringResource(R.string.reminder_and_calendar_summary),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Icon(
-                imageVector = if (reminderSettingsExpanded) {
-                    Icons.Outlined.KeyboardArrowUp
-                } else {
-                    Icons.Outlined.KeyboardArrowDown
-                },
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-
-        if (reminderSettingsExpanded) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1161,7 +1052,7 @@ fun EventInputForm(
                     color = MaterialTheme.colorScheme.onBackground
                 )
                 Spacer(modifier = Modifier.weight(1f))
-                Switch(
+                ClassicalToggle(
                     checked = eventDetails.remindEnabled,
                     onCheckedChange = { enabled ->
                         if (enabled) {
@@ -1183,13 +1074,8 @@ fun EventInputForm(
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onBackground
                     )
-                    Text(
-                        text = stringResource(R.string.sync_to_schedule_summary),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
-                Switch(
+                ClassicalToggle(
                     checked = eventDetails.syncToScheduleEnabled,
                     onCheckedChange = { enabled ->
                         if (enabled) {
@@ -1202,117 +1088,113 @@ fun EventInputForm(
             }
 
             if (eventDetails.remindEnabled) {
-                // 提前 X 天：点击整行进入滚轮选择
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { showCustomRemindDaysPicker = true },
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.custom_remind_days_label),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                        Text(
-                            text = if (selectedRemindDays == 0) {
-                                stringResource(R.string.remind_same_day)
-                            } else {
-                                context.resources.getQuantityString(
-                                    R.plurals.remind_days_before_format,
-                                    selectedRemindDays,
-                                    selectedRemindDays
-                                )
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                // 提醒时间（小时/分钟）：点击整行进入双列滚轮选择
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { showCustomRemindTimePicker = true },
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.custom_reminder_time_label),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                        Text(
-                            text = formatMinutesOfDay(eventDetails.reminderTimeMinutesOfDay),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-        }
-        
-        // Color selection.
-        Text(
-            text = stringResource(R.string.field_card_color),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            songNamedColors.forEach { namedColor ->
-                val hex = namedColor.hex
-                val color = try { Color(hex.toColorInt()) } catch (_: Exception) { Color.Gray }
-                val selected = eventDetails.colorHex?.uppercase() == hex.uppercase()
-                ColorChip(
-                    color = color,
-                    selected = selected,
-                    onClick = { onValueChange(eventDetails.copy(colorHex = hex)) },
-                    contentDescription = stringResource(R.string.cd_event_color_option, namedColor.nameKey)
+                SongInkChoiceRow(
+                    label = stringResource(R.string.custom_remind_days_label),
+                    value = remindDaysLabel(selectedRemindDays),
+                    onClick = { showCustomRemindDaysPicker = true }
+                )
+                SongInkChoiceRow(
+                    label = stringResource(R.string.custom_reminder_time_label),
+                    value = formatMinutesOfDay(eventDetails.reminderTimeMinutesOfDay),
+                    onClick = { showCustomRemindTimePicker = true }
                 )
             }
-            
-            // Custom color display (if selected color is not in presets)
+        }
+
+        SongInkSection(
+            title = stringResource(R.string.event_entry_section_appearance)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                songNamedColors.forEach { namedColor ->
+                    val hex = namedColor.hex
+                    val color = try { Color(hex.toColorInt()) } catch (_: Exception) { Color.Gray }
+                    val selected = eventDetails.colorHex?.uppercase() == hex.uppercase()
+                    SongColorSwatch(
+                        color = color,
+                        selected = selected,
+                        onClick = { onValueChange(eventDetails.copy(colorHex = hex)) },
+                        contentDescription = stringResource(
+                            R.string.cd_event_color_option,
+                            songColorDisplayName(namedColor.nameKey)
+                        )
+                    )
+                }
+
+                val noColorSelected = eventDetails.colorHex == null
+                SongColorSwatch(
+                    color = MaterialTheme.colorScheme.surface,
+                    selected = noColorSelected,
+                    onClick = { onValueChange(eventDetails.copy(colorHex = null)) },
+                    contentDescription = stringResource(R.string.cd_no_event_color)
+                )
+            }
             val isCustomSelected = eventDetails.colorHex != null && !songNamedColors.any { it.hex.equals(eventDetails.colorHex, ignoreCase = true) }
             if (isCustomSelected) {
-                val hex = eventDetails.colorHex!!
-                val color = try { Color(hex.toColorInt()) } catch (_: Exception) { Color.Gray }
-                ColorChip(
-                    color = color,
-                    selected = true,
-                    onClick = { showCustomColorDialog = true },
-                    contentDescription = stringResource(R.string.cd_event_color_option, hex)
+                Text(
+                    text = stringResource(R.string.event_entry_custom_color_active, eventDetails.colorHex.orEmpty()),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-
-            // Custom color button
-            ColorChip(
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                selected = false,
+            TextButton(
                 onClick = { showCustomColorDialog = true },
-                icon = Icons.Outlined.Palette,
-                contentDescription = stringResource(R.string.cd_custom_event_color)
-            )
+                modifier = Modifier.align(Alignment.Start)
+            ) {
+                SongLineIcon(
+                    kind = SongLineIconKind.Palette,
+                    contentDescription = null,
+                    size = 16.dp,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(stringResource(R.string.custom_colors_title))
+            }
+        }
+    }
+}
 
-            // No color selected
-            val noColorSelected = eventDetails.colorHex == null
-            ColorChip(
-                color = MaterialTheme.colorScheme.surface,
-                selected = noColorSelected,
-                onClick = { onValueChange(eventDetails.copy(colorHex = null)) },
-                icon = Icons.Outlined.Clear,
-                contentDescription = stringResource(R.string.cd_no_event_color)
+@Composable
+private fun <T> ReminderPresetChipRow(
+    items: List<T>,
+    isSelected: (T) -> Boolean,
+    onSelected: (T) -> Unit,
+    itemLabel: @Composable (T) -> String
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        items.forEach { item ->
+            SongFilterChip(
+                selected = isSelected(item),
+                onClick = { onSelected(item) },
+                label = itemLabel(item)
             )
         }
+    }
+}
+
+private fun formatRemindDaysBefore(days: Int, context: Context): String {
+    val safeDays = days.coerceIn(0, 3650)
+    return if (safeDays == 0) {
+        context.getString(R.string.remind_same_day)
+    } else if (safeDays == 1) {
+        context.getString(R.string.remind_one_day_before)
+    } else {
+        context.resources.getQuantityString(
+            R.plurals.remind_days_before_format,
+            safeDays,
+            safeDays
+        )
     }
 }
 
@@ -1323,194 +1205,315 @@ private fun formatMinutesOfDay(minutesOfDay: Int): String {
     return String.format(Locale.US, "%02d:%02d", hour, minute)
 }
 
+@Composable
+private fun songColorDisplayName(nameKey: String): String {
+    return when (nameKey) {
+        "ink" -> stringResource(R.string.song_color_ink)
+        "dailan" -> stringResource(R.string.song_color_indigo)
+        "pine_green" -> stringResource(R.string.song_color_pine_green)
+        "celadon" -> stringResource(R.string.song_color_ru_celadon)
+        "cinnabar" -> stringResource(R.string.song_color_cinnabar)
+        "ochre" -> stringResource(R.string.song_color_ocher)
+        "old_gold" -> stringResource(R.string.song_color_old_gold)
+        "tea_brown" -> stringResource(R.string.song_color_tea_brown)
+        "lotus_mauve" -> stringResource(R.string.song_color_lotus_mauve)
+        else -> nameKey
+    }
+}
+
+@Composable
+private fun SongInkSection(
+    title: String,
+    modifier: Modifier = Modifier,
+    summary: String? = null,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    val shape = RoundedCornerShape(3.dp)
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.22f), shape)
+            .border(
+                width = SongDesignTokens.BorderWidth.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.10f),
+                shape = shape
+            )
+    ) {
+        SongPaperTextureOverlay(
+            modifier = Modifier.matchParentSize(),
+            paperTextureAlpha = 0.012f
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .fillMaxHeight()
+                .width(SongDesignTokens.BorderWidth.dp)
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.20f))
+        )
+        Column(
+            modifier = Modifier.padding(start = 16.dp, top = 14.dp, end = 15.dp, bottom = 15.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            if (!summary.isNullOrBlank()) {
+                Text(
+                    text = summary,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            HorizontalDivider(
+                thickness = SongDesignTokens.BorderWidth.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.10f)
+            )
+            content()
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun MonthQuickSelector(datePickerState: DatePickerState) {
-    val displayedDate = remember(datePickerState.displayedMonthMillis) {
-        Instant.ofEpochMilli(datePickerState.displayedMonthMillis)
-            .atZone(ZoneOffset.UTC)
-            .toLocalDate()
-    }
-    val currentYear = displayedDate.year
-    val currentMonth = displayedDate.monthValue
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        (1..12).forEach { month ->
-            val selected = month == currentMonth
-            AssistChip(
-                onClick = {
-                    val targetMonthDate = displayedDate.withYear(currentYear).withMonth(month).withDayOfMonth(1)
-                    val targetMillis = targetMonthDate
-                        .atStartOfDay(ZoneOffset.UTC)
-                        .toInstant()
-                        .toEpochMilli()
-                    datePickerState.displayedMonthMillis = targetMillis
-                },
-                label = { Text(java.time.Month.of(month).getDisplayName(java.time.format.TextStyle.SHORT, Locale.getDefault())) },
-                colors = AssistChipDefaults.assistChipColors(
-                    containerColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-                    labelColor = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
-                )
+private fun SongInkTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+    singleLine: Boolean = false,
+    minLines: Int = 1,
+    maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
+    isError: Boolean = false,
+    errorText: String? = null
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        TextField(
+            value = value,
+            onValueChange = onValueChange,
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(
+                    SongDesignTokens.BorderWidth.dp,
+                    if (isError) MaterialTheme.colorScheme.error.copy(alpha = 0.72f)
+                    else MaterialTheme.colorScheme.outline.copy(alpha = SongDesignTokens.BorderAlphaStrong),
+                    RoundedCornerShape(SongDesignTokens.StandardRadius.dp)
+                ),
+            singleLine = singleLine,
+            minLines = minLines,
+            maxLines = maxLines,
+            isError = isError,
+            shape = RoundedCornerShape(SongDesignTokens.StandardRadius.dp),
+            textStyle = MaterialTheme.typography.bodyLarge,
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = Color.Transparent,
+                unfocusedContainerColor = Color.Transparent,
+                disabledContainerColor = Color.Transparent,
+                focusedIndicatorColor = Color.Transparent,
+                unfocusedIndicatorColor = Color.Transparent,
+                disabledIndicatorColor = Color.Transparent,
+                focusedLabelColor = MaterialTheme.colorScheme.primary,
+                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        )
+        if (isError && !errorText.isNullOrBlank()) {
+            Text(
+                text = errorText,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(top = 4.dp)
             )
         }
     }
 }
 
 @Composable
-private fun ColorChip(
-    color: Color,
-    selected: Boolean,
-    onClick: () -> Unit,
+private fun SongInkDateRow(
+    value: String,
     contentDescription: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector? = null
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val accessibleDescription = if (selected) {
-        stringResource(R.string.cd_event_color_selected, contentDescription)
-    } else {
-        contentDescription
-    }
-    val scale by animateFloatAsState(
-        if (isPressed) 0.9f else 1f,
-        animationSpec = AnimationSpecs.springButton,
-        label = "colorChipScale"
-    )
-    Box(
-        modifier = Modifier
-            .size(48.dp)
-            .semantics { this.contentDescription = accessibleDescription }
-            .clickable(interactionSource = interactionSource, indication = LocalIndication.current, onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .graphicsLayer { scaleX = scale; scaleY = scale }
-                .background(color, RoundedCornerShape(4.dp))
-                .then(
-                    if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp))
-                    else Modifier.border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong), RoundedCornerShape(4.dp))
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            if (icon != null) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = if (color.luminance() > 0.5f) MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
-                )
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .semantics {
+                this.contentDescription = contentDescription
             }
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun SongInkChoiceRow(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    choices: (@Composable RowScope.() -> Unit)? = null
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+                .padding(vertical = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        choices?.let { choiceContent ->
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                content = choiceContent
+            )
         }
     }
 }
 
 @Composable
-fun CustomColorDialog(
+fun SongColorSpectrumDialog(
     initialColor: String?,
     onColorSelected: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
     var hexCode by remember { mutableStateOf(initialColor?.removePrefix("#") ?: "FFFFFF") }
     var isError by remember { mutableStateOf(false) }
-    var r by remember { mutableFloatStateOf(1f) }
-    var g by remember { mutableFloatStateOf(1f) }
-    var b by remember { mutableFloatStateOf(1f) }
+    var advancedExpanded by remember { mutableStateOf(false) }
 
     LaunchedEffect(initialColor) {
-        val c = try { Color((initialColor ?: "#FFFFFF").toColorInt()) } catch (e: Exception) { Color.White }
-        r = c.red
-        g = c.green
-        b = c.blue
-        hexCode = String.format("%02X%02X%02X", (r * 255).toInt(), (g * 255).toInt(), (b * 255).toInt())
-    }
-
-    fun updateHexFromRgb() {
-        hexCode = String.format("%02X%02X%02X", (r * 255).toInt(), (g * 255).toInt(), (b * 255).toInt())
+        hexCode = initialColor?.removePrefix("#")?.uppercase()?.take(8) ?: "FFFFFF"
         isError = false
     }
 
-    AlertDialog(
+    SongFormDialog(
+        title = stringResource(R.string.custom_colors_title),
         onDismissRequest = onDismiss,
-        shape = MaterialTheme.shapes.medium,
-        title = { Text(stringResource(R.string.custom_colors_title)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Box(
+        content = {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(60.dp)
-                        .background(Color(red = r, green = g, blue = b), RoundedCornerShape(4.dp))
-                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
-                )
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Slider(value = r, onValueChange = { r = it; updateHexFromRgb() }, colors = SliderDefaults.colors(thumbColor = Color.Red, activeTrackColor = Color.Red.copy(alpha = 0.5f)))
-                    Slider(value = g, onValueChange = { g = it; updateHexFromRgb() }, colors = SliderDefaults.colors(thumbColor = Color.Green, activeTrackColor = Color.Green.copy(alpha = 0.5f)))
-                    Slider(value = b, onValueChange = { b = it; updateHexFromRgb() }, colors = SliderDefaults.colors(thumbColor = Color.Blue, activeTrackColor = Color.Blue.copy(alpha = 0.5f)))
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    songNamedColors.forEach { namedColor ->
+                        val color = try { Color(namedColor.hex.toColorInt()) } catch (_: Exception) { Color.Gray }
+                        SongColorSwatch(
+                            color = color,
+                            selected = namedColor.hex.equals(initialColor, ignoreCase = true),
+                            onClick = { onColorSelected(namedColor.hex) },
+                            contentDescription = stringResource(
+                                R.string.cd_event_color_option,
+                                songColorDisplayName(namedColor.nameKey)
+                            )
+                        )
+                    }
                 }
-                OutlinedTextField(
-                    value = hexCode,
-                    onValueChange = { newHex ->
-                        hexCode = newHex.take(8).uppercase()
-                        try {
-                            if (hexCode.length == 6 || hexCode.length == 8) {
-                                val c = Color("#$hexCode".toColorInt())
-                                r = c.red
-                                g = c.green
-                                b = c.blue
-                                isError = false
-                            } else {
-                                isError = true
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { advancedExpanded = !advancedExpanded },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(R.string.event_entry_custom_color_advanced),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    SongLineIcon(
+                        kind = if (advancedExpanded) SongLineIconKind.ChevronUp else SongLineIconKind.ChevronDown,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        size = 18.dp
+                    )
+                }
+                if (advancedExpanded) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SongHexColorField(
+                            value = hexCode,
+                            onValueChange = { newHex ->
+                                hexCode = newHex.take(8).uppercase()
+                                isError = try {
+                                    hexCode.length !in listOf(6, 8) || run {
+                                        Color("#$hexCode".toColorInt())
+                                        false
+                                    }
+                                } catch (_: Exception) {
+                                    true
+                                }
+                            },
+                            isError = isError,
+                            label = stringResource(R.string.custom_color_hex_hint),
+                            previewColor = try {
+                                Color("#$hexCode".toColorInt())
+                            } catch (_: Exception) {
+                                null
                             }
-                        } catch (e: Exception) {
-                            isError = true
-                        }
-                    },
-                    prefix = { Text("#") },
-                    isError = isError,
-                    singleLine = true,
-                    label = { Text(stringResource(R.string.custom_color_hex_hint)) }
-                )
+                        )
+                    }
+                }
             }
         },
-        confirmButton = {
-            TextButton(
+        buttons = {
+            SongDialogButton(
+                text = stringResource(R.string.date_picker_cancel),
+                onClick = onDismiss
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            SongDialogButton(
+                text = stringResource(R.string.date_picker_ok),
                 onClick = {
                     val fullHex = "#$hexCode"
                     try {
                         fullHex.toColorInt()
                         onColorSelected(fullHex)
-                    } catch (e: Exception) {
+                    } catch (_: Exception) {
+                        isError = true
                     }
                 },
-                enabled = !isError
-            ) {
-                Text(stringResource(R.string.date_picker_ok))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.date_picker_cancel))
-            }
+                enabled = advancedExpanded && !isError
+            )
         }
     )
 }
-
-
-
-
-
-
-
-
-
-
-
-

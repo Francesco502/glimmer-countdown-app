@@ -2,4 +2,6 @@
 <paths>
     <!-- 应用内更新 APK 存放目录：context.filesDir/updates/ -->
     <files-path name="apk" path="updates/" />
+    <!-- 详情分享图片缓存目录：context.cacheDir/share/ -->
+    <cache-path name="share_images" path="share/" />
 </paths>

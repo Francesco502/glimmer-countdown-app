@@ -18,8 +18,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.collectAsState
@@ -30,6 +28,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.core.content.ContextCompat
@@ -50,6 +52,9 @@ import com.example.timeapk.notifications.scheduleReminder
 import com.example.timeapk.notifications.ScheduleSyncManager
 import com.example.timeapk.ui.components.PermissionActionDialog
 import com.example.timeapk.ui.components.PermissionDialogSpec
+import com.example.timeapk.ui.components.SongDialogButton
+import com.example.timeapk.ui.components.SongFormDialog
+import com.example.timeapk.ui.components.SongWheelPickerDialog
 import com.example.timeapk.ui.components.SnapWheelPicker
 import com.example.timeapk.ui.common.SongMiniPreviewSurface
 import com.example.timeapk.ui.common.SongReminderStatusStrip
@@ -74,10 +79,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.example.timeapk.ui.theme.SongColorSwatch
 import com.example.timeapk.ui.theme.SongDesignTokens
 import com.example.timeapk.ui.theme.SongFilterChip
+import com.example.timeapk.ui.theme.SongHexColorField
+import com.example.timeapk.ui.theme.SongLineIcon
+import com.example.timeapk.ui.theme.SongLineIconKind
 import com.example.timeapk.ui.theme.typographyForFontPreset
-import androidx.compose.ui.window.Dialog
 import com.example.timeapk.ui.utils.eventDateToLocalDate
 import com.example.timeapk.ui.utils.findActivity
 import java.time.Instant
@@ -103,19 +111,32 @@ private data class ImportExecutionResult(
 
 @Composable
 fun ClassicalToggle(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    Text(
-        text = if (checked) stringResource(R.string.toggle_on) else stringResource(R.string.toggle_off),
-        style = MaterialTheme.typography.bodyLarge,
-        color = if (checked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+    val stateDescription = stringResource(if (checked) R.string.toggle_on else R.string.toggle_off)
+    Box(
         modifier = Modifier
-            .clickable { onCheckedChange(!checked) }
+            .heightIn(min = 44.dp)
+            .clickable(
+                role = Role.Switch,
+                onClick = { onCheckedChange(!checked) }
+            )
+            .semantics {
+                role = Role.Switch
+                this.stateDescription = stateDescription
+            }
             .border(
                 width = 0.5.dp,
                 color = if (checked) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurface.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaSoft),
                 shape = RoundedCornerShape(2.dp)
             )
-            .padding(horizontal = 12.dp, vertical = 4.dp)
-    )
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = stateDescription,
+            style = MaterialTheme.typography.bodyLarge,
+            color = if (checked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+        )
+    }
 }
 
 private val PRESET_COLOR_HEX = SongColorBoundary.recommendedPresetHexes()
@@ -200,32 +221,15 @@ fun AppearanceSettingsContent(
                 THEME_LIGHT to stringResource(R.string.theme_light),
                 THEME_DARK to stringResource(R.string.theme_dark)
             ).forEach { (value, label) ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
+                SettingsRadioRow(
+                    label = label,
+                    selected = themeMode == value,
+                    onClick = {
                             launchWidgetSettingsUpdate {
                                 prefs.setThemeMode(value)
                             }
-                        }
-                        .padding(vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    RadioButton(
-                        selected = themeMode == value,
-                        onClick = {
-                            launchWidgetSettingsUpdate {
-                                prefs.setThemeMode(value)
-                            }
-                        }
-                    )
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.padding(start = 8.dp),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
+                    }
+                )
             }
         }
 
@@ -262,12 +266,6 @@ fun AppearanceSettingsContent(
                 onPick = { colorPickerKey = "on_background" },
                 onReset = { scope.launch { prefs.setCustomOnBackgroundHex(null) } }
             )
-            Text(
-                text = stringResource(R.string.custom_color_accessibility_hint),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
-            )
         }
 
         colorPickerKey?.let { key ->
@@ -289,10 +287,14 @@ fun AppearanceSettingsContent(
             var customHexInput by remember(key) { mutableStateOf("") }
             var contrastErrorRatio by remember(key) { mutableStateOf<Double?>(null) }
             val currentColorScheme = MaterialTheme.colorScheme
+            val normalizedCustomHex = remember(customHexInput) {
+                val trimmed = customHexInput.trim().removePrefix("#")
+                if (trimmed.isBlank()) "" else "#${trimmed.uppercase()}"
+            }
             val isValidHex = remember(customHexInput) {
                 try {
-                    if (customHexInput.startsWith("#") && (customHexInput.length == 7 || customHexInput.length == 9)) {
-                        customHexInput.toColorInt()
+                    if (normalizedCustomHex.length == 7 || normalizedCustomHex.length == 9) {
+                        normalizedCustomHex.toColorInt()
                         true
                     } else {
                         false
@@ -302,14 +304,10 @@ fun AppearanceSettingsContent(
                 }
             }
             val candidateAudit = remember(key, customHexInput, currentColorScheme) {
-                parseHexColor(customHexInput)?.let {
+                parseHexColor(normalizedCustomHex)?.let {
                     evaluateContrastAuditForKey(currentColorScheme, key, it)
                 }
             }
-            val candidateSongColor = remember(customHexInput) {
-                SongColorBoundary.classify(customHexInput)
-            }
-
             fun tryApplyColor(hex: String) {
                 val parsed = parseHexColor(hex) ?: return
                 val audit = evaluateContrastAuditForKey(currentColorScheme, key, parsed)
@@ -322,14 +320,12 @@ fun AppearanceSettingsContent(
                 }
             }
 
-            AlertDialog(
+            SongFormDialog(
+                title = label,
                 onDismissRequest = { colorPickerKey = null },
-                shape = RoundedCornerShape(SongDesignTokens.StandardRadius.dp),
-                title = { Text(label) },
-                text = {
+                content = {
                     Column(
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                        modifier = Modifier.verticalScroll(rememberScrollState())
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             PRESET_COLOR_HEX.chunked(6).forEach { rowHexes ->
@@ -338,40 +334,27 @@ fun AppearanceSettingsContent(
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     rowHexes.forEach { hex ->
-                                        Box(
-                                            modifier = Modifier
-                                                .size(36.dp)
-                                                .background(Color(hex.toColorInt()), RoundedCornerShape(SongDesignTokens.StandardRadius.dp))
-                                            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaSoft), RoundedCornerShape(SongDesignTokens.StandardRadius.dp))
-                                                .clickable {
-                                                    tryApplyColor(hex)
-                                                }
+                                        SongColorSwatch(
+                                            color = Color(hex.toColorInt()),
+                                            onClick = { tryApplyColor(hex) },
+                                            selected = false,
+                                            showBorder = true
                                         )
                                     }
                                 }
                             }
                         }
                         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
-                        OutlinedTextField(
+                        SongHexColorField(
                             value = customHexInput,
                             onValueChange = {
-                                customHexInput = it
+                                customHexInput = it.removePrefix("#").take(8).uppercase()
                                 contrastErrorRatio = null
                             },
-                            label = { Text(stringResource(R.string.custom_color_hex_hint)) },
-                            placeholder = { Text("#RRGGBB") },
+                            label = stringResource(R.string.custom_color_hex_hint),
+                            placeholder = "RRGGBB",
                             isError = customHexInput.isNotEmpty() && (!isValidHex || candidateAudit?.isPass == false),
-                            singleLine = true,
-                            trailingIcon = {
-                                if (isValidHex) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(24.dp)
-                                            .background(Color(customHexInput.toColorInt()), RoundedCornerShape(4.dp))
-                                            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(4.dp))
-                                    )
-                                }
-                            },
+                            previewColor = if (isValidHex) Color(normalizedCustomHex.toColorInt()) else null,
                             modifier = Modifier.fillMaxWidth()
                         )
                         val customAuditFailed = isValidHex && candidateAudit?.isPass == false
@@ -385,13 +368,6 @@ fun AppearanceSettingsContent(
                                 color = MaterialTheme.colorScheme.error
                             )
                         }
-                        if (isValidHex && !candidateSongColor.isRecommended) {
-                            Text(
-                                text = stringResource(R.string.custom_color_song_boundary_hint),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
                         contrastErrorRatio?.let { minRatio ->
                             Text(
                                 text = stringResource(R.string.custom_color_contrast_error, minRatio),
@@ -401,20 +377,17 @@ fun AppearanceSettingsContent(
                         }
                     }
                 },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            tryApplyColor(customHexInput)
-                        },
+                buttons = {
+                    SongDialogButton(
+                        text = stringResource(android.R.string.cancel),
+                        onClick = { colorPickerKey = null }
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    SongDialogButton(
+                        text = stringResource(android.R.string.ok),
+                        onClick = { tryApplyColor(normalizedCustomHex) },
                         enabled = isValidHex && candidateAudit?.isPass == true
-                    ) {
-                        Text(stringResource(android.R.string.ok))
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { colorPickerKey = null }) {
-                        Text(stringResource(android.R.string.cancel))
-                    }
+                    )
                 }
             )
         }
@@ -435,17 +408,14 @@ fun AppearanceSettingsContent(
             summary = stringResource(R.string.settings_section_font_summary, fontPresetTitle(fontPreset))
         ) {
             SettingsPressableRow(onClick = { showFontPresetDialog = true }) {
+                val description = fontPresetDescription(fontPreset)
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = stringResource(R.string.settings_font_picker_title),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    Text(
-                        text = fontPresetDescription(fontPreset),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    SettingsSupportText(text = description)
                 }
                 Text(
                     text = fontPresetTitle(fontPreset),
@@ -590,59 +560,42 @@ private fun FontPresetPickerDialog(
     onPresetSelected: (Int) -> Unit,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
+    SongFormDialog(
+        title = stringResource(R.string.settings_font_picker_title),
         onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(SongDesignTokens.StandardRadius.dp),
-        title = { Text(stringResource(R.string.settings_font_picker_title)) },
-        text = {
+        content = {
             Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 FontPresetValues.forEach { preset ->
                     val previewTypography = typographyForFontPreset(preset)
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onPresetSelected(preset) }
-                            .padding(vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(
-                            selected = selectedPreset == preset,
-                            onClick = { onPresetSelected(preset) }
-                        )
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(start = 8.dp)
-                        ) {
-                            Text(
-                                text = fontPresetTitle(preset),
-                                style = previewTypography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
+                    val description = fontPresetDescription(preset)
+                    SettingsRadioRow(
+                        label = fontPresetTitle(preset),
+                        selected = selectedPreset == preset,
+                        onClick = { onPresetSelected(preset) },
+                        labelStyle = previewTypography.titleMedium,
+                        supportingContent = {
                             Text(
                                 text = stringResource(R.string.settings_font_preview_text),
                                 style = previewTypography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(top = 2.dp)
                             )
-                            Text(
-                                text = fontPresetDescription(preset),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            SettingsSupportText(
+                                text = description,
                                 modifier = Modifier.padding(top = 2.dp)
                             )
                         }
-                    }
+                    )
                 }
             }
         },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(android.R.string.cancel))
-            }
+        buttons = {
+            SongDialogButton(
+                text = stringResource(android.R.string.cancel),
+                onClick = onDismiss
+            )
         }
     )
 }
@@ -676,6 +629,30 @@ private fun fontPresetDescription(preset: Int): String {
 }
 
 @Composable
+private fun SettingsSupportText(
+    text: String,
+    modifier: Modifier = Modifier
+) {
+    if (text.isBlank()) return
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier
+    )
+}
+
+@Composable
+private fun SettingsTrailingSupportText(text: String) {
+    if (text.isBlank()) return
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+}
+
+@Composable
 fun LegacyDisplaySettingsContent(
     modifier: Modifier = Modifier
 ) {
@@ -691,6 +668,7 @@ fun LegacyDisplaySettingsContent(
     val homeDensityMode by prefs.homeDensityModeFlow.collectAsState(initial = 1)
     val showMilestone by prefs.showMilestoneFlow.collectAsState(initial = true)
     val reduceMotionEnabled by prefs.reduceMotionEnabledFlow.collectAsState(initial = false)
+    val songSoundEnabled by prefs.songSoundEnabledFlow.collectAsState(initial = false)
     val milestoneRemindEnabled by prefs.milestoneRemindEnabledFlow.collectAsState(initial = false)
     val milestoneRemindDaysAhead by prefs.milestoneRemindDaysAheadFlow.collectAsState(initial = 7)
     val milestoneRemindTimeMinutesOfDay by prefs.milestoneRemindTimeMinutesOfDayFlow.collectAsState(initial = 480)
@@ -723,34 +701,16 @@ fun LegacyDisplaySettingsContent(
             LANG_ZH to stringResource(R.string.language_zh),
             LANG_EN to stringResource(R.string.language_en)
         ).forEach { (value, label) ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        scope.launch {
-                            prefs.setLanguageMode(value)
-                            withContext(Dispatchers.Main) { activity?.recreate() }
-                        }
+            SettingsRadioRow(
+                label = label,
+                selected = languageMode == value,
+                onClick = {
+                    scope.launch {
+                        prefs.setLanguageMode(value)
+                        withContext(Dispatchers.Main) { activity?.recreate() }
                     }
-                    .padding(vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                RadioButton(
-                    selected = languageMode == value,
-                    onClick = {
-                        scope.launch {
-                            prefs.setLanguageMode(value)
-                            withContext(Dispatchers.Main) { activity?.recreate() }
-                        }
-                    }
-                )
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(start = 8.dp),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
+                }
+            )
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
         }
 
@@ -768,7 +728,7 @@ fun LegacyDisplaySettingsContent(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = stringResource(R.string.settings_show_hours_summary),
+                text = stringResource(R.string.settings_show_hours),
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.weight(1f),
                 color = MaterialTheme.colorScheme.onSurface
@@ -793,15 +753,33 @@ fun LegacyDisplaySettingsContent(
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Text(
-                    text = stringResource(R.string.settings_reduce_motion_summary),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                SettingsSupportText(text = stringResource(R.string.settings_reduce_motion_summary))
             }
             ClassicalToggle(
                 checked = reduceMotionEnabled,
                 onCheckedChange = { scope.launch { prefs.setReduceMotionEnabled(it) } }
+            )
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.settings_song_sound_title),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                SettingsSupportText(text = stringResource(R.string.settings_song_sound_summary))
+            }
+            ClassicalToggle(
+                checked = songSoundEnabled,
+                onCheckedChange = { scope.launch { prefs.setSongSoundEnabled(it) } }
             )
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
@@ -812,54 +790,18 @@ fun LegacyDisplaySettingsContent(
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(top = 12.dp, bottom = 8.dp)
         )
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { scope.launch { prefs.setHomeDensityMode(0) } }
-                .padding(vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            RadioButton(
-                selected = homeDensityMode == 0,
-                onClick = { scope.launch { prefs.setHomeDensityMode(0) } }
-            )
-            Text(
-                text = stringResource(R.string.home_density_compact),
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(start = 8.dp),
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(modifier = Modifier.weight(1f))
-            Text(
-                text = stringResource(R.string.home_density_compact_summary),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { scope.launch { prefs.setHomeDensityMode(1) } }
-                .padding(vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            RadioButton(
-                selected = homeDensityMode == 1,
-                onClick = { scope.launch { prefs.setHomeDensityMode(1) } }
-            )
-            Text(
-                text = stringResource(R.string.home_density_detailed),
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(start = 8.dp),
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(modifier = Modifier.weight(1f))
-            Text(
-                text = stringResource(R.string.home_density_detailed_summary),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+        SettingsRadioRow(
+            label = stringResource(R.string.home_density_compact),
+            selected = homeDensityMode == 0,
+            onClick = { scope.launch { prefs.setHomeDensityMode(0) } },
+            supportingText = stringResource(R.string.home_density_compact_summary)
+        )
+        SettingsRadioRow(
+            label = stringResource(R.string.home_density_detailed),
+            selected = homeDensityMode == 1,
+            onClick = { scope.launch { prefs.setHomeDensityMode(1) } },
+            supportingText = stringResource(R.string.home_density_detailed_summary)
+        )
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
 
         Row(
@@ -875,11 +817,7 @@ fun LegacyDisplaySettingsContent(
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Text(
-                    text = stringResource(R.string.settings_smart_milestones_summary),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                SettingsSupportText(text = stringResource(R.string.settings_smart_milestones_summary))
             }
             ClassicalToggle(
                 checked = smartMilestonesEnabled,
@@ -901,7 +839,7 @@ fun LegacyDisplaySettingsContent(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = stringResource(R.string.settings_show_milestone_summary),
+                text = stringResource(R.string.settings_show_milestone),
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.weight(1f),
                 color = MaterialTheme.colorScheme.onSurface
@@ -926,11 +864,7 @@ fun LegacyDisplaySettingsContent(
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Text(
-                    text = stringResource(R.string.settings_milestone_remind_summary),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                SettingsSupportText(text = stringResource(R.string.settings_milestone_remind_summary))
             }
             ClassicalToggle(
                 checked = milestoneRemindEnabled,
@@ -1138,13 +1072,13 @@ fun LegacyDisplaySettingsContent(
                                 rescheduleMilestoneReminders(app)
                             }
                         },
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(40.dp)
                     ) {
-                        Icon(
-                            Icons.Default.Close,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        SongLineIcon(
+                            kind = SongLineIconKind.Delete,
+                            contentDescription = stringResource(R.string.cd_delete_custom_milestone, days),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            size = 16.dp
                         )
                     }
                 }
@@ -1169,42 +1103,16 @@ fun LegacyDisplaySettingsContent(
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(top = 12.dp, bottom = 8.dp)
         )
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { scope.launch { prefs.setDateFormatMode(0) } }
-                .padding(vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            RadioButton(
-                selected = dateFormatMode == 0,
-                onClick = { scope.launch { prefs.setDateFormatMode(0) } }
-            )
-            Text(
-                text = stringResource(R.string.date_format_dot),
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(start = 8.dp),
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { scope.launch { prefs.setDateFormatMode(1) } }
-                .padding(vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            RadioButton(
-                selected = dateFormatMode == 1,
-                onClick = { scope.launch { prefs.setDateFormatMode(1) } }
-            )
-            Text(
-                text = stringResource(R.string.date_format_dash),
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(start = 8.dp),
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
+        SettingsRadioRow(
+            label = stringResource(R.string.date_format_dot),
+            selected = dateFormatMode == 0,
+            onClick = { scope.launch { prefs.setDateFormatMode(0) } }
+        )
+        SettingsRadioRow(
+            label = stringResource(R.string.date_format_dash),
+            selected = dateFormatMode == 1,
+            onClick = { scope.launch { prefs.setDateFormatMode(1) } }
+        )
     }
 }
 
@@ -1223,6 +1131,7 @@ fun DisplaySettingsContent(
     val showHours by prefs.showHoursFlow.collectAsState(initial = true)
     val homeDensityMode by prefs.homeDensityModeFlow.collectAsState(initial = 1)
     val reduceMotionEnabled by prefs.reduceMotionEnabledFlow.collectAsState(initial = false)
+    val songSoundEnabled by prefs.songSoundEnabledFlow.collectAsState(initial = false)
     val dateFormatMode by prefs.dateFormatModeFlow.collectAsState(initial = 0)
 
     Column(
@@ -1231,32 +1140,17 @@ fun DisplaySettingsContent(
             .verticalScroll(rememberScrollState())
             .padding(24.dp)
     ) {
-        SettingsGroupHeader(title = stringResource(R.string.settings_category_display_title))
-
-        Text(
-            text = stringResource(R.string.language_title),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(top = 8.dp, bottom = 8.dp)
-        )
-
-        listOf(
-            LANG_ZH to stringResource(R.string.language_zh),
-            LANG_EN to stringResource(R.string.language_en)
-        ).forEach { (value, label) ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        scope.launch {
-                            prefs.setLanguageMode(value)
-                            withContext(Dispatchers.Main) { activity?.recreate() }
-                        }
-                    }
-                    .padding(vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                RadioButton(
+        SettingsExpandableSection(
+            title = stringResource(R.string.settings_display_section_language_title),
+            summary = stringResource(R.string.settings_display_section_language_summary),
+            initiallyExpanded = true
+        ) {
+            listOf(
+                LANG_ZH to stringResource(R.string.language_zh),
+                LANG_EN to stringResource(R.string.language_en)
+            ).forEach { (value, label) ->
+                SettingsRadioRow(
+                    label = label,
                     selected = languageMode == value,
                     onClick = {
                         scope.launch {
@@ -1265,125 +1159,152 @@ fun DisplaySettingsContent(
                         }
                     }
                 )
+            }
+        }
+
+        SettingsExpandableSection(
+            title = stringResource(R.string.settings_display_section_home_title),
+            summary = stringResource(R.string.settings_display_section_home_summary)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
-                    text = label,
+                    text = stringResource(R.string.settings_show_hours),
                     style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(start = 8.dp),
+                    modifier = Modifier.weight(1f),
                     color = MaterialTheme.colorScheme.onSurface
+                )
+                ClassicalToggle(
+                    checked = showHours,
+                    onCheckedChange = { scope.launch { prefs.setShowHours(it) } }
                 )
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
-        }
 
-        SettingsGroupHeader(
-            title = stringResource(R.string.home_density_title),
-            modifier = Modifier.padding(top = 20.dp)
-        )
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = stringResource(R.string.settings_show_hours_summary),
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.weight(1f),
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            ClassicalToggle(
-                checked = showHours,
-                onCheckedChange = { scope.launch { prefs.setShowHours(it) } }
-            )
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.settings_reduce_motion_title),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = stringResource(R.string.settings_reduce_motion_summary),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            ClassicalToggle(
-                checked = reduceMotionEnabled,
-                onCheckedChange = { scope.launch { prefs.setReduceMotionEnabled(it) } }
-            )
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
-
-        listOf(
-            Triple(0, R.string.home_density_compact, R.string.home_density_compact_summary),
-            Triple(1, R.string.home_density_detailed, R.string.home_density_detailed_summary)
-        ).forEach { (value, titleRes, summaryRes) ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { scope.launch { prefs.setHomeDensityMode(value) } }
-                    .padding(vertical = 9.dp),
+                    .padding(vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                RadioButton(
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.settings_reduce_motion_title),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    SettingsSupportText(text = stringResource(R.string.settings_reduce_motion_summary))
+                }
+                ClassicalToggle(
+                    checked = reduceMotionEnabled,
+                    onCheckedChange = { scope.launch { prefs.setReduceMotionEnabled(it) } }
+                )
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.settings_song_sound_title),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    SettingsSupportText(text = stringResource(R.string.settings_song_sound_summary))
+                }
+                ClassicalToggle(
+                    checked = songSoundEnabled,
+                    onCheckedChange = { scope.launch { prefs.setSongSoundEnabled(it) } }
+                )
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
+
+            listOf(
+                Triple(0, R.string.home_density_compact, R.string.home_density_compact_summary),
+                Triple(1, R.string.home_density_detailed, R.string.home_density_detailed_summary)
+            ).forEach { (value, titleRes, summaryRes) ->
+                SettingsRadioRow(
+                    label = stringResource(titleRes),
                     selected = homeDensityMode == value,
-                    onClick = { scope.launch { prefs.setHomeDensityMode(value) } }
-                )
-                Text(
-                    text = stringResource(titleRes),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(start = 8.dp),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.weight(1f))
-                Text(
-                    text = stringResource(summaryRes),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    onClick = { scope.launch { prefs.setHomeDensityMode(value) } },
+                    supportingText = stringResource(summaryRes)
                 )
             }
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
 
-        SettingsGroupHeader(
-            title = stringResource(R.string.date_format_title),
-            modifier = Modifier.padding(top = 20.dp)
-        )
-
-        listOf(
-            0 to R.string.date_format_dot,
-            1 to R.string.date_format_dash
-        ).forEach { (value, labelRes) ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { scope.launch { prefs.setDateFormatMode(value) } }
-                    .padding(vertical = 9.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                RadioButton(
+        SettingsExpandableSection(
+            title = stringResource(R.string.settings_display_section_date_title),
+            summary = stringResource(R.string.settings_display_section_date_summary)
+        ) {
+            listOf(
+                0 to R.string.date_format_dot,
+                1 to R.string.date_format_dash
+            ).forEach { (value, labelRes) ->
+                SettingsRadioRow(
+                    label = stringResource(labelRes),
                     selected = dateFormatMode == value,
                     onClick = { scope.launch { prefs.setDateFormatMode(value) } }
                 )
-                Text(
-                    text = stringResource(labelRes),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(start = 8.dp),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
             }
+        }
+    }
+}
+
+@Composable
+private fun SettingsReminderTimePickerWheels(
+    hourOptions: List<Int>,
+    minuteOptions: List<Int>,
+    selectedHour: Int,
+    selectedMinute: Int,
+    onHourSelected: (Int) -> Unit,
+    onMinuteSelected: (Int) -> Unit,
+    onHourScrollStateChanged: (Boolean) -> Unit,
+    onMinuteScrollStateChanged: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.reminder_time_hour),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            SnapWheelPicker(
+                items = hourOptions,
+                selectedItem = selectedHour,
+                onItemSelected = onHourSelected,
+                onScrollStateChanged = onHourScrollStateChanged,
+                modifier = Modifier.fillMaxWidth(),
+                itemLabel = { value -> String.format(Locale.US, "%02d", value) }
+            )
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.reminder_time_minute),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            SnapWheelPicker(
+                items = minuteOptions,
+                selectedItem = selectedMinute,
+                onItemSelected = onMinuteSelected,
+                onScrollStateChanged = onMinuteScrollStateChanged,
+                modifier = Modifier.fillMaxWidth(),
+                itemLabel = { value -> String.format(Locale.US, "%02d", value) }
+            )
         }
     }
 }
@@ -1417,9 +1338,13 @@ fun MilestoneSettingsContent(
     val scheduleUseRRuleSync by prefs.scheduleUseRRuleSyncFlow.collectAsState(initial = true)
 
     var newMilestoneInput by remember { mutableStateOf("") }
-    val remindDayOptions = remember { (0..3650).toList() }
+    val leadTimePresets = remember { listOf(0, 1, 3, 7, 30) }
+    var defaultReminderCustomDaysInput by rememberSaveable { mutableStateOf("") }
+    var milestoneReminderCustomDaysInput by rememberSaveable { mutableStateOf("") }
     val remindHourOptions = remember { (0..23).toList() }
     val remindMinuteOptions = remember { (0..59).toList() }
+    var showDefaultEventReminderTimePicker by rememberSaveable { mutableStateOf(false) }
+    var showMilestoneReminderTimePicker by rememberSaveable { mutableStateOf(false) }
 
     var writableCalendars by remember { mutableStateOf<List<ScheduleSyncManager.CalendarOption>>(emptyList()) }
     var latestScheduleSyncEvent by remember { mutableStateOf<Event?>(null) }
@@ -1508,6 +1433,81 @@ fun MilestoneSettingsContent(
         }
     }
 
+    if (showDefaultEventReminderTimePicker) {
+        var draftHour by remember(defaultEventRemindTimeMinutesOfDay) {
+            mutableStateOf((defaultEventRemindTimeMinutesOfDay / 60).coerceIn(0, 23))
+        }
+        var draftMinute by remember(defaultEventRemindTimeMinutesOfDay) {
+            mutableStateOf((defaultEventRemindTimeMinutesOfDay % 60).coerceIn(0, 59))
+        }
+        var isHourPickerScrolling by remember { mutableStateOf(false) }
+        var isMinutePickerScrolling by remember { mutableStateOf(false) }
+
+        SongWheelPickerDialog(
+            title = stringResource(R.string.settings_default_event_remind_time_title),
+            onDismissRequest = { showDefaultEventReminderTimePicker = false },
+            confirmEnabled = !isHourPickerScrolling && !isMinutePickerScrolling,
+            onConfirm = {
+                val updatedMinutes = draftHour * 60 + draftMinute
+                if (updatedMinutes != defaultEventRemindTimeMinutesOfDay) {
+                    scope.launch {
+                        prefs.setDefaultEventRemindTimeMinutesOfDay(updatedMinutes)
+                    }
+                }
+                showDefaultEventReminderTimePicker = false
+            }
+        ) {
+            SettingsReminderTimePickerWheels(
+                hourOptions = remindHourOptions,
+                minuteOptions = remindMinuteOptions,
+                selectedHour = draftHour,
+                selectedMinute = draftMinute,
+                onHourSelected = { draftHour = it },
+                onMinuteSelected = { draftMinute = it },
+                onHourScrollStateChanged = { isHourPickerScrolling = it },
+                onMinuteScrollStateChanged = { isMinutePickerScrolling = it }
+            )
+        }
+    }
+
+    if (showMilestoneReminderTimePicker) {
+        var draftHour by remember(milestoneRemindTimeMinutesOfDay) {
+            mutableStateOf((milestoneRemindTimeMinutesOfDay / 60).coerceIn(0, 23))
+        }
+        var draftMinute by remember(milestoneRemindTimeMinutesOfDay) {
+            mutableStateOf((milestoneRemindTimeMinutesOfDay % 60).coerceIn(0, 59))
+        }
+        var isHourPickerScrolling by remember { mutableStateOf(false) }
+        var isMinutePickerScrolling by remember { mutableStateOf(false) }
+
+        SongWheelPickerDialog(
+            title = stringResource(R.string.settings_milestone_remind_time_title),
+            onDismissRequest = { showMilestoneReminderTimePicker = false },
+            confirmEnabled = !isHourPickerScrolling && !isMinutePickerScrolling,
+            onConfirm = {
+                val updatedMinutes = draftHour * 60 + draftMinute
+                if (updatedMinutes != milestoneRemindTimeMinutesOfDay) {
+                    scope.launch {
+                        prefs.setMilestoneRemindTimeMinutesOfDay(updatedMinutes)
+                        RescheduleAllWorker.enqueue(context, "milestone_remind_time_changed")
+                    }
+                }
+                showMilestoneReminderTimePicker = false
+            }
+        ) {
+            SettingsReminderTimePickerWheels(
+                hourOptions = remindHourOptions,
+                minuteOptions = remindMinuteOptions,
+                selectedHour = draftHour,
+                selectedMinute = draftMinute,
+                onHourSelected = { draftHour = it },
+                onMinuteSelected = { draftMinute = it },
+                onHourScrollStateChanged = { isHourPickerScrolling = it },
+                onMinuteScrollStateChanged = { isMinutePickerScrolling = it }
+            )
+        }
+    }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -1535,11 +1535,7 @@ fun MilestoneSettingsContent(
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Text(
-                    text = stringResource(R.string.settings_default_event_remind_summary),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                SettingsSupportText(text = stringResource(R.string.settings_default_event_remind_summary))
             }
             ClassicalToggle(
                 checked = defaultEventRemindEnabled,
@@ -1551,12 +1547,7 @@ fun MilestoneSettingsContent(
             )
         }
         if (defaultEventRemindEnabled) {
-            val selectedDays = defaultEventRemindDaysBefore.coerceIn(
-                remindDayOptions.first(),
-                remindDayOptions.last()
-            )
-            val selectedHour = (defaultEventRemindTimeMinutesOfDay / 60).coerceIn(0, 23)
-            val selectedMinute = (defaultEventRemindTimeMinutesOfDay % 60).coerceIn(0, 59)
+            val selectedDays = defaultEventRemindDaysBefore.coerceIn(0, 3650)
 
             Text(
                 text = stringResource(R.string.settings_default_event_remind_days_title),
@@ -1564,101 +1555,45 @@ fun MilestoneSettingsContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
             )
-            Text(
-                text = if (selectedDays == 0) {
-                    stringResource(R.string.remind_same_day)
-                } else {
-                    context.resources.getQuantityString(
-                        R.plurals.remind_days_before_format,
-                        selectedDays,
-                        selectedDays
-                    )
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            SnapWheelPicker(
-                items = remindDayOptions,
-                selectedItem = selectedDays,
-                onItemSelected = { days ->
+            ReminderLeadTimePresetRow(
+                selectedDays = selectedDays,
+                leadTimePresets = leadTimePresets,
+                onSelected = { days ->
                     if (days != defaultEventRemindDaysBefore) {
                         scope.launch {
                             prefs.setDefaultEventRemindDaysBefore(days)
                         }
                     }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                itemLabel = { days ->
-                    if (days == 0) {
-                        context.getString(R.string.remind_same_day)
-                    } else {
-                        context.resources.getQuantityString(
-                            R.plurals.remind_days_before_format,
-                            days,
-                            days
-                        )
-                    }
+                    defaultReminderCustomDaysInput = ""
                 }
+            )
+            OutlinedTextField(
+                value = defaultReminderCustomDaysInput,
+                onValueChange = { raw ->
+                    val filtered = raw.filter { it.isDigit() }.take(4)
+                    defaultReminderCustomDaysInput = filtered
+                    filtered.toIntOrNull()?.coerceIn(0, 3650)?.let { days ->
+                        if (days != defaultEventRemindDaysBefore) {
+                            scope.launch {
+                                prefs.setDefaultEventRemindDaysBefore(days)
+                            }
+                        }
+                    }
+                },
+                placeholder = { Text(stringResource(R.string.settings_milestone_remind_days_custom_hint)) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 6.dp)
             )
 
-            Text(
-                text = stringResource(R.string.settings_default_event_remind_time_title),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+            SettingsValueRow(
+                label = stringResource(R.string.settings_default_event_remind_time_title),
+                value = formatMinutesOfDay(defaultEventRemindTimeMinutesOfDay),
+                onClick = { showDefaultEventReminderTimePicker = true },
+                modifier = Modifier.padding(top = 8.dp)
             )
-            Text(
-                text = formatMinutesOfDay(defaultEventRemindTimeMinutesOfDay),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.reminder_time_hour),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    SnapWheelPicker(
-                        items = remindHourOptions,
-                        selectedItem = selectedHour,
-                        onItemSelected = { hour ->
-                            val updatedMinutes = hour * 60 + selectedMinute
-                            if (updatedMinutes != defaultEventRemindTimeMinutesOfDay) {
-                                scope.launch {
-                                    prefs.setDefaultEventRemindTimeMinutesOfDay(updatedMinutes)
-                                }
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        itemLabel = { value -> String.format(Locale.US, "%02d", value) }
-                    )
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.reminder_time_minute),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    SnapWheelPicker(
-                        items = remindMinuteOptions,
-                        selectedItem = selectedMinute,
-                        onItemSelected = { minute ->
-                            val updatedMinutes = selectedHour * 60 + minute
-                            if (updatedMinutes != defaultEventRemindTimeMinutesOfDay) {
-                                scope.launch {
-                                    prefs.setDefaultEventRemindTimeMinutesOfDay(updatedMinutes)
-                                }
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        itemLabel = { value -> String.format(Locale.US, "%02d", value) }
-                    )
-                }
-            }
         }
         }
 
@@ -1679,11 +1614,7 @@ fun MilestoneSettingsContent(
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Text(
-                    text = stringResource(R.string.settings_show_milestone_summary),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                SettingsSupportText(text = stringResource(R.string.settings_show_milestone_summary))
             }
             ClassicalToggle(
                 checked = showMilestone,
@@ -1705,11 +1636,7 @@ fun MilestoneSettingsContent(
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Text(
-                    text = stringResource(R.string.settings_smart_milestones_summary),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                SettingsSupportText(text = stringResource(R.string.settings_smart_milestones_summary))
             }
             ClassicalToggle(
                 checked = smartMilestonesEnabled,
@@ -1740,11 +1667,7 @@ fun MilestoneSettingsContent(
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Text(
-                    text = stringResource(R.string.settings_milestone_remind_summary),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                SettingsSupportText(text = stringResource(R.string.settings_milestone_remind_summary))
             }
             ClassicalToggle(
                 checked = milestoneRemindEnabled,
@@ -1757,12 +1680,7 @@ fun MilestoneSettingsContent(
             )
         }
         if (milestoneRemindEnabled) {
-            val selectedDays = milestoneRemindDaysAhead.coerceIn(
-                remindDayOptions.first(),
-                remindDayOptions.last()
-            )
-            val selectedHour = (milestoneRemindTimeMinutesOfDay / 60).coerceIn(0, 23)
-            val selectedMinute = (milestoneRemindTimeMinutesOfDay % 60).coerceIn(0, 59)
+            val selectedDays = milestoneRemindDaysAhead.coerceIn(0, 3650)
 
             Text(
                 text = stringResource(R.string.settings_milestone_remind_days_title),
@@ -1770,104 +1688,47 @@ fun MilestoneSettingsContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
             )
-            Text(
-                text = if (selectedDays == 0) {
-                    stringResource(R.string.remind_same_day)
-                } else {
-                    context.resources.getQuantityString(
-                        R.plurals.remind_days_before_format,
-                        selectedDays,
-                        selectedDays
-                    )
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            SnapWheelPicker(
-                items = remindDayOptions,
-                selectedItem = selectedDays,
-                onItemSelected = { days ->
+            ReminderLeadTimePresetRow(
+                selectedDays = selectedDays,
+                leadTimePresets = leadTimePresets,
+                onSelected = { days ->
                     if (days != milestoneRemindDaysAhead) {
                         scope.launch {
                             prefs.setMilestoneRemindDaysAhead(days)
                             RescheduleAllWorker.enqueue(context, "milestone_remind_days_changed")
                         }
                     }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                itemLabel = { days ->
-                    if (days == 0) {
-                        context.getString(R.string.remind_same_day)
-                    } else {
-                        context.resources.getQuantityString(
-                            R.plurals.remind_days_before_format,
-                            days,
-                            days
-                        )
-                    }
+                    milestoneReminderCustomDaysInput = ""
                 }
+            )
+            OutlinedTextField(
+                value = milestoneReminderCustomDaysInput,
+                onValueChange = { raw ->
+                    val filtered = raw.filter { it.isDigit() }.take(4)
+                    milestoneReminderCustomDaysInput = filtered
+                    filtered.toIntOrNull()?.coerceIn(0, 3650)?.let { days ->
+                        if (days != milestoneRemindDaysAhead) {
+                            scope.launch {
+                                prefs.setMilestoneRemindDaysAhead(days)
+                                RescheduleAllWorker.enqueue(context, "milestone_remind_days_changed")
+                            }
+                        }
+                    }
+                },
+                placeholder = { Text(stringResource(R.string.settings_milestone_remind_days_custom_hint)) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 6.dp)
             )
 
-            Text(
-                text = stringResource(R.string.settings_milestone_remind_time_title),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+            SettingsValueRow(
+                label = stringResource(R.string.settings_milestone_remind_time_title),
+                value = formatMinutesOfDay(milestoneRemindTimeMinutesOfDay),
+                onClick = { showMilestoneReminderTimePicker = true },
+                modifier = Modifier.padding(top = 8.dp)
             )
-            Text(
-                text = formatMinutesOfDay(milestoneRemindTimeMinutesOfDay),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.reminder_time_hour),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    SnapWheelPicker(
-                        items = remindHourOptions,
-                        selectedItem = selectedHour,
-                        onItemSelected = { hour ->
-                            val updatedMinutes = hour * 60 + selectedMinute
-                            if (updatedMinutes != milestoneRemindTimeMinutesOfDay) {
-                                scope.launch {
-                                    prefs.setMilestoneRemindTimeMinutesOfDay(updatedMinutes)
-                                    RescheduleAllWorker.enqueue(context, "milestone_remind_time_changed")
-                                }
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        itemLabel = { value -> String.format(Locale.US, "%02d", value) }
-                    )
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.reminder_time_minute),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    SnapWheelPicker(
-                        items = remindMinuteOptions,
-                        selectedItem = selectedMinute,
-                        onItemSelected = { minute ->
-                            val updatedMinutes = selectedHour * 60 + minute
-                            if (updatedMinutes != milestoneRemindTimeMinutesOfDay) {
-                                scope.launch {
-                                    prefs.setMilestoneRemindTimeMinutesOfDay(updatedMinutes)
-                                    RescheduleAllWorker.enqueue(context, "milestone_remind_time_changed")
-                                }
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        itemLabel = { value -> String.format(Locale.US, "%02d", value) }
-                    )
-                }
-            }
         }
         }
 
@@ -1918,10 +1779,10 @@ fun MilestoneSettingsContent(
             modifier = Modifier.padding(top = 8.dp, bottom = 6.dp)
         )
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable {
+        SettingsRadioRow(
+            label = stringResource(R.string.settings_schedule_calendar_auto),
+            selected = scheduleTargetCalendarId == null,
+            onClick = {
                     if (!calendarPermissionGranted) {
                         requestCalendarPermissionAccess()
                     } else {
@@ -1931,29 +1792,7 @@ fun MilestoneSettingsContent(
                         }
                     }
                 }
-                .padding(vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            RadioButton(
-                selected = scheduleTargetCalendarId == null,
-                onClick = {
-                    if (!calendarPermissionGranted) {
-                        requestCalendarPermissionAccess()
-                    } else {
-                        scope.launch {
-                            prefs.setScheduleTargetCalendarId(null)
-                            RescheduleAllWorker.enqueue(context, "schedule_target_calendar_changed")
-                        }
-                    }
-                }
-            )
-            Text(
-                text = stringResource(R.string.settings_schedule_calendar_auto),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(start = 8.dp)
-            )
-        }
+        )
 
         if (!calendarPermissionGranted) {
             Text(
@@ -1977,10 +1816,10 @@ fun MilestoneSettingsContent(
             )
         } else {
             writableCalendars.forEach { calendar ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
+                SettingsRadioRow(
+                    label = calendar.label,
+                    selected = scheduleTargetCalendarId == calendar.id,
+                    onClick = {
                             if (!calendarPermissionGranted) {
                                 requestCalendarPermissionAccess()
                             } else {
@@ -1990,29 +1829,7 @@ fun MilestoneSettingsContent(
                                 }
                             }
                         }
-                        .padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    RadioButton(
-                        selected = scheduleTargetCalendarId == calendar.id,
-                        onClick = {
-                            if (!calendarPermissionGranted) {
-                                requestCalendarPermissionAccess()
-                            } else {
-                                scope.launch {
-                                    prefs.setScheduleTargetCalendarId(calendar.id)
-                                    RescheduleAllWorker.enqueue(context, "schedule_target_calendar_changed")
-                                }
-                            }
-                        }
-                    )
-                    Text(
-                        text = calendar.label,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(start = 8.dp)
-                    )
-                }
+                )
             }
         }
 
@@ -2029,11 +1846,7 @@ fun MilestoneSettingsContent(
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Text(
-                    text = stringResource(R.string.settings_schedule_rrule_summary),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                SettingsSupportText(text = stringResource(R.string.settings_schedule_rrule_summary))
             }
             ClassicalToggle(
                 checked = scheduleUseRRuleSync,
@@ -2173,13 +1986,13 @@ fun MilestoneSettingsContent(
                                 RescheduleAllWorker.enqueue(context, "custom_milestones_changed")
                             }
                         },
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(40.dp)
                     ) {
-                        Icon(
-                            Icons.Default.Close,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        SongLineIcon(
+                            kind = SongLineIconKind.Delete,
+                            contentDescription = stringResource(R.string.cd_delete_custom_milestone, days),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            size = 16.dp
                         )
                     }
                 }
@@ -2196,6 +2009,40 @@ fun MilestoneSettingsContent(
         ) {
             Text(stringResource(R.string.settings_custom_milestones_restore))
         }
+        }
+    }
+}
+
+@Composable
+private fun ReminderLeadTimePresetRow(
+    selectedDays: Int,
+    leadTimePresets: List<Int>,
+    onSelected: (Int) -> Unit
+) {
+    val context = LocalContext.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        leadTimePresets.forEach { days ->
+            val label = if (days == 0) {
+                stringResource(R.string.remind_same_day)
+            } else {
+                context.resources.getQuantityString(
+                    R.plurals.remind_days_before_format,
+                    days,
+                    days
+                )
+            }
+            SongFilterChip(
+                selected = selectedDays == days,
+                onClick = { onSelected(days) },
+                label = label
+            )
         }
     }
 }
@@ -2413,18 +2260,14 @@ fun DataSettingsContent(
     }
 
     if (showImportDialog) {
-        AlertDialog(
+        SongFormDialog(
+            title = stringResource(R.string.import_events),
             onDismissRequest = {
                 showImportDialog = false
                 importResultMessage = null
                 pendingImportPreview = null
             },
-            shape = RoundedCornerShape(4.dp),
-            containerColor = MaterialTheme.colorScheme.surface,
-            titleContentColor = MaterialTheme.colorScheme.onSurface,
-            textContentColor = MaterialTheme.colorScheme.onSurface,
-            title = { Text(stringResource(R.string.import_events)) },
-            text = {
+            content = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = importJsonText,
@@ -2492,8 +2335,24 @@ fun DataSettingsContent(
                     }
                 }
             },
-            confirmButton = {
-                TextButton(
+            buttons = {
+                SongDialogButton(
+                    text = stringResource(R.string.delete_confirm_cancel),
+                    onClick = {
+                        showImportDialog = false
+                        importResultMessage = null
+                        pendingImportPreview = null
+                    }
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                SongDialogButton(
+                    text = stringResource(
+                        if (pendingImportPreview == null) {
+                            R.string.import_preview_action
+                        } else {
+                            R.string.import_events
+                        }
+                    ),
                     enabled = pendingImportPreview?.importableEvents?.isNotEmpty()
                         ?: importJsonText.isNotBlank(),
                     onClick = {
@@ -2513,30 +2372,7 @@ fun DataSettingsContent(
                             }
                         }
                     }
-                ) {
-                    Text(
-                        text = stringResource(
-                            if (pendingImportPreview == null) {
-                                R.string.import_preview_action
-                            } else {
-                                R.string.import_events
-                            }
-                        ),
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    showImportDialog = false
-                    importResultMessage = null
-                    pendingImportPreview = null
-                }) {
-                    Text(
-                        stringResource(R.string.delete_confirm_cancel),
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                    )
-                }
+                )
             }
         )
     }
@@ -2549,7 +2385,8 @@ fun DataSettingsContent(
     ) {
         SettingsGroupHeader(title = stringResource(R.string.export_import))
 
-        SettingsPressableRow(
+        SettingsActionRow(
+            label = stringResource(R.string.export_events),
             onClick = {
                 scope.launch {
                     val events = repository.getAllEventsSnapshot()
@@ -2562,32 +2399,22 @@ fun DataSettingsContent(
                     )
                 }
             }
-        ) {
-            Text(
-                text = stringResource(R.string.export_events),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
+        )
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
 
-        SettingsPressableRow(
+        SettingsActionRow(
+            label = stringResource(R.string.export_events_file),
             onClick = {
                 scope.launch {
                     pendingExportText = repository.getAllEventsSnapshot().toJsonString()
                     saveJsonLauncher.launch("timeapk-events.json")
                 }
             }
-        ) {
-            Text(
-                text = stringResource(R.string.export_events_file),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
+        )
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
 
-        SettingsPressableRow(
+        SettingsActionRow(
+            label = stringResource(R.string.export_csv),
             onClick = {
                 scope.launch {
                     val events = repository.getAllEventsSnapshot()
@@ -2600,32 +2427,22 @@ fun DataSettingsContent(
                     )
                 }
             }
-        ) {
-            Text(
-                text = stringResource(R.string.export_csv),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
+        )
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
 
-        SettingsPressableRow(
+        SettingsActionRow(
+            label = stringResource(R.string.export_csv_file),
             onClick = {
                 scope.launch {
                     pendingExportText = repository.getAllEventsSnapshot().toCsvString()
                     saveCsvLauncher.launch("timeapk-events.csv")
                 }
             }
-        ) {
-            Text(
-                text = stringResource(R.string.export_csv_file),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
+        )
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
 
-        SettingsPressableRow(
+        SettingsActionRow(
+            label = stringResource(R.string.export_plain_text),
             onClick = {
                 scope.launch {
                     val events = repository.getAllEventsSnapshot()
@@ -2642,29 +2459,18 @@ fun DataSettingsContent(
                     )
                 }
             }
-        ) {
-            Text(
-                text = stringResource(R.string.export_plain_text),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
+        )
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
 
-        SettingsPressableRow(
+        SettingsActionRow(
+            label = stringResource(R.string.import_events),
             onClick = {
                 showImportDialog = true
                 importJsonText = ""
                 importResultMessage = null
                 pendingImportPreview = null
             }
-        ) {
-            Text(
-                text = stringResource(R.string.import_events),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
+        )
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
     }
 }
@@ -2684,16 +2490,11 @@ fun AboutSettingsContent(
     var updateCheckInProgress by remember { mutableStateOf(false) }
     var updateDownloading by remember { mutableStateOf(false) }
 
-    // Update Dialog
     updateResult?.takeIf { it.hasUpdate }?.let { result ->
-        AlertDialog(
+        SongFormDialog(
+            title = context.getString(R.string.update_new_title, result.versionName ?: ""),
             onDismissRequest = { updateResult = null },
-            shape = RoundedCornerShape(4.dp),
-            containerColor = MaterialTheme.colorScheme.surface,
-            titleContentColor = MaterialTheme.colorScheme.onSurface,
-            textContentColor = MaterialTheme.colorScheme.onSurface,
-            title = { Text(context.getString(R.string.update_new_title, result.versionName ?: "")) },
-            text = {
+            content = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     result.releaseNotes?.takeIf { it.isNotBlank() }?.let { notes ->
                         Text(
@@ -2709,43 +2510,41 @@ fun AboutSettingsContent(
                     }
                 }
             },
-            confirmButton = {
-                if (directApkUpdatesEnabled) {
-                    TextButton(
+            buttons = {
+                result.downloadUrl?.takeIf { directApkUpdatesEnabled }?.let { url ->
+                    SongDialogButton(
+                        text = context.getString(R.string.update_open_browser),
                         onClick = {
-                            val url = result.downloadUrl ?: return@TextButton
-                            updateDownloading = true
-                            scope.launch {
-                                val ok = UpdateInstaller.downloadAndInstall(context, url)
-                                updateDownloading = false
-                                updateResult = null
-                                if (!ok) {
-                                    snackbarHostState.showSnackbar(context.getString(R.string.update_download_failed))
+                            UpdateInstaller.openDownloadPageInBrowser(context, url)
+                            updateResult = null
+                        }
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                }
+                SongDialogButton(
+                    text = context.getString(R.string.update_later),
+                    onClick = { updateResult = null }
+                )
+                if (directApkUpdatesEnabled) {
+                    Spacer(modifier = Modifier.width(4.dp))
+                    SongDialogButton(
+                        text = if (updateDownloading) context.getString(R.string.update_downloading)
+                        else context.getString(R.string.update_download_install),
+                        onClick = {
+                            val url = result.downloadUrl
+                            if (url != null) {
+                                updateDownloading = true
+                                scope.launch {
+                                    val ok = UpdateInstaller.downloadAndInstall(context, url)
+                                    updateDownloading = false
+                                    updateResult = null
+                                    if (!ok) {
+                                        snackbarHostState.showSnackbar(context.getString(R.string.update_download_failed))
+                                    }
                                 }
                             }
                         }
-                    ) {
-                        Text(
-                            if (updateDownloading) context.getString(R.string.update_downloading)
-                            else context.getString(R.string.update_download_install),
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-            },
-            dismissButton = {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    result.downloadUrl?.takeIf { directApkUpdatesEnabled }?.let { url ->
-                        TextButton(onClick = {
-                            UpdateInstaller.openDownloadPageInBrowser(context, url)
-                            updateResult = null
-                        }) {
-                            Text(context.getString(R.string.update_open_browser), color = MaterialTheme.colorScheme.primary)
-                        }
-                    }
-                    TextButton(onClick = { updateResult = null }) {
-                        Text(context.getString(R.string.update_later), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
-                    }
+                    )
                 }
             }
         )
@@ -2773,53 +2572,46 @@ fun AboutSettingsContent(
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
         
-        SettingsPressableRow(
+        SettingsActionRow(
+            label = stringResource(R.string.settings_check_update),
+            supportingText = if (updateCheckInProgress) {
+                stringResource(R.string.settings_check_update_loading)
+            } else {
+                null
+            },
             onClick = {
-                if (updateCheckInProgress) return@SettingsPressableRow
-                updateResult = null
-                updateCheckInProgress = true
-                scope.launch {
-                    val result = try {
-                        app.updateChecker.checkUpdate()
-                    } catch (_: Exception) {
+                if (!updateCheckInProgress) {
+                    updateResult = null
+                    updateCheckInProgress = true
+                    scope.launch {
+                        val result = try {
+                            app.updateChecker.checkUpdate()
+                        } catch (_: Exception) {
+                            withContext(Dispatchers.Main) {
+                                updateCheckInProgress = false
+                                snackbarHostState.showSnackbar(context.getString(R.string.update_error), withDismissAction = true)
+                            }
+                            return@launch
+                        }
                         withContext(Dispatchers.Main) {
                             updateCheckInProgress = false
-                            snackbarHostState.showSnackbar(context.getString(R.string.update_error), withDismissAction = true)
-                        }
-                        return@launch
-                    }
-                    withContext(Dispatchers.Main) {
-                        updateCheckInProgress = false
-                        updateResult = result
-                        if (result.checkFailed) {
-                            snackbarHostState.showSnackbar(
-                                context.getString(R.string.update_error),
-                                withDismissAction = true
-                            )
-                        } else if (!result.hasUpdate) {
-                            snackbarHostState.showSnackbar(
-                                context.getString(R.string.update_latest),
-                                withDismissAction = true
-                            )
+                            updateResult = result
+                            if (result.checkFailed) {
+                                snackbarHostState.showSnackbar(
+                                    context.getString(R.string.update_error),
+                                    withDismissAction = true
+                                )
+                            } else if (!result.hasUpdate) {
+                                snackbarHostState.showSnackbar(
+                                    context.getString(R.string.update_latest),
+                                    withDismissAction = true
+                                )
+                            }
                         }
                     }
                 }
             }
-        ) {
-            Text(
-                text = stringResource(R.string.settings_check_update),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            if (updateCheckInProgress) {
-                Text(
-                    text = stringResource(R.string.settings_check_update_loading),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(start = 4.dp)
-                )
-            }
-        }
+        )
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
     }
 }

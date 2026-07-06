@@ -3,6 +3,8 @@ package com.example.timeapk.ui.event
 import com.example.timeapk.data.CATEGORY_ANNIVERSARY
 import com.example.timeapk.data.CATEGORY_BIRTHDAY
 import com.example.timeapk.data.CATEGORY_OTHER
+import com.example.timeapk.data.REPEAT_DAILY
+import com.example.timeapk.data.REPEAT_MONTHLY
 import com.example.timeapk.data.REPEAT_NONE
 import com.example.timeapk.data.REPEAT_YEARLY
 import org.junit.Assert.assertEquals
@@ -59,5 +61,31 @@ class EventTemplateModelsTest {
         assertEquals(EventEntryTemplateType.Anniversary, defaultTemplateForCategory(CATEGORY_ANNIVERSARY).type)
         assertEquals(EventEntryTemplateType.Countdown, defaultTemplateForCategory(CATEGORY_OTHER).type)
         assertEquals(EventEntryTemplateType.Countdown, defaultTemplateForCategory("unknown").type)
+    }
+
+    @Test
+    fun applyTemplateForCategory_updatesCategoryRepeatAndLunarRules() {
+        val base = EventDetails(
+            title = "keep title",
+            note = "keep note",
+            category = CATEGORY_OTHER,
+            repeatType = REPEAT_DAILY,
+            isLunar = true
+        )
+
+        val birthday = applyTemplateForCategory(base, CATEGORY_BIRTHDAY)
+        assertEquals(CATEGORY_BIRTHDAY, birthday.category)
+        assertEquals(REPEAT_YEARLY, birthday.repeatType)
+        assertTrue(birthday.isLunar)
+        assertEquals(base.title, birthday.title)
+        assertEquals(base.note, birthday.note)
+
+        val countdown = applyTemplateForCategory(
+            base.copy(category = CATEGORY_BIRTHDAY, repeatType = REPEAT_MONTHLY, isLunar = true),
+            CATEGORY_OTHER
+        )
+        assertEquals(CATEGORY_OTHER, countdown.category)
+        assertEquals(REPEAT_NONE, countdown.repeatType)
+        assertFalse(countdown.isLunar)
     }
 }

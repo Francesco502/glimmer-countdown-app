@@ -1,6 +1,7 @@
 package com.example.timeapk.ui.theme
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -21,13 +22,21 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -46,9 +55,90 @@ fun SongPaperSurface(
         shape = RoundedCornerShape(SongDesignTokens.StandardRadius.dp),
         color = backgroundColor,
         border = BorderStroke(SongDesignTokens.BorderWidth.dp, borderColor),
-        shadowElevation = 0.dp,
-        content = content
-    )
+        shadowElevation = 0.dp
+    ) {
+        Box {
+            SongPaperTextureOverlay(
+                modifier = Modifier.matchParentSize(),
+                paperTextureAlpha = 0.020f
+            )
+            content()
+        }
+    }
+}
+
+@Composable
+fun SongPaperTextureOverlay(
+    modifier: Modifier = Modifier,
+    paperTextureAlpha: Float = 0.016f,
+    lineColor: Color = MaterialTheme.colorScheme.onSurface.copy(alpha = paperTextureAlpha)
+) {
+    Canvas(modifier = modifier) {
+        val fiberAlpha = paperTextureAlpha.coerceIn(0f, 0.05f)
+        val horizontalStep = 20.dp.toPx()
+        var y = horizontalStep * 0.42f
+        var row = 0
+        while (y < size.height) {
+            val drift = ((row % 5) - 2) * 1.3.dp.toPx()
+            drawLine(
+                color = lineColor.copy(alpha = fiberAlpha * 0.72f),
+                start = Offset(0f, y + drift),
+                end = Offset(size.width, y - drift * 0.45f),
+                strokeWidth = 0.36.dp.toPx()
+            )
+            y += horizontalStep
+            row += 1
+        }
+        val verticalStep = 34.dp.toPx()
+        var x = verticalStep * 0.35f
+        var column = 0
+        while (x < size.width) {
+            val drift = ((column % 4) - 1.5f) * 1.1.dp.toPx()
+            drawLine(
+                color = lineColor.copy(alpha = fiberAlpha * 0.46f),
+                start = Offset(x + drift, 0f),
+                end = Offset(x - drift * 0.35f, size.height),
+                strokeWidth = 0.28.dp.toPx()
+            )
+            x += verticalStep
+            column += 1
+        }
+
+        val shortFiberColor = lineColor.copy(alpha = fiberAlpha * 0.82f)
+        val fiberCount = (size.width / 120.dp.toPx()).toInt().coerceAtLeast(4) +
+            (size.height / 180.dp.toPx()).toInt().coerceAtLeast(3)
+        repeat(fiberCount.coerceAtMost(28)) { index ->
+            val px = ((index * 37) % 100) / 100f * size.width
+            val py = ((index * 53 + 17) % 100) / 100f * size.height
+            val length = (8 + (index % 5) * 3).dp.toPx()
+            val slope = ((index % 7) - 3) * 0.9.dp.toPx()
+            drawLine(
+                color = shortFiberColor,
+                start = Offset(px, py),
+                end = Offset((px + length).coerceAtMost(size.width), (py + slope).coerceIn(0f, size.height)),
+                strokeWidth = 0.34.dp.toPx()
+            )
+        }
+
+        if (size.width > 96.dp.toPx() && size.height > 96.dp.toPx()) {
+            val crackColor = lineColor.copy(alpha = fiberAlpha * 0.58f)
+            val crackStroke = Stroke(width = 0.42.dp.toPx())
+            repeat(3) { index ->
+                val baseX = size.width * (0.22f + index * 0.24f)
+                val baseY = size.height * (0.18f + (index % 2) * 0.33f)
+                drawPath(
+                    Path().apply {
+                        moveTo(baseX, baseY)
+                        lineTo(baseX + 12.dp.toPx(), baseY + 9.dp.toPx())
+                        lineTo(baseX + 7.dp.toPx(), baseY + 24.dp.toPx())
+                        lineTo(baseX + 21.dp.toPx(), baseY + 36.dp.toPx())
+                    },
+                    color = crackColor,
+                    style = crackStroke
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -234,6 +324,92 @@ fun SongFilterChip(
             )
         }
     }
+}
+
+@Composable
+fun SongColorSwatch(
+    color: Color,
+    modifier: Modifier = Modifier,
+    selected: Boolean = false,
+    showBorder: Boolean = true,
+    contentDescription: String? = null,
+    onClick: (() -> Unit)? = null,
+    size: Dp = 36.dp
+) {
+    val shape = RoundedCornerShape(SongDesignTokens.StandardRadius.dp)
+    val borderColor = when {
+        selected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.62f)
+        showBorder -> MaterialTheme.colorScheme.outline.copy(alpha = SongDesignTokens.BorderAlphaStrong)
+        else -> Color.Transparent
+    }
+    Box(
+        modifier = modifier
+            .size(size)
+            .then(if (contentDescription != null) Modifier.semantics { this.contentDescription = contentDescription } else Modifier)
+            .background(color, shape)
+            .border(
+                BorderStroke(
+                    width = if (selected) 1.dp else SongDesignTokens.BorderWidth.dp,
+                    color = borderColor
+                ),
+                shape
+            )
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
+        contentAlignment = Alignment.Center
+    ) {
+        if (selected) {
+            SongLineIcon(
+                kind = SongLineIconKind.Seal,
+                contentDescription = null,
+                size = 16.dp,
+                tint = if (color.luminance() > 0.5f) {
+                    MaterialTheme.colorScheme.onBackground.copy(alpha = 0.68f)
+                } else {
+                    MaterialTheme.colorScheme.surface.copy(alpha = 0.86f)
+                }
+            )
+        }
+    }
+}
+
+@Composable
+fun SongHexColorField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+    isError: Boolean = false,
+    placeholder: String? = null,
+    previewColor: Color? = null
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        placeholder = placeholder?.let { placeholderText -> { Text(placeholderText) } },
+        prefix = { Text("#") },
+        isError = isError,
+        singleLine = true,
+        trailingIcon = previewColor?.let { color ->
+            {
+                SongColorSwatch(
+                    color = color,
+                    size = 24.dp,
+                    showBorder = true
+                )
+            }
+        },
+        shape = RoundedCornerShape(SongDesignTokens.StandardRadius.dp),
+        colors = TextFieldDefaults.colors(
+            focusedContainerColor = Color.Transparent,
+            unfocusedContainerColor = Color.Transparent,
+            disabledContainerColor = Color.Transparent,
+            focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+            unfocusedIndicatorColor = MaterialTheme.colorScheme.outline.copy(alpha = SongDesignTokens.BorderAlphaStrong),
+            disabledIndicatorColor = MaterialTheme.colorScheme.outline.copy(alpha = SongDesignTokens.BorderAlphaSoft)
+        ),
+        modifier = modifier
+    )
 }
 
 @Composable

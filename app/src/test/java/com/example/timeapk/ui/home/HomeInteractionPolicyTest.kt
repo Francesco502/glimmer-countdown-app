@@ -47,14 +47,70 @@ class HomeInteractionPolicyTest {
     }
 
     @Test
-    fun homeScreenRendersTimelineDigestAndMonthHighlights() {
+    fun homeScreenKeepsTimelineDigestInActionMenuAndRemovesMonthHighlights() {
         val source = readSource("ui/home/HomeScreen.kt")
 
-        assertTrue(source.contains("HomeTimelineDigestRow("))
-        assertTrue(source.contains("MonthHighlightsSection("))
+        assertTrue(source.contains("HomeOverflowActionMenu("))
+        assertFalse(source.contains("HomeTimelineDigestRow("))
+        assertFalse(source.contains("MonthHighlightsSection("))
         assertTrue(source.contains("buildHomeTimelineDigest("))
         assertTrue(source.contains("filterEventsForTimelineBucket("))
-        assertTrue(source.contains("monthHighlightsForOccurrences("))
+        assertFalse(source.contains("monthHighlightsForOccurrences("))
+    }
+
+    @Test
+    fun homeListItemUsesCompactWidgetStyle() {
+        val source = readSource("ui/home/HomeScreen.kt")
+        val listItemSource = source
+            .substringAfter("private fun EventListItem(")
+            .substringBefore("private fun CompactEventTime(")
+
+        assertTrue(source.contains("CompactEventTime"))
+        assertFalse(listItemSource.contains("val metaLine = buildList"))
+        assertFalse(listItemSource.contains("val supportLine = buildList"))
+        assertFalse(listItemSource.contains("dateLine = targetLocalDate.format(dateFormatter)"))
+    }
+
+    @Test
+    fun homeCardViewKeepsCategoryRepeatAndReminderOnOneAuxiliaryLine() {
+        val source = readSource("ui/home/HomeScreen.kt")
+        val cardSource = source
+            .substringAfter("fun EventCard(")
+            .substringBefore("private fun EventListItem(")
+
+        assertTrue(cardSource.contains("val cardAuxiliaryLine = buildList"))
+        assertTrue(cardSource.contains("eventState.event.category"))
+        assertTrue(cardSource.contains("eventState.event.repeatType"))
+        assertTrue(cardSource.contains("eventState.event.remindEnabled"))
+        assertTrue(cardSource.contains("R.string.field_remind"))
+        assertFalse(cardSource.contains("cardSupportLine"))
+    }
+
+    @Test
+    fun homeTimeToggleTargetsExposeAccessibleButtonSemantics() {
+        val source = readSource("ui/home/HomeScreen.kt")
+        val cardSource = source.substringAfter("fun EventCard(")
+            .substringBefore("private fun EventListItem(")
+        val compactTimeSource = source.substringAfter("private fun CompactEventTime(")
+            .substringBefore("@OptIn(ExperimentalFoundationApi::class)")
+
+        assertTrue(source.contains("R.string.cd_toggle_date_delta_display"))
+        assertTrue(cardSource.contains("role = Role.Button"))
+        assertTrue(cardSource.contains("contentDescription = toggleDateDeltaDescription"))
+        assertTrue(compactTimeSource.contains("role = Role.Button"))
+        assertTrue(compactTimeSource.contains("contentDescription = contentDescription"))
+    }
+
+    @Test
+    fun monthCalendarLetsSelectedEventListUseRemainingSpace() {
+        val source = readSource("ui/home/HomeScreen.kt")
+        val monthSource = source.substringAfter("private fun MonthCalendarView(")
+            .substringBefore("@OptIn(ExperimentalFoundationApi::class)\n@Composable\nprivate fun CalendarOccurrenceRow")
+
+        assertTrue(monthSource.contains("modifier = Modifier"))
+        assertTrue(monthSource.contains(".weight(1f"))
+        assertTrue(monthSource.contains(".heightIn(min = 48.dp, max = 72.dp"))
+        assertFalse(monthSource.contains(".height(60.dp)"))
     }
 
     private fun readSource(relative: String): String {
