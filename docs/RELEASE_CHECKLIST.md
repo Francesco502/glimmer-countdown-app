@@ -17,7 +17,7 @@
 - [x] Play AAB 已输出到 `app/build/outputs/bundle/playRelease/app-play-release.aab`
 - [x] Direct / Play APK 签名验证通过
 - [x] Direct APK 包含 `REQUEST_INSTALL_PACKAGES`，Play APK 不包含 `REQUEST_INSTALL_PACKAGES`
-- [ ] GitHub Release 资产只包含 Direct APK，不上传 Play APK / AAB
+- [x] GitHub Release 资产只包含 Direct APK，不上传 Play APK / AAB
 
 ## 二、发布前人工复核
 
@@ -55,13 +55,15 @@
 - 已执行：在 `sdk_gphone16k_arm64` 模拟器安装 `glimmer-countdown-3-16.apk`，系统版本 Android `17` / API `37`。
 - 已确认：安装包为 `versionName=3.16`、`versionCode=21`；首页、右上近期入口、设置页、新建事件日期 / 提醒区、权限弹窗、详情轻量主卡、分享预览、保存图片、系统分享面板、月历年月选择器均完成 smoke test。
 - 已确认：Direct APK 包含 `REQUEST_INSTALL_PACKAGES`，Play APK 不包含 `REQUEST_INSTALL_PACKAGES`；`adb logcat -b crash -d` 未发现崩溃输出。
+- GitHub Release：`https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v3.16`
+- Release 资产：仅包含 `glimmer-countdown-3-16.apk`，大小 `26368278` bytes，GitHub 返回 digest `sha256:38c387dbdb02a239530cc77902b88c1d22ea761e9f9c7a3fa5eb87f0102f1d33`。
 - 截图与 UI tree 暂存：`/tmp/timeapk-316-readiness/`。
 - 未覆盖：真机、完整深浅主题矩阵、完整字体矩阵、真实定时通知触发、真实可写日历账户同步、桌面实际添加小组件并切换全部模板、Play 渠道关于页、Direct 渠道 GitHub 更新下载链路。
 
 ## 四、发布动作
 
-- [ ] 提交并 push 当前分支到 GitHub
-- [ ] 创建或更新 `v3.16` 标签
-- [ ] 在 GitHub Release 中发布 `glimmer-countdown-3-16.apk`
-- [ ] 以 `CHANGELOG.md` 中的 `3.16` 小节作为 Release Notes
-- [ ] 确认 GitHub Release 页面标题、标签、说明和资产均对应 `v3.16`
+- [x] 提交并 push 当前分支到 GitHub
+- [x] 创建或更新 `v3.16` 标签
+- [x] 在 GitHub Release 中发布 `glimmer-countdown-3-16.apk`
+- [x] 以 `CHANGELOG.md` 中的 `3.16` 小节作为 Release Notes
+- [x] 确认 GitHub Release 页面标题、标签、说明和资产均对应 `v3.16`
