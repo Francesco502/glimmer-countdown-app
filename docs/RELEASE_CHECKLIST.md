@@ -17,7 +17,7 @@
 - [x] Play AAB 已输出到 `app/build/outputs/bundle/playRelease/app-play-release.aab`
 - [x] Direct / Play APK 签名验证通过
 - [x] Direct APK 包含 `REQUEST_INSTALL_PACKAGES`，Play APK 不包含 `REQUEST_INSTALL_PACKAGES`
-- [ ] GitHub Release 资产只包含 Direct APK，不上传 Play APK / AAB
+- [x] GitHub Release 资产只包含 Direct APK，不上传 Play APK / AAB
 
 ## 二、发布前人工复核
 
@@ -53,7 +53,7 @@
 - [ ] 启动页包含“拾光”品牌字标，动画不过长，普通图标与 Android themed icon 均可识别
 - [ ] 通知深链在 Home、设置页、编辑页状态下都能回到 Home 并展示对应详情
 - [ ] Play 渠道关于页不出现直接 APK 下载 / 安装入口
-- [ ] Direct 渠道关于页检查更新仍可读取 GitHub Release
+- [x] Direct 渠道关于页检查更新仍可读取 GitHub Release，当前版本返回“已是最新版本”
 
 ## 三、3.17 实测记录
 
@@ -64,15 +64,16 @@
 - 已执行：`aapt dump badging` 确认 Direct APK 为 `com.example.timeapk` / `versionCode=22` / `versionName=3.17`。
 - 已执行：`aapt dump permissions` 确认 Direct APK 包含 `REQUEST_INSTALL_PACKAGES`，Play APK 不包含该权限。
 - 已执行：安装 `glimmer-countdown-3-17.apk` 到模拟器后 smoke test：首页启动、设置入口、小组件设置、默认配置摘要、预览宽高文案、选项单选语义、新建标题输入、通知 / 日历权限请求、无可写系统日历提示、保存回首页。
-- GitHub Release：待发布 `https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v3.17`
-- Release 资产：待上传 `glimmer-countdown-3-17.apk`。
+- 已执行：Direct 渠道关于页“探寻新章”读取 GitHub Release 成功，当前 `3.17` 返回“已是最新版本”。
+- GitHub Release：`https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v3.17`
+- Release 资产：仅包含 `glimmer-countdown-3-17.apk`，大小 `26370758` bytes，GitHub 返回 digest `sha256:3319513689f7178306d593c90dd6ce16bb50533d495c0fbab9e2f755ec589c5c`。
 - 截图与 UI tree 暂存：`/tmp/timeapk-release-home.png`、`/tmp/timeapk-release-widget-settings.png`、`/tmp/timeapk-release-widget-expanded.xml`。
-- 未覆盖：真机、完整深浅主题矩阵、完整字体矩阵、真实定时通知触发、真实可写日历账户同步、桌面实际添加小组件并切换全部 1-5 格组合、Play 渠道关于页、Direct 渠道 GitHub 更新下载链路。
+- 未覆盖：真机、完整深浅主题矩阵、完整字体矩阵、真实定时通知触发、真实可写日历账户同步、桌面实际添加小组件并切换全部 1-5 格组合、Play 渠道关于页。
 
 ## 四、发布动作
 
-- [ ] 提交并 push 当前分支到 GitHub
-- [ ] 创建或更新 `v3.17` 标签
-- [ ] 在 GitHub Release 中发布 `glimmer-countdown-3-17.apk`
-- [ ] 以 `CHANGELOG.md` 中的 `3.17` 小节作为 Release Notes
-- [ ] 确认 GitHub Release 页面标题、标签、说明和资产均对应 `v3.17`
+- [x] 提交并 push 当前分支到 GitHub
+- [x] 创建或更新 `v3.17` 标签
+- [x] 在 GitHub Release 中发布 `glimmer-countdown-3-17.apk`
+- [x] 以 `CHANGELOG.md` 中的 `3.17` 小节作为 Release Notes
+- [x] 确认 GitHub Release 页面标题、标签、说明和资产均对应 `v3.17`
