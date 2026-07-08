@@ -69,9 +69,6 @@ import com.example.timeapk.ui.theme.FONT_PRESET_SYSTEM_SERIF
 import com.example.timeapk.ui.theme.FONT_PRESET_ZCOOL_XIAOWEI
 import com.example.timeapk.ui.theme.FontPresetValues
 import com.example.timeapk.ui.theme.SongColorBoundary
-import com.example.timeapk.widget.CountdownAppWidgetProvider
-import com.example.timeapk.widget.WidgetConfig
-import com.example.timeapk.widget.WidgetConfigRepository
 import com.example.timeapk.widget.WidgetUpdater
 import com.example.timeapk.update.CheckUpdateResult
 import com.example.timeapk.update.UpdateInstaller
@@ -149,9 +146,8 @@ fun AppearanceSettingsContent(
     val app = context.applicationContext as? TimeApplication
     if (app == null) return
     val prefs = app.userPrefs
-    val widgetConfigRepository = remember(app) { WidgetConfigRepository(app) }
     val scope = rememberCoroutineScope()
-    fun launchWidgetSettingsUpdate(update: suspend () -> Unit) {
+    fun launchAppearanceUpdate(update: suspend () -> Unit) {
         app.launchAppTask {
             update()
             WidgetUpdater.refreshCountdownWidgets(app)
@@ -165,20 +161,12 @@ fun AppearanceSettingsContent(
     val customOnBackgroundHex by prefs.customOnBackgroundHexFlow.collectAsState(initial = null)
     val fontPreset by prefs.fontPresetFlow.collectAsState(initial = 4)
     val appBaseFontScale by prefs.appBaseFontScaleFlow.collectAsState(initial = 1f)
-    val widgetFontScale by prefs.widgetFontScaleFlow.collectAsState(initial = 1f)
-    val defaultWidgetConfig by widgetConfigRepository.defaultConfigFlow.collectAsState(initial = WidgetConfig.default())
-    val widgetInstanceConfigs by widgetConfigRepository.instanceConfigsFlow.collectAsState(initial = emptyMap())
     var appBaseFontScaleDraft by remember(appBaseFontScale) { mutableStateOf(appBaseFontScale) }
-    var widgetFontScaleDraft by remember(widgetFontScale) { mutableStateOf(widgetFontScale) }
-    var editingWidgetId by remember { mutableStateOf<Int?>(null) }
     var colorPickerKey by remember { mutableStateOf<String?>(null) }
     var showFontPresetDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(appBaseFontScale) {
         appBaseFontScaleDraft = appBaseFontScale
-    }
-    LaunchedEffect(widgetFontScale) {
-        widgetFontScaleDraft = widgetFontScale
     }
 
     Column(
@@ -225,9 +213,9 @@ fun AppearanceSettingsContent(
                     label = label,
                     selected = themeMode == value,
                     onClick = {
-                            launchWidgetSettingsUpdate {
-                                prefs.setThemeMode(value)
-                            }
+                        launchAppearanceUpdate {
+                            prefs.setThemeMode(value)
+                        }
                     }
                 )
             }
@@ -427,11 +415,7 @@ fun AppearanceSettingsContent(
 
         SettingsExpandableSection(
             title = stringResource(R.string.settings_typography_scale_title),
-            summary = stringResource(
-                R.string.settings_typography_scale_summary,
-                (appBaseFontScaleDraft * 100).roundToInt(),
-                (widgetFontScaleDraft * 100).roundToInt()
-            )
+            summary = stringResource(R.string.settings_font_scale_summary, (appBaseFontScaleDraft * 100).roundToInt())
         ) {
             Text(
                 text = stringResource(R.string.settings_app_font_scale_title),
@@ -466,90 +450,6 @@ fun AppearanceSettingsContent(
             ) {
                 Text(stringResource(R.string.settings_font_scale_reset))
             }
-
-            Text(
-                text = stringResource(R.string.settings_widget_font_scale_title),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(top = 12.dp)
-            )
-            Text(
-                text = stringResource(R.string.settings_font_scale_summary, (widgetFontScaleDraft * 100).roundToInt()),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 2.dp)
-            )
-            Slider(
-                value = widgetFontScaleDraft,
-                onValueChange = {
-                    widgetFontScaleDraft = it.coerceIn(
-                        SongDesignTokens.WidgetFontScaleMin,
-                        SongDesignTokens.WidgetFontScaleMax
-                    )
-                },
-                valueRange = SongDesignTokens.WidgetFontScaleMin..SongDesignTokens.WidgetFontScaleMax,
-                onValueChangeFinished = {
-                    launchWidgetSettingsUpdate {
-                        prefs.setWidgetFontScale(widgetFontScaleDraft)
-                    }
-                },
-                modifier = Modifier.padding(top = 4.dp)
-            )
-            TextButton(
-                onClick = {
-                    widgetFontScaleDraft = 1f
-                    launchWidgetSettingsUpdate {
-                        prefs.setWidgetFontScale(1f)
-                    }
-                }
-            ) {
-                Text(stringResource(R.string.settings_font_scale_reset))
-            }
-        }
-
-        SettingsExpandableSection(
-            title = stringResource(R.string.widget_config_defaults_title),
-            summary = stringResource(R.string.widget_config_defaults_summary)
-        ) {
-            WidgetConfigEditor(
-                config = defaultWidgetConfig,
-                onConfigChange = { next ->
-                    app.launchAppTask {
-                        widgetConfigRepository.setDefaultConfig(next)
-                    }
-                },
-                showDefaultActions = true,
-                onApplyToAllWidgets = {
-                    launchWidgetSettingsUpdate {
-                        val ids = CountdownAppWidgetProvider.getAppWidgetIds(app)
-                        widgetConfigRepository.setAllInstanceConfigs(
-                            ids.associateWith { defaultWidgetConfig }
-                        )
-                    }
-                },
-                modifier = Modifier.padding(top = 4.dp)
-            )
-            WidgetInstanceManager(
-                appWidgetIds = CountdownAppWidgetProvider.getAppWidgetIds(app).toList(),
-                instanceConfigs = widgetInstanceConfigs,
-                defaultConfig = defaultWidgetConfig,
-                editingWidgetId = editingWidgetId,
-                onEditWidget = { editingWidgetId = it },
-                onConfigChange = { appWidgetId, next ->
-                    launchWidgetSettingsUpdate {
-                        widgetConfigRepository.setConfigForWidget(appWidgetId, next)
-                    }
-                },
-                onResetWidget = { appWidgetId ->
-                    launchWidgetSettingsUpdate {
-                        widgetConfigRepository.removeConfigForWidget(appWidgetId)
-                    }
-                    if (editingWidgetId == appWidgetId) {
-                        editingWidgetId = null
-                    }
-                },
-                modifier = Modifier.padding(top = 12.dp)
-            )
         }
     }
 }

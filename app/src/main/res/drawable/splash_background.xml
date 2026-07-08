@@ -11,11 +11,11 @@
         </shape>
     </item>
 
-    <!-- 居中 logo -->
+    <!-- 居中标识，与应用内过渡页保持一致 -->
     <item
         android:width="88dp"
         android:height="88dp"
         android:gravity="center"
-        android:drawable="@drawable/ic_launcher" />
+        android:drawable="@drawable/ic_launcher_foreground" />
 
 </layer-list>

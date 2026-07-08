@@ -147,6 +147,38 @@ class StringResourceSanityTest {
     }
 
     @Test
+    fun scheduleCalendarWarningClarifiesMissingDeviceCalendar() {
+        val defaultText = readResourceText("values/strings.xml")
+        val zhText = readResourceText("values-zh/strings.xml")
+        val enText = readResourceText("values-en/strings.xml")
+
+        listOf(defaultText, zhText).forEach { xml ->
+            assertTrue(xml.contains("<string name=\"settings_schedule_calendar_no_writable\">手机系统日历里暂无可写日历；先在系统日历中添加账户或日历。</string>"))
+            assertTrue(xml.contains("<string name=\"save_event_partial_warning_no_writable_calendar\">已落笔；手机系统日历里暂无可写日历，未入系统日程。</string>"))
+            assertTrue(xml.contains("<string name=\"reminder_status_no_writable_calendar\">手机系统日历里暂无可写日历</string>"))
+        }
+        assertTrue(enText.contains("<string name=\"settings_schedule_calendar_no_writable\">No writable device calendar is available. Add an account or calendar in the system Calendar app.</string>"))
+        assertTrue(enText.contains("<string name=\"save_event_partial_warning_no_writable_calendar\">Committed; no writable device calendar, so sync paused.</string>"))
+        assertTrue(enText.contains("<string name=\"reminder_status_no_writable_calendar\">No writable device calendar; app reminder is still available</string>"))
+    }
+
+    @Test
+    fun widgetSizeCopyClarifiesPreviewNotLauncherResize() {
+        val defaultText = readResourceText("values/strings.xml")
+        val zhText = readResourceText("values-zh/strings.xml")
+        val enText = readResourceText("values-en/strings.xml")
+
+        listOf(defaultText, zhText).forEach { xml ->
+            assertTrue(xml.contains("<string name=\"widget_config_width_cells\">预览宽度</string>"))
+            assertTrue(xml.contains("<string name=\"widget_config_height_cells\">预览高度</string>"))
+            assertFalse(xml.contains("<string name=\"widget_config_width_cells\">宽度</string>"))
+            assertFalse(xml.contains("<string name=\"widget_config_height_cells\">高度</string>"))
+        }
+        assertTrue(enText.contains("<string name=\"widget_config_width_cells\">Preview width</string>"))
+        assertTrue(enText.contains("<string name=\"widget_config_height_cells\">Preview height</string>"))
+    }
+
+    @Test
     fun detailShareResourcesAndProviderPathAreReadyForImageSharing() {
         val requiredStrings = listOf(
             "button_share",

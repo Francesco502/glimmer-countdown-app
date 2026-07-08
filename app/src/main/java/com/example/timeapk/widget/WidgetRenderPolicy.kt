@@ -18,6 +18,9 @@ internal object WidgetRenderPolicy {
     private const val InkText = 0xFF1F1F1F.toInt()
     private const val InkSecondary = 0xFF6A6256.toInt()
     private const val SealAccent = 0xFFAF4E31.toInt()
+    private const val NativeGlassText = 0xFF202124.toInt()
+    private const val NativeGlassSecondary = 0xCC202124.toInt()
+    private const val NativeGlassAccent = 0xFFB45A4E.toInt()
     private const val PaperText = 0xFFFFFBF5.toInt()
     private const val PaperSecondary = 0xFFEEDFD2.toInt()
     private const val GoldAccent = 0xFFF6D9A6.toInt()
@@ -106,6 +109,11 @@ internal object WidgetRenderPolicy {
                 secondary = PaperSecondary,
                 accent = GoldAccent
             )
+            isMilkyGlassSurface(config) && config.contrastMode != CONTRAST_LIGHT_TEXT -> TextColors(
+                primary = NativeGlassText,
+                secondary = NativeGlassSecondary,
+                accent = NativeGlassAccent
+            )
             useLightText -> TextColors(
                 primary = DarkText,
                 secondary = DarkSecondary,
@@ -120,7 +128,7 @@ internal object WidgetRenderPolicy {
     }
 
     private fun resolveItemLayoutResId(config: WidgetConfig, useLightText: Boolean): Int {
-        if (!needsTextProtection(config)) return R.layout.widget_countdown_item
+        if (!needsTextProtection(config, useLightText)) return R.layout.widget_countdown_item
         return if (useLightText) {
             R.layout.widget_countdown_item_shadow_dark
         } else {
@@ -128,7 +136,8 @@ internal object WidgetRenderPolicy {
         }
     }
 
-    private fun needsTextProtection(config: WidgetConfig): Boolean {
+    private fun needsTextProtection(config: WidgetConfig, useLightText: Boolean): Boolean {
+        if (isMilkyGlassSurface(config) && !useLightText) return false
         return when (config.appearancePreset) {
             APPEARANCE_TRANSPARENT,
             APPEARANCE_TRANSLUCENT -> true
@@ -141,8 +150,16 @@ internal object WidgetRenderPolicy {
         return when (config.contrastMode) {
             CONTRAST_LIGHT_TEXT -> true
             CONTRAST_DARK_TEXT -> false
-            else -> config.appearancePreset == APPEARANCE_SEAL ||
-                theme.isDark
+            else -> if (isMilkyGlassSurface(config)) {
+                false
+            } else {
+                config.appearancePreset == APPEARANCE_SEAL || theme.isDark
+            }
         }
+    }
+
+    private fun isMilkyGlassSurface(config: WidgetConfig): Boolean {
+        return config.appearancePreset == APPEARANCE_TRANSLUCENT ||
+            (config.appearancePreset == APPEARANCE_SYSTEM && config.backgroundOpacityPercent in 25..75)
     }
 }

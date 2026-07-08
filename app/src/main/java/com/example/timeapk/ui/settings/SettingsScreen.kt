@@ -113,6 +113,9 @@ fun SettingsScreen(
                 SettingsCategory.APPEARANCE -> AppearanceSettingsContent(
                     modifier = baseModifier
                 )
+                SettingsCategory.WIDGET -> WidgetSettingsContent(
+                    modifier = baseModifier
+                )
                 SettingsCategory.DISPLAY -> DisplaySettingsContent(
                     modifier = baseModifier
                 )

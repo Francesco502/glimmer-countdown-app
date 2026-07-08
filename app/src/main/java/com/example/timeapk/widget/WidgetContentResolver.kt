@@ -50,16 +50,15 @@ internal object WidgetContentResolver {
             val customEventOrder = prefs.customEventOrderFlow.first()
             val preferredMode = prefs.dateDeltaDisplayModeFlow.first()
             val perEventModes = prefs.perEventDateDeltaDisplayModesFlow.first()
-            val widgetFontScale = prefs.widgetFontScaleFlow.first()
             val showMilestone = prefs.showMilestoneFlow.first()
             val smartMilestonesEnabled = prefs.smartMilestonesEnabledFlow.first()
+            val widgetConfigRepository = WidgetConfigRepository(context)
             val config = if (appWidgetId != null) {
-                WidgetConfigRepository(context).getConfigForWidget(appWidgetId)
+                widgetConfigRepository.getConfigForWidget(appWidgetId)
             } else {
-                WidgetConfig.default().copy(fontScale = widgetFontScale)
+                widgetConfigRepository.getDefaultConfig()
             }.sanitize()
-            val effectiveFontScale = if (config.fontScale == 1f) widgetFontScale else config.fontScale
-            val textStyle = WidgetStylePolicy.resolve(sizeBucket, effectiveFontScale, config.densityMode)
+            val textStyle = WidgetStylePolicy.resolve(sizeBucket, config.fontScale, config.densityMode)
             val renderStyle = WidgetRenderPolicy.resolve(config, WidgetThemeResolver.resolve(context))
 
             val ordered = app.repository.getAllEventsSnapshot()

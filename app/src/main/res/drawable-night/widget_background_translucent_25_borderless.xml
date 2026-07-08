@@ -3,7 +3,7 @@
     <item>
         <shape android:shape="rectangle">
             <corners android:radius="?attr/widgetBackgroundRadius" />
-            <solid android:color="#59141618" />
+            <solid android:color="#B3F1F3F0" />
         </shape>
     </item>
     <item>
@@ -11,8 +11,8 @@
             <corners android:radius="?attr/widgetBackgroundRadius" />
             <gradient
                 android:angle="270"
-                android:endColor="#00FFFFFF"
-                android:startColor="#26FFFFFF" />
+                android:endColor="#10FFFFFF"
+                android:startColor="#3DFFFFFF" />
         </shape>
     </item>
 </layer-list>

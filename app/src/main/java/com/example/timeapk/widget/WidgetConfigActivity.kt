@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -110,7 +111,7 @@ private fun WidgetConfigRoute(
     var config by remember { mutableStateOf(WidgetConfig.default()) }
 
     LaunchedEffect(appWidgetId) {
-        config = repository.getDefaultConfig()
+        config = repository.getConfigForWidget(appWidgetId)
     }
 
     Scaffold(
@@ -166,9 +167,7 @@ private fun WidgetConfigRoute(
         ) {
             WidgetConfigEditor(
                 config = config,
-                onConfigChange = { config = it },
-                showDefaultActions = false,
-                onApplyToAllWidgets = null
+                onConfigChange = { config = it }
             )
         }
     }
@@ -179,6 +178,7 @@ private fun WidgetConfigSaveBar(onSaveClick: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .navigationBarsPadding()
             .background(MaterialTheme.colorScheme.background)
     ) {
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.28f))

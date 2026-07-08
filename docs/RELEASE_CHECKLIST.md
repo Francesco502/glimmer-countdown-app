@@ -1,23 +1,23 @@
-# 发布检查清单（v3.16）
+# 发布检查清单（v3.17）
 
-**版本**：`3.16`（`versionCode=21`）  **发布日期**：`2026-07-06`
+**版本**：`3.17`（`versionCode=22`）  **发布日期**：`2026-07-08`
 
 ## 一、自动校验
 
-- [x] `gradle.properties` 中 `VERSION_CODE=21`、`VERSION_NAME=3.16` 正确
+- [x] `gradle.properties` 中 `VERSION_CODE=22`、`VERSION_NAME=3.17` 正确
 - [x] `app/build.gradle.kts` 的版本读取、APK 重命名、Direct / Play flavor 与 BuildConfig 开关正常
-- [x] `README.md`、`CHANGELOG.md` 与发布文档已切换到 `3.16`
+- [x] `README.md`、`CHANGELOG.md` 与发布文档已切换到 `3.17`
 - [x] `git diff --check` 未发现尾随空格或冲突标记
 - [x] `./gradlew testDirectDebugUnitTest` 通过
 - [x] `./gradlew testPlayDebugUnitTest` 通过
 - [x] `./gradlew compileDirectDebugAndroidTestKotlin` 通过
 - [x] `./gradlew lintDirectDebug lintDirectRelease lintPlayRelease lintVitalDirectRelease lintVitalPlayRelease` 通过且无未解释 warning
 - [x] `./gradlew assembleDirectRelease assemblePlayRelease bundlePlayRelease` 通过
-- [x] Direct APK 已输出到 `app/build/outputs/apk/direct/release/glimmer-countdown-3-16.apk`
+- [x] Direct APK 已输出到 `app/build/outputs/apk/direct/release/glimmer-countdown-3-17.apk`
 - [x] Play AAB 已输出到 `app/build/outputs/bundle/playRelease/app-play-release.aab`
 - [x] Direct / Play APK 签名验证通过
 - [x] Direct APK 包含 `REQUEST_INSTALL_PACKAGES`，Play APK 不包含 `REQUEST_INSTALL_PACKAGES`
-- [x] GitHub Release 资产只包含 Direct APK，不上传 Play APK / AAB
+- [ ] GitHub Release 资产只包含 Direct APK，不上传 Play APK / AAB
 
 ## 二、发布前人工复核
 
@@ -36,34 +36,43 @@
 - [x] 新建 / 编辑页提醒提前天数为常用纸签加自定义输入，不再使用 0..3650 大滚轮
 - [x] 生日、纪念日、倒数日模板会套用正确分类与重复规则
 - [ ] 宋式命名色板在浅色 / 深色主题下均可读
-- [x] 设置首页分类入口、折叠分组、字体弹窗和小组件配置区显示正常
+- [x] 设置首页分类入口、折叠分组和独立小组件设置入口显示正常
+- [ ] 字体弹窗显示正常
 - [ ] 设置页默认提醒纸签、自定义节点删除按钮、日程健康状态和开关无障碍语义正常
 - [ ] 字体切换到 Noto Serif SC、ZCOOL XiaoWei、系统黑体、系统衬线、默认字体后无明显布局溢出
-- [ ] 小组件添加配置页可保存 2x2、3x3、4x2 模板
+- [x] 小组件默认配置页显示 1-5 格“预览宽度 / 预览高度”，折叠摘要包含尺寸、透明度、文字模式和密度
+- [ ] 小组件添加配置页可保存多组 1-5 格预览宽高配置
 - [ ] 小组件透明、半透明、宣纸、青瓷、朱印背景在桌面显示正常
 - [ ] 小组件全透明和半透明玻璃模式在浅色 / 深色系统下文字都可读
+- [ ] 小组件 25% 玻璃背景在实机桌面上接近系统原生乳白磨砂效果，圆角、边线和文字颜色不过硬
 - [ ] 小组件内容筛选、排序、密度、边框、圆角、文字对比和农历前缀配置生效
-- [ ] 设置页默认小组件配置可以应用到已有小组件
-- [ ] 新建 / 编辑 / 删除事件、提醒、系统日历同步和小组件刷新链路保持正常
+- [x] 设置页默认小组件配置的“应用到已有小组件”入口位于默认配置顶部
+- [ ] 已有小组件编辑会打开与新增小组件一致的配置页，不在列表内展开长表单
+- [x] 新建事件标题可输入，允许通知和日历权限后，无可写系统日历时只提示且不会创建本地日历，事件保存后回到首页
+- [ ] 编辑 / 删除事件、真实提醒触发、真实系统日历账户同步和小组件刷新链路保持正常
 - [ ] 启动页包含“拾光”品牌字标，动画不过长，普通图标与 Android themed icon 均可识别
 - [ ] 通知深链在 Home、设置页、编辑页状态下都能回到 Home 并展示对应详情
 - [ ] Play 渠道关于页不出现直接 APK 下载 / 安装入口
 - [ ] Direct 渠道关于页检查更新仍可读取 GitHub Release
 
-## 三、3.16 实测记录
+## 三、3.17 实测记录
 
-- 已执行：在 `sdk_gphone16k_arm64` 模拟器安装 `glimmer-countdown-3-16.apk`，系统版本 Android `17` / API `37`。
-- 已确认：安装包为 `versionName=3.16`、`versionCode=21`；首页、右上近期入口、设置页、新建事件日期 / 提醒区、权限弹窗、详情轻量主卡、分享预览、保存图片、系统分享面板、月历年月选择器均完成 smoke test。
-- 已确认：Direct APK 包含 `REQUEST_INSTALL_PACKAGES`，Play APK 不包含 `REQUEST_INSTALL_PACKAGES`；`adb logcat -b crash -d` 未发现崩溃输出。
-- GitHub Release：`https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v3.16`
-- Release 资产：仅包含 `glimmer-countdown-3-16.apk`，大小 `26368278` bytes，GitHub 返回 digest `sha256:38c387dbdb02a239530cc77902b88c1d22ea761e9f9c7a3fa5eb87f0102f1d33`。
-- 截图与 UI tree 暂存：`/tmp/timeapk-316-readiness/`。
-- 未覆盖：真机、完整深浅主题矩阵、完整字体矩阵、真实定时通知触发、真实可写日历账户同步、桌面实际添加小组件并切换全部模板、Play 渠道关于页、Direct 渠道 GitHub 更新下载链路。
+- 已执行：`testDirectDebugUnitTest`、`testPlayDebugUnitTest`、`compileDirectDebugAndroidTestKotlin`。
+- 已执行：`lintDirectDebug lintDirectRelease lintPlayRelease lintVitalDirectRelease lintVitalPlayRelease`。
+- 已执行：`assembleDirectRelease assemblePlayRelease bundlePlayRelease`。
+- 已执行：`apksigner verify --verbose --print-certs` 检查 Direct / Play APK，均通过 v2 签名验证。
+- 已执行：`aapt dump badging` 确认 Direct APK 为 `com.example.timeapk` / `versionCode=22` / `versionName=3.17`。
+- 已执行：`aapt dump permissions` 确认 Direct APK 包含 `REQUEST_INSTALL_PACKAGES`，Play APK 不包含该权限。
+- 已执行：安装 `glimmer-countdown-3-17.apk` 到模拟器后 smoke test：首页启动、设置入口、小组件设置、默认配置摘要、预览宽高文案、选项单选语义、新建标题输入、通知 / 日历权限请求、无可写系统日历提示、保存回首页。
+- GitHub Release：待发布 `https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v3.17`
+- Release 资产：待上传 `glimmer-countdown-3-17.apk`。
+- 截图与 UI tree 暂存：`/tmp/timeapk-release-home.png`、`/tmp/timeapk-release-widget-settings.png`、`/tmp/timeapk-release-widget-expanded.xml`。
+- 未覆盖：真机、完整深浅主题矩阵、完整字体矩阵、真实定时通知触发、真实可写日历账户同步、桌面实际添加小组件并切换全部 1-5 格组合、Play 渠道关于页、Direct 渠道 GitHub 更新下载链路。
 
 ## 四、发布动作
 
-- [x] 提交并 push 当前分支到 GitHub
-- [x] 创建或更新 `v3.16` 标签
-- [x] 在 GitHub Release 中发布 `glimmer-countdown-3-16.apk`
-- [x] 以 `CHANGELOG.md` 中的 `3.16` 小节作为 Release Notes
-- [x] 确认 GitHub Release 页面标题、标签、说明和资产均对应 `v3.16`
+- [ ] 提交并 push 当前分支到 GitHub
+- [ ] 创建或更新 `v3.17` 标签
+- [ ] 在 GitHub Release 中发布 `glimmer-countdown-3-17.apk`
+- [ ] 以 `CHANGELOG.md` 中的 `3.17` 小节作为 Release Notes
+- [ ] 确认 GitHub Release 页面标题、标签、说明和资产均对应 `v3.17`

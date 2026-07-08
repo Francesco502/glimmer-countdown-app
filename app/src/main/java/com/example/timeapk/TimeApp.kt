@@ -39,13 +39,11 @@ import com.example.timeapk.ui.home.EventUiState
 import com.example.timeapk.ui.settings.SettingsScreen
 import com.example.timeapk.ui.home.HomeScreen
 import com.example.timeapk.ui.home.toEventUiState
-import com.example.timeapk.ui.splash.SplashScreen
 import com.example.timeapk.data.DEFAULT_MILESTONE_DAYS
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 
 object Routes {
-    const val Splash = "Splash"
     const val Home = "Home"
     const val Add = "Add"
     const val Edit = "Edit/{eventId}"
@@ -75,7 +73,7 @@ fun TimeApp(
             onOpenEventIdConsumed()
         }
     }
-    val startDestination = remember { if (initialOpenEventId != null) Routes.Home else Routes.Splash }
+    val startDestination = Routes.Home
     NavHost(
         navController = navController,
         startDestination = startDestination,
@@ -96,15 +94,6 @@ fun TimeApp(
                 slideOutVertically(animationSpec = AnimationSpecs.handscrollTweenIntOffset()) { -it / 5 }
         }
     ) {
-        composable(Routes.Splash) {
-            SplashScreen(
-                onSplashFinished = {
-                    navController.navigate(Routes.Home) {
-                        popUpTo(Routes.Splash) { inclusive = true }
-                    }
-                }
-            )
-        }
         composable(Routes.Home) {
             // 当详情覆盖层打开时，优先拦截系统返回键用于关闭详情，而不是退出 Home
             BackHandler(enabled = selectedEventIdForDetail != null) {

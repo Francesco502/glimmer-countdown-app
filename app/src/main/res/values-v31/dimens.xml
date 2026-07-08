@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="widget_background_radius" type="dimen">@android:dimen/system_app_widget_background_radius</item>
+    <dimen name="widget_item_radius">8dp</dimen>
+    <dimen name="widget_content_padding">16dp</dimen>
+    <dimen name="widget_stroke_width">0.5dp</dimen>
+</resources>

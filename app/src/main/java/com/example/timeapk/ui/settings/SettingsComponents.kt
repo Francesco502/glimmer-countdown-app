@@ -60,6 +60,11 @@ enum class SettingsCategory(
         R.string.settings_entry_appearance_desc,
         SongSettingMarkKind.Appearance
     ),
+    WIDGET(
+        R.string.widget_config_title,
+        R.string.settings_entry_widget_desc,
+        SongSettingMarkKind.Widget
+    ),
     DISPLAY(
         R.string.settings_category_display_title,
         R.string.settings_entry_display_desc,
@@ -423,6 +428,16 @@ fun SettingsExpandableSection(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                summary.takeIf { it.isNotBlank() }?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
             }
             SongLineIcon(
                 kind = if (expanded) SongLineIconKind.ChevronUp else SongLineIconKind.ChevronDown,

@@ -9,22 +9,22 @@ import java.util.Properties
 
 class ReleaseReadinessTest {
     @Test
-    fun versionConfigTargets316Release() {
+    fun versionConfigTargets317Release() {
         val properties = Properties().apply {
             rootGradlePropertiesFile().inputStream().use(::load)
         }
 
-        assertEquals("21", properties.getProperty("VERSION_CODE"))
-        assertEquals("3.16", properties.getProperty("VERSION_NAME"))
+        assertEquals("22", properties.getProperty("VERSION_CODE"))
+        assertEquals("3.17", properties.getProperty("VERSION_NAME"))
 
         val buildFile = appBuildGradleFile().readText(Charsets.UTF_8)
-        assertTrue(buildFile.contains("versionCode = versionCodeOverride ?: 21"))
-        assertTrue(buildFile.contains("versionName = versionNameOverride ?: \"3.16\""))
-        assertTrue(buildFile.contains("val versionNameForApk = versionNameOverride ?: \"3.16\""))
+        assertTrue(buildFile.contains("versionCode = versionCodeOverride ?: 22"))
+        assertTrue(buildFile.contains("versionName = versionNameOverride ?: \"3.17\""))
+        assertTrue(buildFile.contains("val versionNameForApk = versionNameOverride ?: \"3.17\""))
     }
 
     @Test
-    fun releaseDocsTarget316AndDirectGithubApkOnly() {
+    fun releaseDocsTarget317AndDirectGithubApkOnly() {
         val docs = listOf(
             existingFile("README.md", "../README.md"),
             existingFile("CHANGELOG.md", "../CHANGELOG.md"),
@@ -34,12 +34,15 @@ class ReleaseReadinessTest {
         )
         val combined = docs.joinToString("\n") { it.readText(Charsets.UTF_8) }
 
-        assertTrue(combined.contains("3.16"))
-        assertTrue(combined.contains("versionCode=21") || combined.contains("versionCode`：`21"))
-        assertTrue(combined.contains("glimmer-countdown-3-16.apk"))
-        assertFalse(combined.contains("glimmer-countdown-3-15.apk"))
-        assertFalse(combined.contains("versionName`：`3.15"))
-        assertFalse(combined.contains("versionCode`：`20"))
+        assertTrue(combined.contains("3.17"))
+        assertTrue(combined.contains("versionCode=22") || combined.contains("versionCode`：`22"))
+        assertTrue(combined.contains("glimmer-countdown-3-17.apk"))
+        assertTrue(combined.contains("预览宽度 / 预览高度"))
+        assertTrue(combined.contains("无可写系统日历"))
+        assertFalse(combined.contains("小组件 2x2、3x3、4x2 模板"))
+        assertFalse(combined.contains("glimmer-countdown-3-16.apk"))
+        assertFalse(combined.contains("versionName`：`3.16"))
+        assertFalse(combined.contains("versionCode`：`21"))
         assertFalse(combined.contains("glimmer-countdown-3-14.apk"))
         assertFalse(combined.contains("versionName`：`3.14"))
         assertFalse(combined.contains("versionCode`：`19"))
@@ -125,11 +128,25 @@ class ReleaseReadinessTest {
     }
 
     @Test
-    fun splashAndLauncherAssetsMeet315BrandRequirements() {
-        val splashSource = mainSource("ui/splash/SplashScreen.kt").readText(Charsets.UTF_8)
-        assertTrue(splashSource.contains("stringResource(R.string.app_name)"))
-        assertTrue(splashSource.contains("durationMillis = 520"))
-        assertTrue(splashSource.contains("delay(260)"))
+    fun nativeSplashAssetsRemainConfiguredWithoutComposeSplashRoute() {
+        val timeAppSource = mainSource("TimeApp.kt").readText(Charsets.UTF_8)
+        assertTrue(timeAppSource.contains("val startDestination = Routes.Home"))
+        assertFalse(timeAppSource.contains("Routes.Splash"))
+        assertFalse(timeAppSource.contains("SplashScreen"))
+        assertFalse(File(mainSourceRoot(), "ui/splash/SplashScreen.kt").exists())
+
+        val splashBackground = existingFile(
+            "src/main/res/drawable/splash_background.xml",
+            "app/src/main/res/drawable/splash_background.xml"
+        ).readText(Charsets.UTF_8)
+        assertTrue(splashBackground.contains("android:drawable=\"@drawable/ic_launcher_foreground\""))
+
+        val android12Theme = existingFile(
+            "src/main/res/values-v31/themes.xml",
+            "app/src/main/res/values-v31/themes.xml"
+        ).readText(Charsets.UTF_8)
+        assertTrue(android12Theme.contains("android:windowSplashScreenAnimatedIcon"))
+        assertTrue(android12Theme.contains("@drawable/ic_launcher_foreground"))
 
         val adaptiveIcon = existingFile(
             "src/main/res/drawable-anydpi/ic_launcher.xml",

@@ -1,7 +1,7 @@
 # Publish the direct APK to GitHub Release.
 # Usage:
 #   .\scripts\publish-release.ps1
-#   .\scripts\publish-release.ps1 -Tag v3.16 -ReleaseName v3.16
+#   .\scripts\publish-release.ps1 -Tag v3.17 -ReleaseName v3.17
 
 param(
     [string]$Tag,
@@ -19,7 +19,7 @@ $changelogPath = Join-Path $rootDir 'CHANGELOG.md'
 function Get-VersionName {
     param([string]$Path)
 
-    $fallback = '3.16'
+    $fallback = '3.17'
     if (-not (Test-Path $Path)) {
         return $fallback
     }

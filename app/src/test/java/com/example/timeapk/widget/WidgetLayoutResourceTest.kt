@@ -39,6 +39,39 @@ class WidgetLayoutResourceTest {
     }
 
     @Test
+    fun widgetChrome_usesNativeRoundedGlassMetrics() {
+        val dimens = readLayoutText("values/dimens.xml")
+        val v31Dimens = readLayoutText("values-v31/dimens.xml")
+
+        assertTrue(dimens.contains("<dimen name=\"widget_background_radius\">22dp</dimen>"))
+        assertTrue(dimens.contains("<dimen name=\"widget_stroke_width\">0.5dp</dimen>"))
+        assertTrue(v31Dimens.contains("@android:dimen/system_app_widget_background_radius"))
+    }
+
+    @Test
+    fun placedWidgets_areReconfigurableOnAndroid12Launchers() {
+        val providerInfo = readLayoutText("xml-v31/countdown_widget_info.xml")
+
+        assertTrue(providerInfo.contains("android:configure=\"com.example.timeapk.widget.WidgetConfigActivity\""))
+        assertTrue(providerInfo.contains("android:widgetFeatures=\"reconfigurable\""))
+    }
+
+    @Test
+    fun twentyFivePercentGlass_usesMilkyScrimAndSoftHairline() {
+        val lightGlass = readLayoutText("drawable/widget_background_translucent_25.xml")
+        val darkGlass = readLayoutText("drawable-night/widget_background_translucent_25.xml")
+
+        listOf(lightGlass, darkGlass).forEach { glass ->
+            assertTrue(glass.contains("#B3F1F3F0"))
+            assertTrue(glass.contains("#1A202124"))
+            assertFalse(glass.contains("#42F7F3EA"))
+            assertFalse(glass.contains("#59141618"))
+            assertFalse(glass.contains("#331F1F1F"))
+            assertFalse(glass.contains("#3DEDE8DD"))
+        }
+    }
+
+    @Test
     fun shadowWidgetItemLayouts_keepRequiredIdsAndTextProtection() {
         val darkShadowLayout = readLayoutText("layout/widget_countdown_item_shadow_dark.xml")
         val lightShadowLayout = readLayoutText("layout/widget_countdown_item_shadow_light.xml")

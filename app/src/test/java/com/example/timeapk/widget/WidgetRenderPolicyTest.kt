@@ -103,10 +103,60 @@ class WidgetRenderPolicyTest {
         assertNotEquals(lightGlass.backgroundResId, mediumGlass.backgroundResId)
         assertNotEquals(mediumGlass.backgroundResId, denseGlass.backgroundResId)
         assertNotEquals(denseGlass.backgroundResId, solid.backgroundResId)
-        assertEquals(R.layout.widget_countdown_item_shadow_light, lightGlass.itemLayoutResId)
-        assertEquals(R.layout.widget_countdown_item_shadow_light, mediumGlass.itemLayoutResId)
-        assertEquals(R.layout.widget_countdown_item_shadow_light, denseGlass.itemLayoutResId)
+        assertEquals(R.layout.widget_countdown_item, lightGlass.itemLayoutResId)
+        assertEquals(R.layout.widget_countdown_item, mediumGlass.itemLayoutResId)
+        assertEquals(R.layout.widget_countdown_item, denseGlass.itemLayoutResId)
         assertEquals(R.layout.widget_countdown_item, solid.itemLayoutResId)
+    }
+
+    @Test
+    fun resolve_systemGlassPresetsUseNativeMilkySurfaceTextEvenInDarkTheme() {
+        val glass = WidgetRenderPolicy.resolve(
+            config = WidgetConfig.default().copy(
+                appearancePreset = APPEARANCE_SYSTEM,
+                backgroundOpacityPercent = 25,
+                contrastMode = CONTRAST_AUTO
+            ),
+            theme = WidgetThemeSnapshot(isDark = true, usesSystemPalette = true)
+        )
+
+        assertEquals(R.drawable.widget_background_translucent_25, glass.backgroundResId)
+        assertEquals(0xFF202124.toInt(), glass.primaryTextColor)
+        assertEquals(0xCC202124.toInt(), glass.secondaryTextColor)
+        assertEquals(0xFFB45A4E.toInt(), glass.accentTextColor)
+        assertEquals(R.layout.widget_countdown_item, glass.itemLayoutResId)
+    }
+
+    @Test
+    fun resolve_translucentPresetUsesNativeMilkySurfaceTextEvenInDarkTheme() {
+        val glass = WidgetRenderPolicy.resolve(
+            config = WidgetConfig.default().copy(
+                appearancePreset = APPEARANCE_TRANSLUCENT,
+                backgroundOpacityPercent = 25,
+                contrastMode = CONTRAST_AUTO
+            ),
+            theme = WidgetThemeSnapshot(isDark = true, usesSystemPalette = true)
+        )
+
+        assertEquals(R.drawable.widget_background_translucent_25, glass.backgroundResId)
+        assertEquals(0xFF202124.toInt(), glass.primaryTextColor)
+        assertEquals(0xFFB45A4E.toInt(), glass.accentTextColor)
+        assertEquals(R.layout.widget_countdown_item, glass.itemLayoutResId)
+    }
+
+    @Test
+    fun resolve_glassWithLightTextOverrideKeepsTextProtection() {
+        val glass = WidgetRenderPolicy.resolve(
+            config = WidgetConfig.default().copy(
+                appearancePreset = APPEARANCE_TRANSLUCENT,
+                backgroundOpacityPercent = 25,
+                contrastMode = CONTRAST_LIGHT_TEXT
+            ),
+            theme = WidgetThemeSnapshot(isDark = true, usesSystemPalette = true)
+        )
+
+        assertEquals(0xFFEDE8DD.toInt(), glass.primaryTextColor)
+        assertEquals(R.layout.widget_countdown_item_shadow_dark, glass.itemLayoutResId)
     }
 
     @Test
@@ -167,12 +217,22 @@ class WidgetRenderPolicyTest {
         val key = buildWidgetRemoteAdapterDataUriString(
             appWidgetId = 7,
             sizeBucket = WidgetSizeBucket.WIDE_SHORT,
-            config = WidgetConfig.default().copy(contentScope = CONTENT_PINNED),
+            config = WidgetConfig.fromJson(
+                """
+                {
+                  "widthCells": 5,
+                  "heightCells": 1,
+                  "contentScope": $CONTENT_PINNED
+                }
+                """.trimIndent()
+            ),
             themeKey = "dark-fallback"
         )
 
         assertTrue(key.contains("widget/7"))
         assertTrue(key.contains("size=${WidgetSizeBucket.WIDE_SHORT}"))
+        assertTrue(key.contains("width=5"))
+        assertTrue(key.contains("height=1"))
         assertTrue(key.contains("scope=$CONTENT_PINNED"))
         assertTrue(key.contains("theme=dark-fallback"))
     }

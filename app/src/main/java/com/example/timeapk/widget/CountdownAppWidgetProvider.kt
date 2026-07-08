@@ -203,7 +203,8 @@ internal fun buildWidgetRemoteAdapterDataUriString(
     val clean = config.sanitize()
     return ("glimmer://widget/$appWidgetId" +
         "?size=$sizeBucket" +
-        "&template=${clean.sizeTemplate}" +
+        "&width=${clean.widthCells}" +
+        "&height=${clean.heightCells}" +
         "&appearance=${clean.appearancePreset}" +
         "&opacity=${clean.backgroundOpacityPercent}" +
         "&density=${clean.densityMode}" +

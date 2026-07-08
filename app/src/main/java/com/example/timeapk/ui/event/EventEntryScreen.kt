@@ -2,6 +2,7 @@ package com.example.timeapk.ui.event
 
 import android.Manifest
 import android.content.Context
+import android.view.inputmethod.InputMethodManager
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -18,13 +19,20 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -989,6 +997,7 @@ fun EventInputForm(
                 },
                 label = stringResource(R.string.field_title),
                 singleLine = true,
+                requestInitialFocus = eventDetails.id == 0 && eventDetails.title.isBlank(),
                 isError = showTitleError,
                 errorText = stringResource(R.string.field_title_required)
             )
@@ -1277,7 +1286,7 @@ private fun SongInkSection(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 @Composable
 private fun SongInkTextField(
     value: String,
@@ -1287,10 +1296,50 @@ private fun SongInkTextField(
     singleLine: Boolean = false,
     minLines: Int = 1,
     maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
+    requestInitialFocus: Boolean = false,
     isError: Boolean = false,
     errorText: String? = null
 ) {
-    Column(modifier = modifier.fillMaxWidth()) {
+    val focusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val view = LocalView.current
+    val clickInteractionSource = remember { MutableInteractionSource() }
+    var fieldValue by remember { mutableStateOf(TextFieldValue(value)) }
+    val requestInputFocus = {
+        focusRequester.requestFocus()
+        keyboardController?.show()
+        view.post {
+            val inputMethodManager = view.context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+            @Suppress("DEPRECATION")
+            inputMethodManager.showSoftInput(view, InputMethodManager.SHOW_FORCED)
+        }
+    }
+
+    LaunchedEffect(requestInitialFocus) {
+        if (requestInitialFocus) {
+            requestInputFocus()
+        }
+    }
+
+    LaunchedEffect(value) {
+        if (value != fieldValue.text) {
+            fieldValue = TextFieldValue(
+                text = value,
+                selection = TextRange(value.length)
+            )
+        }
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(
+                interactionSource = clickInteractionSource,
+                indication = null
+            ) {
+                requestInputFocus()
+            }
+    ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelMedium,
@@ -1298,10 +1347,16 @@ private fun SongInkTextField(
         )
         Spacer(modifier = Modifier.height(4.dp))
         TextField(
-            value = value,
-            onValueChange = onValueChange,
+            value = fieldValue,
+            onValueChange = { nextValue ->
+                fieldValue = nextValue
+                if (nextValue.text != value) {
+                    onValueChange(nextValue.text)
+                }
+            },
             modifier = Modifier
                 .fillMaxWidth()
+                .focusRequester(focusRequester)
                 .border(
                     SongDesignTokens.BorderWidth.dp,
                     if (isError) MaterialTheme.colorScheme.error.copy(alpha = 0.72f)

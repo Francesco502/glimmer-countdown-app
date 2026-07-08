@@ -49,6 +49,7 @@ enum class SongLineIconKind {
 
 enum class SongSettingMarkKind {
     Appearance,
+    Widget,
     Display,
     Milestone,
     Data,
@@ -86,6 +87,7 @@ fun SongSettingMark(
 ) {
     val iconKind = when (kind) {
         SongSettingMarkKind.Appearance -> SongLineIconKind.Fan
+        SongSettingMarkKind.Widget -> SongLineIconKind.Ruyi
         SongSettingMarkKind.Display -> SongLineIconKind.Scroll
         SongSettingMarkKind.Milestone -> SongLineIconKind.Plum
         SongSettingMarkKind.Data -> SongLineIconKind.Book

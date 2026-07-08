@@ -41,6 +41,8 @@ const val CONTRAST_DARK_TEXT = 2
 
 private const val FIELD_VERSION = "version"
 private const val FIELD_SIZE_TEMPLATE = "sizeTemplate"
+private const val FIELD_WIDTH_CELLS = "widthCells"
+private const val FIELD_HEIGHT_CELLS = "heightCells"
 private const val FIELD_APPEARANCE_PRESET = "appearancePreset"
 private const val FIELD_BACKGROUND_OPACITY = "backgroundOpacityPercent"
 private const val FIELD_BORDER_MODE = "borderMode"
@@ -54,7 +56,8 @@ private const val FIELD_FONT_SCALE = "fontScale"
 
 data class WidgetConfig(
     val version: Int = VERSION,
-    val sizeTemplate: Int = SIZE_TEMPLATE_2X2,
+    val widthCells: Int = 2,
+    val heightCells: Int = 2,
     val appearancePreset: Int = APPEARANCE_SYSTEM,
     val backgroundOpacityPercent: Int = 75,
     val borderMode: Int = BORDER_AUTO,
@@ -66,10 +69,15 @@ data class WidgetConfig(
     val contrastMode: Int = CONTRAST_AUTO,
     val fontScale: Float = 1.0f
 ) {
+    val sizeTemplate: Int
+        get() = sizeTemplateForCells(widthCells, heightCells)
+
     companion object {
         const val VERSION = 1
         private const val FONT_SCALE_MIN = 0.85f
         private const val FONT_SCALE_MAX = 1.60f
+        private const val CELL_COUNT_MIN = 1
+        private const val CELL_COUNT_MAX = 5
 
         fun default(): WidgetConfig = WidgetConfig()
 
@@ -77,9 +85,13 @@ data class WidgetConfig(
             if (raw.isNullOrBlank()) return default()
             return try {
                 val obj = JSONObject(raw)
+                val legacyCells = cellsForLegacySizeTemplate(
+                    obj.optInt(FIELD_SIZE_TEMPLATE, SIZE_TEMPLATE_2X2)
+                )
                 WidgetConfig(
                     version = obj.optInt(FIELD_VERSION, VERSION),
-                    sizeTemplate = obj.optInt(FIELD_SIZE_TEMPLATE, SIZE_TEMPLATE_2X2),
+                    widthCells = obj.optInt(FIELD_WIDTH_CELLS, legacyCells.first),
+                    heightCells = obj.optInt(FIELD_HEIGHT_CELLS, legacyCells.second),
                     appearancePreset = obj.optInt(FIELD_APPEARANCE_PRESET, APPEARANCE_SYSTEM),
                     backgroundOpacityPercent = obj.optInt(FIELD_BACKGROUND_OPACITY, 75),
                     borderMode = obj.optInt(FIELD_BORDER_MODE, BORDER_AUTO),
@@ -98,17 +110,16 @@ data class WidgetConfig(
 
         internal fun sanitizeFontScale(scale: Float): Float =
             scale.coerceIn(FONT_SCALE_MIN, FONT_SCALE_MAX)
+
+        internal fun sanitizeCellCount(count: Int): Int =
+            count.coerceIn(CELL_COUNT_MIN, CELL_COUNT_MAX)
     }
 
     fun sanitize(): WidgetConfig {
         return copy(
             version = VERSION,
-            sizeTemplate = sizeTemplate.sanitizeEnum(
-                SIZE_TEMPLATE_2X2,
-                SIZE_TEMPLATE_3X3,
-                SIZE_TEMPLATE_4X2,
-                fallback = SIZE_TEMPLATE_2X2
-            ),
+            widthCells = sanitizeCellCount(widthCells),
+            heightCells = sanitizeCellCount(heightCells),
             appearancePreset = appearancePreset.sanitizeEnum(
                 APPEARANCE_SYSTEM,
                 APPEARANCE_SOLID,
@@ -160,7 +171,8 @@ data class WidgetConfig(
         val clean = sanitize()
         return JSONObject()
             .put(FIELD_VERSION, clean.version)
-            .put(FIELD_SIZE_TEMPLATE, clean.sizeTemplate)
+            .put(FIELD_WIDTH_CELLS, clean.widthCells)
+            .put(FIELD_HEIGHT_CELLS, clean.heightCells)
             .put(FIELD_APPEARANCE_PRESET, clean.appearancePreset)
             .put(FIELD_BACKGROUND_OPACITY, clean.backgroundOpacityPercent)
             .put(FIELD_BORDER_MODE, clean.borderMode)
@@ -177,7 +189,8 @@ data class WidgetConfig(
     val cacheKey: String
         get() = listOf(
             version,
-            sizeTemplate,
+            widthCells,
+            heightCells,
             appearancePreset,
             backgroundOpacityPercent,
             borderMode,
@@ -224,4 +237,20 @@ private fun Int.sanitizeEnum(vararg allowed: Int, fallback: Int): Int =
 private fun sanitizeOpacity(value: Int): Int {
     val allowed = listOf(0, 25, 50, 75, 100)
     return allowed.firstOrNull { value <= it } ?: 100
+}
+
+private fun cellsForLegacySizeTemplate(sizeTemplate: Int): Pair<Int, Int> {
+    return when (sizeTemplate) {
+        SIZE_TEMPLATE_3X3 -> 3 to 3
+        SIZE_TEMPLATE_4X2 -> 4 to 2
+        else -> 2 to 2
+    }
+}
+
+private fun sizeTemplateForCells(widthCells: Int, heightCells: Int): Int {
+    return when {
+        widthCells == 3 && heightCells == 3 -> SIZE_TEMPLATE_3X3
+        widthCells >= 4 && heightCells <= 2 -> SIZE_TEMPLATE_4X2
+        else -> SIZE_TEMPLATE_2X2
+    }
 }

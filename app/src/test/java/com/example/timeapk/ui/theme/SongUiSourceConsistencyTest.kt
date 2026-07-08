@@ -401,11 +401,14 @@ class SongUiSourceConsistencyTest {
     }
 
     @Test
-    fun splashUsesQuietSongTypographyInsteadOfPosterTracking() {
-        val source = readSource("ui/splash/SplashScreen.kt")
+    fun appStartsDirectlyAtHomeAfterNativeSplash() {
+        val source = readSource("TimeApp.kt")
 
-        assertTrue(source.contains("SongSplashSeal("))
-        assertFalse(source.contains("letterSpacing = 1.sp"))
+        assertTrue(source.contains("val startDestination = Routes.Home"))
+        assertFalse(source.contains("Routes.Splash"))
+        assertFalse(source.contains("SplashScreen"))
+        assertFalse(source.contains("R.string.splash_tagline"))
+        assertFalse(source.contains("R.string.splash_subtitle"))
     }
 
     @Test

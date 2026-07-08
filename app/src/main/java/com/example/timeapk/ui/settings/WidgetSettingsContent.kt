@@ -1,12 +1,16 @@
 package com.example.timeapk.ui.settings
 
+import android.appwidget.AppWidgetManager
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -18,18 +22,29 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.timeapk.R
+import com.example.timeapk.TimeApplication
 import com.example.timeapk.ui.theme.SongDesignTokens
 import com.example.timeapk.ui.theme.SongPalette
 import com.example.timeapk.widget.APPEARANCE_CELADON
@@ -55,44 +70,149 @@ import com.example.timeapk.widget.CORNER_SYSTEM
 import com.example.timeapk.widget.DENSITY_COMFORTABLE
 import com.example.timeapk.widget.DENSITY_COMPACT
 import com.example.timeapk.widget.DENSITY_STANDARD
-import com.example.timeapk.widget.SIZE_TEMPLATE_2X2
-import com.example.timeapk.widget.SIZE_TEMPLATE_3X3
-import com.example.timeapk.widget.SIZE_TEMPLATE_4X2
+import com.example.timeapk.widget.CountdownAppWidgetProvider
 import com.example.timeapk.widget.SORT_HOME
 import com.example.timeapk.widget.SORT_NEAREST_FIRST
 import com.example.timeapk.widget.SORT_PINNED_FIRST
+import com.example.timeapk.widget.WidgetConfigActivity
 import com.example.timeapk.widget.WidgetConfig
+import com.example.timeapk.widget.WidgetConfigRepository
 import com.example.timeapk.widget.WidgetRenderPolicy
 import com.example.timeapk.widget.WidgetThemeSnapshot
+import com.example.timeapk.widget.WidgetUpdater
+import kotlin.math.roundToInt
+
+@Composable
+fun WidgetSettingsContent(
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val app = context.applicationContext as? TimeApplication ?: return
+    val widgetConfigRepository = remember(app) { WidgetConfigRepository(app) }
+    val defaultWidgetConfig by widgetConfigRepository.defaultConfigFlow.collectAsState(initial = WidgetConfig.default())
+    val widgetInstanceConfigs by widgetConfigRepository.instanceConfigsFlow.collectAsState(initial = emptyMap())
+    val appWidgetIds = CountdownAppWidgetProvider.getAppWidgetIds(app).toList()
+
+    fun launchWidgetSettingsUpdate(update: suspend () -> Unit) {
+        app.launchAppTask {
+            update()
+            WidgetUpdater.refreshCountdownWidgets(app)
+        }
+    }
+
+    fun openWidgetConfig(appWidgetId: Int) {
+        context.startActivity(
+            Intent(context, WidgetConfigActivity::class.java)
+                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+        )
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp)
+    ) {
+        SettingsExpandableSection(
+            title = stringResource(R.string.widget_config_defaults_title),
+            summary = widgetConfigSummary(defaultWidgetConfig)
+        ) {
+            TextButton(
+                onClick = {
+                    launchWidgetSettingsUpdate {
+                        val ids = CountdownAppWidgetProvider.getAppWidgetIds(app)
+                        val latestDefault = widgetConfigRepository.getDefaultConfig()
+                        widgetConfigRepository.setAllInstanceConfigs(
+                            ids.associateWith { latestDefault }
+                        )
+                    }
+                },
+                modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
+            ) {
+                Text(stringResource(R.string.widget_config_apply_to_all))
+            }
+            WidgetConfigEditor(
+                config = defaultWidgetConfig,
+                onConfigChange = { next ->
+                    launchWidgetSettingsUpdate {
+                        widgetConfigRepository.setDefaultConfig(next)
+                    }
+                },
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        }
+
+        SettingsExpandableSection(
+            title = stringResource(R.string.widget_config_existing_widgets),
+            summary = ""
+        ) {
+            WidgetInstanceManager(
+                appWidgetIds = appWidgetIds,
+                instanceConfigs = widgetInstanceConfigs,
+                defaultConfig = defaultWidgetConfig,
+                onEditWidget = ::openWidgetConfig,
+                onResetWidget = { appWidgetId ->
+                    launchWidgetSettingsUpdate {
+                        widgetConfigRepository.removeConfigForWidget(appWidgetId)
+                    }
+                },
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        }
+    }
+}
 
 @Composable
 fun WidgetConfigEditor(
     config: WidgetConfig,
     onConfigChange: (WidgetConfig) -> Unit,
-    showDefaultActions: Boolean,
-    onApplyToAllWidgets: (() -> Unit)?,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
+        WidgetSettingsLayerHeader(title = stringResource(R.string.widget_config_layer_preview))
         WidgetConfigPreview(
             config = config,
             modifier = Modifier.padding(bottom = 12.dp)
         )
+        WidgetSettingsLayerHeader(title = stringResource(R.string.widget_config_layer_display))
         WidgetConfigSection(
-            title = stringResource(R.string.widget_config_appearance),
-            summary = stringResource(R.string.widget_config_defaults_summary),
+            title = stringResource(R.string.widget_config_display),
+            summary = "",
             initiallyExpanded = true
         ) {
-            WidgetOptionGroup(
-                title = stringResource(R.string.widget_config_size_template),
-                options = listOf(
-                    SIZE_TEMPLATE_2X2 to stringResource(R.string.widget_config_size_2x2),
-                    SIZE_TEMPLATE_3X3 to stringResource(R.string.widget_config_size_3x3),
-                    SIZE_TEMPLATE_4X2 to stringResource(R.string.widget_config_size_4x2)
-                ),
-                selected = config.sizeTemplate,
-                onSelected = { onConfigChange(config.copy(sizeTemplate = it).sanitize()) }
+            WidgetFontScaleControl(
+                value = config.fontScale,
+                onValueChange = { onConfigChange(config.copy(fontScale = it).sanitize()) }
             )
+            WidgetOptionGroup(
+                title = stringResource(R.string.widget_config_width_cells),
+                options = (1..5).map { it to stringResource(R.string.widget_config_cell_count, it) },
+                selected = config.widthCells,
+                onSelected = { onConfigChange(config.copy(widthCells = it).sanitize()) }
+            )
+            WidgetOptionGroup(
+                title = stringResource(R.string.widget_config_height_cells),
+                options = (1..5).map { it to stringResource(R.string.widget_config_cell_count, it) },
+                selected = config.heightCells,
+                onSelected = { onConfigChange(config.copy(heightCells = it).sanitize()) }
+            )
+            WidgetOptionGroup(
+                title = stringResource(R.string.widget_config_density),
+                options = listOf(
+                    DENSITY_COMPACT to stringResource(R.string.widget_config_density_compact),
+                    DENSITY_STANDARD to stringResource(R.string.widget_config_density_standard),
+                    DENSITY_COMFORTABLE to stringResource(R.string.widget_config_density_comfortable)
+                ),
+                selected = config.densityMode,
+                onSelected = { onConfigChange(config.copy(densityMode = it).sanitize()) }
+            )
+        }
+        WidgetSettingsLayerHeader(title = stringResource(R.string.widget_config_layer_appearance))
+        WidgetConfigSection(
+            title = stringResource(R.string.widget_config_appearance_group),
+            summary = "",
+            initiallyExpanded = true
+        ) {
             WidgetOptionGroup(
                 title = stringResource(R.string.widget_config_appearance),
                 options = listOf(
@@ -147,9 +267,10 @@ fun WidgetConfigEditor(
                 onSelected = { onConfigChange(config.copy(contrastMode = it).sanitize()) }
             )
         }
+        WidgetSettingsLayerHeader(title = stringResource(R.string.widget_config_layer_content))
         WidgetConfigSection(
-            title = stringResource(R.string.widget_config_content_scope),
-            summary = stringResource(R.string.widget_config_defaults_summary)
+            title = stringResource(R.string.widget_config_content_group),
+            summary = ""
         ) {
             WidgetOptionGroup(
                 title = stringResource(R.string.widget_config_content_scope),
@@ -172,31 +293,80 @@ fun WidgetConfigEditor(
                 selected = config.sortMode,
                 onSelected = { onConfigChange(config.copy(sortMode = it).sanitize()) }
             )
-            WidgetOptionGroup(
-                title = stringResource(R.string.widget_config_density),
-                options = listOf(
-                    DENSITY_COMPACT to stringResource(R.string.widget_config_density_compact),
-                    DENSITY_STANDARD to stringResource(R.string.widget_config_density_standard),
-                    DENSITY_COMFORTABLE to stringResource(R.string.widget_config_density_comfortable)
-                ),
-                selected = config.densityMode,
-                onSelected = { onConfigChange(config.copy(densityMode = it).sanitize()) }
-            )
             WidgetSwitchRow(
                 title = stringResource(R.string.widget_config_show_lunar_prefix),
                 checked = config.showLunarPrefix,
                 onCheckedChange = { onConfigChange(config.copy(showLunarPrefix = it).sanitize()) }
             )
-            if (showDefaultActions && onApplyToAllWidgets != null) {
-                TextButton(
-                    onClick = onApplyToAllWidgets,
-                    modifier = Modifier.padding(top = 8.dp)
-                ) {
-                    Text(stringResource(R.string.widget_config_apply_to_all))
-                }
-            }
         }
     }
+}
+
+@Composable
+private fun WidgetFontScaleControl(
+    value: Float,
+    onValueChange: (Float) -> Unit
+) {
+    var draft by remember(value) { mutableStateOf(value) }
+
+    LaunchedEffect(value) {
+        draft = value
+    }
+
+    Text(
+        text = stringResource(R.string.settings_widget_font_scale_title),
+        style = MaterialTheme.typography.bodyLarge,
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.padding(top = 14.dp, bottom = 4.dp)
+    )
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = stringResource(
+                R.string.settings_widget_font_scale_value,
+                (draft * 100).roundToInt()
+            ),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        TextButton(
+            onClick = {
+                draft = 1f
+                onValueChange(1f)
+            }
+        ) {
+            Text(stringResource(R.string.settings_widget_font_scale_reset_action))
+        }
+    }
+    Slider(
+        value = draft,
+        onValueChange = {
+            draft = it.coerceIn(
+                SongDesignTokens.WidgetFontScaleMin,
+                SongDesignTokens.WidgetFontScaleMax
+            )
+        },
+        valueRange = SongDesignTokens.WidgetFontScaleMin..SongDesignTokens.WidgetFontScaleMax,
+        onValueChangeFinished = { onValueChange(draft) },
+        modifier = Modifier.padding(top = 4.dp)
+    )
+    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.24f))
+}
+
+@Composable
+private fun WidgetSettingsLayerHeader(
+    title: String,
+    modifier: Modifier = Modifier
+) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = modifier.padding(top = 14.dp, bottom = 6.dp)
+    )
 }
 
 @Composable
@@ -221,9 +391,7 @@ fun WidgetInstanceManager(
     appWidgetIds: List<Int>,
     instanceConfigs: Map<Int, WidgetConfig>,
     defaultConfig: WidgetConfig,
-    editingWidgetId: Int?,
-    onEditWidget: (Int?) -> Unit,
-    onConfigChange: (Int, WidgetConfig) -> Unit,
+    onEditWidget: (Int) -> Unit,
     onResetWidget: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -264,25 +432,12 @@ fun WidgetInstanceManager(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                TextButton(onClick = { onEditWidget(if (editingWidgetId == id) null else id) }) {
-                    Text(
-                        stringResource(
-                            if (editingWidgetId == id) R.string.widget_config_collapse else R.string.widget_config_edit
-                        )
-                    )
+                TextButton(onClick = { onEditWidget(id) }) {
+                    Text(stringResource(R.string.widget_config_edit))
                 }
                 TextButton(onClick = { onResetWidget(id) }) {
                     Text(stringResource(R.string.widget_config_reset_instance))
                 }
-            }
-            if (editingWidgetId == id) {
-                WidgetConfigEditor(
-                    config = config,
-                    onConfigChange = { onConfigChange(id, it) },
-                    showDefaultActions = false,
-                    onApplyToAllWidgets = null,
-                    modifier = Modifier.padding(start = 8.dp, bottom = 12.dp)
-                )
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.24f))
         }
@@ -334,40 +489,50 @@ private fun WidgetConfigPreview(
     val secondaryContentColor = Color(previewStyle.secondaryContentColorArgb)
     val accentColor = Color(previewStyle.accentColorArgb)
     val borderColor = Color(previewStyle.borderColorArgb)
-    val height = when (clean.sizeTemplate) {
-        SIZE_TEMPLATE_4X2 -> 112.dp
-        SIZE_TEMPLATE_3X3 -> 168.dp
-        else -> 132.dp
-    }
+    val previewAspectRatio = clean.widthCells.toFloat() / clean.heightCells.toFloat()
+    val baseCellSize = 64.dp
+    val desiredPreviewWidth = baseCellSize * clean.widthCells.toFloat()
+    val maxPreviewHeight = 320.dp
+    val cornerRadius = if (clean.widthCells == 1 || clean.heightCells == 1) 18.dp else 22.dp
+    val contentPadding = if (clean.widthCells == 1) 8.dp else if (clean.heightCells == 1) 10.dp else 14.dp
 
-    Column(modifier = modifier.fillMaxWidth()) {
-        Text(
-            text = stringResource(R.string.widget_config_preview_title),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
+    BoxWithConstraints(
+        modifier = modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center
+    ) {
+        val constrainedWidth = if (desiredPreviewWidth > maxWidth) maxWidth else desiredPreviewWidth
+        val heightFromWidth = constrainedWidth / previewAspectRatio
+        val previewHeight = if (heightFromWidth > maxPreviewHeight) maxPreviewHeight else heightFromWidth
+        val previewWidth = if (heightFromWidth > maxPreviewHeight) {
+            maxPreviewHeight * previewAspectRatio
+        } else {
+            constrainedWidth
+        }
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(height)
-                .background(backgroundColor, RoundedCornerShape(SongDesignTokens.StandardRadius.dp))
-                .border(1.dp, borderColor, RoundedCornerShape(SongDesignTokens.StandardRadius.dp))
-                .padding(14.dp),
-            verticalArrangement = Arrangement.SpaceBetween
+                .width(previewWidth)
+                .height(previewHeight)
+                .background(backgroundColor, RoundedCornerShape(cornerRadius))
+                .border(0.5f.dp, borderColor, RoundedCornerShape(cornerRadius))
+                .padding(contentPadding),
+            verticalArrangement = if (clean.heightCells <= 1) Arrangement.Center else Arrangement.SpaceBetween
         ) {
             WidgetPreviewRow(
                 title = stringResource(R.string.widget_config_preview_event_primary),
                 value = stringResource(R.string.widget_config_preview_value_primary),
                 contentColor = contentColor,
-                accentColor = accentColor
+                accentColor = accentColor,
+                compact = clean.widthCells <= 1
             )
-            WidgetPreviewRow(
-                title = stringResource(R.string.widget_config_preview_event_secondary),
-                value = stringResource(R.string.widget_config_preview_value_secondary),
-                contentColor = secondaryContentColor,
-                accentColor = accentColor.copy(alpha = 0.82f)
-            )
+            if (clean.heightCells > 1) {
+                WidgetPreviewRow(
+                    title = stringResource(R.string.widget_config_preview_event_secondary),
+                    value = stringResource(R.string.widget_config_preview_value_secondary),
+                    contentColor = secondaryContentColor,
+                    accentColor = accentColor.copy(alpha = 0.82f),
+                    compact = clean.widthCells <= 1
+                )
+            }
         }
     }
 }
@@ -415,9 +580,9 @@ private fun resolveWidgetPreviewBackgroundArgb(config: WidgetConfig, isDark: Boo
 
 private fun resolveWidgetPreviewGlassArgb(opacityPercent: Int, isDark: Boolean): Int {
     return when (opacityPercent) {
-        25 -> if (isDark) 0x59141618 else 0x42F7F3EA
-        50 -> if (isDark) 0x8A171719.toInt() else 0x80F5F1E8.toInt()
-        else -> if (isDark) 0xB81C1C1E.toInt() else 0xB8F5F3ED.toInt()
+        25 -> 0xB3F1F3F0.toInt()
+        50 -> 0xC7F1F3F0.toInt()
+        else -> 0xDDF2F3F0.toInt()
     }
 }
 
@@ -427,7 +592,14 @@ private fun resolveWidgetPreviewBorderArgb(config: WidgetConfig, isDark: Boolean
         APPEARANCE_SEAL -> if (isDark) 0x66F6D9A6 else 0x667A2F20
         APPEARANCE_CELADON -> if (isDark) 0x665B8E79 else 0x66457080
         APPEARANCE_TRANSPARENT -> 0x66FFFFFF
-        else -> if (isDark) 0x52EDE8DD else 0x331F1F1F
+        APPEARANCE_TRANSLUCENT -> 0x1A202124
+        else -> if (config.backgroundOpacityPercent in 25..75) {
+            0x1A202124
+        } else if (isDark) {
+            0x52EDE8DD
+        } else {
+            0x331F1F1F
+        }
     }.toInt()
 }
 
@@ -436,7 +608,8 @@ private fun WidgetPreviewRow(
     title: String,
     value: String,
     contentColor: Color,
-    accentColor: Color
+    accentColor: Color,
+    compact: Boolean = false
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
@@ -445,22 +618,35 @@ private fun WidgetPreviewRow(
                 .height(22.dp)
                 .background(accentColor, RoundedCornerShape(2.dp))
         )
-        Text(
-            text = title,
-            style = MaterialTheme.typography.bodyMedium,
-            color = contentColor,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier
-                .padding(start = 8.dp)
-                .weight(1f)
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            color = accentColor,
-            maxLines = 1
-        )
+        if (compact) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodySmall,
+                color = accentColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .padding(start = 6.dp)
+                    .weight(1f)
+            )
+        } else {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium,
+                color = contentColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .padding(start = 8.dp)
+                    .weight(1f)
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium,
+                color = accentColor,
+                maxLines = 1
+            )
+        }
     }
 }
 
@@ -485,7 +671,11 @@ private fun WidgetOptionPill(
         modifier = Modifier
             .background(backgroundColor, RoundedCornerShape(SongDesignTokens.StandardRadius.dp))
             .border(1.dp, borderColor, RoundedCornerShape(SongDesignTokens.StandardRadius.dp))
-            .clickable(onClick = onClick)
+            .selectable(
+                selected = selected,
+                onClick = onClick,
+                role = Role.RadioButton
+            )
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -547,17 +737,11 @@ private fun WidgetSwitchRow(
 @Composable
 private fun widgetConfigSummary(config: WidgetConfig): String {
     return listOf(
-        stringResource(sizeTemplateLabelRes(config.sizeTemplate)),
-        stringResource(appearanceLabelRes(config.appearancePreset)),
-        stringResource(contentScopeLabelRes(config.contentScope)),
+        stringResource(R.string.widget_config_size_summary, config.widthCells, config.heightCells),
+        stringResource(R.string.widget_config_percent, config.backgroundOpacityPercent),
+        stringResource(contrastLabelRes(config.contrastMode)),
         stringResource(densityLabelRes(config.densityMode))
     ).joinToString(" / ")
-}
-
-private fun sizeTemplateLabelRes(value: Int): Int = when (value) {
-    SIZE_TEMPLATE_3X3 -> R.string.widget_config_size_3x3
-    SIZE_TEMPLATE_4X2 -> R.string.widget_config_size_4x2
-    else -> R.string.widget_config_size_2x2
 }
 
 private fun appearanceLabelRes(value: Int): Int = when (value) {
@@ -580,4 +764,10 @@ private fun densityLabelRes(value: Int): Int = when (value) {
     DENSITY_COMPACT -> R.string.widget_config_density_compact
     DENSITY_COMFORTABLE -> R.string.widget_config_density_comfortable
     else -> R.string.widget_config_density_standard
+}
+
+private fun contrastLabelRes(value: Int): Int = when (value) {
+    CONTRAST_LIGHT_TEXT -> R.string.widget_config_contrast_light
+    CONTRAST_DARK_TEXT -> R.string.widget_config_contrast_dark
+    else -> R.string.widget_config_contrast_auto_summary
 }
