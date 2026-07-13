@@ -431,27 +431,203 @@ object ScheduleSyncManager {
         removeEventsByDescriptionLike(context, "$MILESTONE_MARKER_PREFIX%")
     }
 
-    fun clearMilestoneScheduleRemindersByEventId(context: Context, eventId: Int) {
-        if (!hasCalendarReadAccess(context)) return
-        val ids = findManagedMilestoneEventIdsByEventId(context, eventId)
-        removeEventsByIds(context, ids)
-        removeEventsByDescriptionLike(context, "$MILESTONE_MARKER_PREFIX:$eventId%")
+    fun clearMilestoneScheduleRemindersByEventId(context: Context, eventId: Int): CalendarCleanupResult {
+        return cleanupManagedCalendarEntries(
+            context = context,
+            eventId = eventId,
+            calendarEventId = null,
+            includeReminders = false,
+            includeMilestones = true
+        )
     }
 
-    fun removeScheduleReminderByEventId(context: Context, eventId: Int) {
-        if (!hasCalendarReadAccess(context)) return
-        val ids = findManagedReminderEventIds(context, eventId)
-        removeEventsByIds(context, ids)
-        removeEventsByDescriptionLike(context, "$REMINDER_MARKER_PREFIX:$eventId%")
+    fun removeScheduleReminderByEventId(context: Context, eventId: Int): CalendarCleanupResult {
+        return cleanupManagedCalendarEntries(
+            context = context,
+            eventId = eventId,
+            calendarEventId = null,
+            includeReminders = true,
+            includeMilestones = false
+        )
     }
 
-    fun removeScheduleReminder(context: Context, calendarEventId: Long?) {
-        if (calendarEventId == null || !hasCalendarWriteAccess(context)) return
-        try {
+    fun removeScheduleReminder(context: Context, calendarEventId: Long?): CalendarCleanupResult {
+        if (calendarEventId == null) return CalendarCleanupResult.RemovedOrNotPresent
+        return try {
+            if (!hasCalendarWriteAccess(context)) {
+                return CalendarCleanupResult.PermissionRequired
+            }
             val uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, calendarEventId)
             context.contentResolver.delete(uri, null, null)
-        } catch (_: SecurityException) {
-        } catch (_: Exception) {
+            CalendarCleanupResult.RemovedOrNotPresent
+        } catch (t: SecurityException) {
+            calendarCleanupFailureFor(t)
+        } catch (t: Exception) {
+            calendarCleanupFailureFor(t)
+        }
+    }
+
+    fun removeManagedCalendarEntries(
+        context: Context,
+        eventId: Int,
+        calendarEventId: Long?
+    ): CalendarCleanupResult {
+        return cleanupManagedCalendarEntries(
+            context = context,
+            eventId = eventId,
+            calendarEventId = calendarEventId,
+            includeReminders = true,
+            includeMilestones = true
+        )
+    }
+
+    private fun cleanupManagedCalendarEntries(
+        context: Context,
+        eventId: Int,
+        calendarEventId: Long?,
+        includeReminders: Boolean,
+        includeMilestones: Boolean
+    ): CalendarCleanupResult {
+        return try {
+            if (
+                !hasRequiredCalendarCleanupPermissions(
+                    readGranted = hasPermission(context, Manifest.permission.READ_CALENDAR),
+                    writeGranted = hasPermission(context, Manifest.permission.WRITE_CALENDAR)
+                )
+            ) {
+                return CalendarCleanupResult.PermissionRequired
+            }
+            val ids = linkedSetOf<Long>()
+            calendarEventId?.let(ids::add)
+            val markerPrefixes = buildList {
+                if (includeReminders) add(REMINDER_MARKER_PREFIX)
+                if (includeMilestones) add(MILESTONE_MARKER_PREFIX)
+            }
+
+            requireCalendarCleanupQuery(
+                context.contentResolver.query(
+                    CalendarContract.Events.CONTENT_URI,
+                    arrayOf(CalendarContract.Events._ID, CalendarContract.Events.DESCRIPTION),
+                    markerPrefixes.joinToString(" OR ") { "${CalendarContract.Events.DESCRIPTION} LIKE ?" },
+                    markerPrefixes.map { "$it:$eventId%" }.toTypedArray(),
+                    null
+                ),
+                "Calendar events"
+            ).use { cursor ->
+                val idIndex = cursor.getColumnIndexOrThrow(CalendarContract.Events._ID)
+                val descriptionIndex = cursor.getColumnIndexOrThrow(CalendarContract.Events.DESCRIPTION)
+                while (cursor.moveToNext()) {
+                    val description = cursor.getString(descriptionIndex).orEmpty()
+                    if (
+                        isManagedCalendarDescriptionForEvent(
+                            description = description,
+                            eventId = eventId,
+                            includeReminders = includeReminders,
+                            includeMilestones = includeMilestones
+                        )
+                    ) {
+                        ids += cursor.getLong(idIndex)
+                    }
+                }
+            }
+
+            val metadataCandidateIds = linkedSetOf<Long>()
+            requireCalendarCleanupQuery(
+                context.contentResolver.query(
+                    CalendarContract.ExtendedProperties.CONTENT_URI,
+                    arrayOf(CalendarContract.ExtendedProperties.EVENT_ID),
+                    "${CalendarContract.ExtendedProperties.NAME} = ? AND ${CalendarContract.ExtendedProperties.VALUE} = ?",
+                    arrayOf(META_NAME_EVENT_ID, eventId.toString()),
+                    null
+                ),
+                "Calendar extended-properties event ID"
+            ).use { cursor ->
+                val idIndex = cursor.getColumnIndexOrThrow(CalendarContract.ExtendedProperties.EVENT_ID)
+                while (cursor.moveToNext()) {
+                    metadataCandidateIds += cursor.getLong(idIndex)
+                }
+            }
+            metadataCandidateIds.forEach { candidateId ->
+                var managedKind = false
+                requireCalendarCleanupQuery(
+                    context.contentResolver.query(
+                        CalendarContract.ExtendedProperties.CONTENT_URI,
+                        arrayOf(CalendarContract.ExtendedProperties.VALUE),
+                        "${CalendarContract.ExtendedProperties.EVENT_ID} = ? AND ${CalendarContract.ExtendedProperties.NAME} = ?",
+                        arrayOf(candidateId.toString(), META_NAME_KIND),
+                        null
+                    ),
+                    "Calendar extended-properties kind"
+                ).use { cursor ->
+                    val valueIndex = cursor.getColumnIndexOrThrow(CalendarContract.ExtendedProperties.VALUE)
+                    while (cursor.moveToNext()) {
+                        if (
+                            isManagedCalendarMetadataKind(
+                                kind = cursor.getString(valueIndex),
+                                includeReminders = includeReminders,
+                                includeMilestones = includeMilestones
+                            )
+                        ) {
+                            managedKind = true
+                        }
+                    }
+                }
+                if (managedKind) {
+                    ids += candidateId
+                }
+            }
+
+            ids.forEach { id ->
+                val uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, id)
+                context.contentResolver.delete(uri, null, null)
+            }
+            CalendarCleanupResult.RemovedOrNotPresent
+        } catch (t: SecurityException) {
+            calendarCleanupFailureFor(t)
+        } catch (t: Exception) {
+            calendarCleanupFailureFor(t)
+        }
+    }
+
+    internal fun isManagedCalendarDescriptionForEvent(
+        description: String,
+        eventId: Int,
+        includeReminders: Boolean = true,
+        includeMilestones: Boolean = true
+    ): Boolean {
+        val marker = description.lineSequence().firstOrNull().orEmpty().removeSuffix("\r")
+        val prefixes = buildList {
+            if (includeReminders) add(REMINDER_MARKER_PREFIX)
+            if (includeMilestones) add(MILESTONE_MARKER_PREFIX)
+        }
+        return prefixes.any { prefix ->
+            val baseMarker = "$prefix:$eventId"
+            marker == baseMarker || marker.startsWith("$baseMarker:")
+        }
+    }
+
+    internal fun isManagedCalendarMetadataKind(
+        kind: String?,
+        includeReminders: Boolean,
+        includeMilestones: Boolean
+    ): Boolean {
+        return (includeReminders && kind == META_KIND_REMINDER) ||
+            (includeReminders && kind == META_KIND_REMINDER_RRULE) ||
+            (includeMilestones && kind == META_KIND_MILESTONE)
+    }
+
+    internal fun hasRequiredCalendarCleanupPermissions(
+        readGranted: Boolean,
+        writeGranted: Boolean
+    ): Boolean = readGranted && writeGranted
+
+    internal fun calendarCleanupFailureFor(error: Exception): CalendarCleanupResult {
+        return if (error is SecurityException) {
+            CalendarCleanupResult.PermissionRequired
+        } else {
+            CalendarCleanupResult.ProviderFailure(
+                (error.message ?: "Calendar provider cleanup failed").take(180)
+            )
         }
     }
 

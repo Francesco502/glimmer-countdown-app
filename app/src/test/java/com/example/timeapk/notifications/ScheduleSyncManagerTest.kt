@@ -8,10 +8,116 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 import java.time.LocalDate
 import java.time.ZoneId
 
 class ScheduleSyncManagerTest {
+
+    @Test
+    fun managedCalendarDescription_matchesLegacyAndV2MarkersForExactEventId() {
+        assertTrue(
+            ScheduleSyncManager.isManagedCalendarDescriptionForEvent(
+                "[TimeAPK][Reminder]:1\nlegacy note",
+                1
+            )
+        )
+        assertTrue(
+            ScheduleSyncManager.isManagedCalendarDescriptionForEvent(
+                "[TimeAPK][Reminder]:1:v2:occ=42:days=3:rr=0\nnote",
+                1
+            )
+        )
+        assertTrue(
+            ScheduleSyncManager.isManagedCalendarDescriptionForEvent(
+                "[TimeAPK][Milestone]:1",
+                1
+            )
+        )
+        assertTrue(
+            ScheduleSyncManager.isManagedCalendarDescriptionForEvent(
+                "[TimeAPK][Milestone]:1:v2:trigger=42\nnote",
+                1
+            )
+        )
+    }
+
+    @Test
+    fun managedCalendarDescription_doesNotTreatEventIdAsNumericPrefix() {
+        listOf("10", "11").forEach { otherId ->
+            assertFalse(
+                ScheduleSyncManager.isManagedCalendarDescriptionForEvent(
+                    "[TimeAPK][Reminder]:$otherId:v2:occ=42:days=3:rr=0",
+                    1
+                )
+            )
+            assertFalse(
+                ScheduleSyncManager.isManagedCalendarDescriptionForEvent(
+                    "[TimeAPK][Milestone]:$otherId:v2:trigger=42",
+                    1
+                )
+            )
+        }
+    }
+
+    @Test
+    fun managedCalendarMetadataKind_acceptsOnlyRequestedTimeApkKinds() {
+        assertTrue(ScheduleSyncManager.isManagedCalendarMetadataKind("reminder_v2", true, false))
+        assertTrue(ScheduleSyncManager.isManagedCalendarMetadataKind("reminder_rrule_v2", true, false))
+        assertFalse(ScheduleSyncManager.isManagedCalendarMetadataKind("milestone_v2", true, false))
+
+        assertFalse(ScheduleSyncManager.isManagedCalendarMetadataKind("reminder_v2", false, true))
+        assertTrue(ScheduleSyncManager.isManagedCalendarMetadataKind("milestone_v2", false, true))
+
+        assertTrue(ScheduleSyncManager.isManagedCalendarMetadataKind("reminder_v2", true, true))
+        assertTrue(ScheduleSyncManager.isManagedCalendarMetadataKind("reminder_rrule_v2", true, true))
+        assertTrue(ScheduleSyncManager.isManagedCalendarMetadataKind("milestone_v2", true, true))
+        assertFalse(ScheduleSyncManager.isManagedCalendarMetadataKind(null, true, true))
+        assertFalse(ScheduleSyncManager.isManagedCalendarMetadataKind("unknown_v3", true, true))
+    }
+
+    @Test
+    fun managedCalendarCleanup_requiresBothReadAndWritePermissions() {
+        assertTrue(ScheduleSyncManager.hasRequiredCalendarCleanupPermissions(true, true))
+        assertFalse(ScheduleSyncManager.hasRequiredCalendarCleanupPermissions(false, true))
+        assertFalse(ScheduleSyncManager.hasRequiredCalendarCleanupPermissions(true, false))
+        assertFalse(ScheduleSyncManager.hasRequiredCalendarCleanupPermissions(false, false))
+    }
+
+    @Test
+    fun legacyReminderCleanup_keepsMilestoneOutsideItsScope() {
+        val source = mainSource("notifications/ScheduleSyncManager.kt").readText(Charsets.UTF_8)
+        val legacyMilestoneCleanup = source.substringAfter("fun clearMilestoneScheduleRemindersByEventId(")
+            .substringBefore("fun removeScheduleReminderByEventId(")
+        val legacyReminderCleanup = source.substringAfter("fun removeScheduleReminderByEventId(")
+            .substringBefore("fun removeScheduleReminder(")
+        val combinedCleanup = source.substringAfter("fun removeManagedCalendarEntries(")
+            .substringBefore("internal fun isManagedCalendarDescriptionForEvent")
+
+        assertTrue(legacyMilestoneCleanup.contains("includeReminders = false"))
+        assertTrue(legacyMilestoneCleanup.contains("includeMilestones = true"))
+        assertTrue(legacyReminderCleanup.contains("includeReminders = true"))
+        assertTrue(legacyReminderCleanup.contains("includeMilestones = false"))
+        assertTrue(combinedCleanup.contains("includeReminders = true"))
+        assertTrue(combinedCleanup.contains("includeMilestones = true"))
+    }
+
+    @Test
+    fun scheduleCleanup_returnsExplicitOutcomeAndDoesNotSwallowExceptions() {
+        val source = mainSource("notifications/ScheduleSyncManager.kt").readText(Charsets.UTF_8)
+        val directCleanup = source.substringAfter("fun removeScheduleReminder(")
+            .substringBefore("fun removeManagedCalendarEntries(")
+        val cleanup = source.substringAfter("fun removeManagedCalendarEntries(")
+            .substringBefore("private fun buildExpectedReminderEntries")
+
+        assertTrue(directCleanup.indexOf("return try {") < directCleanup.indexOf("hasCalendarWriteAccess"))
+        assertTrue(cleanup.contains("CalendarCleanupResult.PermissionRequired"))
+        assertTrue(cleanup.contains("CalendarCleanupResult.ProviderFailure"))
+        assertTrue(cleanup.contains("requireCalendarCleanupQuery"))
+        assertTrue(cleanup.indexOf("return try {") < cleanup.indexOf("hasRequiredCalendarCleanupPermissions"))
+        assertFalse(cleanup.contains("catch (_: SecurityException) {\n        }"))
+        assertFalse(cleanup.contains("catch (_: Exception) {\n        }"))
+    }
 
     @Test
     fun reminderMarker_containsStablePrefixAndEventId() {
@@ -200,5 +306,12 @@ class ScheduleSyncManagerTest {
         assertEquals(1, plan.size)
         assertTrue(plan.single().useRRule)
         assertEquals(0, plan.single().daysLeft)
+    }
+
+    private fun mainSource(relative: String): File {
+        return listOf(
+            File("src/main/java/com/example/timeapk/$relative"),
+            File("app/src/main/java/com/example/timeapk/$relative")
+        ).firstOrNull(File::exists) ?: error("Missing main source: $relative")
     }
 }
