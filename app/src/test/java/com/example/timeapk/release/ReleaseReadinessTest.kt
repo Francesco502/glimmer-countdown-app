@@ -194,23 +194,56 @@ class ReleaseReadinessTest {
 
     @Test
     fun backupRulesIncludeRoomAndBothDataStoresForCloudAndTransfer() {
-        val legacy = existingFile(
+        val expectedIncludes = listOf(
+            "database" to "event_database",
+            "database" to "event_database-wal",
+            "database" to "event_database-shm",
+            "file" to "datastore/"
+        )
+        val documentBuilder = javax.xml.parsers.DocumentBuilderFactory
+            .newInstance()
+            .newDocumentBuilder()
+
+        fun directChildren(
+            parent: org.w3c.dom.Element,
+            tagName: String
+        ): List<org.w3c.dom.Element> {
+            return (0 until parent.childNodes.length)
+                .map(parent.childNodes::item)
+                .filterIsInstance<org.w3c.dom.Element>()
+                .filter { it.tagName == tagName }
+        }
+
+        fun directIncludes(parent: org.w3c.dom.Element): List<Pair<String, String>> {
+            return directChildren(parent, "include")
+                .map { it.getAttribute("domain") to it.getAttribute("path") }
+        }
+
+        fun singleDirectChild(
+            parent: org.w3c.dom.Element,
+            tagName: String
+        ): org.w3c.dom.Element {
+            return directChildren(parent, tagName).single()
+        }
+
+        val legacyRoot = documentBuilder.parse(existingFile(
             "src/main/res/xml/backup_rules.xml",
             "app/src/main/res/xml/backup_rules.xml"
-        ).readText()
-        val modern = existingFile(
+        )).documentElement
+        assertEquals("full-backup-content", legacyRoot.tagName)
+        assertEquals(expectedIncludes, directIncludes(legacyRoot))
+
+        val modernRoot = documentBuilder.parse(existingFile(
             "src/main/res/xml/data_extraction_rules.xml",
             "app/src/main/res/xml/data_extraction_rules.xml"
-        ).readText()
-        listOf(legacy, modern).forEach { rules ->
-            assertTrue(rules.contains("domain=\"database\" path=\"event_database\""))
-            assertTrue(rules.contains("domain=\"database\" path=\"event_database-wal\""))
-            assertTrue(rules.contains("domain=\"database\" path=\"event_database-shm\""))
-            assertTrue(rules.contains("domain=\"file\" path=\"datastore/\""))
-        }
-        assertTrue(modern.contains("<cloud-backup"))
-        assertTrue(modern.contains("disableIfNoEncryptionCapabilities=\"false\""))
-        assertTrue(modern.contains("<device-transfer>"))
+        )).documentElement
+        assertEquals("data-extraction-rules", modernRoot.tagName)
+
+        val cloudBackup = singleDirectChild(modernRoot, "cloud-backup")
+        val deviceTransfer = singleDirectChild(modernRoot, "device-transfer")
+        assertEquals("false", cloudBackup.getAttribute("disableIfNoEncryptionCapabilities"))
+        assertEquals(expectedIncludes, directIncludes(cloudBackup))
+        assertEquals(expectedIncludes, directIncludes(deviceTransfer))
     }
 
     private fun rootGradlePropertiesFile(): File {
