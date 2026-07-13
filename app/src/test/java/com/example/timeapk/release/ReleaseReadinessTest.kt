@@ -192,6 +192,27 @@ class ReleaseReadinessTest {
         assertTrue("Mojibake markers found: $offenders", offenders.isEmpty())
     }
 
+    @Test
+    fun backupRulesIncludeRoomAndBothDataStoresForCloudAndTransfer() {
+        val legacy = existingFile(
+            "src/main/res/xml/backup_rules.xml",
+            "app/src/main/res/xml/backup_rules.xml"
+        ).readText()
+        val modern = existingFile(
+            "src/main/res/xml/data_extraction_rules.xml",
+            "app/src/main/res/xml/data_extraction_rules.xml"
+        ).readText()
+        listOf(legacy, modern).forEach { rules ->
+            assertTrue(rules.contains("domain=\"database\" path=\"event_database\""))
+            assertTrue(rules.contains("domain=\"database\" path=\"event_database-wal\""))
+            assertTrue(rules.contains("domain=\"database\" path=\"event_database-shm\""))
+            assertTrue(rules.contains("domain=\"file\" path=\"datastore/\""))
+        }
+        assertTrue(modern.contains("<cloud-backup"))
+        assertTrue(modern.contains("disableIfNoEncryptionCapabilities=\"false\""))
+        assertTrue(modern.contains("<device-transfer>"))
+    }
+
     private fun rootGradlePropertiesFile(): File {
         return existingFile("gradle.properties", "../gradle.properties")
     }

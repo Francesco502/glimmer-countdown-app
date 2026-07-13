@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <full-backup-content>
-    <include domain="root" />
+    <include domain="database" path="event_database" />
+    <include domain="database" path="event_database-wal" />
+    <include domain="database" path="event_database-shm" />
+    <include domain="file" path="datastore/" />
 </full-backup-content>
