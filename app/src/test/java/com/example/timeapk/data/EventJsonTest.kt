@@ -134,6 +134,29 @@ class EventJsonTest {
     }
 
     @Test
+    fun parseEventsFromJson_requiredFieldTypesAndDateBoundary_keepOnlyValidRows() {
+        val json = """[
+            {"title":"Boundary","date":-2208988800000,"category":"other"},
+            {"title":null,"date":1700000000000,"category":"other"},
+            {"title":123,"date":1700000000000,"category":"other"},
+            {"title":"   ","date":1700000000000,"category":"other"},
+            {"title":"Null date","date":null,"category":"other"},
+            {"title":"Wrong date","date":"1700000000000","category":"other"},
+            {"title":"Null category","date":1700000000000,"category":null},
+            {"title":"Wrong category","date":1700000000000,"category":123},
+            {"title":"Blank category","date":1700000000000,"category":"   "},
+            {"title":"Before boundary","date":-2208988800001,"category":"other"},
+            {"title":"Valid after errors","date":1700000000000,"category":"birthday"}
+        ]"""
+
+        val result = parseEventsFromJson(json)
+
+        assertEquals(listOf("Boundary", "Valid after errors"), result.events.map { it.title })
+        assertEquals(-2208988800000, result.events.first().date)
+        assertEquals(9, result.errorCount)
+    }
+
+    @Test
     fun parseEventsFromJson_unknownRepeatType_defaultsToNone() {
         val json = """[{"title":"Test","date":1700000000000,"category":"other","repeatType":"unknown_type"}]"""
 
@@ -376,6 +399,86 @@ class EventJsonTest {
         assertEquals(1, result.importableEvents.size)
         assertEquals(1, result.existingDuplicateCount)
     }
+
+    @Test
+    fun filterExistingDuplicateEvents_eachFunctionalFieldDifference_isImportable() {
+        val base = duplicateIdentityEvent()
+        val variations = listOf(
+            "title" to base.copy(title = "Anniversary"),
+            "date" to base.copy(date = base.date + 1),
+            "category" to base.copy(category = CATEGORY_ANNIVERSARY),
+            "note" to base.copy(note = "friends"),
+            "colorHex" to base.copy(colorHex = "#112233"),
+            "repeatType" to base.copy(repeatType = REPEAT_MONTHLY),
+            "remindDaysBefore" to base.copy(remindDaysBefore = 4),
+            "reminderTimeMinutesOfDay" to base.copy(reminderTimeMinutesOfDay = 541),
+            "remindEnabled" to base.copy(remindEnabled = false),
+            "syncToScheduleEnabled" to base.copy(syncToScheduleEnabled = true),
+            "isLunar" to base.copy(isLunar = true)
+        )
+
+        variations.forEach { (field, variation) ->
+            val result = filterExistingDuplicateEvents(listOf(variation), listOf(base))
+
+            assertEquals("$field must be part of duplicate identity", listOf(variation), result.importableEvents)
+            assertEquals("$field must not be counted as duplicate", 0, result.existingDuplicateCount)
+        }
+    }
+
+    @Test
+    fun filterExistingDuplicateEvents_normalizesTextAndColorForDuplicateIdentity() {
+        val base = duplicateIdentityEvent()
+        val normalizedDuplicate = base.copy(
+            title = "  Birthday  ",
+            note = "  family  ",
+            colorHex = "  #AABBCC  "
+        )
+
+        val result = filterExistingDuplicateEvents(listOf(normalizedDuplicate), listOf(base))
+
+        assertTrue(result.importableEvents.isEmpty())
+        assertEquals(1, result.existingDuplicateCount)
+    }
+
+    @Test
+    fun filterExistingDuplicateEvents_eachMetadataFieldDifference_remainsDuplicate() {
+        val base = duplicateIdentityEvent()
+        val variations = listOf(
+            "id" to base.copy(id = 12),
+            "createdAt" to base.copy(createdAt = 2),
+            "scheduleEventId" to base.copy(scheduleEventId = 101),
+            "targetCalendarId" to base.copy(targetCalendarId = 201),
+            "lastScheduleSyncAt" to base.copy(lastScheduleSyncAt = 301),
+            "lastScheduleSyncError" to base.copy(lastScheduleSyncError = "new error")
+        )
+
+        variations.forEach { (field, variation) ->
+            val result = filterExistingDuplicateEvents(listOf(variation), listOf(base))
+
+            assertTrue("$field must be excluded from duplicate identity", result.importableEvents.isEmpty())
+            assertEquals("$field difference must still count as duplicate", 1, result.existingDuplicateCount)
+        }
+    }
+
+    private fun duplicateIdentityEvent() = Event(
+        id = 11,
+        title = "Birthday",
+        date = 1700000000000,
+        category = CATEGORY_BIRTHDAY,
+        note = "family",
+        colorHex = "#aabbcc",
+        repeatType = REPEAT_YEARLY,
+        remindDaysBefore = 3,
+        reminderTimeMinutesOfDay = 540,
+        remindEnabled = true,
+        syncToScheduleEnabled = false,
+        scheduleEventId = 100,
+        targetCalendarId = 200,
+        lastScheduleSyncAt = 300,
+        lastScheduleSyncError = "old error",
+        createdAt = 1,
+        isLunar = false
+    )
 
     private fun legacyRealmBackup(vararg records: ByteArray): ByteArray {
         return ByteArrayOutputStream().apply {
