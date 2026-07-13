@@ -20,6 +20,9 @@ import java.time.Period
  *
  * 对于农历事件，保持原始农历月日不变，在 today 当年/之后寻找下一次对应的公历日期。
  */
+private fun lunarYearOf(date: LocalDate): Int =
+    Solar.fromYmd(date.year, date.monthValue, date.dayOfMonth).lunar.year
+
 fun getNextLunarOccurrence(originSolarDate: LocalDate, today: LocalDate): LocalDate {
     // 若 today 早于起始日期，则直接返回起始公历日期，避免出现「出生前就有生日」的情况
     if (today.isBefore(originSolarDate)) {
@@ -36,7 +39,7 @@ fun getNextLunarOccurrence(originSolarDate: LocalDate, today: LocalDate): LocalD
         val lunarMonth = originLunar.month  // 1..12，闰月为负
         val lunarDay = originLunar.day
 
-        var year = today.year
+        var year = lunarYearOf(today)
         // 安全上限，避免极端情况下的死循环
         repeat(100) {
             val candidate = buildLunarSolarDateForYear(year, lunarMonth, lunarDay)
@@ -81,7 +84,7 @@ fun getPreviousLunarOccurrence(originSolarDate: LocalDate, today: LocalDate): Lo
         val lunarDay = originLunar.day
         val minYear = originLunar.year
 
-        var year = today.year
+        var year = lunarYearOf(today)
         repeat(100) {
             if (year < minYear) {
                 return originSolarDate
