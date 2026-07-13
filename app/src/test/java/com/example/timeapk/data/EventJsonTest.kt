@@ -80,24 +80,62 @@ class EventJsonTest {
     }
 
     @Test
-    fun parseEventsFromJson_defaultsApplied() {
-        val json = """[{"title":"Minimal"}]"""
+    fun parseEventsFromJson_missingRequiredFields_countsInvalidRows() {
+        val json = """[
+            {"title":"No date","category":"other"},
+            {"title":"No category","date":1700000000000},
+            {"title":"   ","date":1700000000000,"category":"other"}
+        ]"""
 
         val result = parseEventsFromJson(json)
 
-        assertEquals(1, result.events.size)
-        val event = result.events[0]
-        assertEquals("Minimal", event.title)
-        assertEquals(REPEAT_NONE, event.repeatType)
-        assertEquals("", event.note)
-        assertEquals(false, event.remindEnabled)
-        assertEquals(true, event.syncToScheduleEnabled)
-        assertEquals(false, event.isLunar)
+        assertTrue(result.events.isEmpty())
+        assertEquals(3, result.errorCount)
+    }
+
+    @Test
+    fun parseEventsFromJson_legacyMissingSideEffectFlags_defaultsBothFalse() {
+        val result = parseEventsFromJson(
+            """[{"title":"Legacy","date":1700000000000,"category":"other"}]"""
+        )
+
+        assertFalse(result.events.single().remindEnabled)
+        assertFalse(result.events.single().syncToScheduleEnabled)
+    }
+
+    @Test
+    fun parseEventsFromJson_rejectsPre1900DateAndUnknownCategory() {
+        val json = """[
+            {"title":"Old","date":-2209075200001,"category":"other"},
+            {"title":"Bad category","date":1700000000000,"category":"holiday"}
+        ]"""
+
+        assertEquals(2, parseEventsFromJson(json).errorCount)
+    }
+
+    @Test
+    fun parseEventsFromJson_rejectsWrongOptionalFieldTypes() {
+        val json = """[
+            {"title":"Bad note","date":1700000000000,"category":"other","note":1},
+            {"title":"Bad color","date":1700000000000,"category":"other","colorHex":true},
+            {"title":"Bad repeat","date":1700000000000,"category":"other","repeatType":false},
+            {"title":"Bad days","date":1700000000000,"category":"other","remindDaysBefore":"3"},
+            {"title":"Bad time","date":1700000000000,"category":"other","reminderTimeMinutesOfDay":"540"},
+            {"title":"Bad reminder","date":1700000000000,"category":"other","remindEnabled":"true"},
+            {"title":"Bad sync","date":1700000000000,"category":"other","syncToScheduleEnabled":1},
+            {"title":"Bad created","date":1700000000000,"category":"other","createdAt":"1"},
+            {"title":"Bad lunar","date":1700000000000,"category":"other","isLunar":0}
+        ]"""
+
+        val result = parseEventsFromJson(json)
+
+        assertTrue(result.events.isEmpty())
+        assertEquals(9, result.errorCount)
     }
 
     @Test
     fun parseEventsFromJson_unknownRepeatType_defaultsToNone() {
-        val json = """[{"title":"Test","repeatType":"unknown_type"}]"""
+        val json = """[{"title":"Test","date":1700000000000,"category":"other","repeatType":"unknown_type"}]"""
 
         val result = parseEventsFromJson(json)
 
@@ -107,7 +145,7 @@ class EventJsonTest {
 
     @Test
     fun parseEventsFromBackupBytes_jsonBytes_usesJsonParser() {
-        val json = """[{"title":"From JSON","date":1700000000000}]"""
+        val json = """[{"title":"From JSON","date":1700000000000,"category":"other"}]"""
 
         val result = parseEventsFromBackupBytes(json.toByteArray(Charsets.UTF_8))
 
@@ -120,9 +158,9 @@ class EventJsonTest {
     fun parseEventsFromBackupBytesDetailed_jsonBytes_reportsSourceAndRowCounts() {
         val json = """
             [
-                {"title":"Good","date":1700000000000},
+                {"title":"Good","date":1700000000000,"category":"other"},
                 {"title":123,"date":"bad"},
-                {"title":"Also Good","date":1700100000000}
+                {"title":"Also Good","date":1700100000000,"category":"other"}
             ]
         """.trimIndent()
 
@@ -296,6 +334,46 @@ class EventJsonTest {
 
         assertEquals(1, result.importableEvents.size)
         assertEquals("香港领证", result.importableEvents.single().title)
+        assertEquals(1, result.existingDuplicateCount)
+    }
+
+    @Test
+    fun filterExistingDuplicateEvents_skipsDatabaseAndSameFileDuplicates() {
+        val base = Event(
+            title = " Birthday ",
+            date = 1700000000000,
+            category = CATEGORY_BIRTHDAY,
+            note = "family",
+            repeatType = REPEAT_YEARLY,
+            remindDaysBefore = 3,
+            reminderTimeMinutesOfDay = 540,
+            remindEnabled = true,
+            syncToScheduleEnabled = false,
+            createdAt = 1
+        )
+        val result = filterExistingDuplicateEvents(
+            events = listOf(
+                base.copy(createdAt = 2),
+                base.copy(createdAt = 3),
+                base.copy(note = "friends")
+            ),
+            existingEvents = listOf(base)
+        )
+
+        assertEquals(listOf("friends"), result.importableEvents.map { it.note })
+        assertEquals(2, result.existingDuplicateCount)
+    }
+
+    @Test
+    fun filterExistingDuplicateEvents_withoutDatabaseStillDropsSameFileDuplicates() {
+        val event = Event(title = "Trip", date = 1700000000000, category = CATEGORY_OTHER)
+
+        val result = filterExistingDuplicateEvents(
+            listOf(event, event.copy(createdAt = 99)),
+            emptyList()
+        )
+
+        assertEquals(1, result.importableEvents.size)
         assertEquals(1, result.existingDuplicateCount)
     }
 

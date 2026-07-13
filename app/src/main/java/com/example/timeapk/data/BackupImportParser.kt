@@ -94,19 +94,15 @@ fun filterExistingDuplicateEvents(
     events: List<Event>,
     existingEvents: List<Event>
 ): ExistingDuplicateFilterResult {
-    if (events.isEmpty() || existingEvents.isEmpty()) {
-        return ExistingDuplicateFilterResult(events, 0)
-    }
-
-    val existingKeys = existingEvents.map { it.importDuplicateKey() }.toSet()
+    val seen = existingEvents.mapTo(mutableSetOf()) { it.importDuplicateKey() }
     val importableEvents = mutableListOf<Event>()
     var duplicateCount = 0
 
     events.forEach { event ->
-        if (event.importDuplicateKey() in existingKeys) {
-            duplicateCount += 1
-        } else {
+        if (seen.add(event.importDuplicateKey())) {
             importableEvents += event
+        } else {
+            duplicateCount += 1
         }
     }
 
@@ -138,7 +134,15 @@ private data class LegacyParseResult(
 private data class ImportDuplicateKey(
     val title: String,
     val date: Long,
-    val category: String
+    val category: String,
+    val note: String,
+    val colorHex: String?,
+    val repeatType: String,
+    val remindDaysBefore: Int,
+    val reminderTimeMinutesOfDay: Int,
+    val remindEnabled: Boolean,
+    val syncToScheduleEnabled: Boolean,
+    val isLunar: Boolean
 )
 
 private val legacyIsoRegex =
@@ -382,7 +386,15 @@ private fun Event.importDuplicateKey(): ImportDuplicateKey {
     return ImportDuplicateKey(
         title = title.trim(),
         date = date,
-        category = category
+        category = category,
+        note = note.trim(),
+        colorHex = colorHex?.trim()?.uppercase(),
+        repeatType = repeatType,
+        remindDaysBefore = remindDaysBefore,
+        reminderTimeMinutesOfDay = reminderTimeMinutesOfDay,
+        remindEnabled = remindEnabled,
+        syncToScheduleEnabled = syncToScheduleEnabled,
+        isLunar = isLunar
     )
 }
 

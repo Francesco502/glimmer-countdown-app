@@ -32,6 +32,9 @@ fun List<Event>.toJsonString(): String {
 
 data class ParseResult(val events: List<Event>, val errorCount: Int)
 
+private const val MIN_EVENT_DATE_MILLIS = -2208988800000L
+private val VALID_CATEGORIES = setOf(CATEGORY_BIRTHDAY, CATEGORY_ANNIVERSARY, CATEGORY_OTHER)
+
 fun parseEventsFromJson(json: String): ParseResult {
     val list = mutableListOf<Event>()
     var errorCount = 0
@@ -41,12 +44,18 @@ fun parseEventsFromJson(json: String): ParseResult {
             try {
                 val o = arr.getJSONObject(i)
                 val repeatType = normalizeRepeatType(o.optionalString("repeatType", REPEAT_NONE))
-                val category = o.optionalString("category", "")
+                val title = o.requiredString("title")
+                val date = o.requiredLong("date").also {
+                    require(it >= MIN_EVENT_DATE_MILLIS) { "Date before 1900" }
+                }
+                val category = o.requiredString("category").also {
+                    require(it in VALID_CATEGORIES) { "Unknown category" }
+                }
                 list.add(
                     Event(
                         id = 0,
-                        title = o.optionalString("title", ""),
-                        date = o.optionalLong("date", System.currentTimeMillis()),
+                        title = title,
+                        date = date,
                         category = category,
                         note = o.optionalString("note", ""),
                         colorHex = o.optionalNullableString("colorHex"),
@@ -54,7 +63,7 @@ fun parseEventsFromJson(json: String): ParseResult {
                         remindDaysBefore = sanitizeRemindDaysBefore(o.optionalInt("remindDaysBefore", 0)),
                         reminderTimeMinutesOfDay = sanitizeReminderTimeMinutesOfDay(o.optionalInt("reminderTimeMinutesOfDay", 480)),
                         remindEnabled = o.optionalBoolean("remindEnabled", false),
-                        syncToScheduleEnabled = o.optionalBoolean("syncToScheduleEnabled", true),
+                        syncToScheduleEnabled = o.optionalBoolean("syncToScheduleEnabled", false),
                         scheduleEventId = null,
                         targetCalendarId = null,
                         lastScheduleSyncAt = null,
@@ -72,6 +81,14 @@ fun parseEventsFromJson(json: String): ParseResult {
     }
     return ParseResult(list, errorCount)
 }
+
+private fun JSONObject.requiredString(name: String): String =
+    (get(name) as? String)?.trim()?.takeIf { it.isNotEmpty() }
+        ?: throw IllegalArgumentException("Expected non-empty string for $name")
+
+private fun JSONObject.requiredLong(name: String): Long =
+    (get(name) as? Number)?.toLong()
+        ?: throw IllegalArgumentException("Expected number for $name")
 
 private fun JSONObject.optionalString(name: String, defaultValue: String): String {
     if (!has(name) || isNull(name)) return defaultValue
