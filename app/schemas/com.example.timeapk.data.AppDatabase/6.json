@@ -1,12 +1,12 @@
 {
   "formatVersion": 1,
   "database": {
-    "version": 7,
-    "identityHash": "00000000000000000000000000000007",
+    "version": 6,
+    "identityHash": "ccd5b3c56a4ccf56722693e53d9319b0",
     "entities": [
       {
         "tableName": "events",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `title` TEXT NOT NULL, `date` INTEGER NOT NULL, `category` TEXT NOT NULL, `note` TEXT NOT NULL, `colorHex` TEXT, `repeatType` TEXT NOT NULL, `remindDaysBefore` INTEGER NOT NULL, `reminderTimeMinutesOfDay` INTEGER NOT NULL, `remindEnabled` INTEGER NOT NULL, `syncToScheduleEnabled` INTEGER NOT NULL, `scheduleEventId` INTEGER, `targetCalendarId` INTEGER, `lastScheduleSyncAt` INTEGER, `lastScheduleSyncError` TEXT, `createdAt` INTEGER NOT NULL, `isLunar` INTEGER NOT NULL, `tags` TEXT NOT NULL)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `title` TEXT NOT NULL, `date` INTEGER NOT NULL, `category` TEXT NOT NULL, `note` TEXT NOT NULL, `tags` TEXT NOT NULL, `colorHex` TEXT, `repeatType` TEXT NOT NULL, `remindDaysBefore` INTEGER NOT NULL, `reminderTimeMinutesOfDay` INTEGER NOT NULL, `remindEnabled` INTEGER NOT NULL, `syncToScheduleEnabled` INTEGER NOT NULL, `scheduleEventId` INTEGER, `createdAt` INTEGER NOT NULL, `isLunar` INTEGER NOT NULL)",
         "fields": [
           {
             "fieldPath": "id",
@@ -35,6 +35,12 @@
           {
             "fieldPath": "note",
             "columnName": "note",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tags",
+            "columnName": "tags",
             "affinity": "TEXT",
             "notNull": true
           },
@@ -79,21 +85,6 @@
             "affinity": "INTEGER"
           },
           {
-            "fieldPath": "targetCalendarId",
-            "columnName": "targetCalendarId",
-            "affinity": "INTEGER"
-          },
-          {
-            "fieldPath": "lastScheduleSyncAt",
-            "columnName": "lastScheduleSyncAt",
-            "affinity": "INTEGER"
-          },
-          {
-            "fieldPath": "lastScheduleSyncError",
-            "columnName": "lastScheduleSyncError",
-            "affinity": "TEXT"
-          },
-          {
             "fieldPath": "createdAt",
             "columnName": "createdAt",
             "affinity": "INTEGER",
@@ -103,12 +94,6 @@
             "fieldPath": "isLunar",
             "columnName": "isLunar",
             "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "tags",
-            "columnName": "tags",
-            "affinity": "TEXT",
             "notNull": true
           }
         ],
@@ -122,7 +107,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '00000000000000000000000000000007')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'ccd5b3c56a4ccf56722693e53d9319b0')"
     ]
   }
 }

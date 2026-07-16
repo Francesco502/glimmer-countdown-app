@@ -6,6 +6,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -20,46 +21,20 @@ class AppDatabaseMigrationTest {
     )
 
     @Test
-    fun migrate7To8_dropsTagsColumnAndPreservesRows() {
-        val dbName = "migration-test-v7-to-v8"
+    fun migratePublished6To10_runsTheFullChainAndPreservesRows() {
+        val dbName = "migration-test-v6-to-v10"
 
-        helper.createDatabase(dbName, 7).apply {
-            execSQL(
-                """
-                CREATE TABLE IF NOT EXISTS events (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-                    title TEXT NOT NULL,
-                    date INTEGER NOT NULL,
-                    category TEXT NOT NULL,
-                    note TEXT NOT NULL,
-                    colorHex TEXT,
-                    repeatType TEXT NOT NULL,
-                    remindDaysBefore INTEGER NOT NULL,
-                    reminderTimeMinutesOfDay INTEGER NOT NULL,
-                    remindEnabled INTEGER NOT NULL,
-                    syncToScheduleEnabled INTEGER NOT NULL,
-                    scheduleEventId INTEGER,
-                    targetCalendarId INTEGER,
-                    lastScheduleSyncAt INTEGER,
-                    lastScheduleSyncError TEXT,
-                    createdAt INTEGER NOT NULL,
-                    isLunar INTEGER NOT NULL,
-                    tags TEXT NOT NULL
-                )
-                """.trimIndent()
-            )
+        helper.createDatabase(dbName, 6).apply {
             execSQL(
                 """
                 INSERT INTO events (
-                    id, title, date, category, note, colorHex, repeatType,
+                    id, title, date, category, note, tags, colorHex, repeatType,
                     remindDaysBefore, reminderTimeMinutesOfDay, remindEnabled,
-                    syncToScheduleEnabled, scheduleEventId, targetCalendarId,
-                    lastScheduleSyncAt, lastScheduleSyncError, createdAt, isLunar, tags
+                    syncToScheduleEnabled, scheduleEventId, createdAt, isLunar
                 ) VALUES (
-                    1, 'Birthday', 1704067200000, 'birthday', 'note', '#AF4E31', 'yearly',
+                    1, 'Birthday', 1704067200000, 'birthday', 'note', 'family', '#AF4E31', 'yearly',
                     7, 480, 1,
-                    1, NULL, NULL,
-                    NULL, NULL, 1704067200000, 0, 'family'
+                    1, 91, 1704067200000, 0
                 )
                 """.trimIndent()
             )
@@ -68,18 +43,48 @@ class AppDatabaseMigrationTest {
 
         val migratedDb = helper.runMigrationsAndValidate(
             dbName,
-            8,
+            10,
             true,
-            AppDatabase.MIGRATION_7_8_FOR_TEST
+            AppDatabase.MIGRATION_6_7_FOR_TEST,
+            AppDatabase.MIGRATION_7_8_FOR_TEST,
+            AppDatabase.MIGRATION_8_9_FOR_TEST,
+            AppDatabase.MIGRATION_9_10_FOR_TEST
         )
 
-        assertFalse(columnNamesOf(migratedDb, "events").contains("tags"))
+        val columns = columnNamesOf(migratedDb, "events")
+        assertFalse(columns.contains("tags"))
+        assertFalse(columns.contains("birthHour"))
+        assertFalse(columns.contains("birthMinute"))
+        assertTrue(columns.contains("targetCalendarId"))
+        assertTrue(columns.contains("lastScheduleSyncAt"))
+        assertTrue(columns.contains("lastScheduleSyncError"))
 
-        migratedDb.query("SELECT title, category, remindDaysBefore FROM events WHERE id = 1").use { cursor ->
+        migratedDb.query(
+            """
+            SELECT title, date, category, note, colorHex, repeatType,
+                   remindDaysBefore, reminderTimeMinutesOfDay, remindEnabled,
+                   syncToScheduleEnabled, scheduleEventId, createdAt, isLunar,
+                   targetCalendarId, lastScheduleSyncAt, lastScheduleSyncError
+            FROM events WHERE id = 1
+            """.trimIndent()
+        ).use { cursor ->
             assertEquals(true, cursor.moveToFirst())
             assertEquals("Birthday", cursor.getString(0))
-            assertEquals("birthday", cursor.getString(1))
-            assertEquals(7, cursor.getInt(2))
+            assertEquals(1704067200000, cursor.getLong(1))
+            assertEquals("birthday", cursor.getString(2))
+            assertEquals("note", cursor.getString(3))
+            assertEquals("#AF4E31", cursor.getString(4))
+            assertEquals("yearly", cursor.getString(5))
+            assertEquals(7, cursor.getInt(6))
+            assertEquals(480, cursor.getInt(7))
+            assertEquals(1, cursor.getInt(8))
+            assertEquals(1, cursor.getInt(9))
+            assertEquals(91, cursor.getLong(10))
+            assertEquals(1704067200000, cursor.getLong(11))
+            assertEquals(0, cursor.getInt(12))
+            assertEquals(true, cursor.isNull(13))
+            assertEquals(true, cursor.isNull(14))
+            assertEquals(true, cursor.isNull(15))
         }
         migratedDb.close()
     }

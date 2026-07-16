@@ -200,6 +200,7 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE events_new RENAME TO events")
             }
         }
+        internal val MIGRATION_6_7_FOR_TEST: Migration = MIGRATION_6_7
         internal val MIGRATION_7_8_FOR_TEST: Migration = MIGRATION_7_8
         internal val MIGRATION_8_9_FOR_TEST: Migration = MIGRATION_8_9
         internal val MIGRATION_9_10_FOR_TEST: Migration = MIGRATION_9_10
