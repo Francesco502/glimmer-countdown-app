@@ -8,6 +8,8 @@ import android.util.TypedValue
 import android.widget.RemoteViews
 import android.widget.RemoteViewsService
 import com.example.timeapk.R
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 
 class CountdownWidgetService : RemoteViewsService() {
     override fun onGetViewFactory(intent: Intent): RemoteViewsFactory {
@@ -45,11 +47,13 @@ private class CountdownRemoteViewsFactory(
     override fun onDataSetChanged() {
         val identityToken = Binder.clearCallingIdentity()
         try {
-            val snapshot = WidgetContentResolver.load(
-                context = context,
-                appWidgetId = appWidgetId.takeIf { it != AppWidgetManager.INVALID_APPWIDGET_ID },
-                sizeBucket = widgetSizeBucket
-            )
+            val snapshot = runBlocking(Dispatchers.IO) {
+                WidgetContentResolver.load(
+                    context = context,
+                    appWidgetId = appWidgetId.takeIf { it != AppWidgetManager.INVALID_APPWIDGET_ID },
+                    sizeBucket = widgetSizeBucket
+                )
+            }
             items.clear()
             items.addAll(snapshot.items)
             textStyle = snapshot.textStyle

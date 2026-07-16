@@ -1,10 +1,24 @@
 package com.example.timeapk.widget
 
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
 class WidgetOrderingRefreshArchitectureTest {
+    @Test
+    fun providerUsesSuspendLoadingAndAlwaysFinishesPendingResult() {
+        val provider = mainSource("widget/CountdownAppWidgetProvider.kt").readText(Charsets.UTF_8)
+        val resolver = mainSource("widget/WidgetContentResolver.kt").readText(Charsets.UTF_8)
+
+        assertFalse(provider.contains("runBlocking"))
+        assertFalse(resolver.contains("runBlocking"))
+        assertTrue(provider.contains("goAsync()"))
+        assertTrue(provider.contains("pendingResult.finish()"))
+        assertTrue(provider.contains("finally"))
+        assertTrue(resolver.contains("suspend fun load("))
+    }
+
     @Test
     fun homeDragCallbacksReadCurrentStateAndCaptureIdsAtFirstMove() {
         val source = mainSource("ui/home/HomeScreen.kt").readText(Charsets.UTF_8)

@@ -14,13 +14,21 @@ import androidx.core.net.toUri
 import com.example.timeapk.MainActivity
 import com.example.timeapk.R
 import com.example.timeapk.TimeApplication
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class CountdownAppWidgetProvider : AppWidgetProvider() {
     companion object {
         fun refreshAllWidgets(context: Context) {
+            val app = context.applicationContext as? TimeApplication ?: return
             val appWidgetManager = AppWidgetManager.getInstance(context)
-            refreshWidgets(context, appWidgetManager, getAppWidgetIds(context, appWidgetManager))
+            val ids = getAppWidgetIds(context, appWidgetManager)
+            if (ids.isEmpty()) return
+            app.launchAppTask {
+                withContext(Dispatchers.IO) {
+                    refreshWidgets(app, appWidgetManager, ids)
+                }
+            }
         }
 
         fun getAppWidgetIds(
@@ -31,7 +39,7 @@ class CountdownAppWidgetProvider : AppWidgetProvider() {
             return appWidgetManager.getAppWidgetIds(provider)
         }
 
-        private fun refreshWidgets(
+        private suspend fun refreshWidgets(
             context: Context,
             appWidgetManager: AppWidgetManager,
             appWidgetIds: IntArray
@@ -43,17 +51,39 @@ class CountdownAppWidgetProvider : AppWidgetProvider() {
             }
         }
 
-        private fun updateSingleWidget(
+        private suspend fun updateSingleWidget(
             context: Context,
             appWidgetManager: AppWidgetManager,
             appWidgetId: Int,
             themeSnapshot: WidgetThemeSnapshot
         ) {
             val sizeBucket = resolveSizeBucket(appWidgetManager.getAppWidgetOptions(appWidgetId))
-            val config = runBlocking { WidgetConfigRepository(context).getConfigForWidget(appWidgetId) }
+            val config = WidgetConfigRepository(context).getConfigForWidget(appWidgetId)
             val views = buildWidgetRemoteViews(context, appWidgetId, sizeBucket, config, themeSnapshot)
             appWidgetManager.updateAppWidget(appWidgetId, views)
             notifyWidgetListChanged(appWidgetManager, appWidgetId)
+        }
+
+        private fun launchRefresh(
+            context: Context,
+            appWidgetManager: AppWidgetManager,
+            appWidgetIds: IntArray,
+            pendingResult: PendingResult
+        ) {
+            val app = context.applicationContext as? TimeApplication
+            if (app == null) {
+                pendingResult.finish()
+                return
+            }
+            app.launchAppTask {
+                try {
+                    withContext(Dispatchers.IO) {
+                        refreshWidgets(app, appWidgetManager, appWidgetIds)
+                    }
+                } finally {
+                    pendingResult.finish()
+                }
+            }
         }
 
         internal fun buildWidgetRemoteViews(
@@ -144,10 +174,17 @@ class CountdownAppWidgetProvider : AppWidgetProvider() {
     }
 
     override fun onReceive(context: Context, intent: Intent) {
-        super.onReceive(context, intent)
         if (intent.action == Intent.ACTION_CONFIGURATION_CHANGED) {
-            refreshAllWidgets(context)
+            val appWidgetManager = AppWidgetManager.getInstance(context)
+            launchRefresh(
+                context,
+                appWidgetManager,
+                getAppWidgetIds(context, appWidgetManager),
+                goAsync()
+            )
+            return
         }
+        super.onReceive(context, intent)
     }
 
     override fun onUpdate(
@@ -155,7 +192,7 @@ class CountdownAppWidgetProvider : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
-        refreshWidgets(context, appWidgetManager, appWidgetIds)
+        launchRefresh(context, appWidgetManager, appWidgetIds, goAsync())
     }
 
     override fun onAppWidgetOptionsChanged(
@@ -165,7 +202,7 @@ class CountdownAppWidgetProvider : AppWidgetProvider() {
         newOptions: Bundle
     ) {
         super.onAppWidgetOptionsChanged(context, appWidgetManager, appWidgetId, newOptions)
-        refreshWidgets(context, appWidgetManager, intArrayOf(appWidgetId))
+        launchRefresh(context, appWidgetManager, intArrayOf(appWidgetId), goAsync())
     }
 
     override fun onDeleted(context: Context, appWidgetIds: IntArray) {

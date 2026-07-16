@@ -15,7 +15,6 @@ import com.example.timeapk.ui.utils.formatBetweenAsYMD
 import com.example.timeapk.ui.utils.formatDays
 import com.example.timeapk.ui.utils.getAvailableDisplayModes
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
 import java.time.LocalDate
 
 internal data class WidgetRenderedItem(
@@ -34,58 +33,56 @@ internal data class WidgetContentSnapshot(
 )
 
 internal object WidgetContentResolver {
-    fun load(context: Context, sizeBucket: Int): WidgetContentSnapshot {
+    suspend fun load(context: Context, sizeBucket: Int): WidgetContentSnapshot {
         return load(context = context, appWidgetId = null, sizeBucket = sizeBucket)
     }
 
-    fun load(context: Context, appWidgetId: Int?, sizeBucket: Int): WidgetContentSnapshot {
+    suspend fun load(context: Context, appWidgetId: Int?, sizeBucket: Int): WidgetContentSnapshot {
         val app = context.applicationContext as? TimeApplication
             ?: return WidgetContentSnapshot(
                 items = emptyList(),
                 textStyle = WidgetStylePolicy.resolve(sizeBucket, 1f)
             )
 
-        return runBlocking {
-            val prefs = app.userPrefs
-            val milestones = prefs.customMilestonesFlow.first()
-            val pinnedEventIds = prefs.pinnedEventIdsFlow.first()
-            val customEventOrder = prefs.customEventOrderFlow.first()
-            val homeSortType = SortType.entries.getOrNull(prefs.sortTypeFlow.first()) ?: SortType.Custom
-            val preferredMode = prefs.dateDeltaDisplayModeFlow.first()
-            val perEventModes = prefs.perEventDateDeltaDisplayModesFlow.first()
-            val showMilestone = prefs.showMilestoneFlow.first()
-            val smartMilestonesEnabled = prefs.smartMilestonesEnabledFlow.first()
-            val widgetConfigRepository = WidgetConfigRepository(context)
-            val config = if (appWidgetId != null) {
-                widgetConfigRepository.getConfigForWidget(appWidgetId)
-            } else {
-                widgetConfigRepository.getDefaultConfig()
-            }.sanitize()
-            val textStyle = WidgetStylePolicy.resolve(sizeBucket, config.fontScale, config.densityMode)
-            val renderStyle = WidgetRenderPolicy.resolve(config, WidgetThemeResolver.resolve(context))
+        val prefs = app.userPrefs
+        val milestones = prefs.customMilestonesFlow.first()
+        val pinnedEventIds = prefs.pinnedEventIdsFlow.first()
+        val customEventOrder = prefs.customEventOrderFlow.first()
+        val homeSortType = SortType.entries.getOrNull(prefs.sortTypeFlow.first()) ?: SortType.Custom
+        val preferredMode = prefs.dateDeltaDisplayModeFlow.first()
+        val perEventModes = prefs.perEventDateDeltaDisplayModesFlow.first()
+        val showMilestone = prefs.showMilestoneFlow.first()
+        val smartMilestonesEnabled = prefs.smartMilestonesEnabledFlow.first()
+        val widgetConfigRepository = WidgetConfigRepository(context)
+        val config = if (appWidgetId != null) {
+            widgetConfigRepository.getConfigForWidget(appWidgetId)
+        } else {
+            widgetConfigRepository.getDefaultConfig()
+        }.sanitize()
+        val textStyle = WidgetStylePolicy.resolve(sizeBucket, config.fontScale, config.densityMode)
+        val renderStyle = WidgetRenderPolicy.resolve(config, WidgetThemeResolver.resolve(context))
 
-            val ordered = app.repository.getAllEventsSnapshot()
-                .map { it.toEventUiState(milestones, smartMilestonesEnabled) }
-                .let { filterAndSortStates(it, config, pinnedEventIds, customEventOrder, homeSortType) }
+        val ordered = app.repository.getAllEventsSnapshot()
+            .map { it.toEventUiState(milestones, smartMilestonesEnabled) }
+            .let { filterAndSortStates(it, config, pinnedEventIds, customEventOrder, homeSortType) }
 
-            val items = ordered.map { state ->
-                buildRenderedItem(
-                    context = context,
-                    state = state,
-                    sizeBucket = sizeBucket,
-                    preferredMode = perEventModes[state.event.id] ?: preferredMode,
-                    showMilestone = showMilestone,
-                    showLunarPrefix = config.showLunarPrefix,
-                    textStyle = textStyle
-                )
-            }
-
-            WidgetContentSnapshot(
-                items = items,
-                textStyle = textStyle,
-                renderStyle = renderStyle
+        val items = ordered.map { state ->
+            buildRenderedItem(
+                context = context,
+                state = state,
+                sizeBucket = sizeBucket,
+                preferredMode = perEventModes[state.event.id] ?: preferredMode,
+                showMilestone = showMilestone,
+                showLunarPrefix = config.showLunarPrefix,
+                textStyle = textStyle
             )
         }
+
+        return WidgetContentSnapshot(
+            items = items,
+            textStyle = textStyle,
+            renderStyle = renderStyle
+        )
     }
 
     internal fun resolveDisplayMode(
