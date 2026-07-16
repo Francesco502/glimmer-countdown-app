@@ -1,5 +1,9 @@
 package com.example.timeapk.ui.home
 
+import com.example.timeapk.data.CATEGORY_ANNIVERSARY
+import com.example.timeapk.data.CATEGORY_BIRTHDAY
+import com.example.timeapk.data.CATEGORY_OTHER
+
 enum class FilterType { All, Birthday, Anniversary, Other }
 
 enum class SortType { ByDays, ByDate, Custom }
@@ -42,4 +46,36 @@ internal fun applyHomeSort(
     val pinned = pinnedEventIds.mapNotNull { id -> sorted.find { it.event.id == id } }
     val unpinned = sorted.filter { it.event.id !in pinnedSet }
     return pinned + unpinned
+}
+
+internal fun buildHomeVisibleList(
+    all: List<EventUiState>,
+    filterType: FilterType,
+    sortType: SortType,
+    query: String,
+    customEventOrderIds: List<Int>,
+    pinnedEventIds: List<Int>
+): List<EventUiState> {
+    val categoryFiltered = when (filterType) {
+        FilterType.All -> all
+        FilterType.Birthday -> all.filter { it.event.category == CATEGORY_BIRTHDAY }
+        FilterType.Anniversary -> all.filter { it.event.category == CATEGORY_ANNIVERSARY }
+        FilterType.Other -> all.filter { it.event.category == CATEGORY_OTHER }
+    }
+    val normalizedQuery = query.trim().lowercase()
+    val searched = if (normalizedQuery.isEmpty()) {
+        categoryFiltered
+    } else {
+        categoryFiltered.filter { state ->
+            state.event.title.lowercase().contains(normalizedQuery) ||
+                state.event.note.lowercase().contains(normalizedQuery) ||
+                state.event.category.lowercase().contains(normalizedQuery)
+        }
+    }
+    return applyHomeSort(
+        list = searched,
+        sortType = sortType,
+        customEventOrderIds = customEventOrderIds,
+        pinnedEventIds = pinnedEventIds
+    )
 }

@@ -5,7 +5,6 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.timeapk.data.CATEGORY_ANNIVERSARY
 import com.example.timeapk.data.CATEGORY_BIRTHDAY
-import com.example.timeapk.data.CATEGORY_OTHER
 import com.example.timeapk.data.DEFAULT_MILESTONE_DAYS
 import com.example.timeapk.data.Event
 import com.example.timeapk.data.EventRepository
@@ -406,11 +405,6 @@ class HomeViewModel(
     private val userPrefs: UserPreferencesRepository
 ) : AndroidViewModel(application) {
 
-    companion object {
-        private const val MAX_UPCOMING_ITEMS = 100
-        private const val MAX_PAST_ITEMS = 50
-    }
-
     private val _searchQuery = MutableStateFlow("")
 
     init {
@@ -444,24 +438,6 @@ class HomeViewModel(
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = emptyList()
     )
-
-    private val baseHomeUiState: StateFlow<List<EventUiState>> = allHomeUiState
-        .map { all ->
-            val upcoming = all
-                .filter { !it.isPast }
-                .sortedBy { it.daysRemaining }
-                .take(MAX_UPCOMING_ITEMS)
-            val past = all
-                .filter { it.isPast }
-                .sortedBy { it.daysRemaining }
-                .take(MAX_PAST_ITEMS)
-            upcoming + past
-        }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
 
     private data class FilterInput(
         val filterType: FilterType,
@@ -497,62 +473,15 @@ class HomeViewModel(
     }
 
     val homeUiState: StateFlow<List<EventUiState>> = combine(
-        baseHomeUiState,
-        filterInputFlow,
-        orderInputFlow
-    ) { base, filterInput, orderInput ->
-        var list = when (filterInput.filterType) {
-            FilterType.All -> base
-            FilterType.Birthday -> base.filter { it.event.category == CATEGORY_BIRTHDAY }
-            FilterType.Anniversary -> base.filter { it.event.category == CATEGORY_ANNIVERSARY }
-            FilterType.Other -> base.filter { it.event.category == CATEGORY_OTHER }
-        }
-
-        val q = filterInput.query.trim().lowercase()
-        if (q.isNotBlank()) {
-            list = list.filter { state ->
-                state.event.title.lowercase().contains(q) ||
-                    state.event.note.lowercase().contains(q) ||
-                    state.event.category.lowercase().contains(q)
-            }
-        }
-
-        applyHomeSort(
-            list = list,
-            sortType = filterInput.sortType,
-            customEventOrderIds = orderInput.customEventOrderIds,
-            pinnedEventIds = orderInput.pinnedEventIds
-        )
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = emptyList()
-    )
-
-    val calendarUiState: StateFlow<List<EventUiState>> = combine(
         allHomeUiState,
         filterInputFlow,
         orderInputFlow
     ) { all, filterInput, orderInput ->
-        var list = when (filterInput.filterType) {
-            FilterType.All -> all
-            FilterType.Birthday -> all.filter { it.event.category == CATEGORY_BIRTHDAY }
-            FilterType.Anniversary -> all.filter { it.event.category == CATEGORY_ANNIVERSARY }
-            FilterType.Other -> all.filter { it.event.category == CATEGORY_OTHER }
-        }
-
-        val q = filterInput.query.trim().lowercase()
-        if (q.isNotBlank()) {
-            list = list.filter { state ->
-                state.event.title.lowercase().contains(q) ||
-                    state.event.note.lowercase().contains(q) ||
-                    state.event.category.lowercase().contains(q)
-            }
-        }
-
-        applyHomeSort(
-            list = list,
+        buildHomeVisibleList(
+            all = all,
+            filterType = filterInput.filterType,
             sortType = filterInput.sortType,
+            query = filterInput.query,
             customEventOrderIds = orderInput.customEventOrderIds,
             pinnedEventIds = orderInput.pinnedEventIds
         )
@@ -561,6 +490,8 @@ class HomeViewModel(
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = emptyList()
     )
+
+    val calendarUiState: StateFlow<List<EventUiState>> = homeUiState
 
     fun updateSearchQuery(query: String) {
         _searchQuery.value = query

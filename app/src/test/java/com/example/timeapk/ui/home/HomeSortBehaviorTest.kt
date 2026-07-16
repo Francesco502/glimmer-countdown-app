@@ -63,6 +63,53 @@ class HomeSortBehaviorTest {
         assertEquals(listOf(2, 3, 1), sorted.map { it.event.id })
     }
 
+    @Test
+    fun buildHomeVisibleList_searchesEventsBeyondFormerCaps() {
+        val items = (1..151).map { id ->
+            eventState(
+                id = id,
+                daysRemaining = id.toLong(),
+                createdAt = id.toLong()
+            ).let { state ->
+                if (id == 151) {
+                    state.copy(event = state.event.copy(title = "needle"))
+                } else {
+                    state
+                }
+            }
+        }
+
+        val result = buildHomeVisibleList(
+            all = items,
+            filterType = FilterType.All,
+            sortType = SortType.ByDays,
+            query = "needle",
+            customEventOrderIds = emptyList(),
+            pinnedEventIds = emptyList()
+        )
+
+        assertEquals(listOf(151), result.map { it.event.id })
+    }
+
+    @Test
+    fun buildHomeVisibleList_withoutSearchReturnsEveryEvent() {
+        val items = (1..175).map { id ->
+            eventState(id, id.toLong(), id.toLong())
+        }
+
+        assertEquals(
+            175,
+            buildHomeVisibleList(
+                all = items,
+                filterType = FilterType.All,
+                sortType = SortType.ByDays,
+                query = "",
+                customEventOrderIds = emptyList(),
+                pinnedEventIds = emptyList()
+            ).size
+        )
+    }
+
     private fun eventState(
         id: Int,
         daysRemaining: Long,
