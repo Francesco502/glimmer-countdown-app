@@ -1,4 +1,4 @@
-# Publish the direct APK to GitHub Release through a verified draft.
+# Publish the direct APK to GitHub Release through a locked, verified draft.
 # Usage:
 #   .\scripts\publish-release.ps1
 #   .\scripts\publish-release.ps1 -Tag v4.0 -ReleaseName v4.0
@@ -23,31 +23,24 @@ function Get-VersionName {
     if (-not (Test-Path $Path -PathType Leaf)) {
         throw "Unable to resolve VERSION_NAME: missing $Path"
     }
-
     $line = Get-Content $Path | Where-Object {
         $_ -match '^\s*VERSION_NAME\s*=\s*(.+)$'
     } | Select-Object -First 1
-
     if ($line -match 'VERSION_NAME\s*=\s*(.+)') {
         $value = $Matches[1].Trim()
         if (-not [string]::IsNullOrWhiteSpace($value)) {
             return $value
         }
     }
-
     throw "Unable to resolve VERSION_NAME from $Path"
 }
 
 function Get-ReleaseNotes {
-    param(
-        [string]$Path,
-        [string]$VersionName
-    )
+    param([string]$Path, [string]$VersionName)
 
     if (-not (Test-Path $Path -PathType Leaf)) {
         throw "Missing changelog: $Path"
     }
-
     $content = Get-Content $Path -Raw -Encoding UTF8
     $escapedVersion = [regex]::Escape($VersionName)
     $pattern = "(?ms)^##\s+\[$escapedVersion\][^\r\n]*\r?\n(.*?)(?=\r?\n##\s+\[|\z)"
@@ -61,7 +54,6 @@ function Get-AuthToken {
     if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_TOKEN)) {
         return $env:GITHUB_TOKEN.Trim()
     }
-
     try {
         $ghToken = gh auth token 2>$null
         if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($ghToken)) {
@@ -69,7 +61,6 @@ function Get-AuthToken {
         }
     } catch {
     }
-
     return $null
 }
 
@@ -83,10 +74,7 @@ function Get-StatusCode {
 }
 
 function Normalize-CertificateFingerprint {
-    param(
-        [string]$Value,
-        [string]$InvalidMessage
-    )
+    param([string]$Value, [string]$InvalidMessage)
 
     $normalized = ($Value -replace ':', '').Trim().ToUpperInvariant()
     if ($normalized -notmatch '^[0-9A-F]{64}$') {
@@ -105,28 +93,34 @@ function Find-ApkSigner {
     if (-not (Test-Path $buildTools -PathType Container)) {
         throw 'Unable to locate apksigner under ANDROID_HOME/build-tools.'
     }
-    $candidate = Get-ChildItem $buildTools -Recurse -File |
-        Where-Object { $_.Name -in @('apksigner', 'apksigner.bat') } |
-        Sort-Object { [version]$_.Directory.Name } -Descending |
-        Select-Object -First 1 -ExpandProperty FullName
-    if (-not $candidate) {
-        throw 'Unable to locate apksigner under ANDROID_HOME/build-tools.'
+    $executableName = if ($IsWindows -or $env:OS -eq 'Windows_NT') {
+        'apksigner.bat'
+    } else {
+        'apksigner'
     }
-    return $candidate
+    $stableCandidates = foreach ($directory in Get-ChildItem $buildTools -Directory) {
+        [version]$parsedVersion = $null
+        if ([version]::TryParse($directory.Name, [ref]$parsedVersion)) {
+            $candidate = Join-Path $directory.FullName $executableName
+            if (Test-Path $candidate -PathType Leaf) {
+                [pscustomobject]@{ Version = $parsedVersion; Path = $candidate }
+            }
+        }
+    }
+    $selected = $stableCandidates | Sort-Object Version -Descending | Select-Object -First 1
+    if ($null -eq $selected) {
+        throw 'Unable to locate a stable apksigner under ANDROID_HOME/build-tools.'
+    }
+    return $selected.Path
 }
 
 function Get-ReleaseByTag {
-    param(
-        [string]$Owner,
-        [string]$Repo,
-        [string]$ReleaseTag,
-        [hashtable]$Headers
-    )
+    param([string]$ReleaseTag, [hashtable]$Headers)
 
     $encodedTag = [uri]::EscapeDataString($ReleaseTag)
     try {
         return Invoke-RestMethod `
-            -Uri "https://api.github.com/repos/$Owner/$Repo/releases/tags/$encodedTag" `
+            -Uri "https://api.github.com/repos/$owner/$repo/releases/tags/$encodedTag" `
             -Method Get `
             -Headers $Headers
     } catch {
@@ -138,7 +132,21 @@ function Get-ReleaseByTag {
     }
 }
 
-# Complete every local validation before any POST, PATCH, or DELETE can run.
+function Get-ScriptOwnershipMarker {
+    param([object]$Release)
+
+    $match = [regex]::Match(
+        [string]$Release.body,
+        '<!-- glimmer-release-owner:[0-9a-fA-F]{32} -->'
+    )
+    if (-not $match.Success) {
+        return $null
+    }
+    return $match.Value
+}
+
+# Complete all local validation and authenticated remote tag validation before
+# the first network mutation (the lock ref creation).
 $versionName = Get-VersionName -Path $gradleProps
 $expectedTag = "v$versionName"
 if ($Tag -and $Tag -ne $expectedTag) {
@@ -150,13 +158,15 @@ if (-not $Tag) {
 if (-not $ReleaseName) {
     $ReleaseName = "v$versionName"
 }
-
 $releaseNotes = Get-ReleaseNotes -Path $changelogPath -VersionName $versionName
 $apkName = 'glimmer-countdown-' + ($versionName -replace '\.', '-') + '.apk'
 $apkPath = Join-Path $rootDir "app/build/outputs/apk/direct/release/$apkName"
 if (-not (Test-Path $apkPath -PathType Leaf) -or (Get-Item $apkPath).Length -le 0) {
     throw "APK not found or empty: $apkPath"
 }
+$apkSize = [long](Get-Item $apkPath).Length
+$apkSha256 = (Get-FileHash -Path $apkPath -Algorithm SHA256).Hash.ToLowerInvariant()
+$expectedDigest = "sha256:$apkSha256"
 
 $expectedCertInput = $env:GLIMMER_RELEASE_CERT_SHA256
 if ([string]::IsNullOrWhiteSpace($expectedCertInput)) {
@@ -165,7 +175,6 @@ if ([string]::IsNullOrWhiteSpace($expectedCertInput)) {
 $expectedCert = Normalize-CertificateFingerprint `
     -Value $expectedCertInput `
     -InvalidMessage 'Invalid GLIMMER_RELEASE_CERT_SHA256; expected 64 hexadecimal SHA-256 characters.'
-
 $apksigner = Find-ApkSigner -AndroidHome $env:ANDROID_HOME
 $verifyOutput = & $apksigner verify --print-certs $apkPath 2>&1
 if ($LASTEXITCODE -ne 0) {
@@ -189,56 +198,152 @@ if ([string]::IsNullOrWhiteSpace($token)) {
     throw 'Unable to resolve GitHub authentication token.'
 }
 $headers = @{
-    Authorization        = "Bearer $token"
-    Accept               = 'application/vnd.github+json'
+    Authorization          = "Bearer $token"
+    Accept                 = 'application/vnd.github+json'
     'X-GitHub-Api-Version' = '2022-11-28'
-    'User-Agent'         = 'glimmer-countdown-release-script'
+    'User-Agent'           = 'glimmer-countdown-release-script'
 }
 
-function Update-DraftRelease {
-    param(
-        [object]$Release,
-        [string]$Name,
-        [string]$Notes,
-        [hashtable]$Headers,
-        [string]$Owner,
-        [string]$Repo
-    )
-
-    if (-not [bool]$Release.draft) {
-        throw "Release $($Release.tag_name) is already published; refusing to mutate."
+$localTagCommit = [string](& git -C $rootDir rev-list -n 1 $Tag 2>$null)
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($localTagCommit)) {
+    throw "Local git tag $Tag does not exist."
+}
+$localTagCommit = $localTagCommit.Trim().ToLowerInvariant()
+$encodedTag = [uri]::EscapeDataString($Tag)
+try {
+    $remoteCommit = Invoke-RestMethod `
+        -Uri "https://api.github.com/repos/$owner/$repo/commits/$encodedTag" `
+        -Method Get `
+        -Headers $headers
+} catch {
+    $statusCode = Get-StatusCode -ErrorRecord $_
+    throw "Unable to resolve remote tag commit $Tag (HTTP $statusCode)."
+}
+$remoteTagCommit = ([string]$remoteCommit.sha).Trim().ToLowerInvariant()
+if ($remoteTagCommit -ne $localTagCommit) {
+    throw 'Remote tag commit does not match the local tag commit.'
+}
+$preflightRelease = Get-ReleaseByTag -ReleaseTag $Tag -Headers $headers
+$existingReleaseId = [long]0
+$previousOwnershipMarker = $null
+if ($null -ne $preflightRelease) {
+    $existingReleaseId = [long]$preflightRelease.id
+    if ($existingReleaseId -le 0 -or
+        -not [string]::Equals([string]$preflightRelease.tag_name, $Tag, [System.StringComparison]::Ordinal)) {
+        throw "Existing release $Tag has an invalid identity."
     }
-    $draftBody = @{
-        name       = $Name
-        body       = $Notes
-        draft = $true
-        prerelease = $false
-    } | ConvertTo-Json -Depth 4
-    return Invoke-RestMethod `
-        -Uri "https://api.github.com/repos/$Owner/$Repo/releases/$($Release.id)" `
-        -Method Patch `
-        -Headers $Headers `
-        -Body $draftBody `
-        -ContentType 'application/json; charset=utf-8'
+    if (-not [bool]$preflightRelease.draft) {
+        throw "Release $Tag is already published; refusing to mutate."
+    }
+    if ([bool]$preflightRelease.prerelease) {
+        throw "Existing draft $Tag is a prerelease; refusing to mutate."
+    }
+    $previousOwnershipMarker = Get-ScriptOwnershipMarker -Release $preflightRelease
+    if ([string]::IsNullOrWhiteSpace($previousOwnershipMarker)) {
+        throw "Existing draft $Tag is not owned by this publisher; refusing to mutate it."
+    }
+}
+
+$ownershipNonce = [guid]::NewGuid().ToString('N')
+$ownershipMarker = "<!-- glimmer-release-owner:$ownershipNonce -->"
+$ownedReleaseNotes = "$releaseNotes`n`n$ownershipMarker"
+$lockRef = "refs/heads/release-locks/$Tag"
+$lockApiRef = "heads/release-locks/$encodedTag"
+$expectedReleaseUrl = "https://github.com/$owner/$repo/releases/tag/$encodedTag"
+$encodedApkName = [uri]::EscapeDataString($apkName)
+$expectedAssetUrl = "https://github.com/$owner/$repo/releases/download/$encodedTag/$encodedApkName"
+
+function New-ReleaseLock {
+    $body = @{ ref = $lockRef; sha = $remoteTagCommit } | ConvertTo-Json
+    try {
+        $created = Invoke-RestMethod `
+            -Uri "https://api.github.com/repos/$owner/$repo/git/refs" `
+            -Method Post `
+            -Headers $headers `
+            -Body $body `
+            -ContentType 'application/json; charset=utf-8'
+    } catch {
+        $statusCode = Get-StatusCode -ErrorRecord $_
+        if ($statusCode -in @(409, 422)) {
+            throw "Another publisher owns the release lock for $Tag; refusing to continue."
+        }
+        throw "Unable to create the release lock for $Tag (HTTP $statusCode)."
+    }
+    if (-not [string]::Equals([string]$created.ref, $lockRef, [System.StringComparison]::Ordinal) -or
+        -not [string]::Equals([string]$created.object.sha, $remoteTagCommit, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw 'Created release lock does not match the requested tag and commit.'
+    }
+}
+
+function Remove-ReleaseLock {
+    Invoke-RestMethod `
+        -Uri "https://api.github.com/repos/$owner/$repo/git/refs/$lockApiRef" `
+        -Method Delete `
+        -Headers $headers
+}
+
+function Get-OwnedDraftRelease {
+    param([long]$ExpectedReleaseId)
+
+    $current = Invoke-RestMethod `
+        -Uri "https://api.github.com/repos/$owner/$repo/releases/$ExpectedReleaseId" `
+        -Method Get `
+        -Headers $headers
+    if ([long]$current.id -ne $ExpectedReleaseId) {
+        throw 'Release id changed during publication.'
+    }
+    if (-not [string]::Equals([string]$current.tag_name, $Tag, [System.StringComparison]::Ordinal)) {
+        throw 'Release tag changed during publication.'
+    }
+    if (-not [bool]$current.draft -or [bool]$current.prerelease) {
+        throw 'Release is no longer the owned draft.'
+    }
+    if (-not ([string]$current.body).Contains($ownershipMarker)) {
+        throw 'Release ownership marker does not match.'
+    }
+    return $current
+}
+
+function Get-ResumableDraftRelease {
+    param([long]$ExpectedReleaseId, [string]$ExpectedOwnershipMarker)
+
+    $current = Invoke-RestMethod `
+        -Uri "https://api.github.com/repos/$owner/$repo/releases/$ExpectedReleaseId" `
+        -Method Get `
+        -Headers $headers
+    if ([long]$current.id -ne $ExpectedReleaseId) {
+        throw 'Release id changed before draft recovery.'
+    }
+    if (-not [string]::Equals([string]$current.tag_name, $Tag, [System.StringComparison]::Ordinal)) {
+        throw 'Release tag changed before draft recovery.'
+    }
+    if (-not [bool]$current.draft -or [bool]$current.prerelease) {
+        throw 'Release is no longer a resumable draft.'
+    }
+    if (-not ([string]$current.body).Contains($ExpectedOwnershipMarker)) {
+        throw 'Previous release ownership marker does not match.'
+    }
+    return $current
 }
 
 function Upload-ReleaseAsset {
-    param(
-        [object]$Release,
-        [string]$AssetName,
-        [string]$AssetPath,
-        [string]$ContentType,
-        [hashtable]$Headers
-    )
+    param([object]$Release)
 
-    $encodedName = [uri]::EscapeDataString($AssetName)
-    $uploadUrl = $Release.upload_url -replace '\{\?name,label\}$', "?name=$encodedName"
-    $bytes = [System.IO.File]::ReadAllBytes($AssetPath)
+    $expectedUploadTemplate = "https://uploads.github.com/repos/$owner/$repo/releases/$([long]$Release.id)/assets{?name,label}"
+    if (-not [string]::Equals(
+            [string]$Release.upload_url,
+            $expectedUploadTemplate,
+            [System.StringComparison]::Ordinal
+        )) {
+        throw 'Release upload URL is not the expected GitHub uploads endpoint for this release id.'
+    }
+    $uploadUrl = "https://uploads.github.com/repos/$owner/$repo/releases/$([long]$Release.id)/assets?name=$encodedApkName"
+    $bytes = [System.IO.File]::ReadAllBytes($apkPath)
     $uploadHeaders = @{
-        Authorization  = $Headers.Authorization
-        Accept         = $Headers.Accept
-        'Content-Type' = $ContentType
-        'User-Agent'   = $Headers.'User-Agent'
+        Authorization  = $headers.Authorization
+        Accept         = $headers.Accept
+        'Content-Type' = $apkContentType
+        'User-Agent'   = $headers.'User-Agent'
     }
     return Invoke-RestMethod `
         -Uri $uploadUrl `
@@ -247,94 +352,250 @@ function Upload-ReleaseAsset {
         -Body $bytes
 }
 
-$release = Get-ReleaseByTag -Owner $owner -Repo $repo -ReleaseTag $Tag -Headers $headers
-if ($null -ne $release) {
-    if (-not [bool]$release.draft) {
-        throw "Release $Tag is already published; refusing to mutate."
+function Assert-UploadedAsset {
+    param([object]$Asset)
+
+    if (-not [string]::Equals([string]$Asset.name, $apkName, [System.StringComparison]::Ordinal)) {
+        throw 'Upload response asset name does not match exactly.'
     }
-    $release = Update-DraftRelease `
-        -Release $release -Name $ReleaseName -Notes $releaseNotes `
-        -Headers $headers -Owner $owner -Repo $repo
-} else {
-    $createBody = @{
-        tag_name   = $Tag
+    if ([long]$Asset.id -le 0) {
+        throw 'Upload response asset id is invalid.'
+    }
+    if (-not [string]::Equals([string]$Asset.state, 'uploaded', [System.StringComparison]::Ordinal)) {
+        throw 'Upload response state is not uploaded.'
+    }
+    if (-not [string]::Equals([string]$Asset.content_type, $apkContentType, [System.StringComparison]::Ordinal)) {
+        throw 'Upload response content type does not match.'
+    }
+    if ([long]$Asset.size -ne $apkSize) {
+        throw 'Upload response size does not match the local APK.'
+    }
+    if (-not [string]::Equals([string]$Asset.digest, $expectedDigest, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw 'Upload response digest does not match the local APK.'
+    }
+}
+
+function Assert-RefetchedAsset {
+    param([object]$Release, [long]$ExpectedAssetId)
+
+    $apkAssets = @($Release.assets | Where-Object {
+        ([string]$_.name).EndsWith('.apk', [System.StringComparison]::OrdinalIgnoreCase)
+    })
+    if ($apkAssets.Count -ne 1) {
+        throw 'Release does not contain exactly one APK asset.'
+    }
+    $asset = $apkAssets[0]
+    if (-not [string]::Equals([string]$asset.name, $apkName, [System.StringComparison]::Ordinal)) {
+        throw 'Refetched asset name does not match exactly.'
+    }
+    if ([long]$asset.id -ne $ExpectedAssetId) {
+        throw 'Refetched asset id does not match the upload response.'
+    }
+    if (-not [string]::Equals([string]$asset.state, 'uploaded', [System.StringComparison]::Ordinal)) {
+        throw 'Refetched asset state is not uploaded.'
+    }
+    if ([long]$asset.size -ne $apkSize) {
+        throw 'Refetched asset size does not match the local APK.'
+    }
+    if (-not [string]::Equals([string]$asset.content_type, $apkContentType, [System.StringComparison]::Ordinal)) {
+        throw 'Refetched asset content type does not match.'
+    }
+    if (-not [string]::Equals([string]$asset.digest, $expectedDigest, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw 'Refetched asset digest does not match the local APK.'
+    }
+    if (-not [string]::Equals([string]$asset.browser_download_url, $expectedAssetUrl, [System.StringComparison]::Ordinal)) {
+        throw 'Refetched asset URL does not match the expected repository release URL.'
+    }
+    return $asset
+}
+
+function Assert-FinalPublishedSnapshot {
+    param([object]$Release, [long]$ExpectedReleaseId, [long]$ExpectedAssetId)
+
+    if ([long]$Release.id -ne $ExpectedReleaseId) {
+        throw 'Final release id does not match.'
+    }
+    if (-not [string]::Equals([string]$Release.tag_name, $Tag, [System.StringComparison]::Ordinal)) {
+        throw 'Final release tag does not match.'
+    }
+    if (-not [string]::Equals([string]$Release.name, $ReleaseName, [System.StringComparison]::Ordinal)) {
+        throw 'Final release name does not match.'
+    }
+    if ([bool]$Release.draft -or [bool]$Release.prerelease) {
+        throw 'Final release is not public and stable.'
+    }
+    if (-not [string]::Equals([string]$Release.html_url, $expectedReleaseUrl, [System.StringComparison]::Ordinal)) {
+        throw 'Final release URL does not match.'
+    }
+    if (-not ([string]$Release.body).Contains($ownershipMarker)) {
+        throw 'Final release ownership marker does not match.'
+    }
+    $null = Assert-RefetchedAsset -Release $Release -ExpectedAssetId $ExpectedAssetId
+}
+
+function Get-FinalPublishedRelease {
+    param([long]$ExpectedReleaseId, [long]$ExpectedAssetId)
+
+    $lastFailure = 'Final release could not be verified.'
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        try {
+            $final = Invoke-RestMethod `
+                -Uri "https://api.github.com/repos/$owner/$repo/releases/$ExpectedReleaseId" `
+                -Method Get `
+                -Headers $headers
+            Assert-FinalPublishedSnapshot `
+                -Release $final `
+                -ExpectedReleaseId $ExpectedReleaseId `
+                -ExpectedAssetId $ExpectedAssetId
+            return $final
+        } catch {
+            $lastFailure = $_.Exception.Message
+        }
+        if ($attempt -lt 3) {
+            Start-Sleep -Seconds 2
+        }
+    }
+    throw $lastFailure
+}
+
+$lockAcquired = $false
+$publishConfirmed = $false
+$releaseId = [long]0
+$uploadedAssetId = [long]0
+$finalRelease = $null
+New-ReleaseLock
+$lockAcquired = $true
+try {
+    if ($existingReleaseId -gt 0) {
+        # Only a draft carrying the previous invocation's publisher marker may
+        # be resumed. Verify it immediately before rotating to this run's nonce.
+        $resumeCandidate = Get-ResumableDraftRelease `
+            -ExpectedReleaseId $existingReleaseId `
+            -ExpectedOwnershipMarker $previousOwnershipMarker
+        $resumeBody = @{
+            name       = $ReleaseName
+            body       = $ownedReleaseNotes
+            draft      = $true
+            prerelease = $false
+        } | ConvertTo-Json -Depth 4
+        $null = Invoke-RestMethod `
+            -Uri "https://api.github.com/repos/$owner/$repo/releases/$existingReleaseId" `
+            -Method Patch `
+            -Headers $headers `
+            -Body $resumeBody `
+            -ContentType 'application/json; charset=utf-8'
+        $releaseId = $existingReleaseId
+    } else {
+        # A release appearing after the preflight belongs to another actor. The
+        # server lock prevents a conforming publisher race, so never adopt it.
+        if ($null -ne (Get-ReleaseByTag -ReleaseTag $Tag -Headers $headers)) {
+            throw "Release $Tag appeared after lock acquisition; refusing to mutate it."
+        }
+        $createBody = @{
+            tag_name        = $Tag
+            target_commitish = $remoteTagCommit
+            name            = $ReleaseName
+            body            = $ownedReleaseNotes
+            draft           = $true
+            prerelease      = $false
+        } | ConvertTo-Json -Depth 4
+        try {
+            $createdRelease = Invoke-RestMethod `
+                -Uri "https://api.github.com/repos/$owner/$repo/releases" `
+                -Method Post `
+                -Headers $headers `
+                -Body $createBody `
+                -ContentType 'application/json; charset=utf-8'
+        } catch {
+            $statusCode = Get-StatusCode -ErrorRecord $_
+            if ($statusCode -in @(409, 422)) {
+                throw "Release $Tag was created concurrently; refusing to take over or mutate it."
+            }
+            throw "Unable to create owned draft release $Tag (HTTP $statusCode)."
+        }
+        $releaseId = [long]$createdRelease.id
+        if ($releaseId -le 0) {
+            throw 'Created release id is invalid.'
+        }
+    }
+    $current = Get-OwnedDraftRelease -ExpectedReleaseId $releaseId
+
+    # Remove every APK from this invocation's owned draft. Re-fetch ownership
+    # immediately before each DELETE so a changed object is never mutated.
+    while ($true) {
+        $current = Get-OwnedDraftRelease -ExpectedReleaseId $releaseId
+        $apkAssets = @($current.assets | Where-Object {
+            ([string]$_.name).EndsWith('.apk', [System.StringComparison]::OrdinalIgnoreCase)
+        })
+        if ($apkAssets.Count -eq 0) {
+            break
+        }
+        $assetIdToDelete = [long]$apkAssets[0].id
+        $current = Get-OwnedDraftRelease -ExpectedReleaseId $releaseId
+        $assetStillOwned = @($current.assets | Where-Object { [long]$_.id -eq $assetIdToDelete })
+        if ($assetStillOwned.Count -ne 1) {
+            throw 'Draft asset set changed before deletion.'
+        }
+        Invoke-RestMethod `
+            -Uri "https://api.github.com/repos/$owner/$repo/releases/assets/$assetIdToDelete" `
+            -Method Delete `
+            -Headers $headers
+    }
+
+    $current = Get-OwnedDraftRelease -ExpectedReleaseId $releaseId
+    $uploadResult = Upload-ReleaseAsset -Release $current
+    Assert-UploadedAsset -Asset $uploadResult
+    $uploadedAssetId = [long]$uploadResult.id
+
+    $current = Get-OwnedDraftRelease -ExpectedReleaseId $releaseId
+    $null = Assert-RefetchedAsset -Release $current -ExpectedAssetId $uploadedAssetId
+
+    # Validate ownership immediately before the publication mutation. A lost or
+    # timed-out PATCH is intentionally resolved only by the authoritative GET.
+    $current = Get-OwnedDraftRelease -ExpectedReleaseId $releaseId
+    $publishBody = @{
         name       = $ReleaseName
-        body       = $releaseNotes
-        draft = $true
+        body       = $ownedReleaseNotes
+        draft      = $false
         prerelease = $false
     } | ConvertTo-Json -Depth 4
+    $publishPatchError = $null
+    $publishPatchResponse = $null
     try {
-        $release = Invoke-RestMethod `
-            -Uri "https://api.github.com/repos/$owner/$repo/releases" `
-            -Method Post `
+        $publishPatchResponse = Invoke-RestMethod `
+            -Uri "https://api.github.com/repos/$owner/$repo/releases/$releaseId" `
+            -Method Patch `
             -Headers $headers `
-            -Body $createBody `
+            -Body $publishBody `
             -ContentType 'application/json; charset=utf-8'
+        Assert-FinalPublishedSnapshot `
+            -Release $publishPatchResponse `
+            -ExpectedReleaseId $releaseId `
+            -ExpectedAssetId $uploadedAssetId
     } catch {
-        $statusCode = Get-StatusCode -ErrorRecord $_
-        if ($statusCode -ne 422) {
-            throw "Unable to create draft release $Tag (HTTP $statusCode)."
-        }
-        $release = Get-ReleaseByTag -Owner $owner -Repo $repo -ReleaseTag $Tag -Headers $headers
-        if ($null -eq $release) {
-            throw "Release $Tag returned 422 but could not be found."
-        }
-        if (-not [bool]$release.draft) {
-            throw "Release $Tag is already published; refusing to mutate."
-        }
-        Write-Host "Release appeared during draft creation; updating the existing draft." -ForegroundColor Yellow
-        $release = Update-DraftRelease `
-            -Release $release -Name $ReleaseName -Notes $releaseNotes `
-            -Headers $headers -Owner $owner -Repo $repo
+        $publishPatchError = 'Publish PATCH response was unavailable; verifying authoritative final state.'
     }
-}
 
-@($release.assets) | Where-Object { $_.name -like '*.apk' } | ForEach-Object {
-    Invoke-RestMethod `
-        -Uri "https://api.github.com/repos/$owner/$repo/releases/assets/$($_.id)" `
-        -Method Delete `
-        -Headers $headers
-}
-
-$null = Upload-ReleaseAsset `
-    -Release $release `
-    -AssetName $apkName `
-    -AssetPath $apkPath `
-    -ContentType $apkContentType `
-    -Headers $headers
-
-$verified = Invoke-RestMethod `
-    -Uri "https://api.github.com/repos/$owner/$repo/releases/$($release.id)" `
-    -Method Get `
-    -Headers $headers
-if (-not [bool]$verified.draft -or $verified.tag_name -ne $Tag) {
-    throw "Verified release is no longer the expected draft; refusing to publish."
-}
-$apkAssets = @($verified.assets | Where-Object { $_.name -like '*.apk' })
-$hasVerifiedAsset = $apkAssets.Count -eq 1 -and `
-    $apkAssets[0].name -eq $apkName -and `
-    [long]$apkAssets[0].size -gt 0 -and `
-    -not [string]::IsNullOrWhiteSpace($apkAssets[0].browser_download_url) -and `
-    $apkAssets[0].content_type -eq $apkContentType
-if (-not $hasVerifiedAsset) {
-    throw "Draft does not contain exactly one verified APK named $apkName."
-}
-
-$publishBody = @{
-    name       = $ReleaseName
-    body       = $releaseNotes
-    draft = $false
-    prerelease = $false
-} | ConvertTo-Json -Depth 4
-$published = Invoke-RestMethod `
-    -Uri "https://api.github.com/repos/$owner/$repo/releases/$($release.id)" `
-    -Method Patch `
-    -Headers $headers `
-    -Body $publishBody `
-    -ContentType 'application/json; charset=utf-8'
-if ([bool]$published.draft -or $published.tag_name -ne $Tag) {
-    throw "GitHub did not publish the expected release $Tag."
+    $finalRelease = Get-FinalPublishedRelease `
+        -ExpectedReleaseId $releaseId `
+        -ExpectedAssetId $uploadedAssetId
+    $publishConfirmed = $true
+    if ($null -ne $publishPatchError) {
+        Write-Warning $publishPatchError
+    }
+} finally {
+    if ($lockAcquired) {
+        try {
+            Remove-ReleaseLock
+        } catch {
+            if ($publishConfirmed) {
+                Write-Warning "Release was verified as published, but lock cleanup failed. Manually delete $lockRef."
+            } else {
+                Write-Warning "Publication failed and lock cleanup also failed. The residual lock safely blocks retries; manually inspect $lockRef."
+            }
+        }
+    }
 }
 
 Write-Host "Published verified release $Tag." -ForegroundColor Green
-Write-Host $published.html_url -ForegroundColor Cyan
+Write-Host $finalRelease.html_url -ForegroundColor Cyan
