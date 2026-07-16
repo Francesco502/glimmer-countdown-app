@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -231,7 +230,7 @@ fun <T> SongModeTabRow(
     modifier: Modifier = Modifier
 ) {
     val dividerColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
-    Box(modifier = modifier.heightIn(min = 48.dp)) {
+    Box(modifier = modifier.height(48.dp)) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()

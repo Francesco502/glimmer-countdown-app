@@ -716,10 +716,10 @@ private fun HomeOverflowSearchField(
         onValueChange = onSearchQueryChange,
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = HomeOverflowActionItemHeight)
+            .height(48.dp)
             .border(BorderStroke(SongDesignTokens.BorderWidth.dp, borderColor), shape)
             .background(backgroundColor, shape)
-            .padding(horizontal = 10.dp, vertical = 8.dp),
+            .padding(horizontal = 10.dp),
         textStyle = MaterialTheme.typography.bodyMedium.copy(color = textColor),
         singleLine = true,
         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),

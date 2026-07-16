@@ -18,6 +18,25 @@ class ExportShareLabelContractTest {
         assertTrue(dataSettings.contains("label = stringResource(R.string.export_events_file)"))
         assertTrue(dataSettings.contains("label = stringResource(R.string.export_csv_file)"))
 
+        val jsonShare = dataSettings.substringAfter("label = stringResource(R.string.export_events)")
+            .substringBefore("HorizontalDivider")
+        val csvShare = dataSettings.substringAfter("label = stringResource(R.string.export_csv)")
+            .substringBefore("HorizontalDivider")
+        val jsonFile = dataSettings.substringAfter("label = stringResource(R.string.export_events_file)")
+            .substringBefore("HorizontalDivider")
+        val csvFile = dataSettings.substringAfter("label = stringResource(R.string.export_csv_file)")
+            .substringBefore("HorizontalDivider")
+
+        listOf(jsonShare, csvShare).forEach { shareAction ->
+            assertTrue(shareAction.contains("Intent(Intent.ACTION_SEND)"))
+            assertTrue(shareAction.contains("type = \"text/plain\""))
+            assertTrue(shareAction.contains("putExtra(Intent.EXTRA_TEXT"))
+        }
+        assertTrue(jsonShare.contains("toJsonString()"))
+        assertTrue(csvShare.contains("toCsvString()"))
+        assertTrue(jsonFile.contains("saveJsonLauncher.launch"))
+        assertTrue(csvFile.contains("saveCsvLauncher.launch"))
+
         assertTrue(baseStrings.contains("<string name=\"export_events\">分享 JSON 文本</string>"))
         assertTrue(baseStrings.contains("<string name=\"export_csv\">分享 CSV 文本</string>"))
         assertTrue(baseStrings.contains("<string name=\"export_events_file\">保存 JSON 文件</string>"))

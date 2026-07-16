@@ -35,7 +35,8 @@ class SongUiSourceConsistencyTest {
         assertTrue(modeTabs.contains(".selectable("))
         assertTrue(modeTabs.contains("selected = isSelected"))
         assertTrue(modeTabs.contains("role = Role.RadioButton"))
-        assertTrue(modeTabs.contains(".heightIn(min = 48.dp)"))
+        assertTrue(modeTabs.contains("Box(modifier = modifier.height(48.dp))"))
+        assertFalse(modeTabs.contains(".heightIn("))
     }
 
     @Test
@@ -45,6 +46,10 @@ class SongUiSourceConsistencyTest {
             .substringBefore("private data class TimelineActionTileSpec")
 
         assertTrue(search.contains(".size(48.dp)"))
+        assertTrue(search.contains(".height(48.dp)"))
+        assertFalse(search.contains(".heightIn(min = HomeOverflowActionItemHeight)"))
+        assertTrue(search.contains(".padding(horizontal = 10.dp)"))
+        assertFalse(search.contains("vertical = 8.dp"))
         assertTrue(search.contains("contentDescription = stringResource(R.string.cd_clear_search)"))
         assertFalse(search.contains("contentDescription = stringResource(R.string.date_picker_cancel)"))
         assertTrue(search.contains("size = 18.dp"))
@@ -245,7 +250,7 @@ class SongUiSourceConsistencyTest {
     }
 
     @Test
-    fun homeOverflowSearchSitsAtBottomAndMatchesActionItemHeight() {
+    fun homeOverflowSearchSitsAtBottomWithStableAccessibleHeight() {
         val source = readSource("ui/home/HomeScreen.kt")
         val menuBlock = source.substringAfter("private fun HomeOverflowPanel(")
             .substringBefore("@Composable\nprivate fun HomeOverflowSearchField")
@@ -260,7 +265,8 @@ class SongUiSourceConsistencyTest {
         val sortIndex = menuBlock.indexOf("HomeMenuSectionLabel(text = stringResource(R.string.sort_menu))")
 
         assertTrue(searchIndex > sortIndex)
-        assertTrue(searchBlock.contains(".heightIn(min = HomeOverflowActionItemHeight)"))
+        assertTrue(searchBlock.contains(".height(48.dp)"))
+        assertFalse(searchBlock.contains(".heightIn(min = HomeOverflowActionItemHeight)"))
         assertTrue(optionBlock.contains(".heightIn(min = HomeOverflowActionItemHeight)"))
         assertTrue(menuBlock.contains("footer = {"))
         assertTrue(slipBlock.contains("footer: (@Composable ColumnScope.() -> Unit)? = null"))
