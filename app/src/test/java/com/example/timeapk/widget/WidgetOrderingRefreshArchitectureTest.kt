@@ -186,12 +186,35 @@ class WidgetOrderingRefreshArchitectureTest {
         assertTrue(sync.contains("targetIds == pending.upstreamIds"))
         assertTrue(sync.contains("currentIds == pending.reorderedIds"))
         assertTrue(sync.contains("sortType != SortType.Custom"))
-        assertTrue(dragEnd.contains("PendingLocalReorderSnapshot("))
+        assertTrue(dragEnd.contains("pendingLocalReorderSnapshotOrNull("))
         assertTrue(
             dragEnd.indexOf("pendingLocalReorder =") < dragEnd.indexOf("dragInProgress = false")
         )
         assertTrue(dragEnd.contains("onPersistenceResult ="))
         assertTrue(dragEnd.contains("if (!persisted && pendingLocalReorder == reorderSnapshot)"))
+    }
+
+    @Test
+    fun homeSerializesReorderPersistenceAndRejectsInvalidDragEnds() {
+        val source = mainSource("ui/home/HomeScreen.kt").readText(Charsets.UTF_8)
+        val reorderSetup = source.substringAfter("val reorderState = rememberReorderableLazyListState(")
+            .substringBefore("AnimatedContent(")
+        val move = reorderSetup.substringAfter("onMove =").substringBefore("onDragEnd =")
+        val dragEnd = reorderSetup.substringAfter("onDragEnd =")
+
+        assertTrue(source.contains("val dragEnabled = canStartHomeReorder(sortType, pendingLocalReorder)"))
+        assertTrue(move.contains("latestDragEnabled && pendingLocalReorder == null"))
+        assertTrue(dragEnd.contains("pendingLocalReorderSnapshotOrNull("))
+        assertTrue(dragEnd.contains("if (reorderSnapshot != null)"))
+        assertTrue(
+            dragEnd.contains(
+                "if (latestDragEnabled && visibleIds != null && reorderSnapshot != null)"
+            )
+        )
+        assertTrue(
+            dragEnd.indexOf("if (reorderSnapshot != null)") <
+                dragEnd.indexOf("latestViewModel.updateCustomEventOrder(")
+        )
     }
 
     @Test

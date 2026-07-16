@@ -304,7 +304,7 @@ fun HomeScreen(
                 }
             } else {
                 key(homeDisplayMode) {
-                    val dragEnabled = homeCardDragSortEnabled(sortType)
+                    val dragEnabled = canStartHomeReorder(sortType, pendingLocalReorder)
                     val longPressEditEnabled = homeCardLongPressEditEnabled(sortType)
                     val tapOnlyInteraction = homeCardUsesTapOnlyInteraction(sortType)
                     val tapNavigationEnabled = homeCardTapNavigationEnabled(sortType)
@@ -317,7 +317,7 @@ fun HomeScreen(
                     var visibleIdsAtDragStart by remember { mutableStateOf<List<Int>?>(null) }
                     val reorderState = rememberReorderableLazyListState(
                         onMove = { from, to ->
-                            if (latestDragEnabled) {
+                            if (latestDragEnabled && pendingLocalReorder == null) {
                                 if (visibleIdsAtDragStart == null) {
                                     visibleIdsAtDragStart = latestDisplayedIds
                                 }
@@ -334,15 +334,15 @@ fun HomeScreen(
                             val visibleIds = visibleIdsAtDragStart
                             visibleIdsAtDragStart = null
                             val reorderedVisibleIds = orderedList.map { it.event.id }
-                            val reorderSnapshot = visibleIds?.let { upstreamIds ->
-                                PendingLocalReorderSnapshot(
-                                    upstreamIds = upstreamIds,
-                                    reorderedIds = reorderedVisibleIds
-                                ).takeIf { it.upstreamIds != it.reorderedIds }
+                            val reorderSnapshot = pendingLocalReorderSnapshotOrNull(
+                                upstreamIds = visibleIds,
+                                reorderedIds = reorderedVisibleIds
+                            )
+                            if (reorderSnapshot != null) {
+                                pendingLocalReorder = reorderSnapshot
                             }
-                            pendingLocalReorder = reorderSnapshot
                             dragInProgress = false
-                            if (latestDragEnabled && visibleIds != null) {
+                            if (latestDragEnabled && visibleIds != null && reorderSnapshot != null) {
                                 latestViewModel.updateCustomEventOrder(
                                     visibleIds = visibleIds,
                                     reorderedVisibleIds = reorderedVisibleIds,

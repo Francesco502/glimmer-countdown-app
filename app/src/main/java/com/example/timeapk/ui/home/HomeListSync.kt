@@ -5,6 +5,28 @@ internal data class PendingLocalReorderSnapshot(
     val reorderedIds: List<Int>
 )
 
+internal fun pendingLocalReorderSnapshotOrNull(
+    upstreamIds: List<Int>?,
+    reorderedIds: List<Int>
+): PendingLocalReorderSnapshot? {
+    if (upstreamIds.isNullOrEmpty() || reorderedIds.isEmpty()) return null
+    if (upstreamIds == reorderedIds) return null
+    if (upstreamIds.size != reorderedIds.size) return null
+    if (upstreamIds.distinct().size != upstreamIds.size) return null
+    if (reorderedIds.distinct().size != reorderedIds.size) return null
+    if (upstreamIds.toSet() != reorderedIds.toSet()) return null
+
+    return PendingLocalReorderSnapshot(
+        upstreamIds = upstreamIds,
+        reorderedIds = reorderedIds
+    )
+}
+
+internal fun canStartHomeReorder(
+    sortType: SortType,
+    pending: PendingLocalReorderSnapshot?
+): Boolean = homeCardDragSortEnabled(sortType) && pending == null
+
 internal fun shouldRetainPendingLocalReorder(
     currentIds: List<Int>,
     targetIds: List<Int>,

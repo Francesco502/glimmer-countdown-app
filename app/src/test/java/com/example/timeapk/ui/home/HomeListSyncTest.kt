@@ -131,6 +131,79 @@ class HomeListSyncTest {
         )
     }
 
+    @Test
+    fun overlappingReorder_isBlockedUntilFirstTargetEchoClearsPending() {
+        val first = pendingLocalReorderSnapshotOrNull(
+            upstreamIds = listOf(1, 2, 3),
+            reorderedIds = listOf(3, 1, 2)
+        )
+        requireNotNull(first)
+
+        assertFalse(canStartHomeReorder(SortType.Custom, first))
+        assertTrue(
+            shouldRetainPendingLocalReorder(
+                currentIds = first.reorderedIds,
+                targetIds = first.upstreamIds,
+                sortType = SortType.Custom,
+                pending = first
+            )
+        )
+
+        val targetEchoClearsFirst = !shouldRetainPendingLocalReorder(
+            currentIds = first.reorderedIds,
+            targetIds = first.reorderedIds,
+            sortType = SortType.Custom,
+            pending = first
+        )
+        assertTrue(targetEchoClearsFirst)
+        assertTrue(canStartHomeReorder(SortType.Custom, pending = null))
+
+        val second = pendingLocalReorderSnapshotOrNull(
+            upstreamIds = first.reorderedIds,
+            reorderedIds = listOf(3, 2, 1)
+        )
+        requireNotNull(second)
+        assertEquals(first.reorderedIds, second.upstreamIds)
+    }
+
+    @Test
+    fun overlappingReorder_isAllowedAfterPersistenceFailureClearsPending() {
+        val first = pendingLocalReorderSnapshotOrNull(
+            upstreamIds = listOf(1, 2, 3),
+            reorderedIds = listOf(3, 1, 2)
+        )
+        requireNotNull(first)
+        assertFalse(canStartHomeReorder(SortType.Custom, first))
+
+        val pendingAfterFailure: PendingLocalReorderSnapshot? = null
+        assertTrue(canStartHomeReorder(SortType.Custom, pendingAfterFailure))
+    }
+
+    @Test
+    fun invalidOrNoOpReorder_doesNotCreateAPersistenceSnapshot() {
+        assertEquals(
+            null,
+            pendingLocalReorderSnapshotOrNull(
+                upstreamIds = listOf(1, 2, 3),
+                reorderedIds = listOf(1, 2, 3)
+            )
+        )
+        assertEquals(
+            null,
+            pendingLocalReorderSnapshotOrNull(
+                upstreamIds = listOf(1, 2, 3),
+                reorderedIds = listOf(3, 1)
+            )
+        )
+        assertEquals(
+            null,
+            pendingLocalReorderSnapshotOrNull(
+                upstreamIds = listOf(1, 2, 3),
+                reorderedIds = listOf(3, 1, 4)
+            )
+        )
+    }
+
     private data class TestItem(
         val id: Int,
         val title: String
