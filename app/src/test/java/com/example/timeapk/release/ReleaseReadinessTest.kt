@@ -9,6 +9,32 @@ import java.util.Properties
 
 class ReleaseReadinessTest {
     @Test
+    fun repositoryProvidesExecutableWrapperAndSecretFreePullRequestCi() {
+        val wrapper = existingFile("gradlew", "../gradlew")
+        assertTrue("gradlew must be executable after checkout", wrapper.canExecute())
+
+        val workflow = existingFile(
+            ".github/workflows/android-ci.yml",
+            "../.github/workflows/android-ci.yml"
+        ).readText(Charsets.UTF_8)
+        assertTrue(workflow.contains("pull_request:"))
+        assertTrue(workflow.contains("contents: read"))
+        assertTrue(workflow.contains("actions/checkout@v6"))
+        assertTrue(workflow.contains("actions/setup-java@v5"))
+        assertTrue(workflow.contains("gradle/actions/setup-gradle@v4"))
+        assertTrue(workflow.contains("testDirectDebugUnitTest"))
+        assertTrue(workflow.contains("testPlayDebugUnitTest"))
+        assertTrue(workflow.contains("compileDirectDebugAndroidTestKotlin"))
+        assertTrue(workflow.contains("lintDirectRelease"))
+        assertTrue(workflow.contains("lintPlayRelease"))
+        assertTrue(workflow.contains("assembleDirectDebug"))
+        assertTrue(workflow.contains("assemblePlayDebug"))
+        assertFalse(workflow.contains("assembleDirectRelease"))
+        assertFalse(workflow.contains("GITHUB_TOKEN"))
+        assertFalse(workflow.contains("TIMEAPK_KEYSTORE"))
+    }
+
+    @Test
     fun versionConfigTargets40Release() {
         val properties = Properties().apply {
             rootGradlePropertiesFile().inputStream().use(::load)
