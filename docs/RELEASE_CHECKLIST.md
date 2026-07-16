@@ -37,7 +37,7 @@
 - [x] 首页选择按距离天数排列时，小组件置顶项在前，其余项目按相同天数规则排序
 - [x] 小组件“置顶优先”和“最近优先”显式模式维持各自定义，不受“跟随首页”修复影响
 - [ ] 小组件默认配置页显示 1-5 格“预览宽度 / 预览高度”，说明不会强制改变 Launcher 物理尺寸
-- [ ] 添加、编辑、删除多个小组件时实例配置互不污染，事件和设置变化后可及时刷新
+- [x] 添加、编辑、删除多个小组件时实例配置互不污染，事件和设置变化后可及时刷新
 - [ ] 小组件内容筛选、排序、密度、边框、圆角、文字对比和农历前缀配置生效
 - [ ] 透明、半透明、宣纸、青瓷、朱印背景在浅色 / 深色 Launcher 下均可读
 
@@ -55,7 +55,7 @@
 - JVM 回归（2026-07-16）：Direct / Play 各 410 项通过，0 failures / 0 errors / 0 skipped；覆盖农历重复、导入校验、数据库恢复、首页排序、小组件解析、无障碍架构、当前界面语言解析及渠道更新契约等确定性行为。`compileDirectDebugAndroidTestKotlin`、`assembleDirectDebug`、`assemblePlayDebug` 同轮通过。
 - 数据库迁移（2026-07-16）：从已发布 v3.4 的真实 Room v6 schema 启动，依次执行生产迁移 6→7→8→9→10；API 37 上 2 项 connected migration 测试通过，验证删除字段、新增字段、核心数据保留与 v10 schema 严格校验。
 - UI / 无障碍（2026-07-16）：API 37 验证首页列表与卡片深色模式、月历 150% 系统字体、日期滚轮与设置单选组。修复事件文字和选中日期对比、48dp 触控目标、滚轮可调语义、装饰性空状态按钮重复朗读及设置单选行合并语义；镜像内置 TalkBack 已以触摸探索模式绑定，首页视图标签取得真实读屏焦点，UI 语义树能识别月历入口、月份切换、事件和添加按钮的中文标签。自动注入手势未能可靠完成开关、展开区与日期选择器的端到端顺序遍历，因此总项仍保留未勾选。
-- 性能（2026-07-16）：分享卡 1080×1350 渲染移至 Default dispatcher，PNG 写入移至 IO；Debug 冷启动 5 次中位数约 1630ms，首页滚动 Perfetto trace 无丢样。Release 性能画像与真机长时内存观察仍未完成。
+- 性能（2026-07-16）：分享卡 1080×1350 渲染移至 Default dispatcher，PNG 写入移至 IO；Debug 首页滚动 Perfetto trace 无丢样。临时测试签名 Direct Release 在 API 37 模拟器执行 10 次强制停止启动，其中 9 次 COLD 为 488–827ms、中位数 719ms，另 1 次被系统标记为 WARM（551ms）。同一 Release 进程重复 100 次“添加事件 / 返回首页”后 `Activities=1`、`ViewRootImpl=1`、`AppContexts=6`，未见页面对象数量持续叠加；整理后 Java Heap 从 28,864KB 到 31,008KB，TOTAL PSS 从 63,003KB 到 78,727KB，并保留 `/tmp/timeapk-v4-release-perf-20260716/timeapk-after-100.hprof` 供后续分析。由于模拟器 PSS 仍有约 15.4MB 增长，真机长时观察与堆引用链分析未完成，性能总项继续保留未勾选。
 - 工程门（2026-07-16）：五项 lint / vital lint 均通过，DirectDebug、DirectRelease、PlayRelease 报告均为 `No issues found.`；新增 Android pull request CI，执行双渠道 JVM、AndroidTest 编译、五项 lint / vital lint 与双渠道 Debug 构建。
 - 渠道验收（2026-07-16）：API 37 `emulator-5554` 安装 Direct / Play Debug APK；Direct 关于页显示 `4.0` 和“探寻新章”，Play 关于页显示 `4.0-play` 和“更新由应用商店管理”，且不暴露 Direct 下载或安装入口。`aapt` 验证 Direct Debug APK 包含 `REQUEST_INSTALL_PACKAGES`、Play Debug APK 不包含；正式发布密钥 Release 产物的最终权限与签名检查仍未执行。
 - 模拟器（2026-07-16）：API 37 `sdk_gphone16k_arm64`，以 22 条脱敏事件完成 Custom / ByDays / ByDate 首页排序，并由两个真实 Pixel Launcher 小组件实例验证“跟随首页”和独立模式；置顶 `Event 06`、`Event 03` 始终在前。
@@ -65,8 +65,9 @@
 - PowerShell 脚本运行：未检查；当前环境没有 `pwsh` / Windows PowerShell，未执行解析或 mocked dry run。
 - 真实 GitHub mutation：未检查；未创建 Git ref 锁、draft、asset 或正式 Release，避免在未完成检查清单时改变远端发布状态。
 - Backup / restore smoke（2026-07-16）：Android 8 / API 26 启用系统 LocalTransport 后完成 `backupnow`、`pm clear` 与指定 token restore；事件数据库、用户偏好和小组件偏好均恢复，两个 DataStore 文件恢复前后 SHA-256 完全一致，恢复后的事件可在界面读取。
-- 输入 / 旋转（2026-07-16）：API 37 新建事件输入标题后旋转到横屏，标题与未保存状态保留，返回仍出现放弃修改确认；拼音组合态与完整编辑链仍保留总项未勾选。
-- 筛选后的真实拖拽（2026-07-16）：API 37 connected test 从“按天数”切换“自定义排序”，搜索得到 3 个可见事件并隐藏 1 个事件，通过 48dp 拖动把手移动中间项；界面换位与 DataStore 全局顺序均成功，隐藏事件保持原槽位。完整 connected 套件 8/8 通过；另以 ADB 在三张匿名卡片的可见把手上拖动 `QA_B`，UI 顺序从 C/B/A 变为 C/A/B，复核把手未遮挡卡片内容。
+- 输入 / 旋转（2026-07-16）：API 37 新建事件输入标题后旋转到横屏，标题与未保存状态保留，返回仍出现放弃修改确认；新增编辑链 connected 回归，验证编辑标题跨 Activity recreate 保留、返回“留在此页”不丢内容、保存落库并返回首页。该回归曾暴露保存完成后从 Room executor 调用导航的问题，现强制在 Main dispatcher 处理保存结果并复测通过。拼音组合态与硬件键盘组合测试仍未完成，因此总项保留未勾选。
+- 小组件多实例（2026-07-16）：在两个真实 Pixel Launcher 小组件实例运行验证基础上，新增 API 37 DataStore connected 回归；两个实例分别保存不同外观、内容范围和排序，更新默认配置不会覆盖已有实例，删除单个实例配置后仅该实例回退最新默认，另一个实例保持不变。
+- 筛选后的真实拖拽（2026-07-16）：API 37 connected test 从“按天数”切换“自定义排序”，搜索得到 3 个可见事件并隐藏 1 个事件，通过 48dp 拖动把手移动中间项；界面换位与 DataStore 全局顺序均成功，隐藏事件保持原槽位。包含编辑恢复与小组件多实例回归在内的完整 connected 套件 10/10 通过；另以 ADB 在三张匿名卡片的可见把手上拖动 `QA_B`，UI 顺序从 C/B/A 变为 C/A/B，复核把手未遮挡卡片内容。
 
 ## 六、发布动作
 
@@ -99,5 +100,6 @@
 
 - [x] 3.17 导出的 22 条脱敏事件 fixture；首页 Custom / ByDays / ByDate 与真实 Pixel Launcher `SORT_HOME` 小组件顺序一致，置顶 `Event 06`、`Event 03` 始终在前。
 - [x] 两个真实小组件实例分别保持“全部事件 / 跟随首页”和“仅置顶 / 最近优先”配置；显式日期边界广播刷新两个 RemoteViews，下一次本地午夜 alarm 已布置。
+- [x] API 37 connected 回归验证两个实例配置独立持久化、默认配置只作用于未配置实例、删除单个实例配置不会污染另一实例。
 - [x] 筛选后的真实拖拽：API 37 connected test 使用独立 48dp 把手移动搜索子集中的中间项，界面换位、DataStore 持久化和隐藏全局槽位全部通过；ADB 可见把手拖拽复测顺序同样更新。
 - 本次会话工作报告为 `.superpowers/sdd/home-task-6-report.md`；`/tmp/timeapk-home-widget-task6-2026-07-16-final/` 仅为本机匿名临时证据目录，二者均不作为长期发布附件。

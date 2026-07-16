@@ -93,8 +93,10 @@ import com.example.timeapk.ui.theme.SongPaperTextureOverlay
 import com.example.timeapk.ui.utils.eventDateToLocalDate
 import com.example.timeapk.ui.utils.getDisplayDateFormatter
 import com.example.timeapk.ui.utils.formatLunarDateString
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.ZoneId
 import java.util.Locale
 
@@ -256,22 +258,25 @@ fun EventEntryScreen(
         pendingSaveDetailsOverride = null
         viewModel.updateUiState(detailsOverride)
         coroutineScope.launch {
-            when (val result = viewModel.saveEvent()) {
-                is SaveEventResult.Success -> {
-                    pendingSaveOrigin = SaveRequestOrigin.Standard
-                    isSaving = false
-                    navigateBack()
-                }
-                is SaveEventResult.PartialSuccess -> {
-                    snackbarHostState.showSnackbar(context.getString(result.messageResId))
-                    isSaving = false
-                    pendingSaveOrigin = SaveRequestOrigin.Standard
-                    navigateBack()
-                }
-                is SaveEventResult.Failure -> {
-                    pendingSaveOrigin = SaveRequestOrigin.Standard
-                    isSaving = false
-                    snackbarHostState.showSnackbar(context.getString(result.messageResId))
+            val result = viewModel.saveEvent()
+            withContext(Dispatchers.Main.immediate) {
+                when (result) {
+                    is SaveEventResult.Success -> {
+                        pendingSaveOrigin = SaveRequestOrigin.Standard
+                        isSaving = false
+                        navigateBack()
+                    }
+                    is SaveEventResult.PartialSuccess -> {
+                        snackbarHostState.showSnackbar(context.getString(result.messageResId))
+                        isSaving = false
+                        pendingSaveOrigin = SaveRequestOrigin.Standard
+                        navigateBack()
+                    }
+                    is SaveEventResult.Failure -> {
+                        pendingSaveOrigin = SaveRequestOrigin.Standard
+                        isSaving = false
+                        snackbarHostState.showSnackbar(context.getString(result.messageResId))
+                    }
                 }
             }
         }
