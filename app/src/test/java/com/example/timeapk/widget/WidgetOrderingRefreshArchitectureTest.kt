@@ -26,9 +26,12 @@ class WidgetOrderingRefreshArchitectureTest {
             persistence = "userPrefs.setSortType(type.ordinal)"
         )
         assertPersistedBeforeRefresh(
-            source = homeScreen.substringAfter("onDragEnd =").substringBefore("onDragCancel ="),
-            persistence = "prefs.setCustomEventOrder(orderedList.map { it.event.id })"
+            source = viewModel.substringAfter("fun updateCustomEventOrder(").substringBefore("suspend fun deleteEvent"),
+            persistence = "userPrefs.setCustomEventOrder(mergedIds)"
         )
+        val dragEnd = homeScreen.substringAfter("onDragEnd =").substringBefore("onDragCancel =")
+        assertTrue(dragEnd.contains("viewModel.updateCustomEventOrder("))
+        assertTrue(!dragEnd.contains("prefs.setCustomEventOrder("))
         assertPersistedBeforeRefresh(
             source = detailScreen.substringAfter("onPinClick =").substringBefore("onEditClick ="),
             persistence = "prefs.togglePinnedEventId(eventState.event.id)"

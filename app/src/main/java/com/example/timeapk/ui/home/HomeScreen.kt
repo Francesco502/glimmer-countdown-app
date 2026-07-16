@@ -88,7 +88,6 @@ import com.example.timeapk.ui.theme.SongPalette
 import com.example.timeapk.ui.theme.SongPaperSurface
 import com.example.timeapk.ui.theme.SongSealLabel
 import com.example.timeapk.ui.utils.formatLunarDateString
-import com.example.timeapk.widget.WidgetUpdater
 
 import androidx.compose.foundation.LocalOverscrollConfiguration
 import androidx.compose.foundation.OverscrollConfiguration
@@ -300,6 +299,7 @@ fun HomeScreen(
                     val tapOnlyInteraction = homeCardUsesTapOnlyInteraction(sortType)
                     val tapNavigationEnabled = homeCardTapNavigationEnabled(sortType)
                     val useListLevelReorderDetection = homeUsesListLevelReorderDetection(sortType)
+                    val visibleIdsBeforeDrag = displayedList.map { it.event.id }
                     val reorderState = rememberReorderableLazyListState(
                         onMove = { from, to ->
                             if (dragEnabled) {
@@ -315,10 +315,10 @@ fun HomeScreen(
                         onDragEnd = { _, _ ->
                             dragInProgress = false
                             if (dragEnabled) {
-                                scope.launch {
-                                    prefs.setCustomEventOrder(orderedList.map { it.event.id })
-                                    WidgetUpdater.refreshCountdownWidgets(context)
-                                }
+                                viewModel.updateCustomEventOrder(
+                                    visibleIds = visibleIdsBeforeDrag,
+                                    reorderedVisibleIds = orderedList.map { it.event.id }
+                                )
                             }
                         }
                     )

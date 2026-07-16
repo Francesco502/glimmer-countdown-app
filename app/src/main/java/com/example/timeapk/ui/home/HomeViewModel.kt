@@ -510,6 +510,27 @@ class HomeViewModel(
         }
     }
 
+    fun updateCustomEventOrder(visibleIds: List<Int>, reorderedVisibleIds: List<Int>) {
+        viewModelScope.launch {
+            val allEvents = repository.getAllEventsSnapshot()
+            val activeIds = allEvents.mapTo(mutableSetOf()) { it.id }
+            val storedIds = userPrefs.customEventOrderFlow.first()
+            val defaultIds = allEvents.sortedByDescending { it.createdAt }.map { it.id }
+            val globalIds = (storedIds + defaultIds)
+                .filter { it in activeIds }
+                .distinct()
+            val activeVisibleIds = visibleIds.filter { it in activeIds }
+            val activeReorderedIds = reorderedVisibleIds.filter { it in activeIds }
+            val mergedIds = mergeVisibleOrderIntoGlobalOrder(
+                globalIds = globalIds,
+                visibleIds = activeVisibleIds,
+                reorderedVisibleIds = activeReorderedIds
+            )
+            userPrefs.setCustomEventOrder(mergedIds)
+            WidgetUpdater.refreshCountdownWidgets(application)
+        }
+    }
+
     suspend fun deleteEvent(event: Event): DeleteEventResult = deleteEventRecoverably(
         event = event,
         nowMillis = System::currentTimeMillis,

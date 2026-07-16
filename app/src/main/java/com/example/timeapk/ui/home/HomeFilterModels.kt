@@ -18,6 +18,29 @@ internal fun homeCardDragSortEnabled(sortType: SortType): Boolean = sortType == 
 
 internal fun homeUsesListLevelReorderDetection(sortType: SortType): Boolean = false
 
+internal fun mergeVisibleOrderIntoGlobalOrder(
+    globalIds: List<Int>,
+    visibleIds: List<Int>,
+    reorderedVisibleIds: List<Int>
+): List<Int> {
+    val canonicalGlobal = globalIds.distinct()
+    val canonicalVisible = visibleIds.distinct()
+    val completeGlobal = (canonicalGlobal + canonicalVisible).distinct()
+
+    val reorderedDistinct = reorderedVisibleIds.distinct()
+    val isValidReorder = visibleIds.size == canonicalVisible.size &&
+        reorderedVisibleIds.size == reorderedDistinct.size &&
+        reorderedDistinct.size == canonicalVisible.size &&
+        reorderedDistinct.toSet() == canonicalVisible.toSet()
+    if (!isValidReorder) return completeGlobal
+
+    val visibleSet = canonicalVisible.toSet()
+    val replacements = reorderedDistinct.iterator()
+    return completeGlobal.map { id ->
+        if (id in visibleSet) replacements.next() else id
+    }
+}
+
 internal fun applyHomeSort(
     list: List<EventUiState>,
     sortType: SortType,

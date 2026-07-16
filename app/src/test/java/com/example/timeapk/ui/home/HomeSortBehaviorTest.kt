@@ -110,6 +110,42 @@ class HomeSortBehaviorTest {
         )
     }
 
+    @Test
+    fun mergeVisibleOrderIntoGlobalOrder_preservesHiddenSlots() {
+        assertEquals(
+            listOf(3, 2, 1, 4, 5),
+            mergeVisibleOrderIntoGlobalOrder(
+                globalIds = listOf(1, 2, 3, 4, 5),
+                visibleIds = listOf(1, 3, 5),
+                reorderedVisibleIds = listOf(3, 1, 5)
+            )
+        )
+    }
+
+    @Test
+    fun mergeVisibleOrderIntoGlobalOrder_appendsUnstoredIdsExactlyOnce() {
+        assertEquals(
+            listOf(1, 2, 3, 4),
+            mergeVisibleOrderIntoGlobalOrder(
+                globalIds = listOf(1, 2),
+                visibleIds = listOf(1, 3, 4),
+                reorderedVisibleIds = listOf(1, 3, 4)
+            )
+        )
+    }
+
+    @Test
+    fun mergeVisibleOrderIntoGlobalOrder_invalidReorderKeepsCanonicalGlobalOrder() {
+        assertEquals(
+            listOf(1, 2, 3),
+            mergeVisibleOrderIntoGlobalOrder(
+                globalIds = listOf(1, 1, 2, 3),
+                visibleIds = listOf(1, 3),
+                reorderedVisibleIds = listOf(3, 3)
+            )
+        )
+    }
+
     private fun eventState(
         id: Int,
         daysRemaining: Long,
