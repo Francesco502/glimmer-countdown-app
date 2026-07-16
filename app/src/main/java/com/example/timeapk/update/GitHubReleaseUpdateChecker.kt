@@ -32,7 +32,8 @@ class GitHubReleaseUpdateChecker(
     private val owner: String = "Francesco502",
     private val repo: String = "glimmer-countdown-app",
     private val client: OkHttpClient? = null,
-    private val fetchRelease: (suspend (String) -> ReleaseFetchResult)? = null
+    private val fetchRelease: (suspend (String) -> ReleaseFetchResult)? = null,
+    private val installedVersionName: String = BuildConfig.VERSION_NAME
 ) : UpdateChecker {
 
     private val latestReleaseUrl
@@ -79,8 +80,7 @@ class GitHubReleaseUpdateChecker(
             }
             val releaseInfo = parseReleaseInfo(release.responseBody)
             val tagName = releaseInfo.tagName
-            val currentVersion = BuildConfig.VERSION_NAME
-            if (!isVersionNewer(tagName, currentVersion)) {
+            if (!isVersionNewer(tagName, installedVersionName)) {
                 return@withContext CheckUpdateResult(hasUpdate = false)
             }
             val downloadUrl = selectDirectApkAsset(releaseInfo.tagName, releaseInfo.assets)?.downloadUrl

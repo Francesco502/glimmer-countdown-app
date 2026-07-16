@@ -137,6 +137,27 @@ class GitHubReleaseUpdateCheckerTest {
     }
 
     @Test
+    fun checkUpdate_comparesAgainstInjectedInstalledVersion() = runBlocking {
+        val checker = GitHubReleaseUpdateChecker(
+            installedVersionName = "4.2",
+            fetchRelease = {
+                ReleaseFetchResult(
+                    isSuccessful = true,
+                    responseBody = releaseJson(
+                        tag = "4.1",
+                        assets = listOf("glimmer-countdown-4-1.apk" to "https://example/direct")
+                    )
+                )
+            }
+        )
+
+        val result = checker.checkUpdate()
+
+        assertFalse(result.hasUpdate)
+        assertFalse(result.checkFailed)
+    }
+
+    @Test
     fun checkUpdate_invalidOrOverflowingTag_marksSchemaFailure() = runBlocking {
         listOf("", "v", "v5beta", "999999999999999999999999").forEach { tag ->
             val result = checkerReturning(releaseJson(tag = tag, assets = emptyList())).checkUpdate()
@@ -219,6 +240,7 @@ class GitHubReleaseUpdateCheckerTest {
     }
 
     private fun checkerReturning(json: String) = GitHubReleaseUpdateChecker(
+        installedVersionName = "4.0",
         fetchRelease = {
             ReleaseFetchResult(
                 isSuccessful = true,
