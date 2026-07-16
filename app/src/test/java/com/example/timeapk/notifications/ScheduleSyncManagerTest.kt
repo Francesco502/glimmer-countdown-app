@@ -8,7 +8,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.io.File
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -61,6 +60,45 @@ class ScheduleSyncManagerTest {
     }
 
     @Test
+    fun managedCalendarDescription_rejectsMalformedOrUnknownMarkers() {
+        listOf(
+            "[TimeAPK][Reminder]:1:v3:occ=42:days=3:rr=0",
+            "[TimeAPK][Reminder]:1:v2:occ=42:days=3",
+            "[TimeAPK][Reminder]:1:v2:occ=42:rr=0:days=3",
+            "[TimeAPK][Reminder]:1:v2:occ=42:days=3:rr=2",
+            "[TimeAPK][Reminder]:1:v2:occ=9223372036854775808:days=3:rr=0",
+            "[TimeAPK][Reminder]:1:v2:occ=42:days=2147483648:rr=0",
+            "[TimeAPK][Reminder]:1:v2:occ=42:days=3:rr=0:extra=x",
+            "[TimeAPK][Reminder]:1:anything",
+            "[TimeAPK][Reminder]:1 trailing text",
+            "prefix [TimeAPK][Reminder]:1",
+            "[TimeAPK][Milestone]:1:v3:trigger=42",
+            "[TimeAPK][Milestone]:1:v2",
+            "[TimeAPK][Milestone]:1:v2:trigger=9223372036854775808",
+            "[TimeAPK][Milestone]:1:v2:trigger=42:extra=x",
+            "[TimeAPK][Milestone]:1:anything"
+        ).forEach { description ->
+            assertFalse(
+                description,
+                ScheduleSyncManager.isManagedCalendarDescriptionForEvent(description, 1)
+            )
+        }
+
+        assertFalse(
+            ScheduleSyncManager.isManagedCalendarDescriptionForEvent(
+                "note first\n[TimeAPK][Reminder]:1",
+                1
+            )
+        )
+        assertFalse(
+            ScheduleSyncManager.isManagedCalendarDescriptionForEvent(
+                "[TimeAPK][Reminder]:9223372036854775808:v2:occ=42:days=3:rr=0",
+                Int.MAX_VALUE
+            )
+        )
+    }
+
+    @Test
     fun managedCalendarMetadataKind_acceptsOnlyRequestedTimeApkKinds() {
         assertTrue(ScheduleSyncManager.isManagedCalendarMetadataKind("reminder_v2", true, false))
         assertTrue(ScheduleSyncManager.isManagedCalendarMetadataKind("reminder_rrule_v2", true, false))
@@ -85,38 +123,112 @@ class ScheduleSyncManagerTest {
     }
 
     @Test
-    fun legacyReminderCleanup_keepsMilestoneOutsideItsScope() {
-        val source = mainSource("notifications/ScheduleSyncManager.kt").readText(Charsets.UTF_8)
-        val legacyMilestoneCleanup = source.substringAfter("fun clearMilestoneScheduleRemindersByEventId(")
-            .substringBefore("fun removeScheduleReminderByEventId(")
-        val legacyReminderCleanup = source.substringAfter("fun removeScheduleReminderByEventId(")
-            .substringBefore("fun removeScheduleReminder(")
-        val combinedCleanup = source.substringAfter("fun removeManagedCalendarEntries(")
-            .substringBefore("internal fun isManagedCalendarDescriptionForEvent")
+    fun managedCalendarCleanup_combinesExactSourcesAndDeduplicatesDeletes() {
+        val gateway = populatedCleanupGateway()
 
-        assertTrue(legacyMilestoneCleanup.contains("includeReminders = false"))
-        assertTrue(legacyMilestoneCleanup.contains("includeMilestones = true"))
-        assertTrue(legacyReminderCleanup.contains("includeReminders = true"))
-        assertTrue(legacyReminderCleanup.contains("includeMilestones = false"))
-        assertTrue(combinedCleanup.contains("includeReminders = true"))
-        assertTrue(combinedCleanup.contains("includeMilestones = true"))
+        val result = ScheduleSyncManager.removeManagedCalendarEntries(gateway, 1, 100L)
+
+        assertEquals(CalendarCleanupResult.RemovedOrNotPresent, result)
+        assertEquals(setOf(100L, 101L, 102L, 103L, 104L, 105L, 106L, 107L), gateway.deleted.toSet())
+        assertEquals(1, gateway.deleteAttempts.count { it == 102L })
+        assertFalse(gateway.deleted.contains(108L))
+        assertFalse(gateway.deleted.contains(110L))
+        assertFalse(gateway.deleted.contains(111L))
     }
 
     @Test
-    fun scheduleCleanup_returnsExplicitOutcomeAndDoesNotSwallowExceptions() {
-        val source = mainSource("notifications/ScheduleSyncManager.kt").readText(Charsets.UTF_8)
-        val directCleanup = source.substringAfter("fun removeScheduleReminder(")
-            .substringBefore("fun removeManagedCalendarEntries(")
-        val cleanup = source.substringAfter("fun removeManagedCalendarEntries(")
-            .substringBefore("private fun buildExpectedReminderEntries")
+    fun reminderOnlyCleanup_doesNotDeleteMilestones() {
+        val gateway = populatedCleanupGateway()
 
-        assertTrue(directCleanup.indexOf("return try {") < directCleanup.indexOf("hasCalendarWriteAccess"))
-        assertTrue(cleanup.contains("CalendarCleanupResult.PermissionRequired"))
-        assertTrue(cleanup.contains("CalendarCleanupResult.ProviderFailure"))
-        assertTrue(cleanup.contains("requireCalendarCleanupQuery"))
-        assertTrue(cleanup.indexOf("return try {") < cleanup.indexOf("hasRequiredCalendarCleanupPermissions"))
-        assertFalse(cleanup.contains("catch (_: SecurityException) {\n        }"))
-        assertFalse(cleanup.contains("catch (_: Exception) {\n        }"))
+        val result = ScheduleSyncManager.removeScheduleReminderByEventId(gateway, 1)
+
+        assertEquals(CalendarCleanupResult.RemovedOrNotPresent, result)
+        assertEquals(setOf(101L, 102L, 105L, 106L), gateway.deleted.toSet())
+    }
+
+    @Test
+    fun managedCalendarCleanup_requiresPermissionsWithoutQueryingOrDeleting() {
+        listOf(false to true, true to false, false to false).forEach { (read, write) ->
+            val gateway = populatedCleanupGateway().apply {
+                readGranted = read
+                writeGranted = write
+            }
+
+            assertEquals(
+                CalendarCleanupResult.PermissionRequired,
+                ScheduleSyncManager.removeManagedCalendarEntries(gateway, 1, 100L)
+            )
+            assertEquals(0, gateway.descriptionQueryCount)
+            assertEquals(0, gateway.metadataQueryCount)
+            assertTrue(gateway.deleted.isEmpty())
+        }
+    }
+
+    @Test
+    fun managedCalendarCleanup_mapsNullQueriesToProviderFailure() {
+        val nullDescriptions = populatedCleanupGateway().apply { descriptions = null }
+        val nullMetadata = populatedCleanupGateway().apply { metadata = null }
+
+        assertEquals(
+            CalendarCleanupResult.ProviderFailure("Calendar events query returned no cursor"),
+            ScheduleSyncManager.removeManagedCalendarEntries(nullDescriptions, 1, null)
+        )
+        assertEquals(
+            CalendarCleanupResult.ProviderFailure("Calendar extended-properties query returned no cursor"),
+            ScheduleSyncManager.removeManagedCalendarEntries(nullMetadata, 1, null)
+        )
+    }
+
+    @Test
+    fun managedCalendarCleanup_mapsQueryFailuresToExplicitResults() {
+        val denied = populatedCleanupGateway().apply {
+            descriptionFailure = SecurityException("denied")
+        }
+        val brokenCursor = populatedCleanupGateway().apply {
+            metadataFailure = IllegalStateException("cursor broken")
+        }
+
+        assertEquals(
+            CalendarCleanupResult.PermissionRequired,
+            ScheduleSyncManager.removeManagedCalendarEntries(denied, 1, null)
+        )
+        assertEquals(
+            CalendarCleanupResult.ProviderFailure("cursor broken"),
+            ScheduleSyncManager.removeManagedCalendarEntries(brokenCursor, 1, null)
+        )
+    }
+
+    @Test
+    fun managedCalendarCleanup_mapsDeleteSecurityException() {
+        val gateway = populatedCleanupGateway().apply {
+            deleteFailures.getOrPut(101L, ::ArrayDeque).add(SecurityException("denied"))
+        }
+
+        assertEquals(
+            CalendarCleanupResult.PermissionRequired,
+            ScheduleSyncManager.removeManagedCalendarEntries(gateway, 1, null)
+        )
+    }
+
+    @Test
+    fun managedCalendarCleanup_returnsFailureAfterPartialDeleteAndRetryRemovesRemaining() {
+        val gateway = populatedCleanupGateway().apply {
+            existing += setOf(101L, 102L, 103L, 104L, 105L, 106L, 107L)
+            deleteFailures.getOrPut(102L, ::ArrayDeque).add(IllegalStateException("provider down"))
+        }
+
+        assertEquals(
+            CalendarCleanupResult.ProviderFailure("provider down"),
+            ScheduleSyncManager.removeManagedCalendarEntries(gateway, 1, null)
+        )
+        assertFalse(gateway.existing.contains(101L))
+        assertTrue(gateway.existing.contains(102L))
+
+        assertEquals(
+            CalendarCleanupResult.RemovedOrNotPresent,
+            ScheduleSyncManager.removeManagedCalendarEntries(gateway, 1, null)
+        )
+        assertTrue(gateway.existing.isEmpty())
     }
 
     @Test
@@ -308,10 +420,66 @@ class ScheduleSyncManagerTest {
         assertEquals(0, plan.single().daysLeft)
     }
 
-    private fun mainSource(relative: String): File {
-        return listOf(
-            File("src/main/java/com/example/timeapk/$relative"),
-            File("app/src/main/java/com/example/timeapk/$relative")
-        ).firstOrNull(File::exists) ?: error("Missing main source: $relative")
+    private fun populatedCleanupGateway(): FakeCalendarCleanupGateway {
+        return FakeCalendarCleanupGateway(
+            descriptions = listOf(
+                CalendarCleanupDescriptionCandidate(101L, "[TimeAPK][Reminder]:1"),
+                CalendarCleanupDescriptionCandidate(102L, "[TimeAPK][Reminder]:1:v2:occ=-42:days=-3:rr=0"),
+                CalendarCleanupDescriptionCandidate(103L, "[TimeAPK][Milestone]:1"),
+                CalendarCleanupDescriptionCandidate(104L, "[TimeAPK][Milestone]:1:v2:trigger=-42"),
+                CalendarCleanupDescriptionCandidate(110L, "[TimeAPK][Reminder]:10"),
+                CalendarCleanupDescriptionCandidate(111L, "[TimeAPK][Reminder]:1:v3:occ=42:days=3:rr=0")
+            ),
+            metadata = listOf(
+                CalendarCleanupMetadataCandidate(102L, "reminder_v2"),
+                CalendarCleanupMetadataCandidate(105L, "reminder_v2"),
+                CalendarCleanupMetadataCandidate(106L, "reminder_rrule_v2"),
+                CalendarCleanupMetadataCandidate(107L, "milestone_v2"),
+                CalendarCleanupMetadataCandidate(108L, "unknown_v3")
+            )
+        )
+    }
+
+    private class FakeCalendarCleanupGateway(
+        var descriptions: List<CalendarCleanupDescriptionCandidate>?,
+        var metadata: List<CalendarCleanupMetadataCandidate>?
+    ) : CalendarCleanupGateway {
+        var readGranted = true
+        var writeGranted = true
+        var descriptionQueryCount = 0
+        var metadataQueryCount = 0
+        var descriptionFailure: Exception? = null
+        var metadataFailure: Exception? = null
+        val deleteFailures = mutableMapOf<Long, ArrayDeque<Exception>>()
+        val deleteAttempts = mutableListOf<Long>()
+        val deleted = mutableListOf<Long>()
+        val existing = mutableSetOf<Long>()
+
+        override fun hasReadPermission(): Boolean = readGranted
+
+        override fun hasWritePermission(): Boolean = writeGranted
+
+        override fun queryDescriptionCandidates(
+            eventId: Int,
+            includeReminders: Boolean,
+            includeMilestones: Boolean
+        ): List<CalendarCleanupDescriptionCandidate>? {
+            descriptionQueryCount += 1
+            descriptionFailure?.let { throw it }
+            return descriptions
+        }
+
+        override fun queryMetadataCandidates(eventId: Int): List<CalendarCleanupMetadataCandidate>? {
+            metadataQueryCount += 1
+            metadataFailure?.let { throw it }
+            return metadata
+        }
+
+        override fun deleteEvent(calendarEventId: Long) {
+            deleteAttempts += calendarEventId
+            deleteFailures[calendarEventId]?.removeFirstOrNull()?.let { throw it }
+            existing.remove(calendarEventId)
+            deleted += calendarEventId
+        }
     }
 }
