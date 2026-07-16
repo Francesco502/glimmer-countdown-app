@@ -29,10 +29,12 @@ class ReleaseReadinessTest {
 
         assertTrue(build.contains("validateReleaseSigning"))
         assertTrue(build.contains("Missing or invalid release signing configuration"))
-        assertTrue(build.contains("assemble|bundle|package"))
-        assertTrue(build.contains("Release.*"))
-        assertTrue(build.contains("pre.+ReleaseBuild"))
+        assertTrue(build.contains("(?:assemble|bundle).+Release"))
+        assertTrue(build.contains("package.+Release(?:Bundle|UniversalApk)?"))
         assertTrue(build.contains("dependsOn(validateReleaseSigning)"))
+        assertTrue(build.contains("mustRunAfter(validateReleaseSigning)"))
+        assertFalse(build.contains("pre.+ReleaseBuild"))
+        assertFalse(build.contains("Release.*"))
         assertFalse(build.contains("taskGraph.whenReady"))
     }
 

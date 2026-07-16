@@ -201,15 +201,17 @@ val renameDirectReleaseApk = tasks.register<RenameDirectReleaseApkTask>("renameD
     expectedMetadataEntry.set("\"outputFile\": \"$apkBaseName.apk\"")
 }
 
-val releasePackagingTask = Regex("(?i)^(assemble|bundle|package).*Release.*$")
-val releasePreBuildTask = Regex("(?i)^pre.+ReleaseBuild$")
+val releasePackagingTask = Regex(
+    "(?i)^(?:(?:assemble|bundle).+Release|package.+Release(?:Bundle|UniversalApk)?)$"
+)
 tasks.configureEach {
-    if (
-        releasePackagingTask.matches(name) ||
-        releasePreBuildTask.matches(name) ||
-        name == "renameDirectReleaseApk"
-    ) {
+    if (releasePackagingTask.matches(name) || name == "renameDirectReleaseApk") {
         dependsOn(validateReleaseSigning)
+    } else if (name != "validateReleaseSigning") {
+        // This does not add validation to lint, compilation, or tests. When a
+        // final packaging task does add it, validation runs before its other
+        // graph dependencies so an invalid release fails before compilation.
+        mustRunAfter(validateReleaseSigning)
     }
 }
 
