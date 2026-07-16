@@ -26,7 +26,7 @@ class CountdownAppWidgetProvider : AppWidgetProvider() {
             if (ids.isEmpty()) return
             app.launchAppTask {
                 withContext(Dispatchers.IO) {
-                    refreshWidgets(app, appWidgetManager, ids)
+                    runCoordinatedRefresh(app, appWidgetManager, ids)
                 }
             }
         }
@@ -37,6 +37,16 @@ class CountdownAppWidgetProvider : AppWidgetProvider() {
         ): IntArray {
             val provider = ComponentName(context, CountdownAppWidgetProvider::class.java)
             return appWidgetManager.getAppWidgetIds(provider)
+        }
+
+        private suspend fun runCoordinatedRefresh(
+            app: TimeApplication,
+            appWidgetManager: AppWidgetManager,
+            appWidgetIds: IntArray
+        ) {
+            WidgetRefreshCoordinator.runLatestSnapshot {
+                refreshWidgets(app, appWidgetManager, appWidgetIds)
+            }
         }
 
         private suspend fun refreshWidgets(
@@ -78,7 +88,7 @@ class CountdownAppWidgetProvider : AppWidgetProvider() {
             app.launchAppTask {
                 try {
                     withContext(Dispatchers.IO) {
-                        refreshWidgets(app, appWidgetManager, appWidgetIds)
+                        runCoordinatedRefresh(app, appWidgetManager, appWidgetIds)
                     }
                 } finally {
                     pendingResult.finish()

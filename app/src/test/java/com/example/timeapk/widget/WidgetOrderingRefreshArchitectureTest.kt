@@ -1,5 +1,6 @@
 package com.example.timeapk.widget
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -10,13 +11,68 @@ class WidgetOrderingRefreshArchitectureTest {
     fun providerUsesSuspendLoadingAndAlwaysFinishesPendingResult() {
         val provider = mainSource("widget/CountdownAppWidgetProvider.kt").readText(Charsets.UTF_8)
         val resolver = mainSource("widget/WidgetContentResolver.kt").readText(Charsets.UTF_8)
+        val service = mainSource("widget/CountdownWidgetService.kt").readText(Charsets.UTF_8)
 
         assertFalse(provider.contains("runBlocking"))
         assertFalse(resolver.contains("runBlocking"))
-        assertTrue(provider.contains("goAsync()"))
-        assertTrue(provider.contains("pendingResult.finish()"))
-        assertTrue(provider.contains("finally"))
+        assertEquals(3, provider.windowed("goAsync()".length).count { it == "goAsync()" })
+        val launchRefresh = provider.substringAfter("private fun launchRefresh(")
+            .substringBefore("internal fun buildWidgetRemoteViews(")
+        val nullApplicationPath = launchRefresh.substringAfter("if (app == null) {").substringBefore("app.launchAppTask")
+        val activeApplicationPath = launchRefresh.substringAfter("app.launchAppTask")
+        assertTrue(nullApplicationPath.contains("pendingResult.finish()"))
+        assertTrue(nullApplicationPath.contains("return"))
+        assertTrue(activeApplicationPath.contains("try {"))
+        assertTrue(activeApplicationPath.substringAfter("finally {").contains("pendingResult.finish()"))
         assertTrue(resolver.contains("suspend fun load("))
+        assertTrue(service.contains("runBlocking(Dispatchers.IO)"))
+        val identitySection = service.substringAfter("val identityToken = Binder.clearCallingIdentity()")
+        assertTrue(identitySection.contains("finally {"))
+        assertTrue(identitySection.substringAfter("finally {").contains("Binder.restoreCallingIdentity(identityToken)"))
+    }
+
+    @Test
+    fun everyProviderRefreshPathUsesOneSharedCoordinator() {
+        val provider = mainSource("widget/CountdownAppWidgetProvider.kt").readText(Charsets.UTF_8)
+        val updater = mainSource("widget/WidgetUpdater.kt").readText(Charsets.UTF_8)
+        val coordinator = mainSource("widget/WidgetRefreshCoordinator.kt").readText(Charsets.UTF_8)
+
+        val refreshAll = provider.substringAfter("fun refreshAllWidgets(").substringBefore("fun getAppWidgetIds(")
+        val coordinated = provider.substringAfter("private suspend fun runCoordinatedRefresh(")
+            .substringBefore("private suspend fun refreshWidgets(")
+        val launchRefresh = provider.substringAfter("private fun launchRefresh(").substringBefore("internal fun buildWidgetRemoteViews(")
+        assertTrue(refreshAll.contains("runCoordinatedRefresh(app"))
+        assertTrue(launchRefresh.contains("runCoordinatedRefresh(app"))
+        assertTrue(coordinated.contains("WidgetRefreshCoordinator.runLatestSnapshot"))
+        assertTrue(coordinated.contains("refreshWidgets(app"))
+        assertEquals(1, provider.windowed("refreshWidgets(app".length).count { it == "refreshWidgets(app" })
+        assertTrue(updater.contains("CountdownAppWidgetProvider.refreshAllWidgets(context)"))
+        assertTrue(coordinator.contains("private val refreshMutex = Mutex()"))
+        assertTrue(coordinator.contains("refreshMutex.withLock"))
+        assertTrue(coordinator.contains("The refresh body reads"))
+    }
+
+    @Test
+    fun allProviderCallbacksLaunchAsyncRefreshes() {
+        val provider = mainSource("widget/CountdownAppWidgetProvider.kt").readText(Charsets.UTF_8)
+        val configuration = provider.substringAfter("override fun onReceive(").substringBefore("override fun onUpdate(")
+        val update = provider.substringAfter("override fun onUpdate(").substringBefore("override fun onAppWidgetOptionsChanged(")
+        val options = provider.substringAfter("override fun onAppWidgetOptionsChanged(").substringBefore("override fun onDeleted(")
+
+        listOf(configuration, update, options).forEach { callback ->
+            assertTrue(callback.contains("launchRefresh("))
+            assertTrue(callback.contains("goAsync()"))
+        }
+    }
+
+    @Test
+    fun widgetServiceIsTheOnlyWidgetBlockingBridge() {
+        val widgetSources = mainSource("widget").walkTopDown()
+            .filter { it.isFile && it.extension == "kt" }
+            .toList()
+        val blockingSources = widgetSources.filter { it.readText(Charsets.UTF_8).contains("runBlocking") }
+
+        assertEquals(listOf("CountdownWidgetService.kt"), blockingSources.map(File::getName))
     }
 
     @Test
