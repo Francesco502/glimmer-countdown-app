@@ -23,7 +23,10 @@ internal fun eventAfterCleanupAttempt(
 }
 
 internal fun calendarCleanupRequired(event: Event): Boolean =
-    event.syncToScheduleEnabled || event.scheduleEventId != null || event.targetCalendarId != null
+    event.syncToScheduleEnabled ||
+        event.scheduleEventId != null ||
+        event.targetCalendarId != null ||
+        !event.lastScheduleSyncError.isNullOrBlank()
 
 sealed interface DeleteEventResult {
     data object Deleted : DeleteEventResult

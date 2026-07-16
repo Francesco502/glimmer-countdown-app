@@ -99,6 +99,42 @@ class ReminderStatusModelsTest {
         assertTrue(status.scheduleSyncAvailable)
     }
 
+    @Test
+    fun reminderStatus_reportsRetryableCleanupFailureWhenScheduleSyncWasDisabled() {
+        val status = buildReminderStatus(
+            event = event(
+                remindEnabled = true,
+                syncToScheduleEnabled = false,
+                lastScheduleSyncAt = 1_778_000_000_000L,
+                lastScheduleSyncError = "Calendar permission required"
+            ).copy(scheduleEventId = 183L, targetCalendarId = 5L),
+            notificationsEnabled = true,
+            calendarPermissionGranted = false,
+            hasWritableCalendar = false
+        )
+
+        assertEquals(ReminderStatusLevel.Error, status.level)
+        assertEquals(ReminderStatusAction.RebuildScheduleSync, status.primaryAction)
+        assertEquals("日历暂未接住此笺，可稍后再试。", status.detail)
+    }
+
+    @Test
+    fun reminderStatusDoesNotHideRetainedCleanupFailureWhenAppReminderIsOff() {
+        val status = buildReminderStatus(
+            event = event(
+                remindEnabled = false,
+                syncToScheduleEnabled = false,
+                lastScheduleSyncError = "Calendar permission required"
+            ).copy(scheduleEventId = 183L, targetCalendarId = 5L),
+            notificationsEnabled = true,
+            calendarPermissionGranted = false,
+            hasWritableCalendar = false
+        )
+
+        assertEquals(ReminderStatusLevel.Error, status.level)
+        assertEquals(ReminderStatusAction.RebuildScheduleSync, status.primaryAction)
+    }
+
     private fun event(
         remindEnabled: Boolean,
         syncToScheduleEnabled: Boolean = false,

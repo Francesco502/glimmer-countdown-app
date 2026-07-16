@@ -12,6 +12,7 @@ import com.example.timeapk.MainActivity
 import com.example.timeapk.permissions.canPostAppNotifications
 import com.example.timeapk.R
 import com.example.timeapk.TimeApplication
+import com.example.timeapk.ui.home.eventAfterCleanupAttempt
 import kotlinx.coroutines.flow.first
 
 class ReminderWorker(
@@ -99,20 +100,17 @@ class ReminderWorker(
                 preferredCalendarId = preferredCalendarId,
                 useRRuleSync = useRRuleSync
             )
-            event.copy(
-                scheduleEventId = syncResult.primaryScheduleEventId,
-                targetCalendarId = syncResult.targetCalendarId,
-                lastScheduleSyncAt = syncResult.lastSyncAt,
-                lastScheduleSyncError = syncResult.error
-            )
+            eventAfterScheduleSyncAttempt(event, syncResult)
         } else {
-            ScheduleSyncManager.removeScheduleReminder(applicationContext, event.scheduleEventId)
-            ScheduleSyncManager.removeScheduleReminderByEventId(applicationContext, event.id)
-            event.copy(
-                scheduleEventId = null,
-                targetCalendarId = null,
-                lastScheduleSyncAt = System.currentTimeMillis(),
-                lastScheduleSyncError = null
+            val cleanup = ScheduleSyncManager.removeManagedCalendarEntries(
+                context = applicationContext,
+                eventId = event.id,
+                calendarEventId = event.scheduleEventId
+            )
+            eventAfterCleanupAttempt(
+                event = event,
+                result = cleanup,
+                nowMillis = System.currentTimeMillis()
             )
         }
 
@@ -128,6 +126,5 @@ class ReminderWorker(
         private const val NOTIFICATION_ID_BASE = 1000
     }
 }
-
 
 

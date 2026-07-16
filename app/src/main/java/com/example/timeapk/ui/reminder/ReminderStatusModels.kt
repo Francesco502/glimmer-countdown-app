@@ -33,6 +33,22 @@ fun buildReminderStatus(
     calendarPermissionGranted: Boolean,
     hasWritableCalendar: Boolean
 ): ReminderStatusSummary {
+    if (
+        !event.syncToScheduleEnabled &&
+        (event.scheduleEventId != null ||
+            event.targetCalendarId != null ||
+            !event.lastScheduleSyncError.isNullOrBlank())
+    ) {
+        return ReminderStatusSummary(
+            level = ReminderStatusLevel.Error,
+            messageKey = "reminder_status_schedule_sync_failed",
+            detail = scheduleSyncDisplayDetail(event.lastScheduleSyncError),
+            primaryAction = ReminderStatusAction.RebuildScheduleSync,
+            appReminderAvailable = true,
+            scheduleSyncAvailable = false
+        )
+    }
+
     if (!event.remindEnabled) {
         return ReminderStatusSummary(
             level = ReminderStatusLevel.Off,

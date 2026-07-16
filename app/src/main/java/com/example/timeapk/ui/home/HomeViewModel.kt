@@ -13,6 +13,7 @@ import com.example.timeapk.data.REPEAT_NONE
 import com.example.timeapk.data.REPEAT_YEARLY
 import com.example.timeapk.data.UserPreferencesRepository
 import com.example.timeapk.notifications.ScheduleSyncManager
+import com.example.timeapk.notifications.eventAfterScheduleSyncAttempt
 import com.example.timeapk.notifications.cancelMilestoneReminders
 import com.example.timeapk.notifications.cancelReminder
 import com.example.timeapk.notifications.rescheduleMilestoneReminders
@@ -610,12 +611,7 @@ class HomeViewModel(
                         preferredCalendarId = preferredCalendarId,
                         useRRuleSync = useRRuleSync
                     )
-                    savedEvent.copy(
-                        scheduleEventId = syncResult.primaryScheduleEventId,
-                        targetCalendarId = syncResult.targetCalendarId,
-                        lastScheduleSyncAt = syncResult.lastSyncAt,
-                        lastScheduleSyncError = syncResult.error
-                    )
+                    eventAfterScheduleSyncAttempt(savedEvent, syncResult)
                 } else {
                     ScheduleSyncManager.removeScheduleReminderByEventId(application, savedEvent.id)
                     savedEvent.copy(

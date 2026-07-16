@@ -25,6 +25,7 @@ import com.example.timeapk.notifications.scheduleReminder
 import com.example.timeapk.notifications.syncMilestoneReminderForEvent
 import com.example.timeapk.ui.home.calendarCleanupRequired
 import com.example.timeapk.ui.home.eventAfterCleanupAttempt
+import com.example.timeapk.notifications.eventAfterScheduleSyncAttempt
 import com.example.timeapk.widget.WidgetUpdater
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -246,20 +247,18 @@ class EventEntryViewModel(
                     )
                     scheduleSyncError = syncResult.error
                 }
-                persistedEvent.copy(
-                    scheduleEventId = syncResult.primaryScheduleEventId,
-                    targetCalendarId = syncResult.targetCalendarId,
-                    lastScheduleSyncAt = syncResult.lastSyncAt,
-                    lastScheduleSyncError = syncResult.error
-                )
+                eventAfterScheduleSyncAttempt(persistedEvent, syncResult)
             } catch (t: Exception) {
                 Log.w(TAG, "Calendar sync crashed for eventId=${persistedEvent.id}", t)
                 scheduleSyncError = "Schedule sync failed"
-                persistedEvent.copy(
-                    scheduleEventId = null,
-                    targetCalendarId = null,
-                    lastScheduleSyncAt = System.currentTimeMillis(),
-                    lastScheduleSyncError = scheduleSyncError
+                eventAfterScheduleSyncAttempt(
+                    persistedEvent,
+                    ScheduleSyncManager.ScheduleSyncResult(
+                        primaryScheduleEventId = null,
+                        targetCalendarId = null,
+                        lastSyncAt = System.currentTimeMillis(),
+                        error = scheduleSyncError
+                    )
                 )
             }
         } else {

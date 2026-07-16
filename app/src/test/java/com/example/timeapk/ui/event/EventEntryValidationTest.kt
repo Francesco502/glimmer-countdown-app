@@ -83,6 +83,17 @@ class EventEntryValidationTest {
     }
 
     @Test
+    fun retryableSyncErrorAlone_requiresCleanup() {
+        assertTrue(
+            calendarCleanupRequired(
+                testCalendarEvent(syncToScheduleEnabled = false).copy(
+                    lastScheduleSyncError = "Calendar permission required"
+                )
+            )
+        )
+    }
+
+    @Test
     fun disabledSave_marksCalendarCleanupAsExternallyHandledForMilestoneSync() {
         assertTrue(calendarCleanupHandledExternallyForSave(syncToScheduleEnabled = false))
         assertFalse(calendarCleanupHandledExternallyForSave(syncToScheduleEnabled = true))

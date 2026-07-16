@@ -14,6 +14,7 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.example.timeapk.TimeApplication
 import com.example.timeapk.data.Event
+import com.example.timeapk.ui.home.eventAfterCleanupAttempt
 import com.example.timeapk.widget.WidgetUpdater
 import kotlinx.coroutines.flow.first
 import org.json.JSONObject
@@ -165,36 +166,20 @@ class RescheduleAllWorker(
                 preferredCalendarId = preferredCalendarId,
                 useRRuleSync = useRRuleSync
             )
-            val stateChanged =
-                syncResult.primaryScheduleEventId != event.scheduleEventId ||
-                    syncResult.targetCalendarId != event.targetCalendarId ||
-                    syncResult.error != event.lastScheduleSyncError
-            event.copy(
-                scheduleEventId = syncResult.primaryScheduleEventId,
-                targetCalendarId = syncResult.targetCalendarId,
-                lastScheduleSyncAt = if (stateChanged || !syncResult.error.isNullOrBlank()) {
-                    syncResult.lastSyncAt
-                } else {
-                    event.lastScheduleSyncAt
-                },
-                lastScheduleSyncError = syncResult.error
-            )
+            eventAfterScheduleSyncAttempt(event, syncResult)
         } else {
-            try {
-                ScheduleSyncManager.removeScheduleReminder(applicationContext, event.scheduleEventId)
-                ScheduleSyncManager.removeScheduleReminderByEventId(applicationContext, event.id)
-            } catch (t: Throwable) {
-                onFailure(t)
+            val cleanup = ScheduleSyncManager.removeManagedCalendarEntries(
+                context = applicationContext,
+                eventId = event.id,
+                calendarEventId = event.scheduleEventId
+            )
+            if (!cleanup.isSuccess) {
+                onFailure(IllegalStateException(cleanup.message ?: "Calendar cleanup failed"))
             }
-            val cleanedAnyState =
-                event.scheduleEventId != null ||
-                    event.targetCalendarId != null ||
-                    !event.lastScheduleSyncError.isNullOrBlank()
-            event.copy(
-                scheduleEventId = null,
-                targetCalendarId = null,
-                lastScheduleSyncAt = if (cleanedAnyState) System.currentTimeMillis() else event.lastScheduleSyncAt,
-                lastScheduleSyncError = null
+            eventAfterCleanupAttempt(
+                event = event,
+                result = cleanup,
+                nowMillis = System.currentTimeMillis()
             )
         }
 
