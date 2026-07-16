@@ -236,6 +236,34 @@ class HomeListSyncTest {
         assertTrue(canStartHomeReorder(SortType.Custom, pendingAfterMatchingCallback))
     }
 
+    @Test
+    fun dragEndAfterSortModeChange_createsNeitherPendingTokenNorPersistenceRequest() {
+        val request = homeReorderPersistenceRequestOrNull(
+            dragEnabledAtEnd = false,
+            visibleIds = listOf(1, 2, 3),
+            reorderedVisibleIds = listOf(3, 1, 2)
+        )
+
+        assertEquals(null, request)
+        assertTrue(canStartHomeReorder(SortType.Custom, pending = request?.snapshot))
+    }
+
+    @Test
+    fun validCustomDragEnd_bindsPendingTokenToItsPersistenceRequest() {
+        val request = requireNotNull(
+            homeReorderPersistenceRequestOrNull(
+                dragEnabledAtEnd = true,
+                visibleIds = listOf(1, 2, 3),
+                reorderedVisibleIds = listOf(3, 1, 2)
+            )
+        )
+
+        assertEquals(listOf(1, 2, 3), request.visibleIds)
+        assertEquals(listOf(3, 1, 2), request.reorderedVisibleIds)
+        assertEquals(request.reorderedVisibleIds, request.snapshot.reorderedIds)
+        assertFalse(canStartHomeReorder(SortType.Custom, request.snapshot))
+    }
+
     private data class TestItem(
         val id: Int,
         val title: String

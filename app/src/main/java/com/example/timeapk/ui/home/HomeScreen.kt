@@ -334,20 +334,21 @@ fun HomeScreen(
                             val visibleIds = visibleIdsAtDragStart
                             visibleIdsAtDragStart = null
                             val reorderedVisibleIds = orderedList.map { it.event.id }
-                            val reorderSnapshot = pendingLocalReorderSnapshotOrNull(
-                                upstreamIds = visibleIds,
-                                reorderedIds = reorderedVisibleIds
+                            val persistenceRequest = homeReorderPersistenceRequestOrNull(
+                                dragEnabledAtEnd = latestDragEnabled,
+                                visibleIds = visibleIds,
+                                reorderedVisibleIds = reorderedVisibleIds
                             )
-                            if (reorderSnapshot != null) {
-                                pendingLocalReorder = reorderSnapshot
+                            if (persistenceRequest != null) {
+                                pendingLocalReorder = persistenceRequest.snapshot
                             }
                             dragInProgress = false
-                            if (latestDragEnabled && visibleIds != null && reorderSnapshot != null) {
+                            if (persistenceRequest != null) {
                                 latestViewModel.updateCustomEventOrder(
-                                    visibleIds = visibleIds,
-                                    reorderedVisibleIds = reorderedVisibleIds,
+                                    visibleIds = persistenceRequest.visibleIds,
+                                    reorderedVisibleIds = persistenceRequest.reorderedVisibleIds,
                                     onPersistenceResult = { persistedMergedIds ->
-                                        if (pendingLocalReorder == reorderSnapshot) {
+                                        if (pendingLocalReorder == persistenceRequest.snapshot) {
                                             val authoritativeItems = if (
                                                 persistedMergedIds != null && latestSortType == SortType.Custom
                                             ) {

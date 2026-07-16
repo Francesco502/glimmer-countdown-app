@@ -22,6 +22,30 @@ internal fun pendingLocalReorderSnapshotOrNull(
     )
 }
 
+internal data class HomeReorderPersistenceRequest(
+    val visibleIds: List<Int>,
+    val reorderedVisibleIds: List<Int>,
+    val snapshot: PendingLocalReorderSnapshot
+)
+
+internal fun homeReorderPersistenceRequestOrNull(
+    dragEnabledAtEnd: Boolean,
+    visibleIds: List<Int>?,
+    reorderedVisibleIds: List<Int>
+): HomeReorderPersistenceRequest? {
+    if (!dragEnabledAtEnd) return null
+    val snapshot = pendingLocalReorderSnapshotOrNull(
+        upstreamIds = visibleIds,
+        reorderedIds = reorderedVisibleIds
+    ) ?: return null
+
+    return HomeReorderPersistenceRequest(
+        visibleIds = snapshot.upstreamIds,
+        reorderedVisibleIds = snapshot.reorderedIds,
+        snapshot = snapshot
+    )
+}
+
 internal fun canStartHomeReorder(
     sortType: SortType,
     pending: PendingLocalReorderSnapshot?

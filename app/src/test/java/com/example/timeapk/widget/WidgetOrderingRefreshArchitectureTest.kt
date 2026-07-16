@@ -170,7 +170,7 @@ class WidgetOrderingRefreshArchitectureTest {
         assertTrue(move.indexOf("visibleIdsAtDragStart = latestDisplayedIds") < move.indexOf("orderedList.removeAt"))
         assertTrue(dragEnd.contains("val visibleIds = visibleIdsAtDragStart"))
         assertTrue(dragEnd.contains("visibleIdsAtDragStart = null"))
-        assertTrue(dragEnd.contains("visibleIds = visibleIds"))
+        assertTrue(dragEnd.contains("visibleIds = persistenceRequest.visibleIds"))
         assertTrue(!source.contains("val visibleIdsBeforeDrag = displayedList.map"))
     }
 
@@ -186,12 +186,12 @@ class WidgetOrderingRefreshArchitectureTest {
         assertTrue(sync.contains("targetIds == pending.upstreamIds"))
         assertTrue(sync.contains("currentIds == pending.reorderedIds"))
         assertTrue(sync.contains("sortType != SortType.Custom"))
-        assertTrue(dragEnd.contains("pendingLocalReorderSnapshotOrNull("))
+        assertTrue(dragEnd.contains("homeReorderPersistenceRequestOrNull("))
         assertTrue(
             dragEnd.indexOf("pendingLocalReorder =") < dragEnd.indexOf("dragInProgress = false")
         )
         assertTrue(dragEnd.contains("onPersistenceResult ="))
-        assertTrue(dragEnd.contains("if (pendingLocalReorder == reorderSnapshot)"))
+        assertTrue(dragEnd.contains("if (pendingLocalReorder == persistenceRequest.snapshot)"))
     }
 
     @Test
@@ -204,17 +204,28 @@ class WidgetOrderingRefreshArchitectureTest {
 
         assertTrue(source.contains("val dragEnabled = canStartHomeReorder(sortType, pendingLocalReorder)"))
         assertTrue(move.contains("latestDragEnabled && pendingLocalReorder == null"))
-        assertTrue(dragEnd.contains("pendingLocalReorderSnapshotOrNull("))
-        assertTrue(dragEnd.contains("if (reorderSnapshot != null)"))
+        assertTrue(dragEnd.contains("homeReorderPersistenceRequestOrNull("))
+        assertTrue(dragEnd.contains("dragEnabledAtEnd = latestDragEnabled"))
+        assertTrue(dragEnd.contains("if (persistenceRequest != null)"))
+        assertTrue(dragEnd.contains("pendingLocalReorder = persistenceRequest.snapshot"))
+        assertTrue(dragEnd.contains("visibleIds = persistenceRequest.visibleIds"))
+        assertTrue(dragEnd.contains("reorderedVisibleIds = persistenceRequest.reorderedVisibleIds"))
         assertTrue(
-            dragEnd.contains(
-                "if (latestDragEnabled && visibleIds != null && reorderSnapshot != null)"
-            )
-        )
-        assertTrue(
-            dragEnd.indexOf("if (reorderSnapshot != null)") <
+            dragEnd.indexOf("pendingLocalReorder = persistenceRequest.snapshot") <
                 dragEnd.indexOf("latestViewModel.updateCustomEventOrder(")
         )
+    }
+
+    @Test
+    fun dragEndingAfterSortModeChangeCannotLeavePendingWithoutAWrite() {
+        val source = mainSource("ui/home/HomeScreen.kt").readText(Charsets.UTF_8)
+        val dragEnd = source.substringAfter("onDragEnd =").substringBefore("AnimatedContent(")
+
+        assertTrue(dragEnd.contains("val persistenceRequest = homeReorderPersistenceRequestOrNull("))
+        assertEquals(2, dragEnd.windowedSequence("if (persistenceRequest != null)".length)
+            .count { it == "if (persistenceRequest != null)" })
+        assertTrue(!dragEnd.contains("if (reorderSnapshot != null)"))
+        assertTrue(!dragEnd.contains("latestDragEnabled && visibleIds"))
     }
 
     @Test
