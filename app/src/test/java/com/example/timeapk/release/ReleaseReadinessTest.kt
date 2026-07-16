@@ -202,7 +202,7 @@ class ReleaseReadinessTest {
 
         assertTrue(checklist.contains("临时签名配置"))
         assertTrue(checklist.contains("正式发布密钥产物仍需最终重跑"))
-        assertTrue(checklist.contains("Direct / Play 各 386 项通过"))
+        assertTrue(checklist.contains("Direct / Play 各 408 项通过"))
         assertTrue(checklist.contains("- [x] Direct Debug APK 包含 `REQUEST_INSTALL_PACKAGES`"))
         assertTrue(checklist.contains("正式发布密钥 Release 产物的最终权限与签名检查仍未执行"))
         assertTrue(checklist.contains("- [ ] 使用正式发布证书重复完整构建、签名、权限"))
@@ -304,6 +304,15 @@ class ReleaseReadinessTest {
             )
             assertFalse(sourceFile.path, source.contains("fontPresetFlow.collectAsState(initial = 0)"))
         }
+    }
+
+    @Test
+    fun localeBootstrapReadsPreferencesOnIoDispatcher() {
+        val source = mainSource("MainActivity.kt").readText(Charsets.UTF_8)
+
+        assertTrue(source.contains("runBlocking(Dispatchers.IO)"))
+        assertTrue(source.contains("languageModeFlow.first()"))
+        assertFalse(source.contains("runBlocking { app.userPrefs.languageModeFlow.first() }"))
     }
 
     @Test

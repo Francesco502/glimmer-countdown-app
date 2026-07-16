@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import com.example.timeapk.ui.theme.FONT_PRESET_NOTO_SERIF_SC
 import com.example.timeapk.ui.theme.AnimationSpecs
 import com.example.timeapk.ui.theme.TimeAPKTheme
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 
@@ -27,7 +28,7 @@ class MainActivity : ComponentActivity() {
 
     override fun attachBaseContext(newBase: Context) {
         val app = newBase.applicationContext as TimeApplication
-        val languageMode = runBlocking { app.userPrefs.languageModeFlow.first() }
+        val languageMode = runBlocking(Dispatchers.IO) { app.userPrefs.languageModeFlow.first() }
         val wrapped = LocaleUtils.wrapContext(newBase, languageMode)
         super.attachBaseContext(wrapped)
     }

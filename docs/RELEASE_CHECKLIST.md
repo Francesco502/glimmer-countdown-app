@@ -12,7 +12,7 @@
 - [x] `git diff --check` 未发现尾随空格或冲突标记
 - [x] `./gradlew testDirectDebugUnitTest testPlayDebugUnitTest` 通过
 - [x] `./gradlew compileDirectDebugAndroidTestKotlin` 通过
-- [ ] `./gradlew lintDirectDebug lintDirectRelease lintPlayRelease lintVitalDirectRelease lintVitalPlayRelease` 通过且无未解释 warning
+- [x] `./gradlew lintDirectDebug lintDirectRelease lintPlayRelease lintVitalDirectRelease lintVitalPlayRelease` 通过且无未解释 warning
 - [x] 使用隔离的临时签名配置执行 `assembleDirectRelease assemblePlayRelease bundlePlayRelease` 通过，证明构建与签名门可工作
 - [x] 临时签名构建生成 exact Direct APK `app/build/outputs/apk/direct/release/glimmer-countdown-4-0.apk` 与 Play AAB `app/build/outputs/bundle/playRelease/app-play-release.aab`
 - [ ] 使用正式发布密钥重建并验证 Direct APK / Play APK / Play AAB 的签名与权限；临时签名配置及 Debug APK 验证不等于正式产物，正式发布密钥产物仍需最终重跑
@@ -31,7 +31,7 @@
 
 ## 三、首页与桌面小组件
 
-- [ ] 首页卡片、列表、月历在浅色 / 深色主题与大字体下文字可读、布局不溢出
+- [x] 首页卡片、列表、月历在浅色 / 深色主题与 150% 系统字体下文字可读、布局不溢出
 - [x] 首页按天数、按日期、自定义排序均保持置顶事件在前
 - [x] 小组件“跟随首页”与首页顺序一致，3.17 导出的 22 条脱敏事件 fixture 回归通过
 - [x] 首页选择按距离天数排列时，小组件置顶项在前，其余项目按相同天数规则排序
@@ -45,14 +45,18 @@
 
 - [ ] 新建 / 编辑输入法、拼音组合态、硬件键盘、旋转和返回手势无数据丢失
 - [ ] TalkBack 可识别主要按钮、开关、展开状态、列表项和日期选择器
-- [ ] 常用触控目标满足尺寸要求，颜色与文字对比通过项目守卫测试
+- [x] 常用触控目标满足尺寸要求，颜色与文字对比通过项目守卫测试
 - [ ] 冷启动、首页滚动、月历切换、详情与设置导航无明显卡顿或异常内存增长
 - [ ] Android 8、Android 12 和当前 target SDK 设备至少各完成一轮核心 smoke
 - [x] Direct 与 Play 渠道关于页、权限和更新能力符合各自渠道约束
 
 ## 五、4.0 实测记录
 
-- JVM 回归（2026-07-16）：Direct / Play 各 386 项通过，0 failures / 0 errors；覆盖农历重复、导入校验、数据库恢复、首页排序、小组件解析及渠道更新契约等确定性行为。
+- JVM 回归（2026-07-16）：Direct / Play 各 408 项通过，0 failures / 0 errors / 0 skipped；覆盖农历重复、导入校验、数据库恢复、首页排序、小组件解析、无障碍架构及渠道更新契约等确定性行为。`compileDirectDebugAndroidTestKotlin`、`assembleDirectDebug`、`assemblePlayDebug` 同轮通过。
+- 数据库迁移（2026-07-16）：从已发布 v3.4 的真实 Room v6 schema 启动，依次执行生产迁移 6→7→8→9→10；API 37 上 2 项 connected migration 测试通过，验证删除字段、新增字段、核心数据保留与 v10 schema 严格校验。
+- UI / 无障碍（2026-07-16）：API 37 验证首页列表与卡片深色模式、月历 150% 系统字体、日期滚轮与设置单选组。修复事件文字和选中日期对比、48dp 触控目标、滚轮可调语义、装饰性空状态按钮重复朗读及设置单选行合并语义；真实 TalkBack 实机遍历仍未完成。
+- 性能（2026-07-16）：分享卡 1080×1350 渲染移至 Default dispatcher，PNG 写入移至 IO；Debug 冷启动 5 次中位数约 1630ms，首页滚动 Perfetto trace 无丢样。Release 性能画像与真机长时内存观察仍未完成。
+- 工程门（2026-07-16）：五项 lint / vital lint 均通过，DirectDebug、DirectRelease、PlayRelease 报告均为 `No issues found.`；新增 Android pull request CI，执行双渠道 JVM、AndroidTest 编译、五项 lint / vital lint 与双渠道 Debug 构建。
 - 渠道验收（2026-07-16）：API 37 `emulator-5554` 安装 Direct / Play Debug APK；Direct 关于页显示 `4.0` 和“探寻新章”，Play 关于页显示 `4.0-play` 和“更新由应用商店管理”，且不暴露 Direct 下载或安装入口。`aapt` 验证 Direct Debug APK 包含 `REQUEST_INSTALL_PACKAGES`、Play Debug APK 不包含；正式发布密钥 Release 产物的最终权限与签名检查仍未执行。
 - 模拟器（2026-07-16）：API 37 `sdk_gphone16k_arm64`，以 22 条脱敏事件完成 Custom / ByDays / ByDate 首页排序，并由两个真实 Pixel Launcher 小组件实例验证“跟随首页”和独立模式；置顶 `Event 06`、`Event 03` 始终在前。
 - Release 构建（2026-07-16）：以隔离的临时签名配置完成 Direct / Play APK 与 Play AAB，exact Direct 文件名、APK v2 签名及 AAB JAR 签名验证通过；正式发布密钥产物仍需最终重跑，不能把临时证书产物用于发布。
@@ -79,13 +83,13 @@
 - [x] `ReleaseReadinessTest` 与 `ReleasePublicationContractTest` 覆盖：严格版本/tag、正式签名指纹门、exact Direct APK、published/manual draft 拒绝、publisher ownership marker、Git ref 锁、owned draft 全资产清理、Release 唯一资产集合、size/digest/URL 绑定和最终 GET 验证。
 - [x] 未签名的最终 package 图会先进入签名校验并失败；release lint / compile 不因缺少本地密钥而读取秘密。
 - [x] Play 关于页只显示商店托管更新说明，不暴露 Direct APK 检查或安装入口。
-- [x] Release / update 子系统验收：Direct / Play JVM 各 386 项通过，`compileDirectDebugAndroidTestKotlin` 通过，两个渠道 Debug APK 均成功构建并安装到 API 37 `emulator-5554`；关于页运行时文案与 Debug APK 权限符合渠道约束。
+- [x] Release / update 子系统验收：Direct / Play JVM 各 408 项通过，`compileDirectDebugAndroidTestKotlin` 通过，两个渠道 Debug APK 均成功构建并安装到 API 37 `emulator-5554`；关于页运行时文案与 Debug APK 权限符合渠道约束。
 - [ ] 使用正式发布证书重复完整构建、签名、权限、文件大小与 SHA-256 记录。
 - [ ] 在隔离测试仓库运行 PowerShell publisher 的成功、并发锁、owned draft 恢复、残留锁与失败清理场景。
 
 ## Data Task 6 恢复验证（2026-07-16）
 
-- [x] 农历重复、导入校验与重复数据回归：Direct / Play JVM 各 386 项通过；本次会话工作报告为 `.superpowers/sdd/data-task-6-report.md`，不作为长期发布附件。
+- [x] 农历重复、导入校验与重复数据回归：Direct / Play JVM 各 408 项通过；本次会话工作报告为 `.superpowers/sdd/data-task-6-report.md`，不作为长期发布附件。
 - [x] 日历权限撤销恢复 smoke：`emulator-5554` / API 37；撤权后保留 provider ownership 与可重试错误、阻止删除，恢复权限后由应用清理 CalendarProvider 并成功删除 Room 事件；`/tmp/timeapk-data-task6-2026-07-16/rerun-682e004/` 仅为本机临时证据目录，不作为长期发布附件。
 - [ ] Backup / restore smoke：模拟器 Backup Manager disabled，`Ancestral=0`、`Current=0`、`Ever backed up=0`，且没有真实 TimeAPK widget instance；未执行 `pm clear` / restore，不声称覆盖。
 
