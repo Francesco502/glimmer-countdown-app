@@ -39,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
@@ -186,13 +187,17 @@ fun WidgetConfigEditor(
             )
             WidgetOptionGroup(
                 title = stringResource(R.string.widget_config_width_cells),
-                options = (1..5).map { it to stringResource(R.string.widget_config_cell_count, it) },
+                options = (1..5).map {
+                    it to pluralStringResource(R.plurals.widget_config_cell_count, it, it)
+                },
                 selected = config.widthCells,
                 onSelected = { onConfigChange(config.copy(widthCells = it).sanitize()) }
             )
             WidgetOptionGroup(
                 title = stringResource(R.string.widget_config_height_cells),
-                options = (1..5).map { it to stringResource(R.string.widget_config_cell_count, it) },
+                options = (1..5).map {
+                    it to pluralStringResource(R.plurals.widget_config_cell_count, it, it)
+                },
                 selected = config.heightCells,
                 onSelected = { onConfigChange(config.copy(heightCells = it).sanitize()) }
             )

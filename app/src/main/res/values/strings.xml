@@ -283,8 +283,6 @@
     <string name="settings_schedule_refresh_status">再探状态</string>
     <string name="lunar_calendar">农历</string>
     <string name="days_unit">天</string>
-    <string name="splash_tagline">白驹过隙，拾光留痕</string>
-    <string name="splash_subtitle">Time flies, casting shadows.</string>
     <string name="toggle_on">开</string>
     <string name="toggle_off">关</string>
     <string name="field_title_required">题名未成</string>
@@ -323,7 +321,6 @@
     <string name="custom_remind_days_label">提醒提前天数</string>
     <string name="custom_reminder_time_label">提醒时间</string>
     <string name="custom_reminder_time_invalid">时刻未妥：08:30 或 0830</string>
-    <string name="settings_milestone_remind_days_custom_hint">30</string>
     <string name="settings_reminder_custom_days_label">自定义提前天数</string>
     <string name="settings_reminder_custom_days_hint">输入 0–3650 天</string>
     <string name="schedule_milestone_reminder_title_today_format">%1$s：%2$s就在今天</string>
@@ -376,7 +373,6 @@
     <string name="settings_section_color_summary"></string>
     <string name="settings_section_font_summary">字体：%1$s</string>
     <string name="settings_typography_scale_title">字号与阅读密度</string>
-    <string name="settings_typography_scale_summary">应用 %1$d%%，小组件 %2$d%%</string>
     <string name="settings_section_default_reminder_title">新建事件默认提醒</string>
     <string name="settings_section_default_reminder_summary"></string>
     <string name="settings_section_milestone_display_title">节点显示</string>
@@ -416,14 +412,15 @@
     <string name="widget_config_appearance_group">样式与边框</string>
     <string name="widget_config_layer_content">内容</string>
     <string name="widget_config_content_group">范围与顺序</string>
-    <string name="widget_config_preview_title">实时预览</string>
     <string name="widget_config_preview_event_primary">春日小聚</string>
     <string name="widget_config_preview_value_primary">12天</string>
     <string name="widget_config_preview_event_secondary">农·生辰</string>
     <string name="widget_config_preview_value_secondary">今天</string>
     <string name="widget_config_width_cells">预览宽度</string>
     <string name="widget_config_height_cells">预览高度</string>
-    <string name="widget_config_cell_count">%1$d格</string>
+    <plurals name="widget_config_cell_count">
+        <item quantity="other">%1$d格</item>
+    </plurals>
     <string name="widget_config_size_summary">%1$dx%2$d</string>
     <string name="widget_config_appearance">背景样式</string>
     <string name="widget_config_appearance_system">跟随系统</string>
@@ -464,7 +461,6 @@
     <string name="widget_config_no_existing_widgets">桌面暂无小组件。</string>
     <string name="widget_config_existing_widget_title">小组件 %1$d</string>
     <string name="widget_config_edit">编辑</string>
-    <string name="widget_config_collapse">收起</string>
     <string name="widget_config_reset_instance">恢复默认</string>
     <string name="home_timeline_today">今日</string>
     <string name="home_timeline_seven_days">七日</string>

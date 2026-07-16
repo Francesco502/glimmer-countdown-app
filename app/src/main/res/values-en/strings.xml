@@ -328,8 +328,6 @@
     <string name="days_unit">days</string>
 
     <!-- Splash -->
-    <string name="splash_tagline">Time flies, casting shadows</string>
-    <string name="splash_subtitle">Collect every moment</string>
 
     <!-- Toggle -->
     <string name="toggle_on">On</string>
@@ -376,7 +374,6 @@
     <string name="custom_remind_days_label">Reminder lead time</string>
     <string name="custom_reminder_time_label">Reminder time</string>
     <string name="custom_reminder_time_invalid">Time format: 08:30 or 0830</string>
-    <string name="settings_milestone_remind_days_custom_hint">30</string>
     <string name="settings_reminder_custom_days_label">Custom lead time</string>
     <string name="settings_reminder_custom_days_hint">Enter 0–3650 days</string>
     <string name="schedule_milestone_reminder_title_today_format">%1$s: %2$s is today</string>
@@ -430,7 +427,6 @@
     <string name="settings_section_color_summary"></string>
     <string name="settings_section_font_summary">Font: %1$s</string>
     <string name="settings_typography_scale_title">Text size and reading density</string>
-    <string name="settings_typography_scale_summary">App %1$d%%, widget %2$d%%</string>
     <string name="settings_section_default_reminder_title">New-event default reminder</string>
     <string name="settings_section_default_reminder_summary"></string>
     <string name="settings_section_milestone_display_title">Milestone display</string>
@@ -466,14 +462,16 @@
     <string name="widget_config_appearance_group">Style and border</string>
     <string name="widget_config_layer_content">Content</string>
     <string name="widget_config_content_group">Scope and order</string>
-    <string name="widget_config_preview_title">Live preview</string>
     <string name="widget_config_preview_event_primary">Spring gathering</string>
     <string name="widget_config_preview_value_primary">12d</string>
     <string name="widget_config_preview_event_secondary">Lunar birthday</string>
     <string name="widget_config_preview_value_secondary">Today</string>
     <string name="widget_config_width_cells">Preview width</string>
     <string name="widget_config_height_cells">Preview height</string>
-    <string name="widget_config_cell_count">%1$d cells</string>
+    <plurals name="widget_config_cell_count">
+        <item quantity="one">%1$d cell</item>
+        <item quantity="other">%1$d cells</item>
+    </plurals>
     <string name="widget_config_size_summary">%1$dx%2$d</string>
     <string name="widget_config_appearance">Background style</string>
     <string name="widget_config_appearance_system">Follow system</string>
@@ -514,7 +512,6 @@
     <string name="widget_config_no_existing_widgets">No widgets on the home screen.</string>
     <string name="widget_config_existing_widget_title">Widget %1$d</string>
     <string name="widget_config_edit">Edit</string>
-    <string name="widget_config_collapse">Collapse</string>
     <string name="widget_config_reset_instance">Reset</string>
     <string name="home_timeline_today">Today</string>
     <string name="home_timeline_seven_days">7 days</string>

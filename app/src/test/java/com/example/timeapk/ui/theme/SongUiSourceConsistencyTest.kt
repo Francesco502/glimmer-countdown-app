@@ -90,7 +90,9 @@ class SongUiSourceConsistencyTest {
         assertTrue(monthBlock.contains("CalendarOccurrenceRow("))
         assertFalse(monthBlock.contains("SongPaperSurface("))
         assertTrue(componentSource.contains("Color.Transparent"))
-        assertTrue(componentSource.contains("selected -> SongPalette.PaperDeep.copy(alpha = 0.54f)"))
+        assertTrue(componentSource.contains("selected -> primary"))
+        assertTrue(componentSource.contains("selected -> selectedContentColor"))
+        assertTrue(componentSource.contains("if (selected) selectedContentColor else primary"))
         assertTrue(componentSource.contains("hasEvents -> SongPalette.PaperWarm.copy(alpha = 0.45f)"))
     }
 
