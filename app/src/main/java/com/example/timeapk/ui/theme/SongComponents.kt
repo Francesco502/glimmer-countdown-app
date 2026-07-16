@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -229,11 +231,12 @@ fun <T> SongModeTabRow(
     modifier: Modifier = Modifier
 ) {
     val dividerColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
-    Column(modifier = modifier.height(32.dp)) {
+    Box(modifier = modifier.heightIn(min = 48.dp)) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f),
+                .fillMaxHeight()
+                .selectableGroup(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             options.forEach { (value, label) ->
@@ -242,7 +245,11 @@ fun <T> SongModeTabRow(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
-                        .clickable { onSelected(value) }
+                        .selectable(
+                            selected = isSelected,
+                            role = Role.RadioButton,
+                            onClick = { onSelected(value) }
+                        )
                         .padding(horizontal = 4.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
@@ -262,7 +269,11 @@ fun <T> SongModeTabRow(
                 }
             }
         }
-        Row(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+        ) {
             options.forEach { (value, _) ->
                 val isSelected = selected == value
                 Box(

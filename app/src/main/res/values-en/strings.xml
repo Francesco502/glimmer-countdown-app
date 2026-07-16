@@ -131,10 +131,11 @@
 
     <!-- Search -->
     <string name="search_hint">Search title, category, note</string>
+    <string name="cd_clear_search">Clear search</string>
 
     <!-- Export / Import -->
     <string name="export_import">Export / Import</string>
-    <string name="export_events">Export events</string>
+    <string name="export_events">Share JSON text</string>
     <string name="export_events_file">Save JSON file</string>
     <string name="import_events">Import events</string>
     <string name="import_hint">JSON / Remember Days .mdb</string>
@@ -146,7 +147,7 @@
         <item quantity="other">%1$d more</item>
     </plurals>
     <string name="import_preview_empty_after_duplicates">Already on the scroll.</string>
-    <string name="export_csv">Export CSV</string>
+    <string name="export_csv">Share CSV text</string>
     <string name="export_csv_file">Save CSV file</string>
     <string name="export_plain_text">Share as plain text</string>
     <string name="export_file_saved">File saved</string>

@@ -27,8 +27,27 @@ class SongUiSourceConsistencyTest {
         assertTrue(displayModeBlock.contains("SongModeTabRow("))
         assertFalse(displayModeBlock.contains("SongSegmentedControl("))
         assertTrue(componentSource.contains("fun <T> SongModeTabRow("))
-        assertTrue(componentSource.contains(".height(32.dp)"))
         assertTrue(componentSource.contains(".height(1.dp)"))
+
+        val modeTabs = componentSource.substringAfter("fun <T> SongModeTabRow(")
+            .substringBefore("@Composable\nfun SongFilterChip")
+        assertTrue(modeTabs.contains(".selectableGroup()"))
+        assertTrue(modeTabs.contains(".selectable("))
+        assertTrue(modeTabs.contains("selected = isSelected"))
+        assertTrue(modeTabs.contains("role = Role.RadioButton"))
+        assertTrue(modeTabs.contains(".heightIn(min = 48.dp)"))
+    }
+
+    @Test
+    fun homeSearchClearActionHasAccessibleTargetAndDedicatedLabel() {
+        val source = readSource("ui/home/HomeScreen.kt")
+        val search = source.substringAfter("private fun HomeOverflowSearchField(")
+            .substringBefore("private data class TimelineActionTileSpec")
+
+        assertTrue(search.contains(".size(48.dp)"))
+        assertTrue(search.contains("contentDescription = stringResource(R.string.cd_clear_search)"))
+        assertFalse(search.contains("contentDescription = stringResource(R.string.date_picker_cancel)"))
+        assertTrue(search.contains("size = 18.dp"))
     }
 
     @Test

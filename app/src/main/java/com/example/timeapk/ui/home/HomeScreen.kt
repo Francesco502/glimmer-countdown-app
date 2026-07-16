@@ -754,13 +754,13 @@ private fun HomeOverflowSearchField(
                     Spacer(modifier = Modifier.width(8.dp))
                     Box(
                         modifier = Modifier
-                            .size(26.dp)
+                            .size(48.dp)
                             .clickable(onClick = { onSearchQueryChange("") }),
                         contentAlignment = Alignment.Center
                     ) {
                         SongLineIcon(
                             kind = SongLineIconKind.Close,
-                            contentDescription = stringResource(R.string.date_picker_cancel),
+                            contentDescription = stringResource(R.string.cd_clear_search),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.74f),
                             size = 18.dp
                         )
