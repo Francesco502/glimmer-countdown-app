@@ -19,6 +19,9 @@ import kotlinx.coroutines.withContext
 
 class CountdownAppWidgetProvider : AppWidgetProvider() {
     companion object {
+        internal const val ACTION_REFRESH_DATE_BOUNDARY =
+            "com.example.timeapk.action.REFRESH_WIDGET_DATE_BOUNDARY"
+
         fun refreshAllWidgets(context: Context) {
             val app = context.applicationContext as? TimeApplication ?: return
             val appWidgetManager = AppWidgetManager.getInstance(context)
@@ -184,15 +187,11 @@ class CountdownAppWidgetProvider : AppWidgetProvider() {
     }
 
     override fun onReceive(context: Context, intent: Intent) {
-        val refreshActions = setOf(
-            Intent.ACTION_CONFIGURATION_CHANGED,
-            Intent.ACTION_DATE_CHANGED,
-            Intent.ACTION_TIME_CHANGED,
-            Intent.ACTION_TIMEZONE_CHANGED
-        )
+        val refreshActions = setOf(ACTION_REFRESH_DATE_BOUNDARY, Intent.ACTION_DATE_CHANGED)
         if (intent.action in refreshActions) {
             val appWidgetManager = AppWidgetManager.getInstance(context)
             val appWidgetIds = getAppWidgetIds(context, appWidgetManager)
+            WidgetDateBoundaryScheduler.scheduleOrCancel(context)
             if (appWidgetIds.isEmpty()) return
             launchRefresh(
                 context,
@@ -205,11 +204,17 @@ class CountdownAppWidgetProvider : AppWidgetProvider() {
         super.onReceive(context, intent)
     }
 
+    override fun onEnabled(context: Context) {
+        super.onEnabled(context)
+        WidgetDateBoundaryScheduler.scheduleOrCancel(context)
+    }
+
     override fun onUpdate(
         context: Context,
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
+        WidgetDateBoundaryScheduler.scheduleOrCancel(context)
         launchRefresh(context, appWidgetManager, appWidgetIds, goAsync())
     }
 
@@ -220,11 +225,13 @@ class CountdownAppWidgetProvider : AppWidgetProvider() {
         newOptions: Bundle
     ) {
         super.onAppWidgetOptionsChanged(context, appWidgetManager, appWidgetId, newOptions)
+        WidgetDateBoundaryScheduler.scheduleOrCancel(context)
         launchRefresh(context, appWidgetManager, intArrayOf(appWidgetId), goAsync())
     }
 
     override fun onDeleted(context: Context, appWidgetIds: IntArray) {
         super.onDeleted(context, appWidgetIds)
+        WidgetDateBoundaryScheduler.scheduleOrCancel(context)
         val app = context.applicationContext as? TimeApplication ?: return
         app.launchAppTask {
             val repository = WidgetConfigRepository(app)
@@ -232,6 +239,11 @@ class CountdownAppWidgetProvider : AppWidgetProvider() {
                 repository.removeConfigForWidget(id)
             }
         }
+    }
+
+    override fun onDisabled(context: Context) {
+        super.onDisabled(context)
+        WidgetDateBoundaryScheduler.cancel(context)
     }
 }
 

@@ -8,26 +8,51 @@ import java.io.File
 
 class WidgetOrderingRefreshArchitectureTest {
     @Test
-    fun widgetRefreshesForCivilDateAndClockChanges() {
+    fun widgetDateBoundaryAlarmIsExplicitAndRearmedAcrossLifecycleAndClockChanges() {
         val manifest = manifestSource().readText(Charsets.UTF_8)
         val provider = mainSource("widget/CountdownAppWidgetProvider.kt").readText(Charsets.UTF_8)
+        val scheduler = mainSource("widget/WidgetDateBoundaryScheduler.kt").readText(Charsets.UTF_8)
+        val rescheduler = mainSource("notifications/RescheduleBroadcastReceiver.kt").readText(Charsets.UTF_8)
+        val application = mainSource("TimeApplication.kt").readText(Charsets.UTF_8)
         val widgetReceiver = manifest.substringAfter("android:name=\".widget.CountdownAppWidgetProvider\"")
             .substringBefore("</receiver>")
 
+        assertFalse(widgetReceiver.contains("android.intent.action.CONFIGURATION_CHANGED"))
+        val configurationCallback = application.substringAfter("override fun onConfigurationChanged(")
+            .substringBefore("private fun refreshWidgetsOnThemeChange(")
+        assertTrue(configurationCallback.contains("refreshWidgetsOnThemeChange()"))
+        assertTrue(scheduler.contains("Intent(context, CountdownAppWidgetProvider::class.java)"))
+        assertTrue(scheduler.contains(".setAction(CountdownAppWidgetProvider.ACTION_REFRESH_DATE_BOUNDARY)"))
+        assertTrue(scheduler.contains("PendingIntent.FLAG_UPDATE_CURRENT"))
+        assertTrue(scheduler.contains("PendingIntent.FLAG_IMMUTABLE"))
+        assertTrue(scheduler.contains("AlarmManager.RTC_WAKEUP"))
+        assertTrue(scheduler.contains("setAndAllowWhileIdle"))
+        assertFalse(scheduler.contains("setExact"))
+        assertFalse(manifest.contains("SCHEDULE_EXACT_ALARM"))
+        assertFalse(manifest.contains("USE_EXACT_ALARM"))
+
         listOf(
-            "android.intent.action.DATE_CHANGED",
-            "android.intent.action.TIME_SET",
-            "android.intent.action.TIMEZONE_CHANGED"
-        ).forEach { action ->
-            assertTrue("Widget receiver is missing $action", widgetReceiver.contains(action))
+            "override fun onEnabled(",
+            "override fun onUpdate(",
+            "override fun onAppWidgetOptionsChanged(",
+            "override fun onDeleted(",
+            "override fun onDisabled("
+        ).forEach { callback ->
+            val section = provider.substringAfter(callback).substringBefore("override fun", provider.substringAfter(callback))
+            assertTrue("$callback must maintain the date-boundary alarm", section.contains("WidgetDateBoundaryScheduler"))
         }
+        assertTrue(provider.contains("ACTION_REFRESH_DATE_BOUNDARY"))
+        assertTrue(provider.substringAfter("ACTION_REFRESH_DATE_BOUNDARY").contains("launchRefresh("))
+        assertTrue(provider.substringAfter("ACTION_REFRESH_DATE_BOUNDARY").contains("scheduleOrCancel("))
+
         listOf(
-            "Intent.ACTION_CONFIGURATION_CHANGED",
-            "Intent.ACTION_DATE_CHANGED",
+            "Intent.ACTION_BOOT_COMPLETED",
             "Intent.ACTION_TIME_CHANGED",
-            "Intent.ACTION_TIMEZONE_CHANGED"
+            "Intent.ACTION_TIMEZONE_CHANGED",
+            "Intent.ACTION_MY_PACKAGE_REPLACED"
         ).forEach { action ->
-            assertTrue("Widget provider does not handle $action", provider.contains(action))
+            val branch = rescheduler.substringAfter(action)
+            assertTrue("$action must re-arm the widget boundary alarm", branch.contains("WidgetDateBoundaryScheduler.scheduleOrCancel(context)"))
         }
 
         val receive = provider.substringAfter("override fun onReceive(").substringBefore("override fun onUpdate(")
