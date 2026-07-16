@@ -1194,6 +1194,15 @@ fun EventCard(
     val cardContentColor = lerp(MaterialTheme.colorScheme.onSurface, baseCardColor, 0.06f)
     val cardAccentColor = baseCardColor.copy(alpha = if (isPast) 0.30f else 0.58f)
     val cardBorderColor = baseCardColor.copy(alpha = if (isPast) 0.16f else 0.22f)
+    val cardAuxiliaryColor = if (lightSurface) {
+        baseCardColor.copy(alpha = if (isPast) 0.54f else 0.74f)
+    } else {
+        HomeEventColorPolicy.ensureTextContrast(
+            eventColor = baseCardColor,
+            onSurface = MaterialTheme.colorScheme.onSurface,
+            background = MaterialTheme.colorScheme.surface
+        )
+    }
 
     val locale = androidx.compose.ui.platform.LocalContext.current.resources.configuration.locales[0]
 
@@ -1381,7 +1390,7 @@ fun EventCard(
                         Text(
                             text = cardAuxiliaryLine,
                             style = MaterialTheme.typography.labelSmall,
-                            color = baseCardColor.copy(alpha = if (isPast) 0.54f else 0.74f),
+                            color = cardAuxiliaryColor,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -1559,7 +1568,11 @@ private fun EventListItem(
     val displayColor = if (isLightSurface) {
         lerp(eventColor, MaterialTheme.colorScheme.onBackground, 0.4f)
     } else {
-        lerp(eventColor, MaterialTheme.colorScheme.onBackground, 0.2f)
+        HomeEventColorPolicy.ensureTextContrast(
+            eventColor = eventColor,
+            onSurface = MaterialTheme.colorScheme.onBackground,
+            background = MaterialTheme.colorScheme.background
+        )
     }
     val rowBackground = when {
         isDragging -> MaterialTheme.colorScheme.surface
@@ -1634,7 +1647,11 @@ private fun EventListItem(
             CompactEventTime(
                 daysDisplay = daysDisplay,
                 labelText = labelText,
-                timeColor = if (isPast) displayColor.copy(alpha = 0.82f) else displayColor,
+                timeColor = if (isPast && isLightSurface) {
+                    displayColor.copy(alpha = 0.82f)
+                } else {
+                    displayColor
+                },
                 labelColor = itemContentColor.copy(alpha = 0.64f),
                 contentDescription = stringResource(R.string.cd_toggle_date_delta_display),
                 enabled = tapNavigationEnabled,

@@ -87,6 +87,22 @@ class HomeInteractionPolicyTest {
     }
 
     @Test
+    fun eventColorTextUsesSharedDarkThemeContrastPolicyInCardAndListModes() {
+        val source = readSource("ui/home/HomeScreen.kt")
+        val cardSource = source.substringAfter("fun EventCard(")
+            .substringBefore("private fun EventListItem(")
+        val listSource = source.substringAfter("private fun EventListItem(")
+            .substringBefore("private fun CompactEventTime(")
+
+        assertTrue(cardSource.contains("HomeEventColorPolicy.ensureTextContrast("))
+        assertTrue(cardSource.contains("if (lightSurface)"))
+        assertTrue(cardSource.contains("baseCardColor.copy(alpha = if (isPast) 0.54f else 0.74f)"))
+        assertTrue(listSource.contains("HomeEventColorPolicy.ensureTextContrast("))
+        assertTrue(listSource.contains("if (isLightSurface)"))
+        assertFalse(listSource.contains("lerp(eventColor, MaterialTheme.colorScheme.onBackground, 0.2f)"))
+    }
+
+    @Test
     fun homeTimeToggleTargetsExposeAccessibleButtonSemantics() {
         val source = readSource("ui/home/HomeScreen.kt")
         val cardSource = source.substringAfter("fun EventCard(")
