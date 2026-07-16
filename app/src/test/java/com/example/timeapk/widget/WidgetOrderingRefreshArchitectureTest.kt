@@ -8,6 +8,27 @@ import java.io.File
 
 class WidgetOrderingRefreshArchitectureTest {
     @Test
+    fun clockChangeRefreshIsAnExplicitProviderBroadcastWithOwnedAsyncLifetime() {
+        val provider = mainSource("widget/CountdownAppWidgetProvider.kt").readText(Charsets.UTF_8)
+        val rescheduler = mainSource("notifications/RescheduleBroadcastReceiver.kt").readText(Charsets.UTF_8)
+        val clockChangeBranch = rescheduler.substringAfter("Intent.ACTION_TIME_CHANGED")
+            .substringBefore("RescheduleAllWorker.enqueue")
+        val receive = provider.substringAfter("override fun onReceive(")
+            .substringBefore("override fun onUpdate(")
+
+        assertFalse(rescheduler.contains("refreshAllWidgets("))
+        assertTrue(provider.contains("ACTION_REFRESH_CLOCK_CHANGED"))
+        assertTrue(clockChangeBranch.contains("Intent(context, CountdownAppWidgetProvider::class.java)"))
+        assertTrue(clockChangeBranch.contains(".setAction(CountdownAppWidgetProvider.ACTION_REFRESH_CLOCK_CHANGED)"))
+        assertTrue(clockChangeBranch.contains("context.sendBroadcast"))
+        assertTrue(receive.contains("ACTION_REFRESH_CLOCK_CHANGED"))
+        assertTrue(receive.contains("if (action != ACTION_REFRESH_CLOCK_CHANGED)"))
+        assertTrue(receive.contains("launchRefresh("))
+        assertTrue(receive.contains("goAsync()"))
+        assertTrue(receive.substringAfter("ACTION_REFRESH_CLOCK_CHANGED").contains("if (appWidgetIds.isEmpty()) return"))
+    }
+
+    @Test
     fun widgetDateBoundaryAlarmIsExplicitAndRearmedAcrossLifecycleAndClockChanges() {
         val manifest = manifestSource().readText(Charsets.UTF_8)
         val provider = mainSource("widget/CountdownAppWidgetProvider.kt").readText(Charsets.UTF_8)

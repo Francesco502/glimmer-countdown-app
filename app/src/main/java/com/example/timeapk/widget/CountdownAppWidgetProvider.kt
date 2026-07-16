@@ -21,6 +21,8 @@ class CountdownAppWidgetProvider : AppWidgetProvider() {
     companion object {
         internal const val ACTION_REFRESH_DATE_BOUNDARY =
             "com.example.timeapk.action.REFRESH_WIDGET_DATE_BOUNDARY"
+        internal const val ACTION_REFRESH_CLOCK_CHANGED =
+            "com.example.timeapk.action.REFRESH_WIDGET_CLOCK_CHANGED"
 
         fun refreshAllWidgets(context: Context) {
             val app = context.applicationContext as? TimeApplication ?: return
@@ -187,11 +189,18 @@ class CountdownAppWidgetProvider : AppWidgetProvider() {
     }
 
     override fun onReceive(context: Context, intent: Intent) {
-        val refreshActions = setOf(ACTION_REFRESH_DATE_BOUNDARY, Intent.ACTION_DATE_CHANGED)
-        if (intent.action in refreshActions) {
+        val action = intent.action
+        val refreshActions = setOf(
+            ACTION_REFRESH_DATE_BOUNDARY,
+            ACTION_REFRESH_CLOCK_CHANGED,
+            Intent.ACTION_DATE_CHANGED
+        )
+        if (action in refreshActions) {
             val appWidgetManager = AppWidgetManager.getInstance(context)
             val appWidgetIds = getAppWidgetIds(context, appWidgetManager)
-            WidgetDateBoundaryScheduler.scheduleOrCancel(context)
+            if (action != ACTION_REFRESH_CLOCK_CHANGED) {
+                WidgetDateBoundaryScheduler.scheduleOrCancel(context)
+            }
             if (appWidgetIds.isEmpty()) return
             launchRefresh(
                 context,

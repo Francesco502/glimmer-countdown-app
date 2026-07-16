@@ -16,7 +16,10 @@ class RescheduleBroadcastReceiver : BroadcastReceiver() {
             Intent.ACTION_MY_PACKAGE_REPLACED -> {
                 WidgetDateBoundaryScheduler.scheduleOrCancel(context)
                 if (action == Intent.ACTION_TIME_CHANGED || action == Intent.ACTION_TIMEZONE_CHANGED) {
-                    CountdownAppWidgetProvider.refreshAllWidgets(context)
+                    context.sendBroadcast(
+                        Intent(context, CountdownAppWidgetProvider::class.java)
+                            .setAction(CountdownAppWidgetProvider.ACTION_REFRESH_CLOCK_CHANGED)
+                    )
                 }
                 RescheduleAllWorker.enqueue(context, action)
             }
