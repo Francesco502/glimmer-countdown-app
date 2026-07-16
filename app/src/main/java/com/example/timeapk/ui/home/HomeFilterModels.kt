@@ -3,6 +3,7 @@ package com.example.timeapk.ui.home
 import com.example.timeapk.data.CATEGORY_ANNIVERSARY
 import com.example.timeapk.data.CATEGORY_BIRTHDAY
 import com.example.timeapk.data.CATEGORY_OTHER
+import com.example.timeapk.data.Event
 
 enum class FilterType { All, Birthday, Anniversary, Other }
 
@@ -41,6 +42,12 @@ internal fun mergeVisibleOrderIntoGlobalOrder(
     }
 }
 
+internal fun defaultCustomEventOrderIds(events: List<Event>): List<Int> =
+    events.sortedWith(
+        compareByDescending<Event> { it.createdAt }
+            .thenBy { it.id }
+    ).map { it.id }
+
 internal fun applyHomeSort(
     list: List<EventUiState>,
     sortType: SortType,
@@ -51,7 +58,10 @@ internal fun applyHomeSort(
         SortType.ByDays -> list.sortedBy { it.daysRemaining }
         SortType.ByDate -> list.sortedBy { it.event.date }
         SortType.Custom -> {
-            val base = list.sortedByDescending { it.event.createdAt }
+            val base = list.sortedWith(
+                compareByDescending<EventUiState> { it.event.createdAt }
+                    .thenBy { it.event.id }
+            )
             if (customEventOrderIds.isEmpty()) {
                 base
             } else {

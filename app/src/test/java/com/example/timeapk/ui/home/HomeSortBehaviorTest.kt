@@ -146,6 +146,18 @@ class HomeSortBehaviorTest {
         )
     }
 
+    @Test
+    fun defaultCustomEventOrderIds_breaksCreatedAtTiesById() {
+        val events = listOf(
+            eventState(id = 4, daysRemaining = 1, createdAt = 200L).event,
+            eventState(id = 2, daysRemaining = 1, createdAt = 300L).event,
+            eventState(id = 3, daysRemaining = 1, createdAt = 300L).event,
+            eventState(id = 1, daysRemaining = 1, createdAt = 100L).event
+        )
+
+        assertEquals(listOf(2, 3, 4, 1), defaultCustomEventOrderIds(events))
+    }
+
     private fun eventState(
         id: Int,
         daysRemaining: Long,

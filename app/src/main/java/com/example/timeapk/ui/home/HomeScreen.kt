@@ -299,10 +299,18 @@ fun HomeScreen(
                     val tapOnlyInteraction = homeCardUsesTapOnlyInteraction(sortType)
                     val tapNavigationEnabled = homeCardTapNavigationEnabled(sortType)
                     val useListLevelReorderDetection = homeUsesListLevelReorderDetection(sortType)
-                    val visibleIdsBeforeDrag = displayedList.map { it.event.id }
+                    val latestDragEnabled by rememberUpdatedState(dragEnabled)
+                    val latestDisplayedIds by rememberUpdatedState(
+                        displayedList.map { it.event.id }
+                    )
+                    val latestViewModel by rememberUpdatedState(viewModel)
+                    var visibleIdsAtDragStart by remember { mutableStateOf<List<Int>?>(null) }
                     val reorderState = rememberReorderableLazyListState(
                         onMove = { from, to ->
-                            if (dragEnabled) {
+                            if (latestDragEnabled) {
+                                if (visibleIdsAtDragStart == null) {
+                                    visibleIdsAtDragStart = latestDisplayedIds
+                                }
                                 dragInProgress = true
                                 val fromIdx = from.index
                                 val toIdx = to.index
@@ -313,10 +321,12 @@ fun HomeScreen(
                             }
                         },
                         onDragEnd = { _, _ ->
+                            val visibleIds = visibleIdsAtDragStart
+                            visibleIdsAtDragStart = null
                             dragInProgress = false
-                            if (dragEnabled) {
-                                viewModel.updateCustomEventOrder(
-                                    visibleIds = visibleIdsBeforeDrag,
+                            if (latestDragEnabled && visibleIds != null) {
+                                latestViewModel.updateCustomEventOrder(
+                                    visibleIds = visibleIds,
                                     reorderedVisibleIds = orderedList.map { it.event.id }
                                 )
                             }

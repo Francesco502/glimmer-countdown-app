@@ -515,7 +515,7 @@ class HomeViewModel(
             val allEvents = repository.getAllEventsSnapshot()
             val activeIds = allEvents.mapTo(mutableSetOf()) { it.id }
             val storedIds = userPrefs.customEventOrderFlow.first()
-            val defaultIds = allEvents.sortedByDescending { it.createdAt }.map { it.id }
+            val defaultIds = defaultCustomEventOrderIds(allEvents)
             val globalIds = (storedIds + defaultIds)
                 .filter { it in activeIds }
                 .distinct()

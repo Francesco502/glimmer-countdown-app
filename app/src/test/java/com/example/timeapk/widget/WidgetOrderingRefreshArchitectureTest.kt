@@ -6,6 +6,27 @@ import java.io.File
 
 class WidgetOrderingRefreshArchitectureTest {
     @Test
+    fun homeDragCallbacksReadCurrentStateAndCaptureIdsAtFirstMove() {
+        val source = mainSource("ui/home/HomeScreen.kt").readText(Charsets.UTF_8)
+        val reorderSetup = source.substringAfter("val reorderState = rememberReorderableLazyListState(")
+            .substringBefore("AnimatedContent(")
+        val move = reorderSetup.substringAfter("onMove =").substringBefore("onDragEnd =")
+        val dragEnd = reorderSetup.substringAfter("onDragEnd =")
+
+        assertTrue(source.contains("val latestDragEnabled by rememberUpdatedState(dragEnabled)"))
+        assertTrue(source.contains("val latestDisplayedIds by rememberUpdatedState("))
+        assertTrue(source.contains("val latestViewModel by rememberUpdatedState(viewModel)"))
+        assertTrue(source.contains("var visibleIdsAtDragStart by remember { mutableStateOf<List<Int>?>(null) }"))
+        assertTrue(move.contains("if (visibleIdsAtDragStart == null)"))
+        assertTrue(move.contains("visibleIdsAtDragStart = latestDisplayedIds"))
+        assertTrue(move.indexOf("visibleIdsAtDragStart = latestDisplayedIds") < move.indexOf("orderedList.removeAt"))
+        assertTrue(dragEnd.contains("val visibleIds = visibleIdsAtDragStart"))
+        assertTrue(dragEnd.contains("visibleIdsAtDragStart = null"))
+        assertTrue(dragEnd.contains("visibleIds = visibleIds"))
+        assertTrue(!source.contains("val visibleIdsBeforeDrag = displayedList.map"))
+    }
+
+    @Test
     fun widgetResolverReadsAndAppliesThePersistedHomeSortType() {
         val source = mainSource("widget/WidgetContentResolver.kt").readText(Charsets.UTF_8)
 
@@ -30,7 +51,7 @@ class WidgetOrderingRefreshArchitectureTest {
             persistence = "userPrefs.setCustomEventOrder(mergedIds)"
         )
         val dragEnd = homeScreen.substringAfter("onDragEnd =").substringBefore("onDragCancel =")
-        assertTrue(dragEnd.contains("viewModel.updateCustomEventOrder("))
+        assertTrue(dragEnd.contains("latestViewModel.updateCustomEventOrder("))
         assertTrue(!dragEnd.contains("prefs.setCustomEventOrder("))
         assertPersistedBeforeRefresh(
             source = detailScreen.substringAfter("onPinClick =").substringBefore("onEditClick ="),
