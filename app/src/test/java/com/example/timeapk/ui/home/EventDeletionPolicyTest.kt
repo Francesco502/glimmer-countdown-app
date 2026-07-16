@@ -137,10 +137,14 @@ class EventDeletionPolicyTest {
         Unit
     }
 
-    @Test(expected = CancellationException::class)
-    fun widgetRefreshCancellation_isPropagated() = runBlocking {
-        runDeletion(DeletionFake(refreshFailure = CancellationException("cancelled")))
-        Unit
+    @Test
+    fun widgetRefreshCancellationAfterRoomDelete_isBestEffort() = runBlocking {
+        val fake = DeletionFake(refreshFailure = CancellationException("cancelled"))
+
+        val result = runDeletion(fake)
+
+        assertEquals(DeleteEventResult.Deleted, result)
+        assertTrue(fake.calls.indexOf("delete") < fake.calls.indexOf("refreshWidgets"))
     }
 
     private suspend fun runDeletion(fake: DeletionFake): DeleteEventResult = deleteEventRecoverably(

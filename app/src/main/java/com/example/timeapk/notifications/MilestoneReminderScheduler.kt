@@ -42,11 +42,21 @@ fun cancelAllMilestoneReminders(context: android.content.Context) {
     WorkManager.getInstance(context).cancelAllWorkByTag(MILESTONE_REMIND_TAG)
 }
 
-suspend fun syncMilestoneReminderForEvent(application: Application, event: Event) {
+internal fun shouldClearCalendarBeforeMilestoneSync(
+    calendarCleanupHandledExternally: Boolean
+): Boolean = !calendarCleanupHandledExternally
+
+suspend fun syncMilestoneReminderForEvent(
+    application: Application,
+    event: Event,
+    calendarCleanupHandledExternally: Boolean = false
+) {
     val app = application as? TimeApplication ?: return
     val context = application
     cancelMilestoneReminders(context, event.id)
-    ScheduleSyncManager.clearMilestoneScheduleRemindersByEventId(context, event.id)
+    if (shouldClearCalendarBeforeMilestoneSync(calendarCleanupHandledExternally)) {
+        ScheduleSyncManager.clearMilestoneScheduleRemindersByEventId(context, event.id)
+    }
 
     val enabled = app.userPrefs.milestoneRemindEnabledFlow.first()
     if (!enabled) return

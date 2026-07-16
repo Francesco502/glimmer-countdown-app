@@ -4,7 +4,9 @@ import com.example.timeapk.data.CATEGORY_OTHER
 import com.example.timeapk.data.Event
 import com.example.timeapk.data.REPEAT_NONE
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
 import java.time.ZoneId
@@ -16,6 +18,20 @@ class MilestoneReminderSchedulerTest {
 
     private fun epochMillisOf(localDate: LocalDate): Long =
         localDate.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+
+    @Test
+    fun externallyHandledCalendarCleanup_skipsOnlyMilestoneCalendarCleanup() {
+        assertFalse(
+            shouldClearCalendarBeforeMilestoneSync(calendarCleanupHandledExternally = true)
+        )
+    }
+
+    @Test
+    fun ordinaryMilestoneSync_keepsCalendarCleanupEnabled() {
+        assertTrue(
+            shouldClearCalendarBeforeMilestoneSync(calendarCleanupHandledExternally = false)
+        )
+    }
 
     @Test
     fun computeNextMilestoneReminderPlan_futureEventStillProducesUpcomingReminder() {

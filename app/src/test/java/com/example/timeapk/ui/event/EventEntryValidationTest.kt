@@ -83,6 +83,34 @@ class EventEntryValidationTest {
     }
 
     @Test
+    fun disabledSave_marksCalendarCleanupAsExternallyHandledForMilestoneSync() {
+        assertTrue(calendarCleanupHandledExternallyForSave(syncToScheduleEnabled = false))
+        assertFalse(calendarCleanupHandledExternallyForSave(syncToScheduleEnabled = true))
+    }
+
+    @Test
+    fun disabledSave_neverRunsASecondMilestoneCalendarCleanup() {
+        assertFalse(
+            shouldClearMilestoneCalendarAfterSave(
+                syncToScheduleEnabled = false,
+                repeatType = REPEAT_MONTHLY
+            )
+        )
+        assertTrue(
+            shouldClearMilestoneCalendarAfterSave(
+                syncToScheduleEnabled = true,
+                repeatType = REPEAT_MONTHLY
+            )
+        )
+        assertFalse(
+            shouldClearMilestoneCalendarAfterSave(
+                syncToScheduleEnabled = true,
+                repeatType = REPEAT_YEARLY
+            )
+        )
+    }
+
+    @Test
     fun isEventDateValid_accepts1900BoundaryDate() {
         val millis = LocalDate.of(1900, 1, 1)
             .atStartOfDay(ZoneOffset.UTC)

@@ -75,8 +75,7 @@ internal suspend fun deleteEventRecoverably(
 
     try {
         refreshWidgets()
-    } catch (error: Exception) {
-        if (error is CancellationException) throw error
+    } catch (_: Exception) {
         // Room deletion is already committed; widget refresh is best-effort at this point.
     }
     return DeleteEventResult.Deleted

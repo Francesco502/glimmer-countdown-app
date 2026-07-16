@@ -85,6 +85,14 @@ internal fun supportedRepeatTypes(isLunar: Boolean): List<String> {
     }
 }
 
+internal fun calendarCleanupHandledExternallyForSave(syncToScheduleEnabled: Boolean): Boolean =
+    !syncToScheduleEnabled
+
+internal fun shouldClearMilestoneCalendarAfterSave(
+    syncToScheduleEnabled: Boolean,
+    repeatType: String
+): Boolean = syncToScheduleEnabled && repeatType != REPEAT_YEARLY && repeatType != REPEAT_NONE
+
 internal fun resolvePartialSaveMessageResId(
     hasGenericFailure: Boolean,
     scheduleSyncError: String?
@@ -282,8 +290,19 @@ class EventEntryViewModel(
         }
 
         try {
-            syncMilestoneReminderForEvent(application, updatedEvent)
-            if (updatedEvent.repeatType != REPEAT_YEARLY && updatedEvent.repeatType != REPEAT_NONE) {
+            syncMilestoneReminderForEvent(
+                application = application,
+                event = updatedEvent,
+                calendarCleanupHandledExternally = calendarCleanupHandledExternallyForSave(
+                    updatedEvent.syncToScheduleEnabled
+                )
+            )
+            if (
+                shouldClearMilestoneCalendarAfterSave(
+                    updatedEvent.syncToScheduleEnabled,
+                    updatedEvent.repeatType
+                )
+            ) {
                 cancelMilestoneReminders(application, updatedEvent.id)
                 ScheduleSyncManager.clearMilestoneScheduleRemindersByEventId(application, updatedEvent.id)
             }
