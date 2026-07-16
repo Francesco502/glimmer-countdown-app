@@ -176,6 +176,10 @@ class ReleaseReadinessTest {
 
         assertTrue(checklist.contains("临时签名配置"))
         assertTrue(checklist.contains("正式发布密钥产物仍需最终重跑"))
+        assertTrue(checklist.contains("Direct / Play 各 386 项通过"))
+        assertTrue(checklist.contains("- [x] Direct Debug APK 包含 `REQUEST_INSTALL_PACKAGES`"))
+        assertTrue(checklist.contains("正式发布密钥 Release 产物的最终权限与签名检查仍未执行"))
+        assertTrue(checklist.contains("- [ ] 使用正式发布证书重复完整构建、签名、权限"))
         assertTrue(checklist.contains("PowerShell 脚本运行：未检查"))
         assertTrue(checklist.contains("真实 GitHub mutation：未检查"))
         assertTrue(checklist.contains("Backup / restore smoke"))
