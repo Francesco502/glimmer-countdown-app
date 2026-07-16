@@ -5,9 +5,23 @@ internal data class ReleaseAsset(
     val downloadUrl: String
 )
 
+private val RELEASE_VERSION_PATTERN = Regex("^\\d+(?:\\.\\d+)*$")
+
+internal fun normalizeReleaseVersion(remoteVersion: String): String {
+    val versionWithoutPrefix = remoteVersion.trim().removePrefix("v")
+    require(RELEASE_VERSION_PATTERN.matches(versionWithoutPrefix)) {
+        "Invalid release version: $remoteVersion"
+    }
+    val segments = versionWithoutPrefix.split('.').map { segment ->
+        segment.toIntOrNull()
+            ?: throw IllegalArgumentException("Release version segment is out of range: $segment")
+    }
+    return segments.joinToString(".")
+}
+
 internal fun expectedDirectApkName(remoteVersion: String): String {
-    val cleanVersion = remoteVersion.trim().removePrefix("v")
-    return "glimmer-countdown-${cleanVersion.replace('.', '-')}.apk"
+    val normalizedVersion = normalizeReleaseVersion(remoteVersion)
+    return "glimmer-countdown-${normalizedVersion.replace('.', '-')}.apk"
 }
 
 internal fun selectDirectApkAsset(

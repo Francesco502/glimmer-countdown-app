@@ -78,7 +78,7 @@ class GitHubReleaseUpdateChecker(
                 )
             }
             val releaseInfo = parseReleaseInfo(release.responseBody)
-            val tagName = releaseInfo.tagName.trim().removePrefix("v")
+            val tagName = releaseInfo.tagName
             val currentVersion = BuildConfig.VERSION_NAME
             if (!isVersionNewer(tagName, currentVersion)) {
                 return@withContext CheckUpdateResult(hasUpdate = false)
@@ -109,7 +109,7 @@ class GitHubReleaseUpdateChecker(
      */
     private fun isVersionNewer(remote: String, current: String): Boolean {
         val r = parseVersionSegments(remote)
-        val c = parseVersionSegments(current)
+        val c = parseVersionSegments(normalizeReleaseVersion(current))
         for (i in 0 until maxOf(r.size, c.size)) {
             val rn = r.getOrElse(i) { 0 }
             val cn = c.getOrElse(i) { 0 }
@@ -119,16 +119,21 @@ class GitHubReleaseUpdateChecker(
     }
 
     private fun parseVersionSegments(version: String): List<Int> =
-        version.split(".").map { it.filter { c -> c.isDigit() }.toIntOrNull() ?: 0 }
+        version.split(".").map(String::toInt)
 
     private fun parseReleaseInfo(responseBody: String): ParsedReleaseInfo {
         val json = JSONObject(responseBody)
-        val tagName = json.getString("tag_name").trim()
-        require(tagName.isNotBlank()) { "Release tag is missing" }
-        val assetsJson = json.optJSONArray("assets") ?: JSONArray()
+        val tagName = normalizeReleaseVersion(json.getString("tag_name"))
+        val assetsJson = when {
+            !json.has("assets") -> JSONArray()
+            json.isNull("assets") -> throw IllegalArgumentException("Release assets must be an array")
+            else -> json.optJSONArray("assets")
+                ?: throw IllegalArgumentException("Release assets must be an array")
+        }
         val assets = buildList {
             for (index in 0 until assetsJson.length()) {
-                val asset = assetsJson.getJSONObject(index)
+                val asset = assetsJson.optJSONObject(index)
+                    ?: throw IllegalArgumentException("Release asset at index $index must be an object")
                 add(
                     ReleaseAsset(
                         name = asset.optString("name").trim(),

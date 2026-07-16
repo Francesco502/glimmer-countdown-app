@@ -44,6 +44,15 @@ class GitHubReleaseUpdateCheckerTest {
     }
 
     @Test
+    fun normalizeReleaseVersion_requiresNumericIntSegmentsAndCanonicalizesThem() {
+        assertEquals("4.1", normalizeReleaseVersion(" v04.01 "))
+        listOf("", "v", "v5beta", "5..1", "999999999999999999999999").forEach { tag ->
+            val failure = runCatching { normalizeReleaseVersion(tag) }.exceptionOrNull()
+            assertTrue("$tag should be rejected", failure is IllegalArgumentException)
+        }
+    }
+
+    @Test
     fun checkUpdate_parsesAllAssetsSelectsExactApkAndRemovesTagPrefixForUi() = runBlocking {
         val checker = checkerReturning(
             releaseJson(
@@ -127,6 +136,45 @@ class GitHubReleaseUpdateCheckerTest {
     }
 
     @Test
+    fun checkUpdate_invalidOrOverflowingTag_marksSchemaFailure() = runBlocking {
+        listOf("", "v", "v5beta", "999999999999999999999999").forEach { tag ->
+            val result = checkerReturning(releaseJson(tag = tag, assets = emptyList())).checkUpdate()
+
+            assertSchemaFailure(tag, result)
+        }
+    }
+
+    @Test
+    fun checkUpdate_malformedJson_marksSchemaFailure() = runBlocking {
+        assertSchemaFailure("malformed JSON", checkerReturning("{").checkUpdate())
+    }
+
+    @Test
+    fun checkUpdate_missingAssetsIsAllowedButInvalidAssetsTypesFailSchemaParsing() = runBlocking {
+        val missingAssets = checkerReturning(
+            """{"tag_name":"4.0","body":"notes"}"""
+        ).checkUpdate()
+        assertFalse(missingAssets.hasUpdate)
+        assertFalse(missingAssets.checkFailed)
+
+        listOf("null", "{}", "\"not-an-array\"").forEach { invalidAssets ->
+            val result = checkerReturning(
+                """{"tag_name":"4.1","body":"notes","assets":$invalidAssets}"""
+            ).checkUpdate()
+            assertSchemaFailure("assets=$invalidAssets", result)
+        }
+    }
+
+    @Test
+    fun checkUpdate_nonObjectAssetElement_marksSchemaFailure() = runBlocking {
+        val result = checkerReturning(
+            """{"tag_name":"4.1","body":"notes","assets":[42]}"""
+        ).checkUpdate()
+
+        assertSchemaFailure("non-object asset", result)
+    }
+
+    @Test
     fun checkUpdate_httpFailure_marksCheckAsFailed() = runBlocking {
         val checker = GitHubReleaseUpdateChecker(
             fetchRelease = {
@@ -152,6 +200,16 @@ class GitHubReleaseUpdateCheckerTest {
             )
         }
     )
+
+    private fun assertSchemaFailure(label: String, result: CheckUpdateResult) {
+        assertFalse(label, result.hasUpdate)
+        assertTrue(label, result.checkFailed)
+        assertTrue("$label should report a schema error", !result.errorMessage.isNullOrBlank())
+        assertTrue(
+            "$label should report a schema error instead of an exact-asset error",
+            result.errorMessage != EXPECTED_DIRECT_APK_ERROR
+        )
+    }
 
     private fun releaseJson(
         tag: String,
