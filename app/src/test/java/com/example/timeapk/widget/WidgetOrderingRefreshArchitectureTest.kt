@@ -8,6 +8,38 @@ import java.io.File
 
 class WidgetOrderingRefreshArchitectureTest {
     @Test
+    fun widgetRefreshesForCivilDateAndClockChanges() {
+        val manifest = manifestSource().readText(Charsets.UTF_8)
+        val provider = mainSource("widget/CountdownAppWidgetProvider.kt").readText(Charsets.UTF_8)
+        val widgetReceiver = manifest.substringAfter("android:name=\".widget.CountdownAppWidgetProvider\"")
+            .substringBefore("</receiver>")
+
+        listOf(
+            "android.intent.action.DATE_CHANGED",
+            "android.intent.action.TIME_SET",
+            "android.intent.action.TIMEZONE_CHANGED"
+        ).forEach { action ->
+            assertTrue("Widget receiver is missing $action", widgetReceiver.contains(action))
+        }
+        listOf(
+            "Intent.ACTION_CONFIGURATION_CHANGED",
+            "Intent.ACTION_DATE_CHANGED",
+            "Intent.ACTION_TIME_CHANGED",
+            "Intent.ACTION_TIMEZONE_CHANGED"
+        ).forEach { action ->
+            assertTrue("Widget provider does not handle $action", provider.contains(action))
+        }
+
+        val receive = provider.substringAfter("override fun onReceive(").substringBefore("override fun onUpdate(")
+        assertTrue(receive.contains("getAppWidgetIds(context, appWidgetManager)"))
+        assertTrue(receive.contains("launchRefresh("))
+        assertTrue(receive.contains("goAsync()"))
+        assertTrue(receive.contains("if (appWidgetIds.isEmpty()) return"))
+        assertEquals(1, receive.windowed("super.onReceive(context, intent)".length)
+            .count { it == "super.onReceive(context, intent)" })
+    }
+
+    @Test
     fun providerUsesSuspendLoadingAndAlwaysFinishesPendingResult() {
         val provider = mainSource("widget/CountdownAppWidgetProvider.kt").readText(Charsets.UTF_8)
         val resolver = mainSource("widget/WidgetContentResolver.kt").readText(Charsets.UTF_8)
@@ -141,5 +173,12 @@ class WidgetOrderingRefreshArchitectureTest {
             File("src/main/java/com/example/timeapk/$relative"),
             File("app/src/main/java/com/example/timeapk/$relative")
         ).firstOrNull(File::exists) ?: error("Missing source: $relative")
+    }
+
+    private fun manifestSource(): File {
+        return listOf(
+            File("src/main/AndroidManifest.xml"),
+            File("app/src/main/AndroidManifest.xml")
+        ).firstOrNull(File::exists) ?: error("Missing AndroidManifest.xml")
     }
 }

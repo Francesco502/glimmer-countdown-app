@@ -184,12 +184,20 @@ class CountdownAppWidgetProvider : AppWidgetProvider() {
     }
 
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action == Intent.ACTION_CONFIGURATION_CHANGED) {
+        val refreshActions = setOf(
+            Intent.ACTION_CONFIGURATION_CHANGED,
+            Intent.ACTION_DATE_CHANGED,
+            Intent.ACTION_TIME_CHANGED,
+            Intent.ACTION_TIMEZONE_CHANGED
+        )
+        if (intent.action in refreshActions) {
             val appWidgetManager = AppWidgetManager.getInstance(context)
+            val appWidgetIds = getAppWidgetIds(context, appWidgetManager)
+            if (appWidgetIds.isEmpty()) return
             launchRefresh(
                 context,
                 appWidgetManager,
-                getAppWidgetIds(context, appWidgetManager),
+                appWidgetIds,
                 goAsync()
             )
             return
