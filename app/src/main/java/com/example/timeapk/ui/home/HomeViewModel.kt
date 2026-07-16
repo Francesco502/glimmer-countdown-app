@@ -574,6 +574,7 @@ class HomeViewModel(
     fun updateSortType(type: SortType) {
         viewModelScope.launch {
             userPrefs.setSortType(type.ordinal)
+            WidgetUpdater.refreshCountdownWidgets(application)
         }
     }
 

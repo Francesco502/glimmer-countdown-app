@@ -6,6 +6,8 @@ import com.example.timeapk.R
 import com.example.timeapk.TimeApplication
 import com.example.timeapk.data.REPEAT_NONE
 import com.example.timeapk.ui.home.EventUiState
+import com.example.timeapk.ui.home.SortType
+import com.example.timeapk.ui.home.applyHomeSort
 import com.example.timeapk.ui.home.toEventUiState
 import com.example.timeapk.ui.utils.DisplayModes
 import com.example.timeapk.ui.utils.eventDateToLocalDate
@@ -48,6 +50,7 @@ internal object WidgetContentResolver {
             val milestones = prefs.customMilestonesFlow.first()
             val pinnedEventIds = prefs.pinnedEventIdsFlow.first()
             val customEventOrder = prefs.customEventOrderFlow.first()
+            val homeSortType = SortType.entries.getOrNull(prefs.sortTypeFlow.first()) ?: SortType.Custom
             val preferredMode = prefs.dateDeltaDisplayModeFlow.first()
             val perEventModes = prefs.perEventDateDeltaDisplayModesFlow.first()
             val showMilestone = prefs.showMilestoneFlow.first()
@@ -63,7 +66,7 @@ internal object WidgetContentResolver {
 
             val ordered = app.repository.getAllEventsSnapshot()
                 .map { it.toEventUiState(milestones, smartMilestonesEnabled) }
-                .let { filterAndSortStates(it, config, pinnedEventIds, customEventOrder) }
+                .let { filterAndSortStates(it, config, pinnedEventIds, customEventOrder, homeSortType) }
 
             val items = ordered.map { state ->
                 buildRenderedItem(
@@ -104,7 +107,8 @@ internal object WidgetContentResolver {
         states: List<EventUiState>,
         config: WidgetConfig,
         pinnedEventIds: List<Int>,
-        customEventOrder: List<Int>
+        customEventOrder: List<Int>,
+        homeSortType: SortType
     ): List<EventUiState> {
         val pinnedSet = pinnedEventIds.toSet()
         val filtered = when (config.contentScope) {
@@ -114,10 +118,20 @@ internal object WidgetContentResolver {
             else -> states
         }
         return when (config.sortMode) {
-            SORT_HOME -> applyPinnedAndCustomOrder(filtered, pinnedEventIds, customEventOrder)
+            SORT_HOME -> applyHomeSort(
+                list = filtered,
+                sortType = homeSortType,
+                customEventOrderIds = customEventOrder,
+                pinnedEventIds = pinnedEventIds
+            )
             SORT_PINNED_FIRST -> applyPinnedOrder(sortForWidget(filtered), pinnedEventIds)
             SORT_NEAREST_FIRST -> sortForWidget(filtered)
-            else -> applyPinnedAndCustomOrder(filtered, pinnedEventIds, customEventOrder)
+            else -> applyHomeSort(
+                list = filtered,
+                sortType = homeSortType,
+                customEventOrderIds = customEventOrder,
+                pinnedEventIds = pinnedEventIds
+            )
         }
     }
 
@@ -130,21 +144,6 @@ internal object WidgetContentResolver {
         val pinned = pinnedEventIds.mapNotNull { id -> states.find { it.event.id == id } }
         val unpinned = states.filter { it.event.id !in pinnedSet }
         return pinned + unpinned
-    }
-
-    private fun applyPinnedAndCustomOrder(
-        states: List<EventUiState>,
-        pinnedEventIds: List<Int>,
-        customEventOrder: List<Int>
-    ): List<EventUiState> {
-        val pinnedSet = pinnedEventIds.toSet()
-        val pinned = pinnedEventIds.mapNotNull { id -> states.find { it.event.id == id } }
-        val unpinned = states.filter { it.event.id !in pinnedSet }
-        if (customEventOrder.isEmpty()) return pinned + sortForWidget(unpinned)
-        val custom = customEventOrder.mapNotNull { id -> unpinned.find { it.event.id == id } }
-        val customSet = custom.map { it.event.id }.toSet()
-        val remaining = sortForWidget(unpinned.filter { it.event.id !in customSet })
-        return pinned + custom + remaining
     }
 
     private fun buildRenderedItem(

@@ -76,6 +76,7 @@ import com.example.timeapk.ui.utils.getAvailableDisplayModes
 import com.example.timeapk.ui.utils.getNextLunarOccurrence
 import com.example.timeapk.ui.utils.getLunarElapsedPeriod
 import com.example.timeapk.ui.utils.formatLunarDateString
+import com.example.timeapk.widget.WidgetUpdater
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -394,7 +395,12 @@ fun DetailScreen(
 
             DetailBottomActions(
                 isPinned = eventState.event.id in pinnedEventIds,
-                onPinClick = { scope.launch { prefs.togglePinnedEventId(eventState.event.id) } },
+                onPinClick = {
+                    scope.launch {
+                        prefs.togglePinnedEventId(eventState.event.id)
+                        WidgetUpdater.refreshCountdownWidgets(context)
+                    }
+                },
                 onEditClick = onEditClick,
                 onShareClick = { showShareDialog = true },
                 onDeleteClick = { showDeleteConfirm = true }

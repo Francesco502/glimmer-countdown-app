@@ -88,6 +88,7 @@ import com.example.timeapk.ui.theme.SongPalette
 import com.example.timeapk.ui.theme.SongPaperSurface
 import com.example.timeapk.ui.theme.SongSealLabel
 import com.example.timeapk.ui.utils.formatLunarDateString
+import com.example.timeapk.widget.WidgetUpdater
 
 import androidx.compose.foundation.LocalOverscrollConfiguration
 import androidx.compose.foundation.OverscrollConfiguration
@@ -314,7 +315,10 @@ fun HomeScreen(
                         onDragEnd = { _, _ ->
                             dragInProgress = false
                             if (dragEnabled) {
-                                scope.launch { prefs.setCustomEventOrder(orderedList.map { it.event.id }) }
+                                scope.launch {
+                                    prefs.setCustomEventOrder(orderedList.map { it.event.id })
+                                    WidgetUpdater.refreshCountdownWidgets(context)
+                                }
                             }
                         }
                     )
