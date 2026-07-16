@@ -28,6 +28,39 @@ class HomeSortBehaviorTest {
     }
 
     @Test
+    fun settlePersistedHomeReorder_pinnedDragUsesAuthoritativeVisibleOrderEvenWithoutFlowEmission() {
+        val items = listOf(
+            eventState(id = 1, daysRemaining = 10, createdAt = 100L),
+            eventState(id = 2, daysRemaining = 5, createdAt = 300L),
+            eventState(id = 3, daysRemaining = 1, createdAt = 200L)
+        )
+        val pinnedIds = listOf(2, 1)
+        val visibleBeforeDrag = applyHomeSort(
+            list = items,
+            sortType = SortType.Custom,
+            customEventOrderIds = listOf(3, 2, 1),
+            pinnedEventIds = pinnedIds
+        )
+        val draggedVisibleIds = listOf(1, 2, 3)
+        val persistedMergedIds = mergeVisibleOrderIntoGlobalOrder(
+            globalIds = listOf(3, 2, 1),
+            visibleIds = visibleBeforeDrag.map { it.event.id },
+            reorderedVisibleIds = draggedVisibleIds
+        )
+
+        val settled = settlePersistedHomeReorder(
+            displayedItems = visibleBeforeDrag,
+            persistedMergedIds = persistedMergedIds,
+            pinnedEventIds = pinnedIds
+        )
+
+        assertEquals(listOf(1, 2, 3), persistedMergedIds)
+        assertEquals(listOf(2, 1, 3), visibleBeforeDrag.map { it.event.id })
+        assertEquals(visibleBeforeDrag.map { it.event.id }, settled.map { it.event.id })
+        assertEquals(false, draggedVisibleIds == settled.map { it.event.id })
+    }
+
+    @Test
     fun applyHomeSort_daysSort_ignoresCustomOrder_andPinnedStillWins() {
         val items = listOf(
             eventState(id = 1, daysRemaining = 10, createdAt = 100L),

@@ -313,6 +313,9 @@ fun HomeScreen(
                     val latestDisplayedIds by rememberUpdatedState(
                         displayedList.map { it.event.id }
                     )
+                    val latestDisplayedItems by rememberUpdatedState(displayedList)
+                    val latestPinnedEventIds by rememberUpdatedState(pinnedEventIds)
+                    val latestSortType by rememberUpdatedState(sortType)
                     val latestViewModel by rememberUpdatedState(viewModel)
                     var visibleIdsAtDragStart by remember { mutableStateOf<List<Int>?>(null) }
                     val reorderState = rememberReorderableLazyListState(
@@ -346,9 +349,25 @@ fun HomeScreen(
                                 latestViewModel.updateCustomEventOrder(
                                     visibleIds = visibleIds,
                                     reorderedVisibleIds = reorderedVisibleIds,
-                                    onPersistenceResult = { persisted ->
-                                        if (!persisted && pendingLocalReorder == reorderSnapshot) {
+                                    onPersistenceResult = { persistedMergedIds ->
+                                        if (pendingLocalReorder == reorderSnapshot) {
+                                            val authoritativeItems = if (
+                                                persistedMergedIds != null && latestSortType == SortType.Custom
+                                            ) {
+                                                settlePersistedHomeReorder(
+                                                    displayedItems = latestDisplayedItems,
+                                                    persistedMergedIds = persistedMergedIds,
+                                                    pinnedEventIds = latestPinnedEventIds
+                                                )
+                                            } else {
+                                                latestDisplayedItems
+                                            }
+                                            orderedList.replaceWithOrderedItems(authoritativeItems) {
+                                                it.event.id
+                                            }
+                                            pendingDisplayedList = null
                                             pendingLocalReorder = null
+                                            listInitialized = true
                                         }
                                     }
                                 )

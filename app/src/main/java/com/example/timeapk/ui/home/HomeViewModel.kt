@@ -514,7 +514,7 @@ class HomeViewModel(
     fun updateCustomEventOrder(
         visibleIds: List<Int>,
         reorderedVisibleIds: List<Int>,
-        onPersistenceResult: (Boolean) -> Unit = {}
+        onPersistenceResult: (List<Int>?) -> Unit = {}
     ) {
         viewModelScope.launch {
             var persisted = false
@@ -535,13 +535,13 @@ class HomeViewModel(
                 )
                 userPrefs.setCustomEventOrder(mergedIds)
                 persisted = true
-                onPersistenceResult(true)
+                onPersistenceResult(mergedIds)
                 WidgetUpdater.refreshCountdownWidgets(application)
             } catch (cancelled: CancellationException) {
-                if (!persisted) onPersistenceResult(false)
+                if (!persisted) onPersistenceResult(null)
                 throw cancelled
             } catch (_: Exception) {
-                if (!persisted) onPersistenceResult(false)
+                if (!persisted) onPersistenceResult(null)
             }
         }
     }

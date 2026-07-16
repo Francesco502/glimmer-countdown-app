@@ -27,6 +27,17 @@ internal fun canStartHomeReorder(
     pending: PendingLocalReorderSnapshot?
 ): Boolean = homeCardDragSortEnabled(sortType) && pending == null
 
+internal fun settlePersistedHomeReorder(
+    displayedItems: List<EventUiState>,
+    persistedMergedIds: List<Int>,
+    pinnedEventIds: List<Int>
+): List<EventUiState> = applyHomeSort(
+    list = displayedItems,
+    sortType = SortType.Custom,
+    customEventOrderIds = persistedMergedIds,
+    pinnedEventIds = pinnedEventIds
+)
+
 internal fun shouldRetainPendingLocalReorder(
     currentIds: List<Int>,
     targetIds: List<Int>,

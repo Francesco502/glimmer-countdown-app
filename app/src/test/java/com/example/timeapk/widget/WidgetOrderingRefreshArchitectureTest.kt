@@ -191,7 +191,7 @@ class WidgetOrderingRefreshArchitectureTest {
             dragEnd.indexOf("pendingLocalReorder =") < dragEnd.indexOf("dragInProgress = false")
         )
         assertTrue(dragEnd.contains("onPersistenceResult ="))
-        assertTrue(dragEnd.contains("if (!persisted && pendingLocalReorder == reorderSnapshot)"))
+        assertTrue(dragEnd.contains("if (pendingLocalReorder == reorderSnapshot)"))
     }
 
     @Test
@@ -215,6 +215,28 @@ class WidgetOrderingRefreshArchitectureTest {
             dragEnd.indexOf("if (reorderSnapshot != null)") <
                 dragEnd.indexOf("latestViewModel.updateCustomEventOrder(")
         )
+    }
+
+    @Test
+    fun persistedHomeReorderSettlesFromLatestAuthoritativeInputsBeforeUnlocking() {
+        val source = mainSource("ui/home/HomeScreen.kt").readText(Charsets.UTF_8)
+        val viewModel = mainSource("ui/home/HomeViewModel.kt").readText(Charsets.UTF_8)
+        val dragEnd = source.substringAfter("onDragEnd =").substringBefore("AnimatedContent(")
+        val persistenceCallback = dragEnd.substringAfter("onPersistenceResult =")
+
+        assertTrue(source.contains("val latestDisplayedItems by rememberUpdatedState(displayedList)"))
+        assertTrue(source.contains("val latestPinnedEventIds by rememberUpdatedState(pinnedEventIds)"))
+        assertTrue(persistenceCallback.contains("settlePersistedHomeReorder("))
+        assertTrue(persistenceCallback.contains("persistedMergedIds = persistedMergedIds"))
+        assertTrue(persistenceCallback.contains("pinnedEventIds = latestPinnedEventIds"))
+        assertTrue(persistenceCallback.contains("orderedList.replaceWithOrderedItems("))
+        assertTrue(
+            persistenceCallback.indexOf("orderedList.replaceWithOrderedItems(") <
+                persistenceCallback.indexOf("pendingLocalReorder = null")
+        )
+        assertTrue(viewModel.contains("onPersistenceResult: (List<Int>?) -> Unit"))
+        assertTrue(viewModel.contains("onPersistenceResult(mergedIds)"))
+        assertTrue(viewModel.contains("if (!persisted) onPersistenceResult(null)"))
     }
 
     @Test
