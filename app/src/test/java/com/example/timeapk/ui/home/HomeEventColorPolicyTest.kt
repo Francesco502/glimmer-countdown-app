@@ -66,4 +66,67 @@ class HomeEventColorPolicyTest {
             )
         )
     }
+
+    @Test
+    fun failingThemeEndpointFallsBackToReadableBlackOrWhite() {
+        val customBackground = Color(0xFF777777)
+        val failingOnSurface = Color(0xFF787878)
+
+        val readable = HomeEventColorPolicy.ensureTextContrast(
+            eventColor = Color(0xFF747474),
+            onSurface = failingOnSurface,
+            background = customBackground
+        )
+
+        assertNotEquals(failingOnSurface, readable)
+        assertTrue(readable.red < customBackground.red)
+        val customEndpointRatio = ColorContrastGuardrail.contrastRatio(readable, customBackground)
+        println("custom endpoint final contrast ratio=$customEndpointRatio")
+        assertTrue(customEndpointRatio >= ColorContrastGuardrail.AaNormalText)
+    }
+
+    @Test
+    fun unreachableRequestedRatioReturnsBestBlackOrWhiteEndpoint() {
+        val customBackground = Color(0xFF777777)
+
+        val bestAvailable = HomeEventColorPolicy.ensureTextContrast(
+            eventColor = Color(0xFF747474),
+            onSurface = Color(0xFF787878),
+            background = customBackground,
+            minRatio = 30.0
+        )
+
+        assertEquals(Color.Black, bestAvailable)
+        assertTrue(
+            ColorContrastGuardrail.contrastRatio(bestAvailable, customBackground) >=
+                ColorContrastGuardrail.contrastRatio(Color.White, customBackground)
+        )
+    }
+
+    @Test
+    fun finalCompositedHomeStatesMeetNormalTextContrast() {
+        val appBackground = Color(0xFF12100F)
+        val surface = Color(0xFF211E1B)
+        val primary = Color(0xFFD78865)
+        val eventColor = Color(0xFF54352E)
+        val effectiveBackgrounds = listOf(
+            appBackground,
+            HomeEventColorPolicy.compositeOver(surface.copy(alpha = 0.86f), appBackground),
+            HomeEventColorPolicy.compositeOver(primary.copy(alpha = 0.05f), appBackground),
+            surface
+        )
+
+        val finalRatios = effectiveBackgrounds.map { effectiveBackground ->
+            val textColor = HomeEventColorPolicy.ensureTextContrast(
+                eventColor = eventColor,
+                onSurface = darkOnSurface,
+                background = effectiveBackground
+            )
+            ColorContrastGuardrail.contrastRatio(textColor, effectiveBackground)
+        }
+        val minimumFinalRatio = finalRatios.min()
+
+        println("normal/past/pressed/dragging final contrast ratios=$finalRatios")
+        assertTrue(minimumFinalRatio >= ColorContrastGuardrail.AaNormalText)
+    }
 }

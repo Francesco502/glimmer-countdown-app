@@ -1179,12 +1179,6 @@ fun EventCard(
         animationSpec = AnimationSpecs.springItem,
         label = "cardScale"
     )
-    val cardAlpha by animateFloatAsState(
-        targetValue = AnimationSpecs.responsiveAlpha(if (isDragging) 0.85f else if (isPressed) 0.92f else 1f),
-        animationSpec = AnimationSpecs.mediumTween(),
-        label = "cardAlpha"
-    )
-
     val lightSurface = MaterialTheme.colorScheme.surface.luminance() > 0.5f
     val cardContainerColor = when {
         isPast && lightSurface -> SongPalette.PaperMuted
@@ -1194,14 +1188,21 @@ fun EventCard(
     val cardContentColor = lerp(MaterialTheme.colorScheme.onSurface, baseCardColor, 0.06f)
     val cardAccentColor = baseCardColor.copy(alpha = if (isPast) 0.30f else 0.58f)
     val cardBorderColor = baseCardColor.copy(alpha = if (isPast) 0.16f else 0.22f)
+    val effectiveCardBackground = HomeEventColorPolicy.compositeOver(
+        foreground = cardContainerColor,
+        background = MaterialTheme.colorScheme.background
+    )
+    val cardOnSurfaceColor = MaterialTheme.colorScheme.onSurface
     val cardAuxiliaryColor = if (lightSurface) {
         baseCardColor.copy(alpha = if (isPast) 0.54f else 0.74f)
     } else {
-        HomeEventColorPolicy.ensureTextContrast(
-            eventColor = baseCardColor,
-            onSurface = MaterialTheme.colorScheme.onSurface,
-            background = MaterialTheme.colorScheme.surface
-        )
+        remember(baseCardColor, cardOnSurfaceColor, effectiveCardBackground) {
+            HomeEventColorPolicy.ensureTextContrast(
+                eventColor = baseCardColor,
+                onSurface = cardOnSurfaceColor,
+                background = effectiveCardBackground
+            )
+        }
     }
 
     val locale = androidx.compose.ui.platform.LocalContext.current.resources.configuration.locales[0]
@@ -1314,7 +1315,6 @@ fun EventCard(
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
-                alpha = cardAlpha
             }
             .then(
                 if (!tapNavigationEnabled) {
@@ -1483,11 +1483,6 @@ private fun EventListItem(
         animationSpec = AnimationSpecs.springItem,
         label = "listItemScale"
     )
-    val itemAlpha by animateFloatAsState(
-        targetValue = AnimationSpecs.responsiveAlpha(if (isDragging) 0.85f else if (isPressed) 0.92f else 1f),
-        animationSpec = AnimationSpecs.mediumTween(),
-        label = "listItemAlpha"
-    )
     val isPast = eventState.isPast
     val targetLocalDate = remember(eventState.event.date) {
         eventDateToLocalDate(eventState.event.date)
@@ -1565,19 +1560,26 @@ private fun EventListItem(
         else append(labelText).append(" ").append(daysDisplay)
     }
     val isLightSurface = MaterialTheme.colorScheme.surface.luminance() > 0.5f
-    val displayColor = if (isLightSurface) {
-        lerp(eventColor, MaterialTheme.colorScheme.onBackground, 0.4f)
-    } else {
-        HomeEventColorPolicy.ensureTextContrast(
-            eventColor = eventColor,
-            onSurface = MaterialTheme.colorScheme.onBackground,
-            background = MaterialTheme.colorScheme.background
-        )
-    }
     val rowBackground = when {
         isDragging -> MaterialTheme.colorScheme.surface
         isPressed -> MaterialTheme.colorScheme.primary.copy(alpha = 0.05f)
         else -> Color.Transparent
+    }
+    val effectiveListBackground = HomeEventColorPolicy.compositeOver(
+        foreground = rowBackground,
+        background = MaterialTheme.colorScheme.background
+    )
+    val listOnBackgroundColor = MaterialTheme.colorScheme.onBackground
+    val displayColor = if (isLightSurface) {
+        lerp(eventColor, listOnBackgroundColor, 0.4f)
+    } else {
+        remember(eventColor, listOnBackgroundColor, effectiveListBackground) {
+            HomeEventColorPolicy.ensureTextContrast(
+                eventColor = eventColor,
+                onSurface = listOnBackgroundColor,
+                background = effectiveListBackground
+            )
+        }
     }
 
     val baseTextColorListItem = MaterialTheme.colorScheme.onSurface
@@ -1589,7 +1591,6 @@ private fun EventListItem(
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
-                alpha = itemAlpha
             }
             .background(color = rowBackground, shape = MaterialTheme.shapes.medium)
             .then(

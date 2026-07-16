@@ -19,21 +19,49 @@ object HomeEventColorPolicy {
         }
 
         val opaqueOnSurface = onSurface.copy(alpha = 1f)
-        if (ColorContrastGuardrail.contrastRatio(opaqueOnSurface, background) < minRatio) {
-            return opaqueOnSurface
+        val onSurfaceRatio = ColorContrastGuardrail.contrastRatio(opaqueOnSurface, background)
+        val blackRatio = ColorContrastGuardrail.contrastRatio(Color.Black, background)
+        val whiteRatio = ColorContrastGuardrail.contrastRatio(Color.White, background)
+        val endpoint = if (onSurfaceRatio >= minRatio) {
+            opaqueOnSurface
+        } else if (blackRatio >= whiteRatio) {
+            Color.Black
+        } else {
+            Color.White
+        }
+        if (ColorContrastGuardrail.contrastRatio(endpoint, background) < minRatio) {
+            return endpoint
         }
 
         var failingFraction = 0f
         var passingFraction = 1f
         repeat(SearchIterations) {
             val candidateFraction = (failingFraction + passingFraction) / 2f
-            val candidate = lerp(opaqueEventColor, opaqueOnSurface, candidateFraction)
+            val candidate = lerp(opaqueEventColor, endpoint, candidateFraction)
             if (ColorContrastGuardrail.contrastRatio(candidate, background) >= minRatio) {
                 passingFraction = candidateFraction
             } else {
                 failingFraction = candidateFraction
             }
         }
-        return lerp(opaqueEventColor, opaqueOnSurface, passingFraction).copy(alpha = 1f)
+        return lerp(opaqueEventColor, endpoint, passingFraction).copy(alpha = 1f)
+    }
+
+    fun compositeOver(foreground: Color, background: Color): Color {
+        val outputAlpha = foreground.alpha + background.alpha * (1f - foreground.alpha)
+        if (outputAlpha <= 0f) return Color.Transparent
+
+        fun compositeChannel(foregroundChannel: Float, backgroundChannel: Float): Float =
+            (
+                foregroundChannel * foreground.alpha +
+                    backgroundChannel * background.alpha * (1f - foreground.alpha)
+                ) / outputAlpha
+
+        return Color(
+            red = compositeChannel(foreground.red, background.red),
+            green = compositeChannel(foreground.green, background.green),
+            blue = compositeChannel(foreground.blue, background.blue),
+            alpha = outputAlpha
+        )
     }
 }

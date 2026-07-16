@@ -98,8 +98,14 @@ class HomeInteractionPolicyTest {
         assertTrue(cardSource.contains("if (lightSurface)"))
         assertTrue(cardSource.contains("baseCardColor.copy(alpha = if (isPast) 0.54f else 0.74f)"))
         assertTrue(listSource.contains("HomeEventColorPolicy.ensureTextContrast("))
+        assertTrue(cardSource.contains("remember(baseCardColor"))
+        assertTrue(listSource.contains("remember(eventColor"))
+        assertTrue(cardSource.contains("HomeEventColorPolicy.compositeOver("))
+        assertTrue(listSource.contains("HomeEventColorPolicy.compositeOver("))
         assertTrue(listSource.contains("if (isLightSurface)"))
         assertFalse(listSource.contains("lerp(eventColor, MaterialTheme.colorScheme.onBackground, 0.2f)"))
+        assertFalse(cardSource.contains("alpha = cardAlpha"))
+        assertFalse(listSource.contains("alpha = itemAlpha"))
     }
 
     @Test
