@@ -166,6 +166,9 @@ class RescheduleAllWorker(
                 preferredCalendarId = preferredCalendarId,
                 useRRuleSync = useRRuleSync
             )
+            if (!syncResult.error.isNullOrBlank()) {
+                onFailure(IllegalStateException(syncResult.error))
+            }
             eventAfterScheduleSyncAttempt(event, syncResult)
         } else {
             val cleanup = ScheduleSyncManager.removeManagedCalendarEntries(

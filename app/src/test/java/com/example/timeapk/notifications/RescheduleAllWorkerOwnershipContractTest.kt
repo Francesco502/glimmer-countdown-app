@@ -12,6 +12,13 @@ class RescheduleAllWorkerOwnershipContractTest {
         val source = source("RescheduleAllWorker.kt")
 
         assertTrue(source.contains("eventAfterScheduleSyncAttempt(event, syncResult)"))
+        assertTrue(
+            source.contains(
+                "if (!syncResult.error.isNullOrBlank()) {\n" +
+                    "                onFailure(IllegalStateException(syncResult.error))\n" +
+                    "            }"
+            )
+        )
         assertFalse(source.contains("scheduleEventId = syncResult.primaryScheduleEventId"))
     }
 
