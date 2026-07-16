@@ -123,7 +123,9 @@ class GitHubReleaseUpdateChecker(
 
     private fun parseReleaseInfo(responseBody: String): ParsedReleaseInfo {
         val json = JSONObject(responseBody)
-        val tagName = normalizeReleaseVersion(json.getString("tag_name"))
+        val rawTag = json.opt("tag_name")
+        require(rawTag is String) { "Release tag must be a string" }
+        val tagName = normalizeReleaseVersion(rawTag)
         val assetsJson = when {
             !json.has("assets") -> JSONArray()
             json.isNull("assets") -> throw IllegalArgumentException("Release assets must be an array")

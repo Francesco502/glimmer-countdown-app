@@ -6,6 +6,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 class GitHubReleaseUpdateCheckerTest {
 
@@ -142,6 +143,31 @@ class GitHubReleaseUpdateCheckerTest {
 
             assertSchemaFailure(tag, result)
         }
+    }
+
+    @Test
+    fun checkUpdate_nonStringOrMissingTag_marksSchemaFailure() = runBlocking {
+        listOf(
+            """{"tag_name":42,"assets":[]}""",
+            """{"tag_name":true,"assets":[]}""",
+            """{"tag_name":{},"assets":[]}""",
+            """{"tag_name":null,"assets":[]}""",
+            """{"assets":[]}"""
+        ).forEach { json ->
+            assertSchemaFailure(json, checkerReturning(json).checkUpdate())
+        }
+    }
+
+    @Test
+    fun checkerRequiresJsonStringTagBeforeNormalization() {
+        val source = listOf(
+            File("src/main/java/com/example/timeapk/update/GitHubReleaseUpdateChecker.kt"),
+            File("app/src/main/java/com/example/timeapk/update/GitHubReleaseUpdateChecker.kt")
+        ).first(File::isFile).readText(Charsets.UTF_8)
+
+        assertTrue(source.contains("val rawTag = json.opt(\"tag_name\")"))
+        assertTrue(source.contains("require(rawTag is String)"))
+        assertTrue(source.indexOf("require(rawTag is String)") < source.indexOf("normalizeReleaseVersion(rawTag)"))
     }
 
     @Test
