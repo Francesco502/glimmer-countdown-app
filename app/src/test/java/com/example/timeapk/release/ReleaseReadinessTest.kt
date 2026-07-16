@@ -129,6 +129,45 @@ class ReleaseReadinessTest {
     }
 
     @Test
+    fun releaseDocsRequireFreshTagBoundBuildAndSafeCredentialFlow() {
+        val documents = listOf(
+            existingFile("README.md", "../README.md"),
+            existingFile("CHANGELOG.md", "../CHANGELOG.md"),
+            existingFile("docs/GITHUB_AND_RELEASE.md", "../docs/GITHUB_AND_RELEASE.md"),
+            existingFile("docs/RELEASE_CHECKLIST.md", "../docs/RELEASE_CHECKLIST.md"),
+            existingFile("docs/release_and_update_guide.md", "../docs/release_and_update_guide.md"),
+        ).associateWith { it.readText(Charsets.UTF_8) }
+        val combined = documents.values.joinToString("\n")
+        val githubGuide = documents.entries.single { it.key.name == "GITHUB_AND_RELEASE.md" }.value
+        val releaseGuide = documents.entries.single { it.key.name == "release_and_update_guide.md" }.value
+
+        listOf(githubGuide, releaseGuide).forEach { guide ->
+            val cleanCommit = guide.indexOf("最终代码与发布文档已提交，且工作区干净")
+            val immutableTag = guide.indexOf("创建并推送不可变的 exact tag")
+            val freshBuild = guide.indexOf("从该 tag 对应 commit 的工作树重新正式签名构建")
+            val verify = guide.indexOf("验证签名、渠道权限与 SHA-256")
+            val credentials = guide.indexOf("准备安全凭据环境")
+            val publish = guide.indexOf("运行发布脚本")
+            assertTrue(cleanCommit >= 0)
+            assertTrue(cleanCommit < immutableTag)
+            assertTrue(immutableTag < freshBuild)
+            assertTrue(freshBuild < verify)
+            assertTrue(verify < credentials)
+            assertTrue(credentials < publish)
+            assertTrue(guide.contains("不得复用旧构建产物"))
+            assertTrue(guide.contains("gh auth login"))
+            assertTrue(guide.contains("gh auth token"))
+            assertTrue(guide.contains("CI"))
+        }
+
+        assertTrue(combined.contains("删除 owned draft 中的所有旧资产"))
+        assertTrue(combined.contains("整个 Release 只保留唯一的 exact Direct APK"))
+        assertTrue(combined.contains("Play AAB 只交付 Play Console"))
+        assertFalse(Regex("(?m)\\${'$'}env:GITHUB_TOKEN\\s*=").containsMatchIn(combined))
+        assertFalse(combined.contains("不写入命令历史"))
+    }
+
+    @Test
     fun releaseChecklistKeepsUnexecuted40EvidenceUnchecked() {
         val checklist = existingFile(
             "docs/RELEASE_CHECKLIST.md",

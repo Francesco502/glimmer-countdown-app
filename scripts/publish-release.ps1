@@ -476,13 +476,11 @@ function Assert-UploadedAsset {
 function Assert-RefetchedAsset {
     param([object]$Release, [long]$ExpectedAssetId)
 
-    $apkAssets = @($Release.assets | Where-Object {
-        ([string]$_.name).EndsWith('.apk', [System.StringComparison]::OrdinalIgnoreCase)
-    })
-    if ($apkAssets.Count -ne 1) {
-        throw 'Release does not contain exactly one APK asset.'
+    $allAssets = @($Release.assets)
+    if ($allAssets.Count -ne 1) {
+        throw 'Release must contain exactly one asset: the exact Direct APK.'
     }
-    $asset = $apkAssets[0]
+    $asset = $allAssets[0]
     if (-not [string]::Equals([string]$asset.name, $apkName, [System.StringComparison]::Ordinal)) {
         throw 'Refetched asset name does not match exactly.'
     }
@@ -618,17 +616,18 @@ try {
     }
     $current = Get-OwnedDraftRelease -ExpectedReleaseId $releaseId
 
-    # Remove every APK from this invocation's owned draft. Re-fetch ownership
-    # immediately before each DELETE so a changed object is never mutated.
+    # Remove every existing asset from this invocation's owned draft. Re-fetch
+    # ownership immediately before each DELETE so a changed object is never mutated.
     while ($true) {
         $current = Get-OwnedDraftRelease -ExpectedReleaseId $releaseId
-        $apkAssets = @($current.assets | Where-Object {
-            ([string]$_.name).EndsWith('.apk', [System.StringComparison]::OrdinalIgnoreCase)
-        })
-        if ($apkAssets.Count -eq 0) {
+        $existingAssets = @($current.assets)
+        if ($existingAssets.Count -eq 0) {
             break
         }
-        $assetIdToDelete = [long]$apkAssets[0].id
+        $assetIdToDelete = [long]$existingAssets[0].id
+        if ($assetIdToDelete -le 0) {
+            throw 'Draft asset id is invalid; refusing to delete it.'
+        }
         $current = Get-OwnedDraftRelease -ExpectedReleaseId $releaseId
         $assetStillOwned = @($current.assets | Where-Object { [long]$_.id -eq $assetIdToDelete })
         if ($assetStillOwned.Count -ne 1) {

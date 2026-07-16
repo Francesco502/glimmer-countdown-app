@@ -122,6 +122,28 @@ class ReleasePublicationContractTest {
     }
 
     @Test
+    fun publisherDeletesEveryOwnedDraftAssetAndRequiresOneTotalReleaseAsset() {
+        val script = releaseScript()
+        val cleanupStart = script.indexOf("# Remove every existing asset from this invocation's owned draft")
+        val uploadStart = script.indexOf("${'$'}uploadResult = Upload-ReleaseAsset", cleanupStart)
+        val cleanup = script.substring(cleanupStart, uploadStart)
+
+        assertTrue(cleanupStart > 0)
+        assertTrue(uploadStart > cleanupStart)
+        assertTrue(cleanup.contains("${'$'}existingAssets = @(${'$'}current.assets)"))
+        assertTrue(cleanup.contains("Draft asset id is invalid; refusing to delete it."))
+        assertTrue(cleanup.contains("Draft asset set changed before deletion."))
+        assertTrue(cleanup.contains("${'$'}current = Get-OwnedDraftRelease -ExpectedReleaseId ${'$'}releaseId"))
+        assertTrue(cleanup.contains("-Method Delete"))
+        assertFalse(cleanup.contains("EndsWith('.apk'"))
+
+        assertTrue(script.contains("${'$'}allAssets = @(${'$'}Release.assets)"))
+        assertTrue(script.contains("Release must contain exactly one asset: the exact Direct APK."))
+        assertTrue(script.contains("if (${'$'}allAssets.Count -ne 1)"))
+        assertTrue(script.contains("${'$'}asset = ${'$'}allAssets[0]"))
+    }
+
+    @Test
     fun publisherSelectsOnlyStablePlatformApkSignerBuildTools() {
         val script = releaseScript()
 

@@ -15,7 +15,8 @@
 - 首页切换排序、自定义拖动排序或切换事件置顶状态后，立即通知桌面小组件刷新，避免顺序要等到下次启动或事件更新才生效。
 - 收紧发布脚本版本解析：无法读取 `VERSION_NAME` 时直接终止，显式 tag 与项目版本不一致时拒绝发布，避免误更新旧版 Release。
 - 发布脚本验证正式签名指纹与本地/远端 tag commit，以 Git ref 锁串行发布；只恢复带脚本 ownership marker 的 draft，拒绝覆盖 published Release 或接管人工 draft。
-- GitHub Release 只接收 exact Direct APK，并在发布前后绑定资产 id、size、digest 与下载 URL；Play AAB 只交付 Play Console。
+- GitHub Release publisher 会删除 owned draft 中的所有旧资产，只接收 exact Direct APK，并在发布前后要求整个 Release 只保留唯一的 exact Direct APK，绑定资产 id、size、digest 与下载 URL；Play AAB 只交付 Play Console。
+- 明确 4.0 发布顺序：推送最终不可变 tag 后从对应 commit 新鲜正式签名构建，不复用旧产物；本地通过 `gh auth login` / `gh auth token` 获取凭据，CI 才注入 secret。
 
 ### 测试
 

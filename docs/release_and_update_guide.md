@@ -66,6 +66,8 @@ GLIMMER_RELEASE_CERT_SHA256=<64位SHA-256证书指纹>
 
 ## 四、GitHub 发布
 
+固定发布顺序：最终代码与发布文档已提交，且工作区干净 → 创建并推送不可变的 exact tag → 从该 tag 对应 commit 的工作树重新正式签名构建 → 验证签名、渠道权限与 SHA-256 → 准备安全凭据环境 → 运行发布脚本。
+
 ### 1. 提交与推送
 
 ```bash
@@ -85,16 +87,20 @@ git push origin v4.0
 
 脚本会分别解引用 annotated/lightweight tag，并要求本地与远端 tag 解引用后的 commit 精确一致。禁止 force-push、移动或复用已推送 tag，禁止覆盖已发布 Release；已发布后出现问题必须递增版本号。
 
+标签推送后先核对 `git rev-parse HEAD` 与 `git rev-parse v4.0^{commit}` 一致，然后在该工作树执行 `./gradlew clean` 和本页“构建命令”。不得复用旧构建产物，也不要使用可能删除未跟踪文件的 `git clean`。用正式密钥完成 Direct APK / Play AAB 后，记录 SHA-256，并验证签名及 Direct/Play 渠道权限差异。
+
 ### 3. Release
 
-前置条件：正式签名 exact Direct APK 已生成；`ANDROID_HOME` 可定位稳定版 `apksigner`；`GLIMMER_RELEASE_CERT_SHA256` 已安全注入；`GITHUB_TOKEN`（或 `gh auth token`）具有 `GitHub Contents: write` 权限；本地和远端 `v4.0` tag 已指向最终发布 commit。
+前置条件：正式签名 exact Direct APK 已从 tag commit 新鲜生成；`ANDROID_HOME` 可定位稳定版 `apksigner`；`GLIMMER_RELEASE_CERT_SHA256` 已安全注入；本地运行 `gh auth login` 后脚本可通过 `gh auth token` 取得具备 `GitHub Contents: write` 的凭据；本地和远端 `v4.0` tag 已指向最终发布 commit。CI 才通过仓库 secret 注入 `GITHUB_TOKEN`，且不得打印其值。
 
 ```powershell
-$env:GITHUB_TOKEN = "your_token"
 $env:GLIMMER_RELEASE_CERT_SHA256 = "your_release_certificate_sha256"
 $env:ANDROID_HOME = "your_android_sdk"
+gh auth login
 .\scripts\publish-release.ps1
 ```
+
+不要在命令行中直接书写 token。GitHub CLI 可减少明文凭据暴露，但命令历史和凭据存储安全仍取决于本机配置，不能作绝对保证。
 
 脚本会：
 
@@ -102,9 +108,10 @@ $env:ANDROID_HOME = "your_android_sdk"
 - 提取 `CHANGELOG.md` 中 `4.0` 小节作为 Release Notes
 - 校验正式证书指纹及本地/远端 tag commit 后创建 `refs/heads/release-locks/v4.0` Git ref 锁
 - 创建带 `ownership marker` 的 draft；仅恢复带脚本自身 marker 的 draft，拒绝 published Release 和人工 draft
-- 只上传 exact Direct APK，并将响应及重新读取结果绑定到 asset id、size、digest、content type 和下载 URL
+- 删除 owned draft 中的所有旧资产，再上传 exact Direct APK，并将响应及重新读取结果绑定到 asset id、size、digest、content type 和下载 URL
+- 要求整个 Release 只保留唯一的 exact Direct APK，发现 AAB、Play APK 或任何其他资产即拒绝发布
 - 在发布前重新核对 ownership marker，并以最终 GET 验证公开 Release 与唯一 APK
-- Play AAB 不上传 GitHub Release，只交付 Play Console
+- Play AAB 不上传 GitHub Release；Play AAB 只交付 Play Console
 
 发布进程并发或发现残留锁时脚本会拒绝继续。先调查是否仍有活跃发布进程、owned draft 或已发生的远端 mutation；不要随意删除活跃锁。只有确认是崩溃遗留且没有活跃发布者后，维护者才可记录原因并人工清理。
 

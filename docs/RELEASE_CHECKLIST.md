@@ -17,7 +17,7 @@
 - [x] 临时签名构建生成 exact Direct APK `app/build/outputs/apk/direct/release/glimmer-countdown-4-0.apk` 与 Play AAB `app/build/outputs/bundle/playRelease/app-play-release.aab`
 - [ ] 使用正式发布密钥重建并验证 Direct APK / Play APK / Play AAB；临时签名配置验证不等于正式产物，正式发布密钥产物仍需最终重跑
 - [ ] Direct APK 包含 `REQUEST_INSTALL_PACKAGES`，Play APK 不包含该权限
-- [ ] GitHub Release 资产只包含 Direct APK，不上传 Play APK / AAB
+- [ ] publisher 删除 owned draft 中的所有旧资产，且整个 Release 只保留唯一的 exact Direct APK；Play AAB 只交付 Play Console
 
 ## 二、数据与核心功能成熟度
 
@@ -64,14 +64,18 @@
 ## 六、发布动作
 
 - [ ] 合并经过复核的 4.0 发布分支
-- [ ] 创建并推送 `v4.0` 标签
+- [ ] 确认最终代码与发布文档已提交，且工作区干净
+- [ ] 创建并推送不可变的 exact `v4.0` tag
+- [ ] 从该 tag 对应 commit 的工作树重新正式签名构建；不得复用旧构建产物
+- [ ] 验证签名、渠道权限与 SHA-256
+- [ ] 准备安全凭据环境：本地使用 `gh auth login` / `gh auth token`；CI 才注入 secret 且不打印
 - [ ] 以 `CHANGELOG.md` 中的 4.0 小节作为 Release Notes
-- [ ] 发布 `glimmer-countdown-4-0.apk`，确认不存在 Play APK / AAB 资产
+- [ ] 运行发布脚本，发布 `glimmer-countdown-4-0.apk`，确认不存在 Play APK / AAB 或任何其他资产
 - [ ] 发布后安装线上 APK 并完成更新检查与关键链路 smoke
 
 ## Release / Update Task 4 验证（2026-07-16）
 
-- [x] `ReleaseReadinessTest` 与 `ReleasePublicationContractTest` 覆盖：严格版本/tag、正式签名指纹门、exact Direct APK、published/manual draft 拒绝、publisher ownership marker、Git ref 锁、资产 size/digest/URL 绑定和最终 GET 验证。
+- [x] `ReleaseReadinessTest` 与 `ReleasePublicationContractTest` 覆盖：严格版本/tag、正式签名指纹门、exact Direct APK、published/manual draft 拒绝、publisher ownership marker、Git ref 锁、owned draft 全资产清理、Release 唯一资产集合、size/digest/URL 绑定和最终 GET 验证。
 - [x] 未签名的最终 package 图会先进入签名校验并失败；release lint / compile 不因缺少本地密钥而读取秘密。
 - [x] Play 关于页只显示商店托管更新说明，不暴露 Direct APK 检查或安装入口。
 - [ ] 使用正式发布证书重复完整构建、签名、权限、文件大小与 SHA-256 记录。

@@ -25,7 +25,9 @@ git push -u origin codex/release-4-0-widget-sort
 
 ## 3. 在最终发布 commit 上创建 `v4.0` 标签
 
-先确认待发布分支已经合并、工作区干净，且 `HEAD` 就是最终发布 commit，再首次创建并推送标签：
+发布动作的固定顺序是：最终代码与发布文档已提交，且工作区干净 → 创建并推送不可变的 exact tag → 从该 tag 对应 commit 的工作树重新正式签名构建 → 验证签名、渠道权限与 SHA-256 → 准备安全凭据环境 → 运行发布脚本。
+
+先确认待发布分支已经合并、`git status --short` 无输出，且 `HEAD` 就是最终发布 commit，再首次创建并推送标签：
 
 ```bash
 git tag -a v4.0 -m "Release v4.0"
@@ -35,6 +37,8 @@ git push origin v4.0
 `v4.0` 是不可变的发布身份。禁止强制移动、覆盖或复用已推送的 `v4.0` tag，也禁止覆盖已发布 Release；若最终 commit 改变，应在发布前删除尚未推送的本地错误标签并重新创建。标签一旦推送或 Release 一旦发布，发现问题应停止发布、调查影响并使用新的版本号修复。
 
 ## 4. 构建 Release 产物
+
+推送标签后，核对 `git rev-parse HEAD` 与 `git rev-parse v4.0^{commit}` 完全一致，再在这个工作树中执行新构建。不得复用旧构建产物；可先执行 `./gradlew clean` 清理 Gradle 输出，但不要使用会删除未跟踪文件的 `git clean`。正式构建完成后记录 Direct APK 与 Play AAB 的 SHA-256，并验证签名和渠道权限。
 
 ```bash
 ./gradlew testDirectDebugUnitTest testPlayDebugUnitTest compileDirectDebugAndroidTestKotlin
@@ -54,15 +58,16 @@ git push origin v4.0
 - `app/build/outputs/apk/direct/release/glimmer-countdown-4-0.apk`，且由正式发布证书签名；
 - `ANDROID_HOME`，其中至少有一个稳定版本的 `build-tools/apksigner`；
 - `GLIMMER_RELEASE_CERT_SHA256`，内容为正式证书的 SHA-256 指纹；
-- `GITHUB_TOKEN`，或已登录且可由 `gh auth token` 读取的 token；token 对仓库具有 `GitHub Contents: write` 权限；
+- 本地先运行 `gh auth login` 完成交互式登录，由脚本内部调用 `gh auth token`；对应凭据对仓库具有 `GitHub Contents: write` 权限；
+- CI 才通过仓库 secret 将 `GITHUB_TOKEN` 注入进程环境，且不得打印其值；
 - 本地与远端均已有 `v4.0` tag，且 tag 位于最终发布 commit。
 
-环境变量仅在本机安全注入，不写入命令历史、文档、日志或仓库。PowerShell 示例：
+本地推荐使用 GitHub CLI 的凭据存储，避免把 token 明文写进命令。证书指纹和 SDK 路径按受控环境的实际方式注入；Shell 历史策略因环境而异，不作绝对安全承诺。PowerShell 运行示例：
 
 ```powershell
-$env:GITHUB_TOKEN = "your_token"
 $env:GLIMMER_RELEASE_CERT_SHA256 = "your_release_certificate_sha256"
 $env:ANDROID_HOME = "your_android_sdk"
+gh auth login
 .\scripts\publish-release.ps1
 ```
 
@@ -73,9 +78,10 @@ $env:ANDROID_HOME = "your_android_sdk"
 - 在任何远端写操作前验证 APK 签名，并验证本地与远端 tag 解引用后的 commit 完全一致
 - 通过 `refs/heads/release-locks/v4.0` Git ref 锁阻止两个合规脚本并发发布
 - 新建带本次 `ownership marker` 的 draft；仅恢复带脚本自身旧 `ownership marker` 的 draft，拒绝 published Release、prerelease 与人工创建的 draft
-- 删除 owned draft 中旧 APK 后仅上传 exact Direct APK；按上传响应及重新读取结果绑定 asset id、size、digest、content type 与下载 URL
+- 删除 owned draft 中的所有旧资产后上传 exact Direct APK；按上传响应及重新读取结果绑定 asset id、size、digest、content type 与下载 URL
+- 上传后要求整个 Release 只保留唯一的 exact Direct APK，拒绝 AAB、Play APK 或其他附件夹带
 - 发布前反复校验 draft 身份和 ownership marker，发布后以最终 GET 验证公开 Release 及唯一 APK
-- Play AAB 不上传 GitHub Release；它只交付 Play Console
+- Play AAB 不上传 GitHub Release；Play AAB 只交付 Play Console
 
 锁由脚本在 `finally` 中校验后清理。若进程崩溃或清理失败留下残留锁，下一次发布会安全拒绝继续；先调查是否仍有发布进程、draft 和远端变更，不要随意删除活跃锁。确认没有活跃发布者且记录好调查结论后，才可由有权限的维护者人工清理残留锁。
 
@@ -85,8 +91,8 @@ $env:ANDROID_HOME = "your_android_sdk"
 
 - Release 标题、标签与说明是否对应 `v4.0`
 - 上传的 APK 文件名是否为 `glimmer-countdown-4-0.apk`
-- Release 资产中没有 `app-play-release.apk` 或 `app-play-release.aab`
-- GitHub API 最终 GET 返回公开、非 prerelease 的 `v4.0` Release，且唯一 APK 的 id、size、digest、下载 URL 与本地产物一致
+- 整个 Release 只保留唯一的 exact Direct APK，没有 `app-play-release.apk`、`app-play-release.aab` 或其他资产
+- GitHub API 最终 GET 返回公开、非 prerelease 的 `v4.0` Release，且唯一资产的 id、size、digest、下载 URL 与本地产物一致
 - Direct APK `versionName` 是否为 `4.0`
 - Play APK / AAB `versionName` 是否为 `4.0-play`
 - Play APK 是否不包含 `REQUEST_INSTALL_PACKAGES`
