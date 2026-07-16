@@ -1,5 +1,6 @@
 package com.example.timeapk.ui.detail
 
+import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
@@ -19,6 +20,8 @@ import com.example.timeapk.data.CATEGORY_BIRTHDAY
 import com.example.timeapk.data.CATEGORY_OTHER
 import com.example.timeapk.data.REPEAT_NONE
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Modifier
@@ -259,11 +262,8 @@ fun DetailScreen(
                     onClick = {
                         scope.launch {
                             val savedUri = runCatching {
-                                val bitmap = EventShareImageRenderer().render(shareData)
-                                try {
+                                withRenderedShareImage(shareData) { bitmap ->
                                     ShareImageStore.saveShareImage(context, bitmap, shareImageName)
-                                } finally {
-                                    bitmap.recycle()
                                 }
                             }.getOrNull()
                             snackbarHostState.showSnackbar(
@@ -284,11 +284,8 @@ fun DetailScreen(
                     onClick = {
                         scope.launch {
                             val shared = runCatching {
-                                val bitmap = EventShareImageRenderer().render(shareData)
-                                val uri = try {
+                                val uri = withRenderedShareImage(shareData) { bitmap ->
                                     ShareImageStore.cacheShareImage(context, bitmap, shareImageName)
-                                } finally {
-                                    bitmap.recycle()
                                 }
                                 ShareImageStore.shareImage(
                                     context = context,
@@ -408,6 +405,22 @@ fun DetailScreen(
         }
         }
         }
+    }
+}
+
+private suspend fun <T> withRenderedShareImage(
+    data: EventShareCardData,
+    storeImage: (Bitmap) -> T
+): T {
+    val bitmap = withContext(Dispatchers.Default) {
+        EventShareImageRenderer().render(data)
+    }
+    return try {
+        withContext(Dispatchers.IO) {
+            storeImage(bitmap)
+        }
+    } finally {
+        bitmap.recycle()
     }
 }
 

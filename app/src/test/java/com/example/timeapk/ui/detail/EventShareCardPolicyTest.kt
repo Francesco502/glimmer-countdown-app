@@ -50,6 +50,26 @@ class EventShareCardPolicyTest {
         assertTrue(storeSource.contains("\"share/\""))
     }
 
+    @Test
+    fun shareImageRenderingAndPngWritesStayOffTheUiDispatcher() {
+        val detailSource = readSource("ui/detail/DetailScreen.kt")
+
+        assertTrue(detailSource.contains("withContext(Dispatchers.Default)"))
+        assertTrue(detailSource.contains("EventShareImageRenderer().render(data)"))
+        assertTrue(detailSource.contains("withContext(Dispatchers.IO)"))
+
+        val saveAction = detailSource.substringBetween(
+            "text = stringResource(R.string.share_save_image)",
+            "text = stringResource(R.string.share_send_image)"
+        )
+        val sendAction = detailSource.substringBetween(
+            "text = stringResource(R.string.share_send_image)",
+            "Scaffold("
+        )
+        assertTrue(saveAction.contains("withRenderedShareImage(shareData)"))
+        assertTrue(sendAction.contains("withRenderedShareImage(shareData)"))
+    }
+
     private fun readSource(relative: String): String {
         val direct = File("src/main/java/com/example/timeapk/$relative")
         if (direct.exists()) {
