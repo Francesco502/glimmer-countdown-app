@@ -181,7 +181,7 @@ class WidgetOrderingRefreshArchitectureTest {
         val dragEnd = source.substringAfter("onDragEnd =").substringBefore("AnimatedContent(")
 
         assertTrue(source.contains("var pendingLocalReorder by remember"))
-        assertTrue(source.contains("shouldRetainPendingLocalReorder("))
+        assertTrue(source.contains("decideHomeListTargetSync("))
         assertTrue(!source.contains("shouldKeepCurrentCustomOrder("))
         assertTrue(sync.contains("targetIds == pending.upstreamIds"))
         assertTrue(sync.contains("currentIds == pending.reorderedIds"))
@@ -237,6 +237,22 @@ class WidgetOrderingRefreshArchitectureTest {
         assertTrue(viewModel.contains("onPersistenceResult: (List<Int>?) -> Unit"))
         assertTrue(viewModel.contains("onPersistenceResult(mergedIds)"))
         assertTrue(viewModel.contains("if (!persisted) onPersistenceResult(null)"))
+    }
+
+    @Test
+    fun displayedTargetChangesNeverReleaseAnInFlightReorder() {
+        val source = mainSource("ui/home/HomeScreen.kt").readText(Charsets.UTF_8)
+        val snapshotSync = source.substringAfter("fun applyDisplayedListSnapshot(")
+            .substringBefore("if (orderedList.isEmpty() && displayedList.isNotEmpty())")
+        val dragEnd = source.substringAfter("onDragEnd =").substringBefore("AnimatedContent(")
+        val persistenceCallback = dragEnd.substringAfter("onPersistenceResult =")
+
+        assertTrue(snapshotSync.contains("decideHomeListTargetSync("))
+        assertTrue(!snapshotSync.contains("pendingLocalReorder = null"))
+        assertEquals(1, source.windowedSequence("pendingLocalReorder = null".length)
+            .count { it == "pendingLocalReorder = null" })
+        assertTrue(persistenceCallback.contains("pendingLocalReorder = null"))
+        assertTrue(!persistenceCallback.contains("updateCustomEventOrder("))
     }
 
     @Test

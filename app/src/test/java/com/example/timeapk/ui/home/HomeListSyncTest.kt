@@ -204,6 +204,38 @@ class HomeListSyncTest {
         )
     }
 
+    @Test
+    fun targetChangesDisplayImmediatelyButKeepReorderLockedUntilMatchingCallback() {
+        val pending = requireNotNull(
+            pendingLocalReorderSnapshotOrNull(
+                upstreamIds = listOf(1, 2, 3),
+                reorderedIds = listOf(3, 1, 2)
+            )
+        )
+        val changedTargets = listOf(
+            Triple(listOf(3, 1), SortType.Custom, "filtered"),
+            Triple(listOf(2, 3, 1), SortType.Custom, "pinned"),
+            Triple(listOf(1, 2, 3), SortType.ByDays, "mode"),
+            Triple(emptyList(), SortType.Custom, "empty")
+        )
+
+        changedTargets.forEach { (targetIds, sortType, label) ->
+            val decision = decideHomeListTargetSync(
+                currentIds = pending.reorderedIds,
+                targetIds = targetIds,
+                sortType = sortType,
+                pending = pending
+            )
+
+            assertFalse("$label target must replace the displayed order", decision.retainCurrentOrder)
+            assertEquals("$label must not end A", pending, decision.pendingAfterSync)
+            assertFalse("$label must not enable B", canStartHomeReorder(SortType.Custom, decision.pendingAfterSync))
+        }
+
+        val pendingAfterMatchingCallback: PendingLocalReorderSnapshot? = null
+        assertTrue(canStartHomeReorder(SortType.Custom, pendingAfterMatchingCallback))
+    }
+
     private data class TestItem(
         val id: Int,
         val title: String

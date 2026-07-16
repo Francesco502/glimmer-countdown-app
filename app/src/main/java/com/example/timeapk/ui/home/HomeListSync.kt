@@ -27,16 +27,41 @@ internal fun canStartHomeReorder(
     pending: PendingLocalReorderSnapshot?
 ): Boolean = homeCardDragSortEnabled(sortType) && pending == null
 
+internal data class HomeListTargetSyncDecision(
+    val retainCurrentOrder: Boolean,
+    val pendingAfterSync: PendingLocalReorderSnapshot?
+)
+
+internal fun decideHomeListTargetSync(
+    currentIds: List<Int>,
+    targetIds: List<Int>,
+    sortType: SortType,
+    pending: PendingLocalReorderSnapshot?
+): HomeListTargetSyncDecision = HomeListTargetSyncDecision(
+    retainCurrentOrder = shouldRetainPendingLocalReorder(
+        currentIds = currentIds,
+        targetIds = targetIds,
+        sortType = sortType,
+        pending = pending
+    ),
+    pendingAfterSync = pending
+)
+
 internal fun settlePersistedHomeReorder(
     displayedItems: List<EventUiState>,
-    persistedMergedIds: List<Int>,
-    pinnedEventIds: List<Int>
-): List<EventUiState> = applyHomeSort(
-    list = displayedItems,
-    sortType = SortType.Custom,
-    customEventOrderIds = persistedMergedIds,
-    pinnedEventIds = pinnedEventIds
-)
+    persistedMergedIds: List<Int>?,
+    pinnedEventIds: List<Int>,
+    sortType: SortType
+): List<EventUiState> {
+    if (persistedMergedIds == null || sortType != SortType.Custom) return displayedItems
+
+    return applyHomeSort(
+        list = displayedItems,
+        sortType = SortType.Custom,
+        customEventOrderIds = persistedMergedIds,
+        pinnedEventIds = pinnedEventIds
+    )
+}
 
 internal fun shouldRetainPendingLocalReorder(
     currentIds: List<Int>,

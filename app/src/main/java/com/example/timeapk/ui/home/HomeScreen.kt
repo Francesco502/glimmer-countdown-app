@@ -157,14 +157,12 @@ fun HomeScreen(
 
     fun applyDisplayedListSnapshot(target: List<EventUiState>) {
         if (target.isEmpty()) {
-            pendingLocalReorder = null
             orderedList.clear()
             listInitialized = true
             return
         }
 
         if (orderedList.isEmpty()) {
-            pendingLocalReorder = null
             orderedList.addAll(target)
             listInitialized = true
             return
@@ -172,16 +170,15 @@ fun HomeScreen(
 
         val currentIds = orderedList.map { it.event.id }
         val targetIds = target.map { it.event.id }
-        if (shouldRetainPendingLocalReorder(
-                currentIds = currentIds,
-                targetIds = targetIds,
-                sortType = sortType,
-                pending = pendingLocalReorder
-            )
-        ) {
+        val syncDecision = decideHomeListTargetSync(
+            currentIds = currentIds,
+            targetIds = targetIds,
+            sortType = sortType,
+            pending = pendingLocalReorder
+        )
+        if (syncDecision.retainCurrentOrder) {
             orderedList.refreshItemsByKey(target) { it.event.id }
         } else {
-            pendingLocalReorder = null
             orderedList.replaceWithOrderedItems(target) { it.event.id }
         }
         listInitialized = true
@@ -357,7 +354,8 @@ fun HomeScreen(
                                                 settlePersistedHomeReorder(
                                                     displayedItems = latestDisplayedItems,
                                                     persistedMergedIds = persistedMergedIds,
-                                                    pinnedEventIds = latestPinnedEventIds
+                                                    pinnedEventIds = latestPinnedEventIds,
+                                                    sortType = latestSortType
                                                 )
                                             } else {
                                                 latestDisplayedItems

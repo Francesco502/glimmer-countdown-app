@@ -51,13 +51,45 @@ class HomeSortBehaviorTest {
         val settled = settlePersistedHomeReorder(
             displayedItems = visibleBeforeDrag,
             persistedMergedIds = persistedMergedIds,
-            pinnedEventIds = pinnedIds
+            pinnedEventIds = pinnedIds,
+            sortType = SortType.Custom
         )
 
         assertEquals(listOf(1, 2, 3), persistedMergedIds)
         assertEquals(listOf(2, 1, 3), visibleBeforeDrag.map { it.event.id })
         assertEquals(visibleBeforeDrag.map { it.event.id }, settled.map { it.event.id })
         assertEquals(false, draggedVisibleIds == settled.map { it.event.id })
+    }
+
+    @Test
+    fun settlePersistedHomeReorder_usesLatestFilteredPinnedAndModeTarget() {
+        val latestFilteredItems = listOf(
+            eventState(id = 1, daysRemaining = 10, createdAt = 100L),
+            eventState(id = 3, daysRemaining = 1, createdAt = 200L)
+        )
+
+        val customSettled = settlePersistedHomeReorder(
+            displayedItems = latestFilteredItems,
+            persistedMergedIds = listOf(3, 2, 1),
+            pinnedEventIds = listOf(1),
+            sortType = SortType.Custom
+        )
+        val modeChangedSettled = settlePersistedHomeReorder(
+            displayedItems = latestFilteredItems,
+            persistedMergedIds = listOf(3, 2, 1),
+            pinnedEventIds = listOf(1),
+            sortType = SortType.ByDays
+        )
+        val failureSettled = settlePersistedHomeReorder(
+            displayedItems = latestFilteredItems,
+            persistedMergedIds = null,
+            pinnedEventIds = listOf(1),
+            sortType = SortType.Custom
+        )
+
+        assertEquals(listOf(1, 3), customSettled.map { it.event.id })
+        assertEquals(latestFilteredItems, modeChangedSettled)
+        assertEquals(latestFilteredItems, failureSettled)
     }
 
     @Test
