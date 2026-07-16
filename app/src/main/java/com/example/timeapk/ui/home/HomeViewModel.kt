@@ -577,17 +577,22 @@ class HomeViewModel(
         }
     }
 
-    fun deleteEvent(event: Event) {
-        viewModelScope.launch {
-            cancelReminder(application, event.id)
-            cancelMilestoneReminders(application, event.id)
-            ScheduleSyncManager.clearMilestoneScheduleRemindersByEventId(application, event.id)
-            ScheduleSyncManager.removeScheduleReminder(application, event.scheduleEventId)
-            ScheduleSyncManager.removeScheduleReminderByEventId(application, event.id)
-            repository.deleteEvent(event)
-            WidgetUpdater.refreshCountdownWidgets(application)
-        }
-    }
+    suspend fun deleteEvent(event: Event): DeleteEventResult = deleteEventRecoverably(
+        event = event,
+        nowMillis = System::currentTimeMillis,
+        cleanup = { target ->
+            ScheduleSyncManager.removeManagedCalendarEntries(
+                context = application,
+                eventId = target.id,
+                calendarEventId = target.scheduleEventId
+            )
+        },
+        update = repository::updateEvent,
+        cancelReminder = { target -> cancelReminder(application, target.id) },
+        cancelMilestones = { target -> cancelMilestoneReminders(application, target.id) },
+        delete = repository::deleteEvent,
+        refreshWidgets = { WidgetUpdater.refreshCountdownWidgets(application) }
+    )
 
     fun restoreEvent(event: Event) {
         viewModelScope.launch {

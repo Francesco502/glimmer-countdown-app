@@ -95,7 +95,7 @@ fun DetailScreen(
     eventMissing: Boolean = false,
     onNavigateBack: () -> Unit,
     onEditClick: () -> Unit,
-    onDeleteClick: () -> Unit,
+    onDeleteClick: suspend () -> Boolean,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -109,6 +109,7 @@ fun DetailScreen(
     val pinnedEventIds by prefs.pinnedEventIdsFlow.collectAsState(initial = emptyList())
     val dateFormatter = remember(dateFormatMode) { getDisplayDateFormatter(dateFormatMode) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var isDeleteInProgress by remember { mutableStateOf(false) }
     var showShareDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -141,17 +142,31 @@ fun DetailScreen(
         SongConfirmDialog(
             title = stringResource(R.string.delete_confirm_title),
             message = stringResource(R.string.delete_confirm_message, eventState.event.title),
-            confirmText = stringResource(R.string.delete_confirm_ok),
+            confirmText = stringResource(
+                if (isDeleteInProgress) R.string.delete_in_progress else R.string.delete_confirm_ok
+            ),
             dismissText = stringResource(R.string.delete_confirm_cancel),
             destructiveConfirm = true,
+            confirmEnabled = !isDeleteInProgress,
             onConfirm = {
+                if (!isDeleteInProgress) {
+                    isDeleteInProgress = true
                     scope.launch {
-                        onDeleteClick()
-                        showDeleteConfirm = false
-                        onNavigateBack()
+                        val deleted = try {
+                            onDeleteClick()
+                        } finally {
+                            isDeleteInProgress = false
+                        }
+                        if (deleted) {
+                            showDeleteConfirm = false
+                            onNavigateBack()
+                        }
                     }
+                }
             },
-            onDismiss = { showDeleteConfirm = false }
+            onDismiss = {
+                if (!isDeleteInProgress) showDeleteConfirm = false
+            }
         )
     }
 

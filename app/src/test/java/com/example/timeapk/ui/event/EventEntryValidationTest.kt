@@ -4,18 +4,83 @@ import com.example.timeapk.R
 import com.example.timeapk.data.CATEGORY_ANNIVERSARY
 import com.example.timeapk.data.CATEGORY_OTHER
 import com.example.timeapk.data.DefaultEventReminderSettings
+import com.example.timeapk.data.Event
 import com.example.timeapk.data.REPEAT_DAILY
 import com.example.timeapk.data.REPEAT_MONTHLY
 import com.example.timeapk.data.REPEAT_NONE
 import com.example.timeapk.data.REPEAT_YEARLY
+import com.example.timeapk.notifications.CalendarCleanupResult
+import com.example.timeapk.ui.home.calendarCleanupRequired
+import com.example.timeapk.ui.home.eventAfterCleanupAttempt
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
 import java.time.ZoneOffset
 
 class EventEntryValidationTest {
+
+    @Test
+    fun failedCleanup_keepsCalendarIdsAndRecordsRetryableError() {
+        val event = testCalendarEvent(
+            syncToScheduleEnabled = false,
+            scheduleEventId = 88,
+            targetCalendarId = 9
+        )
+
+        val actual = eventAfterCleanupAttempt(
+            event = event,
+            result = CalendarCleanupResult.PermissionRequired,
+            nowMillis = 123
+        )
+
+        assertEquals(88L, actual.scheduleEventId)
+        assertEquals(9L, actual.targetCalendarId)
+        assertEquals("Calendar permission required", actual.lastScheduleSyncError)
+        assertEquals(123L, actual.lastScheduleSyncAt)
+    }
+
+    @Test
+    fun successfulCleanup_clearsCalendarIdsAndError() {
+        val event = testCalendarEvent(
+            syncToScheduleEnabled = true,
+            scheduleEventId = 88,
+            targetCalendarId = 9
+        ).copy(lastScheduleSyncError = "old error")
+
+        val actual = eventAfterCleanupAttempt(
+            event = event,
+            result = CalendarCleanupResult.RemovedOrNotPresent,
+            nowMillis = 456
+        )
+
+        assertNull(actual.scheduleEventId)
+        assertNull(actual.targetCalendarId)
+        assertNull(actual.lastScheduleSyncError)
+        assertEquals(456L, actual.lastScheduleSyncAt)
+    }
+
+    @Test
+    fun cleanupIsRequiredOnlyWhenTheEventCouldOwnCalendarData() {
+        assertFalse(calendarCleanupRequired(testCalendarEvent(syncToScheduleEnabled = false)))
+        assertTrue(calendarCleanupRequired(testCalendarEvent(syncToScheduleEnabled = true)))
+        assertTrue(
+            calendarCleanupRequired(
+                testCalendarEvent(syncToScheduleEnabled = false, scheduleEventId = 88)
+            )
+        )
+    }
+
+    @Test
+    fun targetCalendarIdAlone_requiresCleanup() {
+        assertTrue(
+            calendarCleanupRequired(
+                testCalendarEvent(syncToScheduleEnabled = false, targetCalendarId = 9)
+            )
+        )
+    }
 
     @Test
     fun isEventDateValid_accepts1900BoundaryDate() {
@@ -152,4 +217,17 @@ class EventEntryValidationTest {
             )
         )
     }
+
+    private fun testCalendarEvent(
+        syncToScheduleEnabled: Boolean,
+        scheduleEventId: Long? = null,
+        targetCalendarId: Long? = null
+    ) = Event(
+        title = "Trip",
+        date = 1,
+        category = CATEGORY_OTHER,
+        syncToScheduleEnabled = syncToScheduleEnabled,
+        scheduleEventId = scheduleEventId,
+        targetCalendarId = targetCalendarId
+    )
 }

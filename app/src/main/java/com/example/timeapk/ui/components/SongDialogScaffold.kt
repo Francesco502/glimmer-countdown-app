@@ -138,6 +138,7 @@ fun SongConfirmDialog(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
     destructiveConfirm: Boolean = false,
+    confirmEnabled: Boolean = true,
     onDismissRequest: (() -> Unit)? = null
 ) {
     SongDialogScaffold(
@@ -157,6 +158,7 @@ fun SongConfirmDialog(
             SongDialogButton(
                 text = confirmText,
                 onClick = onConfirm,
+                enabled = confirmEnabled,
                 destructive = destructiveConfirm
             )
         }

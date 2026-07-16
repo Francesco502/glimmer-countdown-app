@@ -181,6 +181,8 @@
     <string name="delete_confirm_cancel">Cancel</string>
     <string name="event_deleted">Removed from the scroll</string>
     <string name="action_undo">Undo</string>
+    <string name="delete_in_progress">Deleting…</string>
+    <string name="calendar_cleanup_blocked">Could not clean up the system calendar event. Restore calendar permission and try again.</string>
 
     <!-- Share -->
     <string name="share_card_title">Share card</string>

@@ -36,6 +36,7 @@ import com.example.timeapk.ui.AppViewModelProvider
 import com.example.timeapk.ui.detail.DetailScreen
 import com.example.timeapk.ui.event.EventEntryScreen
 import com.example.timeapk.ui.home.EventUiState
+import com.example.timeapk.ui.home.DeleteEventResult
 import com.example.timeapk.ui.settings.SettingsScreen
 import com.example.timeapk.ui.home.HomeScreen
 import com.example.timeapk.ui.home.toEventUiState
@@ -106,6 +107,7 @@ fun TimeApp(
             val scope = androidx.compose.runtime.rememberCoroutineScope()
             val deletedMessage = stringResource(R.string.event_deleted)
             val undoLabel = stringResource(R.string.action_undo)
+            val calendarCleanupBlockedMessage = stringResource(R.string.calendar_cleanup_blocked)
 
             Box(Modifier.fillMaxSize()) {
                 HomeScreen(
@@ -139,17 +141,29 @@ fun TimeApp(
                             navController.navigate(Routes.edit(eventId)) { launchSingleTop = true }
                         },
                         onDeleteClick = {
-                            eventState?.event?.let { deletedEvent ->
-                                homeViewModel.deleteEvent(deletedEvent)
-                                scope.launch {
-                                    val result = homeSnackbarHostState.showSnackbar(
-                                        message = deletedMessage,
-                                        actionLabel = undoLabel,
-                                        withDismissAction = true,
-                                        duration = SnackbarDuration.Short
-                                    )
-                                    if (result == SnackbarResult.ActionPerformed) {
-                                        homeViewModel.restoreEvent(deletedEvent)
+                            val deletedEvent = eventState?.event
+                            if (deletedEvent == null) {
+                                false
+                            } else {
+                                when (homeViewModel.deleteEvent(deletedEvent)) {
+                                    DeleteEventResult.Deleted -> {
+                                        scope.launch {
+                                            val result = homeSnackbarHostState.showSnackbar(
+                                                message = deletedMessage,
+                                                actionLabel = undoLabel,
+                                                withDismissAction = true,
+                                                duration = SnackbarDuration.Short
+                                            )
+                                            if (result == SnackbarResult.ActionPerformed) {
+                                                homeViewModel.restoreEvent(deletedEvent)
+                                            }
+                                        }
+                                        true
+                                    }
+
+                                    is DeleteEventResult.Blocked -> {
+                                        homeSnackbarHostState.showSnackbar(calendarCleanupBlockedMessage)
+                                        false
                                     }
                                 }
                             }

@@ -23,6 +23,8 @@ import com.example.timeapk.notifications.cancelMilestoneReminders
 import com.example.timeapk.notifications.cancelReminder
 import com.example.timeapk.notifications.scheduleReminder
 import com.example.timeapk.notifications.syncMilestoneReminderForEvent
+import com.example.timeapk.ui.home.calendarCleanupRequired
+import com.example.timeapk.ui.home.eventAfterCleanupAttempt
 import com.example.timeapk.widget.WidgetUpdater
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -253,18 +255,22 @@ class EventEntryViewModel(
                 )
             }
         } else {
-            try {
-                ScheduleSyncManager.removeScheduleReminder(application, persistedEvent.scheduleEventId)
-                ScheduleSyncManager.removeScheduleReminderByEventId(application, persistedEvent.id)
-            } catch (t: Exception) {
-                Log.w(TAG, "Failed to clear calendar sync data for eventId=${persistedEvent.id}", t)
+            if (calendarCleanupRequired(persistedEvent)) {
+                val cleanup = ScheduleSyncManager.removeManagedCalendarEntries(
+                    context = application,
+                    eventId = persistedEvent.id,
+                    calendarEventId = persistedEvent.scheduleEventId
+                )
+                scheduleSyncError = cleanup.message
+                eventAfterCleanupAttempt(
+                    event = persistedEvent,
+                    result = cleanup,
+                    nowMillis = System.currentTimeMillis()
+                )
+            } else {
+                // No provider attempt occurred, so preserve the previous sync timestamp.
+                persistedEvent
             }
-            persistedEvent.copy(
-                scheduleEventId = null,
-                targetCalendarId = null,
-                lastScheduleSyncAt = System.currentTimeMillis(),
-                lastScheduleSyncError = null
-            )
         }
 
         if (updatedEvent != persistedEvent) {

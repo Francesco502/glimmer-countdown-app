@@ -156,6 +156,8 @@
     <string name="delete_confirm_cancel">取消</string>
     <string name="event_deleted">已从笺中移去</string>
     <string name="action_undo">撤销</string>
+    <string name="delete_in_progress">删除中…</string>
+    <string name="calendar_cleanup_blocked">无法清理系统日历事件。请恢复日历权限后重试。</string>
     <string name="share_card_title">分享笺</string>
     <string name="share_save_image">保存图片</string>
     <string name="share_send_image">唤起分享</string>
