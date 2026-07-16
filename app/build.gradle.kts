@@ -2,6 +2,70 @@ import java.io.File
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.util.Properties
+import org.gradle.api.DefaultTask
+import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.provider.Property
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.Internal
+import org.gradle.api.tasks.TaskAction
+import org.gradle.work.DisableCachingByDefault
+
+@DisableCachingByDefault(because = "Release signing validation has no outputs")
+abstract class ValidateReleaseSigningTask : DefaultTask() {
+    @get:Input
+    abstract val signingIsValid: Property<Boolean>
+
+    @get:Input
+    abstract val signingConfigPath: Property<String>
+
+    @TaskAction
+    fun validateSigning() {
+        check(signingIsValid.get()) {
+            "Missing or invalid release signing configuration: ${signingConfigPath.get()}"
+        }
+    }
+}
+
+@DisableCachingByDefault(because = "Renames an Android Gradle Plugin packaging output in place")
+abstract class RenameDirectReleaseApkTask : DefaultTask() {
+    @get:Internal
+    abstract val sourceFile: RegularFileProperty
+
+    @get:Internal
+    abstract val targetFile: RegularFileProperty
+
+    @get:Internal
+    abstract val metadataFile: RegularFileProperty
+
+    @get:Input
+    abstract val expectedMetadataEntry: Property<String>
+
+    @TaskAction
+    fun renameSignedApk() {
+        val source = sourceFile.get().asFile
+        val target = targetFile.get().asFile
+        val metadata = metadataFile.get().asFile
+
+        if (source.isFile) {
+            Files.move(source.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        }
+        require(target.isFile && target.length() > 0L) {
+            "Missing signed Direct release APK: ${source.path}"
+        }
+        require(metadata.isFile) { "Missing Direct release output metadata: ${metadata.path}" }
+
+        val sourceMetadataEntry = "\"outputFile\": \"${source.name}\""
+        val expectedMetadataEntry = expectedMetadataEntry.get()
+        val originalMetadataText = metadata.readText()
+        val metadataText = originalMetadataText.replace(sourceMetadataEntry, expectedMetadataEntry)
+        if (metadataText != originalMetadataText) {
+            metadata.writeText(metadataText)
+        }
+        require(metadataText.contains(expectedMetadataEntry)) {
+            "Direct release output metadata does not reference ${target.name}"
+        }
+    }
+}
 
 plugins {
     id("com.android.application")
@@ -30,12 +94,9 @@ val hasValidReleaseSigning = signingProperties != null &&
     signingKeys.all { !signingProperties.getProperty(it).isNullOrBlank() } &&
     resolvedStoreFile?.isFile == true
 
-val validateReleaseSigning = tasks.register("validateReleaseSigning") {
-    doLast {
-        check(hasValidReleaseSigning) {
-            "Missing or invalid release signing configuration: ${keystorePropertiesFile.path}"
-        }
-    }
+val validateReleaseSigning = tasks.register<ValidateReleaseSigningTask>("validateReleaseSigning") {
+    signingIsValid.set(hasValidReleaseSigning)
+    signingConfigPath.set(keystorePropertiesFile.path)
 }
 
 ksp {
@@ -130,44 +191,30 @@ android {
 // Rename the direct release APK to the glimmer-countdown-x-y style.
 val versionNameForApk = versionNameOverride ?: "4.0"
 val apkBaseName = "glimmer-countdown-${versionNameForApk.replace(".", "-")}"
+val directReleaseDir = layout.buildDirectory.dir("outputs/apk/direct/release")
 
-tasks.register("renameDirectReleaseApk") {
+val renameDirectReleaseApk = tasks.register<RenameDirectReleaseApkTask>("renameDirectReleaseApk") {
     dependsOn("packageDirectRelease")
-    doLast {
-        val releaseDir = layout.buildDirectory.dir("outputs/apk/direct/release").get().asFile
-        val source = File(releaseDir, "app-direct-release.apk")
-        require(source.isFile) { "Missing signed Direct release APK: ${source.path}" }
-        val target = File(releaseDir, "$apkBaseName.apk")
-        Files.move(source.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
-        require(target.isFile && target.length() > 0L) { "Missing renamed Direct release APK" }
-        val metadataFile = File(releaseDir, "output-metadata.json")
-        if (metadataFile.exists()) {
-            metadataFile.writeText(
-                metadataFile.readText().replace("\"outputFile\": \"app-direct-release.apk\"", "\"outputFile\": \"$apkBaseName.apk\"")
-            )
-        }
-    }
+    sourceFile.set(directReleaseDir.map { it.file("app-direct-release.apk") })
+    targetFile.set(directReleaseDir.map { it.file("$apkBaseName.apk") })
+    metadataFile.set(directReleaseDir.map { it.file("output-metadata.json") })
+    expectedMetadataEntry.set("\"outputFile\": \"$apkBaseName.apk\"")
 }
 
-val releasePackagingTask = Regex("(?i)^(assemble|bundle|package).+Release$")
+val releasePackagingTask = Regex("(?i)^(assemble|bundle|package).*Release.*$")
+val releasePreBuildTask = Regex("(?i)^pre.+ReleaseBuild$")
 tasks.configureEach {
-    if (releasePackagingTask.matches(name) || name == "renameDirectReleaseApk") {
+    if (
+        releasePackagingTask.matches(name) ||
+        releasePreBuildTask.matches(name) ||
+        name == "renameDirectReleaseApk"
+    ) {
         dependsOn(validateReleaseSigning)
     }
 }
 
-// Fail during task-graph preparation so packaging cannot start compilation
-// before missing or invalid credentials are reported.
-gradle.taskGraph.whenReady {
-    if (hasTask(validateReleaseSigning.get())) {
-        check(hasValidReleaseSigning) {
-            "Missing or invalid release signing configuration: ${keystorePropertiesFile.path}"
-        }
-    }
-}
-
-project.afterEvaluate {
-    tasks.findByName("assembleDirectRelease")?.finalizedBy("renameDirectReleaseApk")
+tasks.matching { it.name == "assembleDirectRelease" }.configureEach {
+    finalizedBy(renameDirectReleaseApk)
 }
 
 dependencies {

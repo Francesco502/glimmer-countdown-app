@@ -30,7 +30,10 @@ class ReleaseReadinessTest {
         assertTrue(build.contains("validateReleaseSigning"))
         assertTrue(build.contains("Missing or invalid release signing configuration"))
         assertTrue(build.contains("assemble|bundle|package"))
+        assertTrue(build.contains("Release.*"))
+        assertTrue(build.contains("pre.+ReleaseBuild"))
         assertTrue(build.contains("dependsOn(validateReleaseSigning)"))
+        assertFalse(build.contains("taskGraph.whenReady"))
     }
 
     @Test
@@ -40,6 +43,10 @@ class ReleaseReadinessTest {
         assertTrue(build.contains("glimmer-countdown-${'$'}{versionNameForApk.replace(\".\", \"-\")}"))
         assertTrue(build.contains("Missing signed Direct release APK"))
         assertTrue(build.contains("StandardCopyOption.REPLACE_EXISTING"))
+        assertTrue(build.contains("abstract class RenameDirectReleaseApkTask"))
+        assertTrue(build.contains("if (source.isFile)"))
+        assertTrue(build.contains("target.isFile && target.length() > 0L"))
+        assertTrue(build.contains("metadataText.contains(expectedMetadataEntry)"))
     }
 
     @Test
