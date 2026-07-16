@@ -6,6 +6,17 @@ import org.junit.Test
 import java.io.File
 
 class HomeInteractionPolicyTest {
+    @Test
+    fun emptyStateAddIconIsDecorativeBecauseTheFabOwnsTheAddAction() {
+        val source = readSource("ui/home/HomeScreen.kt")
+        val emptyState = source.substringAfter("private fun EmptyState(")
+            .substringBefore("@OptIn(ExperimentalFoundationApi::class)")
+
+        assertTrue(emptyState.contains("kind = SongLineIconKind.Add"))
+        assertTrue(emptyState.contains("contentDescription = null"))
+        assertFalse(emptyState.contains("R.string.cd_add_event"))
+    }
+
 
     @Test
     fun homeCardLongPressEditEnabled_isDisabledWhenCustomSorting() {

@@ -1134,7 +1134,7 @@ private fun EmptyState(modifier: Modifier = Modifier) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             SongLineIcon(
                 kind = SongLineIconKind.Add,
-                contentDescription = stringResource(R.string.cd_add_event),
+                contentDescription = null,
                 tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f),
                 size = 64.dp
             )
