@@ -73,6 +73,57 @@ function Get-StatusCode {
     return $null
 }
 
+function Resolve-RemoteTagCommit {
+    param(
+        [object]$GitObject,
+        [hashtable]$Headers,
+        [int]$MaxDepth = 8
+    )
+
+    $currentObject = $GitObject
+    $seenObjectShas = @{}
+    for ($depth = 0; $depth -lt $MaxDepth; $depth++) {
+        $objectType = ([string]$currentObject.type).Trim().ToLowerInvariant()
+        $objectSha = ([string]$currentObject.sha).Trim().ToLowerInvariant()
+        if ($objectSha -notmatch '^[0-9a-f]{40,64}$') {
+            throw 'Remote tag contains an invalid git object SHA.'
+        }
+        if ($seenObjectShas.ContainsKey($objectSha)) {
+            throw 'Remote annotated tag chain contains a cycle.'
+        }
+        $seenObjectShas[$objectSha] = $true
+        if ($objectType -eq 'commit') {
+            return $objectSha
+        }
+        if ($objectType -ne 'tag') {
+            throw "Remote tag points to unsupported git object type '$objectType'."
+        }
+
+        $encodedObjectSha = [uri]::EscapeDataString($objectSha)
+        try {
+            $annotatedTag = Invoke-RestMethod `
+                -Uri "https://api.github.com/repos/$owner/$repo/git/tags/$encodedObjectSha" `
+                -Method Get `
+                -Headers $Headers
+        } catch {
+            $statusCode = Get-StatusCode -ErrorRecord $_
+            throw "Unable to peel remote annotated tag object (HTTP $statusCode)."
+        }
+        if (-not [string]::Equals(
+                ([string]$annotatedTag.sha).Trim(),
+                $objectSha,
+                [System.StringComparison]::OrdinalIgnoreCase
+            )) {
+            throw 'Remote annotated tag object does not match the requested object SHA.'
+        }
+        $currentObject = $annotatedTag.object
+        if ($null -eq $currentObject) {
+            throw 'Remote annotated tag object has no target.'
+        }
+    }
+    throw "Remote tag indirection exceeds the maximum depth of $MaxDepth; Remote tag did not resolve to a commit."
+}
+
 function Normalize-CertificateFingerprint {
     param([string]$Value, [string]$InvalidMessage)
 
@@ -204,22 +255,34 @@ $headers = @{
     'User-Agent'           = 'glimmer-countdown-release-script'
 }
 
-$localTagCommit = [string](& git -C $rootDir rev-list -n 1 $Tag 2>$null)
-if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($localTagCommit)) {
+$localTagRef = "refs/tags/$Tag"
+& git -C $rootDir show-ref --verify --quiet $localTagRef 2>$null
+if ($LASTEXITCODE -ne 0) {
     throw "Local git tag $Tag does not exist."
+}
+$localTagCommit = [string](& git -C $rootDir rev-parse --verify "$localTagRef^{commit}" 2>$null)
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($localTagCommit)) {
+    throw "Local git tag $Tag does not peel to a commit."
 }
 $localTagCommit = $localTagCommit.Trim().ToLowerInvariant()
 $encodedTag = [uri]::EscapeDataString($Tag)
 try {
-    $remoteCommit = Invoke-RestMethod `
-        -Uri "https://api.github.com/repos/$owner/$repo/commits/$encodedTag" `
+    $remoteTagRef = Invoke-RestMethod `
+        -Uri "https://api.github.com/repos/$owner/$repo/git/ref/tags/$encodedTag" `
         -Method Get `
         -Headers $headers
 } catch {
     $statusCode = Get-StatusCode -ErrorRecord $_
-    throw "Unable to resolve remote tag commit $Tag (HTTP $statusCode)."
+    throw "Unable to resolve exact remote git tag ref $Tag (HTTP $statusCode)."
 }
-$remoteTagCommit = ([string]$remoteCommit.sha).Trim().ToLowerInvariant()
+if (-not [string]::Equals(
+        [string]$remoteTagRef.ref,
+        $localTagRef,
+        [System.StringComparison]::Ordinal
+    )) {
+    throw 'Remote git tag ref does not match exactly.'
+}
+$remoteTagCommit = Resolve-RemoteTagCommit -GitObject $remoteTagRef.object -Headers $headers
 if ($remoteTagCommit -ne $localTagCommit) {
     throw 'Remote tag commit does not match the local tag commit.'
 }
@@ -270,12 +333,47 @@ function New-ReleaseLock {
         throw "Unable to create the release lock for $Tag (HTTP $statusCode)."
     }
     if (-not [string]::Equals([string]$created.ref, $lockRef, [System.StringComparison]::Ordinal) -or
+        -not [string]::Equals([string]$created.object.type, 'commit', [System.StringComparison]::Ordinal) -or
         -not [string]::Equals([string]$created.object.sha, $remoteTagCommit, [System.StringComparison]::OrdinalIgnoreCase)) {
         throw 'Created release lock does not match the requested tag and commit.'
+    }
+    return ([string]$created.object.sha).Trim().ToLowerInvariant()
+}
+
+function Get-ReleaseLock {
+    try {
+        return Invoke-RestMethod `
+            -Uri "https://api.github.com/repos/$owner/$repo/git/ref/$lockApiRef" `
+            -Method Get `
+            -Headers $headers
+    } catch {
+        $statusCode = Get-StatusCode -ErrorRecord $_
+        throw "Unable to re-read the release lock before cleanup (HTTP $statusCode)."
     }
 }
 
 function Remove-ReleaseLock {
+    param([string]$ExpectedObjectSha)
+
+    # GitHub's ref DELETE has no compare-and-swap precondition. This re-read
+    # prevents deletion after a visible ownership change, but operators must
+    # not delete/recreate this lock at the same SHA between this GET and DELETE.
+    $currentLock = Get-ReleaseLock
+    if (-not [string]::Equals([string]$currentLock.ref, $lockRef, [System.StringComparison]::Ordinal)) {
+        throw 'Release lock ref changed before cleanup; refusing to delete it.'
+    }
+    if (-not [string]::Equals(
+            ([string]$currentLock.object.sha).Trim(),
+            $ExpectedObjectSha,
+            [System.StringComparison]::OrdinalIgnoreCase
+        ) -or
+        -not [string]::Equals(
+            ([string]$currentLock.object.sha).Trim(),
+            $remoteTagCommit,
+            [System.StringComparison]::OrdinalIgnoreCase
+        )) {
+        throw 'Release lock object changed before cleanup; refusing to delete it.'
+    }
     Invoke-RestMethod `
         -Uri "https://api.github.com/repos/$owner/$repo/git/refs/$lockApiRef" `
         -Method Delete `
@@ -463,7 +561,7 @@ $publishConfirmed = $false
 $releaseId = [long]0
 $uploadedAssetId = [long]0
 $finalRelease = $null
-New-ReleaseLock
+$releaseLockObjectSha = New-ReleaseLock
 $lockAcquired = $true
 try {
     if ($existingReleaseId -gt 0) {
@@ -586,7 +684,7 @@ try {
 } finally {
     if ($lockAcquired) {
         try {
-            Remove-ReleaseLock
+            Remove-ReleaseLock -ExpectedObjectSha $releaseLockObjectSha
         } catch {
             if ($publishConfirmed) {
                 Write-Warning "Release was verified as published, but lock cleanup failed. Manually delete $lockRef."

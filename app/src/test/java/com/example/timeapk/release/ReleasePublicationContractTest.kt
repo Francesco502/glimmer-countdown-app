@@ -9,7 +9,7 @@ class ReleasePublicationContractTest {
     @Test
     fun publisherCompletesLocalAndRemoteTagPreflightBeforeLockMutation() {
         val script = releaseScript()
-        val lockMutation = lastWholeLineOffset(script, "New-ReleaseLock")
+        val lockMutation = lastWholeLineOffset(script, "${'$'}releaseLockObjectSha = New-ReleaseLock")
 
         assertTrue(lockMutation > 0)
         listOf(
@@ -18,14 +18,33 @@ class ReleasePublicationContractTest {
             "Invalid GLIMMER_RELEASE_CERT_SHA256",
             "APK not found or empty",
             "& ${'$'}apksigner verify --print-certs",
-            "rev-list -n 1",
-            "/commits/",
+            "show-ref --verify --quiet ${'$'}localTagRef",
+            "rev-parse --verify \"${'$'}localTagRef^{commit}\"",
+            "/git/ref/tags/${'$'}encodedTag",
+            "Resolve-RemoteTagCommit",
             "Remote tag commit does not match the local tag commit",
             "Get-FileHash",
             "Unable to resolve GitHub authentication token",
         ).forEach { marker ->
             assertTrue("$marker must precede the lock mutation call", script.indexOf(marker) in 0 until lockMutation)
         }
+        assertFalse(script.contains("rev-list -n 1"))
+        assertFalse(script.contains("/commits/${'$'}encodedTag"))
+    }
+
+    @Test
+    fun publisherRequiresExactRemoteTagRefAndPeelsAnnotatedTagsToACommit() {
+        val script = releaseScript()
+
+        assertTrue(script.contains("refs/tags/${'$'}Tag"))
+        assertTrue(script.contains("Remote git tag ref does not match exactly"))
+        assertTrue(script.contains("function Resolve-RemoteTagCommit"))
+        assertTrue(script.contains("/git/tags/${'$'}encodedObjectSha"))
+        assertTrue(script.contains("Remote annotated tag object does not match"))
+        assertTrue(script.contains("Remote tag did not resolve to a commit"))
+        assertTrue(script.contains("Remote tag indirection exceeds"))
+        assertTrue(script.contains("Remote annotated tag chain contains a cycle"))
+        assertTrue(script.contains("[System.StringComparison]::Ordinal"))
     }
 
     @Test
@@ -39,17 +58,25 @@ class ReleasePublicationContractTest {
         assertTrue(script.contains("try {"))
         assertTrue(script.contains("} finally {"))
         assertTrue(script.contains("Remove-ReleaseLock"))
+        assertTrue(script.contains("Get-ReleaseLock"))
+        assertTrue(script.contains("Release lock ref changed before cleanup"))
+        assertTrue(script.contains("Release lock object changed before cleanup"))
         assertTrue(script.contains("refusing to take over or mutate it"))
         assertTrue(script.contains("Get-ResumableDraftRelease"))
         assertTrue(script.contains("Existing draft ${'$'}Tag is not owned by this publisher"))
 
-        val lockCall = lastWholeLineOffset(script, "New-ReleaseLock")
+        val lockCall = lastWholeLineOffset(script, "${'$'}releaseLockObjectSha = New-ReleaseLock")
         val publicationTry = script.indexOf("try {", startIndex = lockCall)
         val publicationFinally = script.indexOf("} finally {", startIndex = publicationTry)
         val lockCleanup = script.indexOf("Remove-ReleaseLock", startIndex = publicationFinally)
         assertTrue(lockCall < publicationTry)
         assertTrue(publicationTry < publicationFinally)
         assertTrue(publicationFinally < lockCleanup)
+
+        val cleanupFunction = script.indexOf("function Remove-ReleaseLock")
+        val cleanupDelete = script.indexOf("-Method Delete", startIndex = cleanupFunction)
+        val cleanupOwnershipRead = script.indexOf("Get-ReleaseLock", startIndex = cleanupFunction)
+        assertTrue(cleanupOwnershipRead in (cleanupFunction + 1) until cleanupDelete)
     }
 
     @Test
