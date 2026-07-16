@@ -209,20 +209,22 @@ fun AppearanceSettingsContent(
             summary = stringResource(R.string.settings_section_theme_summary),
             initiallyExpanded = true
         ) {
-            listOf(
-                THEME_FOLLOW_SYSTEM to stringResource(R.string.theme_follow_system),
-                THEME_LIGHT to stringResource(R.string.theme_light),
-                THEME_DARK to stringResource(R.string.theme_dark)
-            ).forEach { (value, label) ->
-                SettingsRadioRow(
-                    label = label,
-                    selected = themeMode == value,
-                    onClick = {
-                        launchAppearanceUpdate {
-                            prefs.setThemeMode(value)
+            SettingsRadioGroup {
+                listOf(
+                    THEME_FOLLOW_SYSTEM to stringResource(R.string.theme_follow_system),
+                    THEME_LIGHT to stringResource(R.string.theme_light),
+                    THEME_DARK to stringResource(R.string.theme_dark)
+                ).forEach { (value, label) ->
+                    SettingsRadioRow(
+                        label = label,
+                        selected = themeMode == value,
+                        onClick = {
+                            launchAppearanceUpdate {
+                                prefs.setThemeMode(value)
+                            }
                         }
-                    }
-                )
+                    )
+                }
             }
         }
 
@@ -469,7 +471,7 @@ private fun FontPresetPickerDialog(
         title = stringResource(R.string.settings_font_picker_title),
         onDismissRequest = onDismiss,
         content = {
-            Column(
+            SettingsRadioGroup(
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 FontPresetValues.forEach { preset ->
@@ -602,21 +604,23 @@ fun LegacyDisplaySettingsContent(
         // Language Section
         SettingsGroupHeader(title = stringResource(R.string.language_title))
         
-        listOf(
-            LANG_ZH to stringResource(R.string.language_zh),
-            LANG_EN to stringResource(R.string.language_en)
-        ).forEach { (value, label) ->
-            SettingsRadioRow(
-                label = label,
-                selected = languageMode == value,
-                onClick = {
-                    scope.launch {
-                        prefs.setLanguageMode(value)
-                        withContext(Dispatchers.Main) { activity?.recreate() }
+        SettingsRadioGroup {
+            listOf(
+                LANG_ZH to stringResource(R.string.language_zh),
+                LANG_EN to stringResource(R.string.language_en)
+            ).forEach { (value, label) ->
+                SettingsRadioRow(
+                    label = label,
+                    selected = languageMode == value,
+                    onClick = {
+                        scope.launch {
+                            prefs.setLanguageMode(value)
+                            withContext(Dispatchers.Main) { activity?.recreate() }
+                        }
                     }
-                }
-            )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
+            }
         }
 
         // Display Section
@@ -695,18 +699,20 @@ fun LegacyDisplaySettingsContent(
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(top = 12.dp, bottom = 8.dp)
         )
-        SettingsRadioRow(
-            label = stringResource(R.string.home_density_compact),
-            selected = homeDensityMode == 0,
-            onClick = { scope.launch { prefs.setHomeDensityMode(0) } },
-            supportingText = stringResource(R.string.home_density_compact_summary)
-        )
-        SettingsRadioRow(
-            label = stringResource(R.string.home_density_detailed),
-            selected = homeDensityMode == 1,
-            onClick = { scope.launch { prefs.setHomeDensityMode(1) } },
-            supportingText = stringResource(R.string.home_density_detailed_summary)
-        )
+        SettingsRadioGroup {
+            SettingsRadioRow(
+                label = stringResource(R.string.home_density_compact),
+                selected = homeDensityMode == 0,
+                onClick = { scope.launch { prefs.setHomeDensityMode(0) } },
+                supportingText = stringResource(R.string.home_density_compact_summary)
+            )
+            SettingsRadioRow(
+                label = stringResource(R.string.home_density_detailed),
+                selected = homeDensityMode == 1,
+                onClick = { scope.launch { prefs.setHomeDensityMode(1) } },
+                supportingText = stringResource(R.string.home_density_detailed_summary)
+            )
+        }
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
 
         Row(
@@ -1012,16 +1018,18 @@ fun LegacyDisplaySettingsContent(
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(top = 12.dp, bottom = 8.dp)
         )
-        SettingsRadioRow(
-            label = stringResource(R.string.date_format_dot),
-            selected = dateFormatMode == 0,
-            onClick = { scope.launch { prefs.setDateFormatMode(0) } }
-        )
-        SettingsRadioRow(
-            label = stringResource(R.string.date_format_dash),
-            selected = dateFormatMode == 1,
-            onClick = { scope.launch { prefs.setDateFormatMode(1) } }
-        )
+        SettingsRadioGroup {
+            SettingsRadioRow(
+                label = stringResource(R.string.date_format_dot),
+                selected = dateFormatMode == 0,
+                onClick = { scope.launch { prefs.setDateFormatMode(0) } }
+            )
+            SettingsRadioRow(
+                label = stringResource(R.string.date_format_dash),
+                selected = dateFormatMode == 1,
+                onClick = { scope.launch { prefs.setDateFormatMode(1) } }
+            )
+        }
     }
 }
 
@@ -1054,20 +1062,22 @@ fun DisplaySettingsContent(
             summary = stringResource(R.string.settings_display_section_language_summary),
             initiallyExpanded = true
         ) {
-            listOf(
-                LANG_ZH to stringResource(R.string.language_zh),
-                LANG_EN to stringResource(R.string.language_en)
-            ).forEach { (value, label) ->
-                SettingsRadioRow(
-                    label = label,
-                    selected = languageMode == value,
-                    onClick = {
-                        scope.launch {
-                            prefs.setLanguageMode(value)
-                            withContext(Dispatchers.Main) { activity?.recreate() }
+            SettingsRadioGroup {
+                listOf(
+                    LANG_ZH to stringResource(R.string.language_zh),
+                    LANG_EN to stringResource(R.string.language_en)
+                ).forEach { (value, label) ->
+                    SettingsRadioRow(
+                        label = label,
+                        selected = languageMode == value,
+                        onClick = {
+                            scope.launch {
+                                prefs.setLanguageMode(value)
+                                withContext(Dispatchers.Main) { activity?.recreate() }
+                            }
                         }
-                    }
-                )
+                    )
+                }
             }
         }
 
@@ -1139,16 +1149,18 @@ fun DisplaySettingsContent(
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
 
-            listOf(
-                Triple(0, R.string.home_density_compact, R.string.home_density_compact_summary),
-                Triple(1, R.string.home_density_detailed, R.string.home_density_detailed_summary)
-            ).forEach { (value, titleRes, summaryRes) ->
-                SettingsRadioRow(
-                    label = stringResource(titleRes),
-                    selected = homeDensityMode == value,
-                    onClick = { scope.launch { prefs.setHomeDensityMode(value) } },
-                    supportingText = stringResource(summaryRes)
-                )
+            SettingsRadioGroup {
+                listOf(
+                    Triple(0, R.string.home_density_compact, R.string.home_density_compact_summary),
+                    Triple(1, R.string.home_density_detailed, R.string.home_density_detailed_summary)
+                ).forEach { (value, titleRes, summaryRes) ->
+                    SettingsRadioRow(
+                        label = stringResource(titleRes),
+                        selected = homeDensityMode == value,
+                        onClick = { scope.launch { prefs.setHomeDensityMode(value) } },
+                        supportingText = stringResource(summaryRes)
+                    )
+                }
             }
         }
 
@@ -1156,15 +1168,17 @@ fun DisplaySettingsContent(
             title = stringResource(R.string.settings_display_section_date_title),
             summary = stringResource(R.string.settings_display_section_date_summary)
         ) {
-            listOf(
-                0 to R.string.date_format_dot,
-                1 to R.string.date_format_dash
-            ).forEach { (value, labelRes) ->
-                SettingsRadioRow(
-                    label = stringResource(labelRes),
-                    selected = dateFormatMode == value,
-                    onClick = { scope.launch { prefs.setDateFormatMode(value) } }
-                )
+            SettingsRadioGroup {
+                listOf(
+                    0 to R.string.date_format_dot,
+                    1 to R.string.date_format_dash
+                ).forEach { (value, labelRes) ->
+                    SettingsRadioRow(
+                        label = stringResource(labelRes),
+                        selected = dateFormatMode == value,
+                        onClick = { scope.launch { prefs.setDateFormatMode(value) } }
+                    )
+                }
             }
         }
     }
@@ -1690,57 +1704,59 @@ fun MilestoneSettingsContent(
             modifier = Modifier.padding(top = 8.dp, bottom = 6.dp)
         )
 
-        SettingsRadioRow(
-            label = stringResource(R.string.settings_schedule_calendar_auto),
-            selected = scheduleTargetCalendarId == null,
-            onClick = {
-                    if (!calendarPermissionGranted) {
-                        requestCalendarPermissionAccess()
-                    } else {
-                        scope.launch {
-                            prefs.setScheduleTargetCalendarId(null)
-                            RescheduleAllWorker.enqueue(context, "schedule_target_calendar_changed")
-                        }
-                    }
-                }
-        )
-
-        if (!calendarPermissionGranted) {
-            Text(
-                text = stringResource(R.string.calendar_permission_required_for_sync),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(vertical = 4.dp)
-            )
-            OutlinedButton(
-                onClick = { requestCalendarPermissionAccess() },
-                modifier = Modifier.padding(vertical = 4.dp)
-            ) {
-                Text(stringResource(R.string.settings_schedule_request_calendar_permission))
-            }
-        } else if (writableCalendars.isEmpty()) {
-            Text(
-                text = stringResource(R.string.settings_schedule_calendar_no_writable),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(vertical = 4.dp)
-            )
-        } else {
-            writableCalendars.forEach { calendar ->
-                SettingsRadioRow(
-                    label = calendar.label,
-                    selected = scheduleTargetCalendarId == calendar.id,
-                    onClick = {
-                            if (!calendarPermissionGranted) {
-                                requestCalendarPermissionAccess()
-                            } else {
-                                scope.launch {
-                                    prefs.setScheduleTargetCalendarId(calendar.id)
-                                    RescheduleAllWorker.enqueue(context, "schedule_target_calendar_changed")
-                                }
+        SettingsRadioGroup {
+            SettingsRadioRow(
+                label = stringResource(R.string.settings_schedule_calendar_auto),
+                selected = scheduleTargetCalendarId == null,
+                onClick = {
+                        if (!calendarPermissionGranted) {
+                            requestCalendarPermissionAccess()
+                        } else {
+                            scope.launch {
+                                prefs.setScheduleTargetCalendarId(null)
+                                RescheduleAllWorker.enqueue(context, "schedule_target_calendar_changed")
                             }
                         }
+                    }
+            )
+
+            if (!calendarPermissionGranted) {
+                Text(
+                    text = stringResource(R.string.calendar_permission_required_for_sync),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(vertical = 4.dp)
                 )
+                OutlinedButton(
+                    onClick = { requestCalendarPermissionAccess() },
+                    modifier = Modifier.padding(vertical = 4.dp)
+                ) {
+                    Text(stringResource(R.string.settings_schedule_request_calendar_permission))
+                }
+            } else if (writableCalendars.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.settings_schedule_calendar_no_writable),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+            } else {
+                writableCalendars.forEach { calendar ->
+                    SettingsRadioRow(
+                        label = calendar.label,
+                        selected = scheduleTargetCalendarId == calendar.id,
+                        onClick = {
+                                if (!calendarPermissionGranted) {
+                                    requestCalendarPermissionAccess()
+                                } else {
+                                    scope.launch {
+                                        prefs.setScheduleTargetCalendarId(calendar.id)
+                                        RescheduleAllWorker.enqueue(context, "schedule_target_calendar_changed")
+                                    }
+                                }
+                            }
+                    )
+                }
             }
         }
 

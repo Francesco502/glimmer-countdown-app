@@ -60,6 +60,30 @@ class SettingsSelectionSemanticsContractTest {
     }
 
     @Test
+    fun settingsRadioRowsExposeOneMergedSelectableTargetInsideExplicitGroups() {
+        val componentSource = readProjectFile("app/src/main/java/com/example/timeapk/ui/settings/SettingsComponents.kt")
+        val settingsSource = readProjectFile("app/src/main/java/com/example/timeapk/ui/settings/SettingsSubScreens.kt")
+        val radioRow = componentSource.substringAfter("fun SettingsRadioRow(")
+            .substringBefore("@Composable\nfun SettingsValueRow")
+
+        assertTrue(radioRow.contains(".heightIn(min = 48.dp)"))
+        assertTrue(radioRow.contains(".selectable("))
+        assertTrue(radioRow.contains("selected = selected"))
+        assertTrue(radioRow.contains("role = Role.RadioButton"))
+        assertTrue(radioRow.contains(".semantics(mergeDescendants = true)"))
+        assertTrue(radioRow.contains("onClick = null"))
+        assertTrue(radioRow.contains(".clearAndSetSemantics"))
+        assertFalse(radioRow.contains(".clickable("))
+
+        val radioRowCalls = settingsSource.countOccurrences("SettingsRadioRow(")
+        val explicitGroups = settingsSource.countOccurrences("SettingsRadioGroup")
+        assertTrue(radioRowCalls == 12)
+        assertTrue(explicitGroups == 9)
+        assertTrue(componentSource.contains("fun SettingsRadioGroup("))
+        assertTrue(componentSource.contains(".selectableGroup()"))
+    }
+
+    @Test
     fun reminderLeadTimePresetsAreGroupedAndCustomInputIsUnambiguous() {
         val settingsSource = readProjectFile("app/src/main/java/com/example/timeapk/ui/settings/SettingsSubScreens.kt")
         val presetRow = settingsSource.substringAfter("private fun ReminderLeadTimePresetRow(")

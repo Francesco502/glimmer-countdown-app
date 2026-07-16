@@ -5,6 +5,8 @@ import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -36,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -200,6 +203,19 @@ fun SongToggle(
 }
 
 @Composable
+fun SettingsRadioGroup(
+    modifier: Modifier = Modifier,
+    verticalArrangement: Arrangement.Vertical = Arrangement.Top,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Column(
+        modifier = modifier.selectableGroup(),
+        verticalArrangement = verticalArrangement,
+        content = content
+    )
+}
+
+@Composable
 fun SettingsRadioRow(
     label: String,
     selected: Boolean,
@@ -212,14 +228,20 @@ fun SettingsRadioRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = 44.dp)
-            .clickable(role = Role.RadioButton, onClick = onClick)
+            .heightIn(min = 48.dp)
+            .selectable(
+                selected = selected,
+                role = Role.RadioButton,
+                onClick = onClick
+            )
+            .semantics(mergeDescendants = true) {}
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         RadioButton(
+            modifier = Modifier.clearAndSetSemantics {},
             selected = selected,
-            onClick = onClick
+            onClick = null
         )
         Column(
             modifier = Modifier
