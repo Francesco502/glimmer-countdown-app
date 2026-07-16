@@ -18,6 +18,7 @@
 - GitHub Release publisher 会删除 owned draft 中的所有旧资产，只接收 exact Direct APK，并在发布前后要求整个 Release 只保留唯一的 exact Direct APK，绑定资产 id、size、digest 与下载 URL；Play AAB 只交付 Play Console。
 - 明确 4.0 发布顺序：推送最终不可变 tag 后从对应 commit 新鲜正式签名构建，不复用旧产物；本地通过 `gh auth login` / `gh auth token` 获取凭据，CI 才注入 secret。
 - 修复深色首页事件文字、月历选中日期的颜色对比，并补齐滚轮、设置单选组和空状态的无障碍语义与 48dp 触控目标。
+- 修复应用语言与系统语言不同时，保存失败或“无可写系统日历”提示可能混入系统语言的问题；提示资源现在由当前界面语言环境解析。
 - 将分享卡渲染与图片写入移出主线程；启动阶段的语言偏好读取明确使用 IO 调度器，同时保留首帧前应用语言的正确性。
 
 ### 测试
@@ -26,7 +27,7 @@
 - 新增首页与小组件排序结果一致性断言，并单独验证置顶事件始终位于列表最前。
 - 新增发布契约测试，覆盖签名门、不可变 tag、draft ownership、并发锁、资产身份与最终公开状态验证。
 - 恢复已发布 v3.4 的真实 Room v6 schema，并在 API 37 验证完整 6→7→8→9→10 迁移链与数据保留。
-- Direct / Play JVM 各 408 项通过；五项 lint / vital lint 均为零问题，并新增 pull request 双渠道质量门。
+- Direct / Play JVM 各 409 项通过；五项 lint / vital lint 均为零问题，并新增 pull request 双渠道质量门。
 
 ### 版本信息
 

@@ -1,5 +1,6 @@
 package com.example.timeapk.ui.event
 
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -47,6 +48,18 @@ class EventEntryInputFocusTest {
         assertTrue(textField.contains("Context.INPUT_METHOD_SERVICE"))
         assertTrue(textField.contains("InputMethodManager.SHOW_FORCED"))
         assertTrue(textField.contains("inputMethodManager.showSoftInput(view, InputMethodManager.SHOW_FORCED)"))
+    }
+
+    @Test
+    fun saveMessagesResolveFromLocaleWrappedScreenContext() {
+        val viewModelSource = readSource("ui/event/EventEntryViewModel.kt")
+        val screenSource = readSource("ui/event/EventEntryScreen.kt")
+
+        assertTrue(viewModelSource.contains("data class PartialSuccess(@param:StringRes val messageResId: Int)"))
+        assertTrue(viewModelSource.contains("data class Failure(@param:StringRes val messageResId: Int)"))
+        assertFalse(viewModelSource.contains("application.getString(R.string.save_event"))
+        assertTrue(screenSource.contains("context.getString(result.messageResId)"))
+        assertFalse(screenSource.contains("showSnackbar(result.message)"))
     }
 
     private fun readSource(relative: String): String {

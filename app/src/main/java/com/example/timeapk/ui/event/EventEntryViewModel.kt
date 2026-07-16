@@ -2,6 +2,7 @@ package com.example.timeapk.ui.event
 
 import android.app.Application
 import android.util.Log
+import androidx.annotation.StringRes
 import androidx.lifecycle.AndroidViewModel
 import androidx.room.withTransaction
 import com.example.timeapk.R
@@ -38,8 +39,8 @@ import kotlin.random.Random
 
 sealed class SaveEventResult {
     object Success : SaveEventResult()
-    data class PartialSuccess(val message: String) : SaveEventResult()
-    data class Failure(val message: String) : SaveEventResult()
+    data class PartialSuccess(@param:StringRes val messageResId: Int) : SaveEventResult()
+    data class Failure(@param:StringRes val messageResId: Int) : SaveEventResult()
 }
 
 private val MIN_SUPPORTED_EVENT_DATE_MILLIS: Long = LocalDate.of(1900, 1, 1)
@@ -194,11 +195,11 @@ class EventEntryViewModel(
             rawDetails
         }
         if (!validateInput(details)) {
-            return SaveEventResult.Failure(application.getString(R.string.save_event_failed))
+            return SaveEventResult.Failure(R.string.save_event_failed)
         }
 
         val app = application as? TimeApplication
-            ?: return SaveEventResult.Failure(application.getString(R.string.save_event_failed))
+            ?: return SaveEventResult.Failure(R.string.save_event_failed)
 
         val persistedEvent = try {
             var event = details.toEvent().sanitizedReminderConfig()
@@ -212,7 +213,7 @@ class EventEntryViewModel(
             }
             event
         } catch (_: Exception) {
-            return SaveEventResult.Failure(application.getString(R.string.save_event_failed))
+            return SaveEventResult.Failure(R.string.save_event_failed)
         }
 
         var hasGenericSideEffectFailure = false
@@ -335,7 +336,7 @@ class EventEntryViewModel(
                 TAG,
                 "Saved eventId=${updatedEvent.id} with partial side-effect failure. hasGenericFailure=$hasGenericSideEffectFailure, scheduleSyncError=$scheduleSyncError"
             )
-            SaveEventResult.PartialSuccess(application.getString(partialMessageResId))
+            SaveEventResult.PartialSuccess(partialMessageResId)
         } else {
             SaveEventResult.Success
         }

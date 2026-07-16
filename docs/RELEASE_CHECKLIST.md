@@ -47,23 +47,24 @@
 - [ ] TalkBack 可识别主要按钮、开关、展开状态、列表项和日期选择器
 - [x] 常用触控目标满足尺寸要求，颜色与文字对比通过项目守卫测试
 - [ ] 冷启动、首页滚动、月历切换、详情与设置导航无明显卡顿或异常内存增长
-- [ ] Android 8、Android 12 和当前 target SDK 设备至少各完成一轮核心 smoke
+- [x] Android 8、Android 12 和当前 target SDK 设备至少各完成一轮核心 smoke
 - [x] Direct 与 Play 渠道关于页、权限和更新能力符合各自渠道约束
 
 ## 五、4.0 实测记录
 
-- JVM 回归（2026-07-16）：Direct / Play 各 408 项通过，0 failures / 0 errors / 0 skipped；覆盖农历重复、导入校验、数据库恢复、首页排序、小组件解析、无障碍架构及渠道更新契约等确定性行为。`compileDirectDebugAndroidTestKotlin`、`assembleDirectDebug`、`assemblePlayDebug` 同轮通过。
+- JVM 回归（2026-07-16）：Direct / Play 各 409 项通过，0 failures / 0 errors / 0 skipped；覆盖农历重复、导入校验、数据库恢复、首页排序、小组件解析、无障碍架构、当前界面语言解析及渠道更新契约等确定性行为。`compileDirectDebugAndroidTestKotlin`、`assembleDirectDebug`、`assemblePlayDebug` 同轮通过。
 - 数据库迁移（2026-07-16）：从已发布 v3.4 的真实 Room v6 schema 启动，依次执行生产迁移 6→7→8→9→10；API 37 上 2 项 connected migration 测试通过，验证删除字段、新增字段、核心数据保留与 v10 schema 严格校验。
-- UI / 无障碍（2026-07-16）：API 37 验证首页列表与卡片深色模式、月历 150% 系统字体、日期滚轮与设置单选组。修复事件文字和选中日期对比、48dp 触控目标、滚轮可调语义、装饰性空状态按钮重复朗读及设置单选行合并语义；真实 TalkBack 实机遍历仍未完成。
+- UI / 无障碍（2026-07-16）：API 37 验证首页列表与卡片深色模式、月历 150% 系统字体、日期滚轮与设置单选组。修复事件文字和选中日期对比、48dp 触控目标、滚轮可调语义、装饰性空状态按钮重复朗读及设置单选行合并语义；镜像内置 TalkBack 已以触摸探索模式绑定，首页视图标签取得真实读屏焦点，UI 语义树能识别月历入口、月份切换、事件和添加按钮的中文标签。自动注入手势未能可靠完成开关、展开区与日期选择器的端到端顺序遍历，因此总项仍保留未勾选。
 - 性能（2026-07-16）：分享卡 1080×1350 渲染移至 Default dispatcher，PNG 写入移至 IO；Debug 冷启动 5 次中位数约 1630ms，首页滚动 Perfetto trace 无丢样。Release 性能画像与真机长时内存观察仍未完成。
 - 工程门（2026-07-16）：五项 lint / vital lint 均通过，DirectDebug、DirectRelease、PlayRelease 报告均为 `No issues found.`；新增 Android pull request CI，执行双渠道 JVM、AndroidTest 编译、五项 lint / vital lint 与双渠道 Debug 构建。
 - 渠道验收（2026-07-16）：API 37 `emulator-5554` 安装 Direct / Play Debug APK；Direct 关于页显示 `4.0` 和“探寻新章”，Play 关于页显示 `4.0-play` 和“更新由应用商店管理”，且不暴露 Direct 下载或安装入口。`aapt` 验证 Direct Debug APK 包含 `REQUEST_INSTALL_PACKAGES`、Play Debug APK 不包含；正式发布密钥 Release 产物的最终权限与签名检查仍未执行。
 - 模拟器（2026-07-16）：API 37 `sdk_gphone16k_arm64`，以 22 条脱敏事件完成 Custom / ByDays / ByDate 首页排序，并由两个真实 Pixel Launcher 小组件实例验证“跟随首页”和独立模式；置顶 `Event 06`、`Event 03` 始终在前。
+- 系统兼容矩阵（2026-07-16）：Android 8.0 / API 26、Android 12 / API 31 与当前 API 37 均完成 Direct Debug 冷启动、新建事件、首页持久化、主要导航和 4.0 关于页 smoke，未发现崩溃；Android 12 无可写系统日历路径还验证事件主体安全保存。实测发现保存提示曾错误使用 Application 的英文环境，现改由当前界面 Context 解析资源并在同一路径复测为中文。
 - Release 构建（2026-07-16）：以隔离的临时签名配置完成 Direct / Play APK 与 Play AAB，exact Direct 文件名、APK v2 签名及 AAB JAR 签名验证通过；正式发布密钥产物仍需最终重跑，不能把临时证书产物用于发布。
 - 真机：未检查；待记录设备、系统版本、Launcher、小组件、通知、日历账户与安装升级验证。
 - PowerShell 脚本运行：未检查；当前环境没有 `pwsh` / Windows PowerShell，未执行解析或 mocked dry run。
 - 真实 GitHub mutation：未检查；未创建 Git ref 锁、draft、asset 或正式 Release，避免在未完成检查清单时改变远端发布状态。
-- Backup / restore smoke：未检查；模拟器 Backup Manager disabled，未执行 `pm clear` / restore。
+- Backup / restore smoke（2026-07-16）：Android 8 / API 26 启用系统 LocalTransport 后完成 `backupnow`、`pm clear` 与指定 token restore；事件数据库、用户偏好和小组件偏好均恢复，两个 DataStore 文件恢复前后 SHA-256 完全一致，恢复后的事件可在界面读取。
 - 筛选后的真实长按拖拽：未检查；ADB 手势未触发 Compose reorder 回调，仅有确定性合并、生命周期与 wiring 测试证据。
 
 ## 六、发布动作
@@ -83,15 +84,15 @@
 - [x] `ReleaseReadinessTest` 与 `ReleasePublicationContractTest` 覆盖：严格版本/tag、正式签名指纹门、exact Direct APK、published/manual draft 拒绝、publisher ownership marker、Git ref 锁、owned draft 全资产清理、Release 唯一资产集合、size/digest/URL 绑定和最终 GET 验证。
 - [x] 未签名的最终 package 图会先进入签名校验并失败；release lint / compile 不因缺少本地密钥而读取秘密。
 - [x] Play 关于页只显示商店托管更新说明，不暴露 Direct APK 检查或安装入口。
-- [x] Release / update 子系统验收：Direct / Play JVM 各 408 项通过，`compileDirectDebugAndroidTestKotlin` 通过，两个渠道 Debug APK 均成功构建并安装到 API 37 `emulator-5554`；关于页运行时文案与 Debug APK 权限符合渠道约束。
+- [x] Release / update 子系统验收：Direct / Play JVM 各 409 项通过，`compileDirectDebugAndroidTestKotlin` 通过，两个渠道 Debug APK 均成功构建并安装到 API 37 `emulator-5554`；关于页运行时文案与 Debug APK 权限符合渠道约束。
 - [ ] 使用正式发布证书重复完整构建、签名、权限、文件大小与 SHA-256 记录。
 - [ ] 在隔离测试仓库运行 PowerShell publisher 的成功、并发锁、owned draft 恢复、残留锁与失败清理场景。
 
 ## Data Task 6 恢复验证（2026-07-16）
 
-- [x] 农历重复、导入校验与重复数据回归：Direct / Play JVM 各 408 项通过；本次会话工作报告为 `.superpowers/sdd/data-task-6-report.md`，不作为长期发布附件。
+- [x] 农历重复、导入校验与重复数据回归：Direct / Play JVM 各 409 项通过；本次会话工作报告为 `.superpowers/sdd/data-task-6-report.md`，不作为长期发布附件。
 - [x] 日历权限撤销恢复 smoke：`emulator-5554` / API 37；撤权后保留 provider ownership 与可重试错误、阻止删除，恢复权限后由应用清理 CalendarProvider 并成功删除 Room 事件；`/tmp/timeapk-data-task6-2026-07-16/rerun-682e004/` 仅为本机临时证据目录，不作为长期发布附件。
-- [ ] Backup / restore smoke：模拟器 Backup Manager disabled，`Ancestral=0`、`Current=0`、`Ever backed up=0`，且没有真实 TimeAPK widget instance；未执行 `pm clear` / restore，不声称覆盖。
+- [x] Backup / restore smoke：Android 8 / API 26 的 LocalTransport 完成事件、用户偏好和小组件配置的备份、`pm clear` 与恢复；恢复后 DataStore 哈希一致，事件数据库和界面内容可读取。
 
 ## Home / Widget Task 6 验证（2026-07-16）
 

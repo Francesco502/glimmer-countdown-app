@@ -263,7 +263,7 @@ fun EventEntryScreen(
                     navigateBack()
                 }
                 is SaveEventResult.PartialSuccess -> {
-                    snackbarHostState.showSnackbar(result.message)
+                    snackbarHostState.showSnackbar(context.getString(result.messageResId))
                     isSaving = false
                     pendingSaveOrigin = SaveRequestOrigin.Standard
                     navigateBack()
@@ -271,7 +271,7 @@ fun EventEntryScreen(
                 is SaveEventResult.Failure -> {
                     pendingSaveOrigin = SaveRequestOrigin.Standard
                     isSaving = false
-                    snackbarHostState.showSnackbar(result.message)
+                    snackbarHostState.showSnackbar(context.getString(result.messageResId))
                 }
             }
         }
