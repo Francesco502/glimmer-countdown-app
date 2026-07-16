@@ -153,15 +153,18 @@ fun HomeScreen(
     var listInitialized by remember { mutableStateOf(false) }
     var dragInProgress by remember { mutableStateOf(false) }
     var pendingDisplayedList by remember { mutableStateOf<List<EventUiState>?>(null) }
+    var pendingLocalReorder by remember { mutableStateOf<PendingLocalReorderSnapshot?>(null) }
 
     fun applyDisplayedListSnapshot(target: List<EventUiState>) {
         if (target.isEmpty()) {
+            pendingLocalReorder = null
             orderedList.clear()
             listInitialized = true
             return
         }
 
         if (orderedList.isEmpty()) {
+            pendingLocalReorder = null
             orderedList.addAll(target)
             listInitialized = true
             return
@@ -169,9 +172,16 @@ fun HomeScreen(
 
         val currentIds = orderedList.map { it.event.id }
         val targetIds = target.map { it.event.id }
-        if (shouldKeepCurrentCustomOrder(currentIds, targetIds, sortType)) {
+        if (shouldRetainPendingLocalReorder(
+                currentIds = currentIds,
+                targetIds = targetIds,
+                sortType = sortType,
+                pending = pendingLocalReorder
+            )
+        ) {
             orderedList.refreshItemsByKey(target) { it.event.id }
         } else {
+            pendingLocalReorder = null
             orderedList.replaceWithOrderedItems(target) { it.event.id }
         }
         listInitialized = true
@@ -182,7 +192,7 @@ fun HomeScreen(
         listInitialized = true
     }
 
-    LaunchedEffect(displayedList, dragInProgress, sortType) {
+    LaunchedEffect(displayedList, dragInProgress, sortType, pendingLocalReorder) {
         if (dragInProgress) {
             pendingDisplayedList = displayedList
             return@LaunchedEffect
@@ -323,11 +333,24 @@ fun HomeScreen(
                         onDragEnd = { _, _ ->
                             val visibleIds = visibleIdsAtDragStart
                             visibleIdsAtDragStart = null
+                            val reorderedVisibleIds = orderedList.map { it.event.id }
+                            val reorderSnapshot = visibleIds?.let { upstreamIds ->
+                                PendingLocalReorderSnapshot(
+                                    upstreamIds = upstreamIds,
+                                    reorderedIds = reorderedVisibleIds
+                                ).takeIf { it.upstreamIds != it.reorderedIds }
+                            }
+                            pendingLocalReorder = reorderSnapshot
                             dragInProgress = false
                             if (latestDragEnabled && visibleIds != null) {
                                 latestViewModel.updateCustomEventOrder(
                                     visibleIds = visibleIds,
-                                    reorderedVisibleIds = orderedList.map { it.event.id }
+                                    reorderedVisibleIds = reorderedVisibleIds,
+                                    onPersistenceResult = { persisted ->
+                                        if (!persisted && pendingLocalReorder == reorderSnapshot) {
+                                            pendingLocalReorder = null
+                                        }
+                                    }
                                 )
                             }
                         }

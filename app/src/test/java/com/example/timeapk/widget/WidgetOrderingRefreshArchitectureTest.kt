@@ -175,6 +175,26 @@ class WidgetOrderingRefreshArchitectureTest {
     }
 
     @Test
+    fun homeKeepsAReorderedSnapshotOnlyWhileItsPersistenceIsPending() {
+        val source = mainSource("ui/home/HomeScreen.kt").readText(Charsets.UTF_8)
+        val sync = mainSource("ui/home/HomeListSync.kt").readText(Charsets.UTF_8)
+        val dragEnd = source.substringAfter("onDragEnd =").substringBefore("AnimatedContent(")
+
+        assertTrue(source.contains("var pendingLocalReorder by remember"))
+        assertTrue(source.contains("shouldRetainPendingLocalReorder("))
+        assertTrue(!source.contains("shouldKeepCurrentCustomOrder("))
+        assertTrue(sync.contains("targetIds == pending.upstreamIds"))
+        assertTrue(sync.contains("currentIds == pending.reorderedIds"))
+        assertTrue(sync.contains("sortType != SortType.Custom"))
+        assertTrue(dragEnd.contains("PendingLocalReorderSnapshot("))
+        assertTrue(
+            dragEnd.indexOf("pendingLocalReorder =") < dragEnd.indexOf("dragInProgress = false")
+        )
+        assertTrue(dragEnd.contains("onPersistenceResult ="))
+        assertTrue(dragEnd.contains("if (!persisted && pendingLocalReorder == reorderSnapshot)"))
+    }
+
+    @Test
     fun widgetResolverReadsAndAppliesThePersistedHomeSortType() {
         val source = mainSource("widget/WidgetContentResolver.kt").readText(Charsets.UTF_8)
 

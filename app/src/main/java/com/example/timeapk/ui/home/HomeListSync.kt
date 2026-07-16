@@ -1,14 +1,23 @@
 package com.example.timeapk.ui.home
 
-internal fun shouldKeepCurrentCustomOrder(
+internal data class PendingLocalReorderSnapshot(
+    val upstreamIds: List<Int>,
+    val reorderedIds: List<Int>
+)
+
+internal fun shouldRetainPendingLocalReorder(
     currentIds: List<Int>,
     targetIds: List<Int>,
-    sortType: SortType
+    sortType: SortType,
+    pending: PendingLocalReorderSnapshot?
 ): Boolean {
-    return sortType == SortType.Custom &&
-        currentIds.size == targetIds.size &&
-        currentIds != targetIds &&
-        currentIds.toSet() == targetIds.toSet()
+    if (pending == null || sortType != SortType.Custom) return false
+    if (pending.upstreamIds == pending.reorderedIds) return false
+    if (pending.upstreamIds.size != pending.reorderedIds.size) return false
+    if (pending.upstreamIds.toSet() != pending.reorderedIds.toSet()) return false
+
+    return currentIds == pending.reorderedIds &&
+        targetIds == pending.upstreamIds
 }
 
 internal fun <T, K> MutableList<T>.refreshItemsByKey(

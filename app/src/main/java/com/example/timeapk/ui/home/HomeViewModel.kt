@@ -24,6 +24,7 @@ import com.example.timeapk.ui.utils.getPreviousLunarOccurrence
 import com.example.timeapk.ui.utils.nextOccurrenceDate
 import com.example.timeapk.ui.utils.previousOccurrenceDate
 import com.example.timeapk.widget.WidgetUpdater
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -510,24 +511,38 @@ class HomeViewModel(
         }
     }
 
-    fun updateCustomEventOrder(visibleIds: List<Int>, reorderedVisibleIds: List<Int>) {
+    fun updateCustomEventOrder(
+        visibleIds: List<Int>,
+        reorderedVisibleIds: List<Int>,
+        onPersistenceResult: (Boolean) -> Unit = {}
+    ) {
         viewModelScope.launch {
-            val allEvents = repository.getAllEventsSnapshot()
-            val activeIds = allEvents.mapTo(mutableSetOf()) { it.id }
-            val storedIds = userPrefs.customEventOrderFlow.first()
-            val defaultIds = defaultCustomEventOrderIds(allEvents)
-            val globalIds = (storedIds + defaultIds)
-                .filter { it in activeIds }
-                .distinct()
-            val activeVisibleIds = visibleIds.filter { it in activeIds }
-            val activeReorderedIds = reorderedVisibleIds.filter { it in activeIds }
-            val mergedIds = mergeVisibleOrderIntoGlobalOrder(
-                globalIds = globalIds,
-                visibleIds = activeVisibleIds,
-                reorderedVisibleIds = activeReorderedIds
-            )
-            userPrefs.setCustomEventOrder(mergedIds)
-            WidgetUpdater.refreshCountdownWidgets(application)
+            var persisted = false
+            try {
+                val allEvents = repository.getAllEventsSnapshot()
+                val activeIds = allEvents.mapTo(mutableSetOf()) { it.id }
+                val storedIds = userPrefs.customEventOrderFlow.first()
+                val defaultIds = defaultCustomEventOrderIds(allEvents)
+                val globalIds = (storedIds + defaultIds)
+                    .filter { it in activeIds }
+                    .distinct()
+                val activeVisibleIds = visibleIds.filter { it in activeIds }
+                val activeReorderedIds = reorderedVisibleIds.filter { it in activeIds }
+                val mergedIds = mergeVisibleOrderIntoGlobalOrder(
+                    globalIds = globalIds,
+                    visibleIds = activeVisibleIds,
+                    reorderedVisibleIds = activeReorderedIds
+                )
+                userPrefs.setCustomEventOrder(mergedIds)
+                persisted = true
+                onPersistenceResult(true)
+                WidgetUpdater.refreshCountdownWidgets(application)
+            } catch (cancelled: CancellationException) {
+                if (!persisted) onPersistenceResult(false)
+                throw cancelled
+            } catch (_: Exception) {
+                if (!persisted) onPersistenceResult(false)
+            }
         }
     }
 

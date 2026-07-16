@@ -62,26 +62,71 @@ class HomeListSyncTest {
     }
 
     @Test
-    fun shouldKeepCurrentCustomOrder_onlyReturnsTrueForCustomSortWithSameIdsDifferentOrder() {
+    fun pendingLocalReorder_isRetainedOnlyWhileOldUpstreamOrderAwaitsPersistence() {
+        val pending = PendingLocalReorderSnapshot(
+            upstreamIds = listOf(1, 2, 3),
+            reorderedIds = listOf(3, 1, 2)
+        )
+
         assertTrue(
-            shouldKeepCurrentCustomOrder(
+            shouldRetainPendingLocalReorder(
                 currentIds = listOf(3, 1, 2),
                 targetIds = listOf(1, 2, 3),
-                sortType = SortType.Custom
+                sortType = SortType.Custom,
+                pending = pending
+            )
+        )
+    }
+
+    @Test
+    fun customModeTransition_withoutPendingDrag_appliesPersistedTarget() {
+        assertFalse(
+            shouldRetainPendingLocalReorder(
+                currentIds = listOf(3, 1, 2),
+                targetIds = listOf(1, 2, 3),
+                sortType = SortType.Custom,
+                pending = null
+            )
+        )
+    }
+
+    @Test
+    fun pendingLocalReorder_isClearedForModeTargetOrActiveIdChanges() {
+        val pending = PendingLocalReorderSnapshot(
+            upstreamIds = listOf(1, 2, 3),
+            reorderedIds = listOf(3, 1, 2)
+        )
+
+        assertFalse(
+            shouldRetainPendingLocalReorder(
+                currentIds = listOf(3, 1, 2),
+                targetIds = listOf(1, 2, 3),
+                sortType = SortType.ByDays,
+                pending = pending
             )
         )
         assertFalse(
-            shouldKeepCurrentCustomOrder(
+            shouldRetainPendingLocalReorder(
                 currentIds = listOf(3, 1),
                 targetIds = listOf(1, 2, 3),
-                sortType = SortType.Custom
+                sortType = SortType.Custom,
+                pending = pending
             )
         )
         assertFalse(
-            shouldKeepCurrentCustomOrder(
+            shouldRetainPendingLocalReorder(
                 currentIds = listOf(3, 1, 2),
-                targetIds = listOf(1, 2, 3),
-                sortType = SortType.ByDays
+                targetIds = listOf(2, 1, 3),
+                sortType = SortType.Custom,
+                pending = pending
+            )
+        )
+        assertFalse(
+            shouldRetainPendingLocalReorder(
+                currentIds = listOf(3, 1, 2),
+                targetIds = listOf(3, 1, 2),
+                sortType = SortType.Custom,
+                pending = pending
             )
         )
     }
