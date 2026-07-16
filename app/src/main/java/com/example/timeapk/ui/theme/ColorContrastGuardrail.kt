@@ -30,6 +30,17 @@ object ColorContrastGuardrail {
         return (lighter + RelativeLuminanceOffset) / (darker + RelativeLuminanceOffset)
     }
 
+    fun ensureReadableText(
+        preferred: Color,
+        background: Color,
+        minRatio: Double = AaNormalText
+    ): Color {
+        if (contrastRatio(preferred, background) >= minRatio) return preferred
+        val blackRatio = contrastRatio(Color.Black, background)
+        val whiteRatio = contrastRatio(Color.White, background)
+        return if (blackRatio >= whiteRatio) Color.Black else Color.White
+    }
+
     fun audit(
         background: Color,
         onBackground: Color,

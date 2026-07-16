@@ -461,6 +461,10 @@ fun SongCalendarCell(
     onClick: (() -> Unit)? = null
 ) {
     val primary = MaterialTheme.colorScheme.primary
+    val selectedContentColor = ColorContrastGuardrail.ensureReadableText(
+        preferred = MaterialTheme.colorScheme.onPrimary,
+        background = primary
+    )
     val borderColor = when {
         selected -> primary.copy(alpha = 0.58f)
         today -> SongPalette.Gold.copy(alpha = 0.46f)
@@ -468,7 +472,7 @@ fun SongCalendarCell(
         else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
     }
     val backgroundColor = when {
-        selected -> SongPalette.PaperDeep.copy(alpha = 0.54f)
+        selected -> primary
         hasEvents -> SongPalette.PaperWarm.copy(alpha = 0.45f)
         else -> Color.Transparent
     }
@@ -490,7 +494,11 @@ fun SongCalendarCell(
                 Text(
                     text = dayText,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = if (hasEvents || selected) primary else MaterialTheme.colorScheme.onSurface
+                    color = when {
+                        selected -> selectedContentColor
+                        hasEvents -> primary
+                        else -> MaterialTheme.colorScheme.onSurface
+                    }
                 )
                 Spacer(modifier = Modifier.weight(1f))
                 if (today) {
@@ -507,13 +515,16 @@ fun SongCalendarCell(
                     Box(
                         modifier = Modifier
                             .size(4.dp)
-                            .background(primary, RoundedCornerShape(1.dp))
+                            .background(
+                                if (selected) selectedContentColor else primary,
+                                RoundedCornerShape(1.dp)
+                            )
                     )
                     if (!eventIndicatorText.isNullOrBlank()) {
                         Text(
                             text = eventIndicatorText,
                             style = MaterialTheme.typography.labelSmall,
-                            color = primary,
+                            color = if (selected) selectedContentColor else primary,
                             maxLines = 1,
                             overflow = TextOverflow.Clip,
                             textAlign = TextAlign.Start,

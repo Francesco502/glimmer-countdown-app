@@ -1,11 +1,39 @@
 package com.example.timeapk.ui.theme
 
 import androidx.compose.ui.graphics.Color
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ColorContrastGuardrailTest {
+
+    @Test
+    fun readableText_fallsBackToAccessibleEndpointWhenPreferredColorFails() {
+        val background = Color(0xFF8A877F)
+        val preferred = Color(0xFFAC8F62)
+
+        val resolved = ColorContrastGuardrail.ensureReadableText(
+            preferred = preferred,
+            background = background
+        )
+
+        assertTrue(
+            ColorContrastGuardrail.contrastRatio(resolved, background) >=
+                ColorContrastGuardrail.AaNormalText
+        )
+    }
+
+    @Test
+    fun readableText_preservesPreferredColorWhenItAlreadyPasses() {
+        val preferred = Color(0xFF1F1F1F)
+        val background = Color(0xFFAC8F62)
+
+        assertEquals(
+            preferred,
+            ColorContrastGuardrail.ensureReadableText(preferred, background)
+        )
+    }
 
     @Test
     fun songLightPalette_meetsAaForCoreTextPairs() {
