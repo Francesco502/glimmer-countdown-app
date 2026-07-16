@@ -376,6 +376,8 @@
     <string name="custom_reminder_time_label">Reminder time</string>
     <string name="custom_reminder_time_invalid">Time format: 08:30 or 0830</string>
     <string name="settings_milestone_remind_days_custom_hint">30</string>
+    <string name="settings_reminder_custom_days_label">Custom lead time</string>
+    <string name="settings_reminder_custom_days_hint">Enter 0–3650 days</string>
     <string name="schedule_milestone_reminder_title_today_format">%1$s: %2$s is today</string>
     <plurals name="schedule_milestone_reminder_title_format">
         <item quantity="one">%1$s: %2$s in %3$d day</item>

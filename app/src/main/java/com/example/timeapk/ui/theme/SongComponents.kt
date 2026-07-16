@@ -5,6 +5,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -36,6 +37,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -285,7 +287,8 @@ fun SongFilterChip(
     selected: Boolean,
     onClick: () -> Unit,
     label: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    selectionRole: Role? = Role.RadioButton
 ) {
     val shape = RoundedCornerShape(SongDesignTokens.StandardRadius.dp)
     val borderColor = if (selected) {
@@ -296,7 +299,20 @@ fun SongFilterChip(
     Surface(
         modifier = modifier
             .defaultMinSize(minHeight = 32.dp)
-            .clickable(onClick = onClick),
+            .then(
+                if (selectionRole != null) {
+                    Modifier.selectable(
+                        selected = selected,
+                        role = selectionRole,
+                        onClick = onClick
+                    )
+                } else {
+                    Modifier.clickable(
+                        role = Role.Button,
+                        onClick = onClick
+                    )
+                }
+            ),
         shape = shape,
         color = if (selected) {
             MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)

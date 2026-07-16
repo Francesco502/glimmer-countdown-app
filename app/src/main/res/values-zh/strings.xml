@@ -323,6 +323,8 @@
     <string name="custom_reminder_time_label">提醒时间</string>
     <string name="custom_reminder_time_invalid">时刻未妥：08:30 或 0830</string>
     <string name="settings_milestone_remind_days_custom_hint">30</string>
+    <string name="settings_reminder_custom_days_label">自定义提前天数</string>
+    <string name="settings_reminder_custom_days_hint">输入 0–3650 天</string>
     <string name="schedule_milestone_reminder_title_today_format">%1$s：%2$s就在今天</string>
     <plurals name="schedule_milestone_reminder_title_format">
         <item quantity="other">%1$s：距离%2$s还有%3$d天</item>

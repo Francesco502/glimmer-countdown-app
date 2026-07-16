@@ -14,6 +14,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -114,9 +116,10 @@ fun ClassicalToggle(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     Box(
         modifier = Modifier
             .heightIn(min = 44.dp)
-            .clickable(
+            .toggleable(
+                value = checked,
                 role = Role.Switch,
-                onClick = { onCheckedChange(!checked) }
+                onValueChange = onCheckedChange
             )
             .semantics {
                 role = Role.Switch
@@ -816,7 +819,8 @@ fun LegacyDisplaySettingsContent(
                     onValueChange = {
                         customMilestoneRemindDaysInput = it.filter { c -> c.isDigit() }
                     },
-                    label = { Text(stringResource(R.string.settings_milestone_remind_days_custom_hint)) },
+                    label = { Text(stringResource(R.string.settings_reminder_custom_days_label)) },
+                    placeholder = { Text(stringResource(R.string.settings_reminder_custom_days_hint)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
                     modifier = Modifier.weight(1f),
@@ -1482,7 +1486,8 @@ fun MilestoneSettingsContent(
                         }
                     }
                 },
-                placeholder = { Text(stringResource(R.string.settings_milestone_remind_days_custom_hint)) },
+                label = { Text(stringResource(R.string.settings_reminder_custom_days_label)) },
+                placeholder = { Text(stringResource(R.string.settings_reminder_custom_days_hint)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 singleLine = true,
                 modifier = Modifier
@@ -1617,7 +1622,8 @@ fun MilestoneSettingsContent(
                         }
                     }
                 },
-                placeholder = { Text(stringResource(R.string.settings_milestone_remind_days_custom_hint)) },
+                label = { Text(stringResource(R.string.settings_reminder_custom_days_label)) },
+                placeholder = { Text(stringResource(R.string.settings_reminder_custom_days_hint)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 singleLine = true,
                 modifier = Modifier
@@ -1925,6 +1931,7 @@ private fun ReminderLeadTimePresetRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .selectableGroup()
             .horizontalScroll(rememberScrollState())
             .padding(vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),

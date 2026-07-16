@@ -1047,7 +1047,8 @@ fun EventInputForm(
                 SongFilterChip(
                     selected = false,
                     onClick = { showCustomRepeatPicker = true },
-                    label = stringResource(R.string.category_custom)
+                    label = stringResource(R.string.category_custom),
+                    selectionRole = null
                 )
             }
             Row(
