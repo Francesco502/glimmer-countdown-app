@@ -83,3 +83,10 @@
 - [x] 农历重复、导入校验与重复数据回归：Direct / Play JVM 各 325 项通过；报告 `.superpowers/sdd/data-task-6-report.md`。
 - [x] 日历权限撤销恢复 smoke：`emulator-5554` / API 37；撤权后保留 provider ownership 与可重试错误、阻止删除，恢复权限后由应用清理 CalendarProvider 并成功删除 Room 事件；证据 `/tmp/timeapk-data-task6-2026-07-16/rerun-682e004/`。
 - [ ] Backup / restore smoke：模拟器 Backup Manager disabled，`Ancestral=0`、`Current=0`、`Ever backed up=0`，且没有真实 TimeAPK widget instance；未执行 `pm clear` / restore，不声称覆盖。
+
+## Home / Widget Task 6 验证（2026-07-16）
+
+- [x] 3.17 导出的 22 条脱敏事件 fixture；首页 Custom / ByDays / ByDate 与真实 Pixel Launcher `SORT_HOME` 小组件顺序一致，置顶 `Event 06`、`Event 03` 始终在前。
+- [x] 两个真实小组件实例分别保持“全部事件 / 跟随首页”和“仅置顶 / 最近优先”配置；显式日期边界广播刷新两个 RemoteViews，下一次本地午夜 alarm 已布置。
+- [ ] 筛选后的真实长按拖拽：ADB 三种手势均未触发 Compose reorder 回调，因此保持未验证；隐藏槽位合并规则由确定性单元测试与架构测试覆盖，不声称真实手势通过。
+- 运行时报告：`.superpowers/sdd/home-task-6-report.md`；匿名证据：`/tmp/timeapk-home-widget-task6-2026-07-16-final/`。
