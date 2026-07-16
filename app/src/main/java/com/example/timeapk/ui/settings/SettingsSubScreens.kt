@@ -74,6 +74,7 @@ import com.example.timeapk.widget.WidgetUpdater
 import com.example.timeapk.update.CheckUpdateResult
 import com.example.timeapk.update.UpdateInstaller
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -2386,7 +2387,40 @@ fun AboutSettingsContent(
     var updateCheckInProgress by remember { mutableStateOf(false) }
     var updateDownloading by remember { mutableStateOf(false) }
 
-    updateResult?.takeIf { it.hasUpdate }?.let { result ->
+    fun startUpdateCheck() {
+        if (updateCheckInProgress) return
+        updateResult = null
+        updateCheckInProgress = true
+        scope.launch {
+            val result = try {
+                app.updateChecker.checkUpdate()
+            } catch (cancellation: CancellationException) {
+                updateCheckInProgress = false
+                throw cancellation
+            } catch (_: Exception) {
+                updateCheckInProgress = false
+                snackbarHostState.showSnackbar(
+                    context.getString(R.string.update_error),
+                    withDismissAction = true
+                )
+                return@launch
+            }
+            updateCheckInProgress = false
+            updateResult = result
+            when {
+                result.checkFailed -> snackbarHostState.showSnackbar(
+                    context.getString(R.string.update_error),
+                    withDismissAction = true
+                )
+                !result.hasUpdate -> snackbarHostState.showSnackbar(
+                    context.getString(R.string.update_latest),
+                    withDismissAction = true
+                )
+            }
+        }
+    }
+
+    if (directApkUpdatesEnabled) updateResult?.takeIf { it.hasUpdate }?.let { result ->
         SongFormDialog(
             title = context.getString(R.string.update_new_title, result.versionName ?: ""),
             onDismissRequest = { updateResult = null },
@@ -2468,46 +2502,24 @@ fun AboutSettingsContent(
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
         
-        SettingsActionRow(
-            label = stringResource(R.string.settings_check_update),
-            supportingText = if (updateCheckInProgress) {
-                stringResource(R.string.settings_check_update_loading)
-            } else {
-                null
-            },
-            onClick = {
-                if (!updateCheckInProgress) {
-                    updateResult = null
-                    updateCheckInProgress = true
-                    scope.launch {
-                        val result = try {
-                            app.updateChecker.checkUpdate()
-                        } catch (_: Exception) {
-                            withContext(Dispatchers.Main) {
-                                updateCheckInProgress = false
-                                snackbarHostState.showSnackbar(context.getString(R.string.update_error), withDismissAction = true)
-                            }
-                            return@launch
-                        }
-                        withContext(Dispatchers.Main) {
-                            updateCheckInProgress = false
-                            updateResult = result
-                            if (result.checkFailed) {
-                                snackbarHostState.showSnackbar(
-                                    context.getString(R.string.update_error),
-                                    withDismissAction = true
-                                )
-                            } else if (!result.hasUpdate) {
-                                snackbarHostState.showSnackbar(
-                                    context.getString(R.string.update_latest),
-                                    withDismissAction = true
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        )
+        if (directApkUpdatesEnabled) {
+            SettingsActionRow(
+                label = stringResource(R.string.settings_check_update),
+                supportingText = if (updateCheckInProgress) {
+                    stringResource(R.string.settings_check_update_loading)
+                } else {
+                    null
+                },
+                onClick = { startUpdateCheck() }
+            )
+        } else {
+            Text(
+                text = stringResource(R.string.settings_updates_managed_by_store),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(vertical = 16.dp)
+            )
+        }
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
     }
 }

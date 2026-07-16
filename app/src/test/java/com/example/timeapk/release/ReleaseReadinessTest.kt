@@ -147,6 +147,28 @@ class ReleaseReadinessTest {
     }
 
     @Test
+    fun aboutScreenHidesManualUpdateCheckForPlayChannel() {
+        val source = mainSource("ui/settings/SettingsSubScreens.kt").readText(Charsets.UTF_8)
+        val about = source.substringAfter("fun AboutSettingsContent(")
+        val controls = about.substringAfter("SettingsGroupHeader(title = stringResource(R.string.settings_about_entry_title))")
+
+        assertTrue(about.contains("fun startUpdateCheck()"))
+        assertTrue(controls.contains("if (directApkUpdatesEnabled)"))
+        val manualActionIndex = controls.indexOf("R.string.settings_check_update")
+        val directGateIndex = controls.lastIndexOf("if (directApkUpdatesEnabled) {", manualActionIndex)
+        val directClickIndex = controls.indexOf("onClick = { startUpdateCheck() }", manualActionIndex)
+        val managedStoreIndex = controls.indexOf("R.string.settings_updates_managed_by_store")
+        assertTrue(directGateIndex in 0 until manualActionIndex)
+        assertTrue(directClickIndex in (manualActionIndex + 1) until managedStoreIndex)
+        assertTrue(
+            controls.contains(
+                "} else {\n            Text(\n                " +
+                    "text = stringResource(R.string.settings_updates_managed_by_store)"
+            )
+        )
+    }
+
+    @Test
     fun composeEntryPointsStartWithStoredDefaultSongFontPreset() {
         listOf(
             mainSource("MainActivity.kt"),

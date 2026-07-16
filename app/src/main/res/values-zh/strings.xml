@@ -176,6 +176,7 @@
     <string name="settings_title">设置</string>
     <string name="settings_about_version">关于 · 版本 %1$s</string>
     <string name="settings_check_update">探寻新章</string>
+    <string name="settings_updates_managed_by_store">更新由应用商店管理</string>
     <string name="update_latest">已是最新版本</string>
     <string name="update_error">探寻未成，稍候再试</string>
     <string name="update_new_title">发现新版本 %1$s</string>
