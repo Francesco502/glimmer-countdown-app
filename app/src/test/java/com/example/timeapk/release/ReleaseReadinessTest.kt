@@ -72,6 +72,9 @@ class ReleaseReadinessTest {
         assertTrue(readme.contains("4.0 发布目标"))
         assertTrue(readme.contains("最新公开版本仍为 `3.17`"))
         assertTrue(readme.contains("releases/tag/v3.17"))
+        listOf(readme, changelog, checklist, githubGuide, releaseGuide).forEach { document ->
+            assertTrue(document.replace("`", "").contains("最新公开版本仍为 3.17"))
+        }
         assertTrue(changelog.contains("## [4.0] - 待发布"))
         assertTrue(checklist.contains("# 发布检查清单（v4.0）"))
         assertTrue(checklist.contains("发布状态：待验证"))
@@ -93,6 +96,56 @@ class ReleaseReadinessTest {
         assertFalse(script.contains("${'$'}fallback = '3.17'"))
         assertFalse(script.contains("Upload-ReleaseAsset `\n    -Release ${'$'}release `\n    -AssetName ${'$'}aabName"))
         assertFalse(script.contains("ERROR: AAB not found"))
+    }
+
+    @Test
+    fun releaseDocsRequireImmutableTagAndLockedOwnedDraftPublication() {
+        val githubGuide = existingFile(
+            "docs/GITHUB_AND_RELEASE.md",
+            "../docs/GITHUB_AND_RELEASE.md"
+        ).readText(Charsets.UTF_8)
+        val releaseGuide = existingFile(
+            "docs/release_and_update_guide.md",
+            "../docs/release_and_update_guide.md"
+        ).readText(Charsets.UTF_8)
+        val combined = "$githubGuide\n$releaseGuide"
+
+        assertTrue(combined.contains("最终发布 commit"))
+        assertTrue(combined.contains("本地与远端 tag 解引用后的 commit"))
+        assertTrue(combined.contains("ownership marker"))
+        assertTrue(combined.contains("Git ref 锁"))
+        assertTrue(combined.contains("残留锁"))
+        assertTrue(combined.contains("GitHub Contents: write"))
+        assertTrue(combined.contains("GLIMMER_RELEASE_CERT_SHA256"))
+        assertTrue(combined.contains("ANDROID_HOME"))
+        assertTrue(combined.contains("GITHUB_TOKEN"))
+        assertTrue(combined.contains("size、digest、下载 URL"))
+        assertTrue(combined.contains("最终 GET"))
+        assertTrue(combined.contains("Play AAB 不上传 GitHub Release"))
+        assertFalse(combined.contains("git tag -fa"))
+        assertFalse(combined.contains("git push origin v4.0 --force"))
+        assertFalse(combined.contains("自动更新已存在的 GitHub Release"))
+        assertFalse(combined.contains("自动替换同名 Direct APK 资产"))
+    }
+
+    @Test
+    fun releaseChecklistKeepsUnexecuted40EvidenceUnchecked() {
+        val checklist = existingFile(
+            "docs/RELEASE_CHECKLIST.md",
+            "../docs/RELEASE_CHECKLIST.md"
+        ).readText(Charsets.UTF_8)
+
+        assertTrue(checklist.contains("临时签名配置"))
+        assertTrue(checklist.contains("正式发布密钥产物仍需最终重跑"))
+        assertTrue(checklist.contains("PowerShell 脚本运行：未检查"))
+        assertTrue(checklist.contains("真实 GitHub mutation：未检查"))
+        assertTrue(checklist.contains("Backup / restore smoke"))
+        assertTrue(checklist.contains("筛选后的真实长按拖拽"))
+        assertTrue(checklist.contains("真机：未检查"))
+        assertTrue(checklist.contains("API 37"))
+        assertFalse(checklist.contains("Android 17"))
+        assertFalse(checklist.contains("- [x] 创建并推送 `v4.0` 标签"))
+        assertFalse(checklist.contains("- [x] 发布 `glimmer-countdown-4-0.apk`"))
     }
 
     @Test

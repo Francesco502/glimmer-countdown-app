@@ -1,13 +1,13 @@
-# GitHub 提交与发布流程（v3.17）
+# GitHub 提交与发布流程（v4.0）
 
-本文档用于当前 `3.17` 版本的代码提交、推送、标签与 GitHub Release 操作。
+本文档用于 `4.0` 成熟版候选的代码提交、推送、标签与 GitHub Release 操作。4.0 尚未发布，最新公开版本仍为 3.17；发布检查清单未完成前不得创建正式 Release。
 
 ## 1. 本地提交
 
 ```bash
 git status
 git add app gradle.properties README.md CHANGELOG.md docs scripts .gitignore
-git commit -m "release: ship v3.17"
+git commit -m "release: ship v4.0"
 ```
 
 说明：
@@ -18,26 +18,21 @@ git commit -m "release: ship v3.17"
 ## 2. 推送代码
 
 ```bash
-git push -u origin codex/detail-share-card-316
+git push -u origin codex/release-4-0-widget-sort
 ```
 
 如果最终发布分支是 `main`，应先完成合并或按仓库实际策略推送到目标分支。
 
-## 3. 创建或更新 `v3.17` 标签
+## 3. 在最终发布 commit 上创建 `v4.0` 标签
 
-首次发布：
-
-```bash
-git tag -a v3.17 -m "Release v3.17"
-git push origin v3.17
-```
-
-同版本重新发布：
+先确认待发布分支已经合并、工作区干净，且 `HEAD` 就是最终发布 commit，再首次创建并推送标签：
 
 ```bash
-git tag -fa v3.17 -m "Release v3.17"
-git push origin v3.17 --force
+git tag -a v4.0 -m "Release v4.0"
+git push origin v4.0
 ```
+
+`v4.0` 是不可变的发布身份。禁止强制移动、覆盖或复用已推送的 `v4.0` tag，也禁止覆盖已发布 Release；若最终 commit 改变，应在发布前删除尚未推送的本地错误标签并重新创建。标签一旦推送或 Release 一旦发布，发现问题应停止发布、调查影响并使用新的版本号修复。
 
 ## 4. 构建 Release 产物
 
@@ -49,30 +44,50 @@ git push origin v3.17 --force
 
 产物路径：
 
-- GitHub Release：`app/build/outputs/apk/direct/release/glimmer-countdown-3-17.apk`
+- GitHub Release：`app/build/outputs/apk/direct/release/glimmer-countdown-4-0.apk`
 - Play Console：`app/build/outputs/bundle/playRelease/app-play-release.aab`
 
-## 5. 创建或更新 GitHub Release
+## 5. 创建 GitHub Release
+
+发布脚本只接受已经完成正式签名的 exact Direct APK。运行前必须准备：
+
+- `app/build/outputs/apk/direct/release/glimmer-countdown-4-0.apk`，且由正式发布证书签名；
+- `ANDROID_HOME`，其中至少有一个稳定版本的 `build-tools/apksigner`；
+- `GLIMMER_RELEASE_CERT_SHA256`，内容为正式证书的 SHA-256 指纹；
+- `GITHUB_TOKEN`，或已登录且可由 `gh auth token` 读取的 token；token 对仓库具有 `GitHub Contents: write` 权限；
+- 本地与远端均已有 `v4.0` tag，且 tag 位于最终发布 commit。
+
+环境变量仅在本机安全注入，不写入命令历史、文档、日志或仓库。PowerShell 示例：
 
 ```powershell
 $env:GITHUB_TOKEN = "your_token"
+$env:GLIMMER_RELEASE_CERT_SHA256 = "your_release_certificate_sha256"
+$env:ANDROID_HOME = "your_android_sdk"
 .\scripts\publish-release.ps1
 ```
 
 脚本行为：
 
 - 自动读取 `gradle.properties` 中的 `VERSION_NAME`
-- 自动从 `CHANGELOG.md` 提取 `3.17` 小节作为 Release Notes
-- 如果 Release 已存在，会自动更新说明
-- 如果同名 Direct APK 资源已存在，会自动删除旧资源并上传新 APK
-- 不上传 Play APK / AAB，避免 Direct 渠道应用内更新误下载 Play 包
+- 自动从 `CHANGELOG.md` 提取 `4.0` 小节作为 Release Notes
+- 在任何远端写操作前验证 APK 签名，并验证本地与远端 tag 解引用后的 commit 完全一致
+- 通过 `refs/heads/release-locks/v4.0` Git ref 锁阻止两个合规脚本并发发布
+- 新建带本次 `ownership marker` 的 draft；仅恢复带脚本自身旧 `ownership marker` 的 draft，拒绝 published Release、prerelease 与人工创建的 draft
+- 删除 owned draft 中旧 APK 后仅上传 exact Direct APK；按上传响应及重新读取结果绑定 asset id、size、digest、content type 与下载 URL
+- 发布前反复校验 draft 身份和 ownership marker，发布后以最终 GET 验证公开 Release 及唯一 APK
+- Play AAB 不上传 GitHub Release；它只交付 Play Console
+
+锁由脚本在 `finally` 中校验后清理。若进程崩溃或清理失败留下残留锁，下一次发布会安全拒绝继续；先调查是否仍有发布进程、draft 和远端变更，不要随意删除活跃锁。确认没有活跃发布者且记录好调查结论后，才可由有权限的维护者人工清理残留锁。
+
+脚本不会覆盖已发布 Release，也不会接管没有 ownership marker 的人工 draft。需要重新发布内容时递增版本号，重新走完整检查清单。
 
 ## 6. 发布后核对
 
-- Release 标题、标签与说明是否对应 `v3.17`
-- 上传的 APK 文件名是否为 `glimmer-countdown-3-17.apk`
+- Release 标题、标签与说明是否对应 `v4.0`
+- 上传的 APK 文件名是否为 `glimmer-countdown-4-0.apk`
 - Release 资产中没有 `app-play-release.apk` 或 `app-play-release.aab`
-- Direct APK `versionName` 是否为 `3.17`
-- Play APK / AAB `versionName` 是否为 `3.17-play`
+- GitHub API 最终 GET 返回公开、非 prerelease 的 `v4.0` Release，且唯一 APK 的 id、size、digest、下载 URL 与本地产物一致
+- Direct APK `versionName` 是否为 `4.0`
+- Play APK / AAB `versionName` 是否为 `4.0-play`
 - Play APK 是否不包含 `REQUEST_INSTALL_PACKAGES`
 - 抽检首页右上近期入口、月历选中日期内容与年月选择、详情轻量主卡与分享卡、新建 / 编辑标题输入与提醒滚轮、设置页样张、小组件配置、启动页、系统日历无可写提示和 Direct 渠道检查更新

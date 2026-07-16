@@ -1,10 +1,10 @@
-# 拾光（Glimmer）`v3.17`
+# 拾光（Glimmer）4.0 发布目标
 
 拾光是一款面向 Android 的倒数日、生日与纪念日应用。它把日子整理成安静的纸笺、月历和桌面小组件，让重要时刻能被看见，也能被系统提醒与日历同步照顾到。
 
-当前版本 `3.17` 已完成发布验证，重点打磨桌面小组件、设置结构、启动体验与事件输入链路，是一个可公开分发的稳定版本。
+当前开发版本为 `4.0`，目标是把拾光收口为适合长期使用与公开分发的成熟产品版本。4.0 尚未发布，所有发布条件以 [4.0 发布检查清单](docs/RELEASE_CHECKLIST.md) 的实际验证结果为准。
 
-[下载 v3.17 APK](https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v3.17)
+最新公开版本仍为 `3.17`：[下载 v3.17 APK](https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v3.17)
 
 ## 界面预览
 
@@ -16,15 +16,13 @@
 |---|---|
 | <img src="docs/screenshots/3.17/settings.png" width="260" alt="拾光设置页"> | <img src="docs/screenshots/3.17/widget-settings.png" width="260" alt="拾光小组件设置页"> |
 
-## 3.17 版本亮点
+## 4.0 成熟版目标
 
-- 独立小组件设置：小组件配置从主题设置中拆出，默认配置、已有小组件和字号调整集中管理。
-- 更像系统原生的小组件：25% / 50% / 75% 玻璃背景调整为更柔和的乳白磨砂层，弱化边线，优化圆角和文字颜色。
-- 更清晰的尺寸表达：宽高设置改为“预览宽度 / 预览高度”，支持 1-5 格预览配置，避免误解为能强制改变桌面物理尺寸。
-- 已有小组件复用编辑页：编辑已有桌面小组件时打开与新增一致的配置页，不再在列表里展开长表单。
-- 更可靠的新建体验：修复标题输入焦点、拼音组合态和硬件键盘模式下 IME 不显示的问题。
-- 更稳妥的日历同步：只检查设备里已有可写系统日历；没有可写日历时明确提示，不自动创建本地日历。
-- 更干净的启动体验：只保留系统启动页，移除应用内过渡页，避免启动内容重复闪现。
+- 数据可靠：导入、导出、升级和异常数据处理均有可重复验证，用户事件不会因版本切换静默丢失。
+- 核心链路成熟：新建、编辑、删除、撤销、提醒、日历同步、分享和更新检查形成完整且可解释的状态反馈。
+- 首页与小组件一致：置顶、按天数、按日期和自定义排序共享同一规则；小组件“跟随首页”不再产生独立顺序。
+- 桌面体验可靠：继续支持 1-5 格“预览宽度 / 预览高度”、独立配置、内容范围、外观、密度和文字模式，并完成真实 Launcher 回归。
+- 发布质量可审计：Direct / Play 双渠道构建、权限、签名、混淆、无障碍、性能和真机测试均以证据为准，不提前勾选。
 
 ## 核心能力
 
@@ -39,10 +37,10 @@
 
 ## 版本信息
 
-- `versionName`: `3.17`
-- `versionCode`: `22`
-- 发布日期：`2026-07-08`
-- Direct APK: `glimmer-countdown-3-17.apk`
+- `versionName`: `4.0`
+- `versionCode`: `23`
+- 发布状态：未发布（待验证）
+- Direct APK 目标文件名：`glimmer-countdown-4-0.apk`
 - Play AAB: `app-play-release.aab`
 
 ## 构建与运行
@@ -65,20 +63,22 @@
 
 默认产物路径：
 
-- `app/build/outputs/apk/direct/release/glimmer-countdown-3-17.apk`
+- `app/build/outputs/apk/direct/release/glimmer-countdown-4-0.apk`
 - `app/build/outputs/bundle/playRelease/app-play-release.aab`
 
 ## 发布与验证
 
-3.17 发布前已通过：
+4.0 发布前必须重新通过：
 
 - `testDirectDebugUnitTest`
 - `testPlayDebugUnitTest`
 - `compileDirectDebugAndroidTestKotlin`
 - `lintDirectDebug lintDirectRelease lintPlayRelease lintVitalDirectRelease lintVitalPlayRelease`
 - `assembleDirectRelease assemblePlayRelease bundlePlayRelease`
-- Direct release APK 模拟器 smoke test
+- Direct release APK 模拟器与真机 smoke test
 - Direct 渠道 GitHub Release 更新检查
+
+当前仅以隔离的临时签名配置验证过 release 构建与签名门；正式发布密钥产物、PowerShell 发布脚本运行、真实 GitHub 发布动作和真机安装升级仍须按清单最终验证。发布流程禁止移动已推送的 `v4.0` tag 或覆盖已发布 Release，GitHub Release 仅上传 exact Direct APK，Play AAB 只交付 Play Console。
 
 更多发布记录：
 
