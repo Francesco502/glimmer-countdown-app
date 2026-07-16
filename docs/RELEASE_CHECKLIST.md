@@ -77,3 +77,9 @@
 - [x] 在 GitHub Release 中发布 `glimmer-countdown-3-17.apk`
 - [x] 以 `CHANGELOG.md` 中的 `3.17` 小节作为 Release Notes
 - [x] 确认 GitHub Release 页面标题、标签、说明和资产均对应 `v3.17`
+
+## Data Task 6 恢复验证（2026-07-16）
+
+- [x] 农历重复、导入校验与重复数据回归：Direct / Play JVM 各 325 项通过；报告 `.superpowers/sdd/data-task-6-report.md`。
+- [x] 日历权限撤销恢复 smoke：`emulator-5554` / API 37；撤权后保留 provider ownership 与可重试错误、阻止删除，恢复权限后由应用清理 CalendarProvider 并成功删除 Room 事件；证据 `/tmp/timeapk-data-task6-2026-07-16/rerun-682e004/`。
+- [ ] Backup / restore smoke：模拟器 Backup Manager disabled，`Ancestral=0`、`Current=0`、`Ever backed up=0`，且没有真实 TimeAPK widget instance；未执行 `pm clear` / restore，不声称覆盖。
