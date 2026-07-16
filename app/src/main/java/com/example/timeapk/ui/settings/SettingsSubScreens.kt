@@ -1209,6 +1209,7 @@ private fun SettingsReminderTimePickerWheels(
                 items = hourOptions,
                 selectedItem = selectedHour,
                 onItemSelected = onHourSelected,
+                accessibilityLabel = stringResource(R.string.reminder_time_hour),
                 onScrollStateChanged = onHourScrollStateChanged,
                 modifier = Modifier.fillMaxWidth(),
                 itemLabel = { value -> String.format(Locale.US, "%02d", value) }
@@ -1224,6 +1225,7 @@ private fun SettingsReminderTimePickerWheels(
                 items = minuteOptions,
                 selectedItem = selectedMinute,
                 onItemSelected = onMinuteSelected,
+                accessibilityLabel = stringResource(R.string.reminder_time_minute),
                 onScrollStateChanged = onMinuteScrollStateChanged,
                 modifier = Modifier.fillMaxWidth(),
                 itemLabel = { value -> String.format(Locale.US, "%02d", value) }

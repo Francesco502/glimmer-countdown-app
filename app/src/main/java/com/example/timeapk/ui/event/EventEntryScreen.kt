@@ -873,6 +873,7 @@ fun EventInputForm(
                 items = repeatOptions.map { it.first },
                 selectedItem = draftRepeat,
                 onItemSelected = { draftRepeat = it },
+                accessibilityLabel = stringResource(R.string.field_repeat),
                 onScrollStateChanged = { isRepeatPickerScrolling = it },
                 modifier = Modifier.fillMaxWidth(),
                 itemLabel = { value ->
@@ -907,6 +908,7 @@ fun EventInputForm(
                     items = reminderDayOptions,
                     selectedItem = draftDays,
                     onItemSelected = { draftDays = it },
+                    accessibilityLabel = stringResource(R.string.custom_remind_days_label),
                     onScrollStateChanged = { isDaysPickerScrolling = it },
                     modifier = Modifier.fillMaxWidth(),
                     itemLabel = { days -> remindDaysLabel(days) }
@@ -953,6 +955,7 @@ fun EventInputForm(
                         items = reminderHourOptions,
                         selectedItem = draftHour,
                         onItemSelected = { draftHour = it },
+                        accessibilityLabel = stringResource(R.string.reminder_time_hour),
                         onScrollStateChanged = { isHourPickerScrolling = it },
                         modifier = Modifier.weight(1f),
                         itemLabel = { value -> String.format(Locale.US, "%02d", value) }
@@ -961,6 +964,7 @@ fun EventInputForm(
                         items = reminderMinuteOptions,
                         selectedItem = draftMinute,
                         onItemSelected = { draftMinute = it },
+                        accessibilityLabel = stringResource(R.string.reminder_time_minute),
                         onScrollStateChanged = { isMinutePickerScrolling = it },
                         modifier = Modifier.weight(1f),
                         itemLabel = { value -> String.format(Locale.US, "%02d", value) }

@@ -387,6 +387,7 @@ fun SongDateWheelPickerDialog(
             SnapWheelPicker(
                 items = years,
                 selectedItem = selectedWheelYear,
+                accessibilityLabel = stringResource(R.string.date_part_year),
                 onItemSelected = { year ->
                     if (isLunarMode && currentLunar != null) {
                         commitLunarDate(year, selectedWheelMonth, selectedWheelDay)
@@ -401,6 +402,7 @@ fun SongDateWheelPickerDialog(
             SnapWheelPicker(
                 items = monthItems,
                 selectedItem = selectedWheelMonth,
+                accessibilityLabel = stringResource(R.string.date_part_month),
                 onItemSelected = { month ->
                     if (isLunarMode && currentLunar != null) {
                         commitLunarDate(selectedWheelYear, month, selectedWheelDay)
@@ -415,6 +417,7 @@ fun SongDateWheelPickerDialog(
             SnapWheelPicker(
                 items = dayItems,
                 selectedItem = selectedWheelDay,
+                accessibilityLabel = stringResource(R.string.date_part_day),
                 onItemSelected = { day ->
                     if (isLunarMode && currentLunar != null) {
                         commitLunarDate(selectedWheelYear, selectedWheelMonth, day)

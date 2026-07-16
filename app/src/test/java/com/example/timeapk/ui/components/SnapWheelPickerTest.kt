@@ -8,6 +8,15 @@ import org.junit.Test
 class SnapWheelPickerTest {
 
     @Test
+    fun wheelTargetIndex_clampsAndHandlesEmptyOrInvalidProgress() {
+        assertEquals(0, wheelTargetIndex(progress = -4f, itemCount = 5))
+        assertEquals(3, wheelTargetIndex(progress = 2.6f, itemCount = 5))
+        assertEquals(4, wheelTargetIndex(progress = 20f, itemCount = 5))
+        assertEquals(null, wheelTargetIndex(progress = 1f, itemCount = 0))
+        assertEquals(null, wheelTargetIndex(progress = Float.NaN, itemCount = 5))
+    }
+
+    @Test
     fun centeredVisibleItemIndex_returnsItemClosestToViewportCenter() {
         val centeredIndex = centeredVisibleItemIndex(
             viewportStartOffset = 0,

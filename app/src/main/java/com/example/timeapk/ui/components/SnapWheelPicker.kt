@@ -28,12 +28,19 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.setProgress
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.timeapk.ui.theme.AnimationSpecs
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 private const val DEFAULT_VISIBLE_COUNT = 5
 
@@ -79,6 +86,11 @@ internal fun shouldSyncToSelectedItem(
     ) != targetItemIndex.coerceIn(0, itemCount - 1)
 }
 
+internal fun wheelTargetIndex(progress: Float, itemCount: Int): Int? {
+    if (itemCount <= 0 || !progress.isFinite()) return null
+    return progress.roundToInt().coerceIn(0, itemCount - 1)
+}
+
 private fun centeredVisibleItemIndex(listState: LazyListState): Int? {
     return centeredVisibleItemIndex(
         viewportStartOffset = listState.layoutInfo.viewportStartOffset,
@@ -102,15 +114,18 @@ fun <T> SnapWheelPicker(
     onScrollStateChanged: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
     visibleCount: Int = DEFAULT_VISIBLE_COUNT,
-    itemHeight: Dp = 36.dp,
+    itemHeight: Dp = 48.dp,
+    accessibilityLabel: String,
     itemLabel: (T) -> String
 ) {
     val safeVisibleCount = visibleCount.coerceAtLeast(3).let { if (it % 2 == 0) it + 1 else it }
+    val safeItemHeight = itemHeight.coerceAtLeast(48.dp)
     val paddingCount = safeVisibleCount / 2
     val selectedIndex = items.indexOf(selectedItem).coerceAtLeast(0)
+    val selectedItemLabel = items.getOrNull(selectedIndex)?.let(itemLabel).orEmpty()
     val state = rememberLazyListState(initialFirstVisibleItemIndex = selectedIndex)
     var isProgrammaticScroll by remember { mutableStateOf(false) }
-    val itemHeightPx = with(LocalDensity.current) { itemHeight.toPx() }
+    val itemHeightPx = with(LocalDensity.current) { safeItemHeight.toPx() }
 
     LaunchedEffect(items, selectedItem) {
         if (items.isEmpty()) return@LaunchedEffect
@@ -148,7 +163,25 @@ fun <T> SnapWheelPicker(
     )
 
     Box(
-        modifier = modifier.height(itemHeight * safeVisibleCount),
+        modifier = modifier
+            .height(safeItemHeight * safeVisibleCount)
+            .clearAndSetSemantics {
+                contentDescription = accessibilityLabel
+                if (items.isNotEmpty()) {
+                    stateDescription = selectedItemLabel
+                    progressBarRangeInfo = ProgressBarRangeInfo(
+                        current = selectedIndex.toFloat(),
+                        range = 0f..items.lastIndex.toFloat(),
+                        steps = (items.size - 2).coerceAtLeast(0)
+                    )
+                    setProgress { targetValue ->
+                        val targetIndex = wheelTargetIndex(targetValue, items.size)
+                            ?: return@setProgress false
+                        onItemSelected(items[targetIndex])
+                        true
+                    }
+                }
+            },
         contentAlignment = Alignment.Center
     ) {
         val totalCount = items.size + paddingCount * 2
@@ -162,7 +195,7 @@ fun <T> SnapWheelPicker(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(itemHeight),
+                        .height(safeItemHeight),
                     contentAlignment = Alignment.Center
                 ) {
                     if (itemIndex in items.indices) {
@@ -191,7 +224,7 @@ fun <T> SnapWheelPicker(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(itemHeight)
+                .height(safeItemHeight)
                 .background(primaryColor.copy(alpha = 0.05f))
                 .drawBehind {
                     val stroke = 1.dp.toPx()
