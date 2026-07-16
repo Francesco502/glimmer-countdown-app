@@ -48,6 +48,8 @@ private val MIN_SUPPORTED_EVENT_DATE_MILLIS: Long = LocalDate.of(1900, 1, 1)
     .toInstant()
     .toEpochMilli()
 
+private data class PreparedEventKey(val eventId: Int?)
+
 // 事件卡片默认颜色（与编辑页预设颜色保持一致）
 private val DEFAULT_EVENT_COLOR_HEX = listOf(
     "#4A4933",
@@ -133,6 +135,7 @@ class EventEntryViewModel(
 ) : AndroidViewModel(application) {
     private val _eventUiState = MutableStateFlow(EventEntryUiState())
     val eventUiState: StateFlow<EventEntryUiState> = _eventUiState.asStateFlow()
+    private var preparedEventKey: PreparedEventKey? = null
 
     fun updateUiState(eventDetails: EventDetails) {
         _eventUiState.update {
@@ -141,8 +144,12 @@ class EventEntryViewModel(
     }
 
     suspend fun prepareForEvent(eventId: Int?) {
+        val requestedKey = PreparedEventKey(eventId)
+        if (preparedEventKey == requestedKey) return
+
         if (eventId != null && eventId != 0) {
             loadExistingEvent(eventId)
+            preparedEventKey = requestedKey
             return
         }
 
@@ -167,6 +174,7 @@ class EventEntryViewModel(
                 loadError = false
             )
         }
+        preparedEventKey = requestedKey
     }
 
     private suspend fun loadExistingEvent(id: Int) {

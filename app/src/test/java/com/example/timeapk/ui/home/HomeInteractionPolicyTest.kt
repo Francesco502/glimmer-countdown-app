@@ -51,7 +51,7 @@ class HomeInteractionPolicyTest {
     }
 
     @Test
-    fun homeUsesListLevelReorderDetection_isDisabledAcrossHomeSortModes() {
+    fun homeUsesListLevelReorderDetection_isDisabledBecauseCardsUseDedicatedHandles() {
         assertFalse(homeUsesListLevelReorderDetection(SortType.Custom))
         assertFalse(homeUsesListLevelReorderDetection(SortType.ByDays))
         assertFalse(homeUsesListLevelReorderDetection(SortType.ByDate))

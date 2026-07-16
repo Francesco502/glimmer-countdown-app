@@ -62,6 +62,15 @@ class EventEntryInputFocusTest {
         assertFalse(screenSource.contains("showSnackbar(result.message)"))
     }
 
+    @Test
+    fun activityRecreationDoesNotReinitializeTheSameEventDraft() {
+        val viewModelSource = readSource("ui/event/EventEntryViewModel.kt")
+
+        assertTrue(viewModelSource.contains("private data class PreparedEventKey(val eventId: Int?)"))
+        assertTrue(viewModelSource.contains("if (preparedEventKey == requestedKey) return"))
+        assertTrue(viewModelSource.contains("preparedEventKey = requestedKey"))
+    }
+
     private fun readSource(relative: String): String {
         val direct = File("src/main/java/com/example/timeapk/$relative")
         if (direct.exists()) return direct.readText(Charsets.UTF_8)

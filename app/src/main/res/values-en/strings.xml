@@ -43,6 +43,7 @@
     <string name="sort_by_date">By target date</string>
     <string name="sort_by_created">Custom order</string>
     <string name="sort_menu">Sort</string>
+    <string name="cd_reorder_event">Drag to reorder</string>
     <string name="display_mode_card">Cards</string>
     <string name="display_mode_list">List</string>
     <string name="home_density_title">Home info</string>

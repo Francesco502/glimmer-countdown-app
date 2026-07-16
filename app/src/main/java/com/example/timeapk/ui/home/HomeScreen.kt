@@ -16,6 +16,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
@@ -53,6 +54,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.input.pointer.pointerInput
 import com.example.timeapk.data.CATEGORY_ANNIVERSARY
 import com.example.timeapk.data.CATEGORY_BIRTHDAY
 import com.example.timeapk.data.REPEAT_NONE
@@ -315,6 +318,49 @@ fun HomeScreen(
                     val latestSortType by rememberUpdatedState(sortType)
                     val latestViewModel by rememberUpdatedState(viewModel)
                     var visibleIdsAtDragStart by remember { mutableStateOf<List<Int>?>(null) }
+                    var manuallyDraggingEventId by remember { mutableStateOf<Int?>(null) }
+                    val finishReorder: () -> Unit = {
+                        val visibleIds = visibleIdsAtDragStart
+                        visibleIdsAtDragStart = null
+                        val reorderedVisibleIds = orderedList.map { it.event.id }
+                        val persistenceRequest = homeReorderPersistenceRequestOrNull(
+                            dragEnabledAtEnd = latestDragEnabled,
+                            visibleIds = visibleIds,
+                            reorderedVisibleIds = reorderedVisibleIds
+                        )
+                        if (persistenceRequest != null) {
+                            pendingLocalReorder = persistenceRequest.snapshot
+                        }
+                        dragInProgress = false
+                        if (persistenceRequest != null) {
+                            latestViewModel.updateCustomEventOrder(
+                                visibleIds = persistenceRequest.visibleIds,
+                                reorderedVisibleIds = persistenceRequest.reorderedVisibleIds,
+                                onPersistenceResult = { persistedMergedIds ->
+                                    if (pendingLocalReorder == persistenceRequest.snapshot) {
+                                        val authoritativeItems = if (
+                                            persistedMergedIds != null && latestSortType == SortType.Custom
+                                        ) {
+                                            settlePersistedHomeReorder(
+                                                displayedItems = latestDisplayedItems,
+                                                persistedMergedIds = persistedMergedIds,
+                                                pinnedEventIds = latestPinnedEventIds,
+                                                sortType = latestSortType
+                                            )
+                                        } else {
+                                            latestDisplayedItems
+                                        }
+                                        orderedList.replaceWithOrderedItems(authoritativeItems) {
+                                            it.event.id
+                                        }
+                                        pendingDisplayedList = null
+                                        pendingLocalReorder = null
+                                        listInitialized = true
+                                    }
+                                }
+                            )
+                        }
+                    }
                     val reorderState = rememberReorderableLazyListState(
                         onMove = { from, to ->
                             if (latestDragEnabled && pendingLocalReorder == null) {
@@ -330,48 +376,7 @@ fun HomeScreen(
                                 }
                             }
                         },
-                        onDragEnd = { _, _ ->
-                            val visibleIds = visibleIdsAtDragStart
-                            visibleIdsAtDragStart = null
-                            val reorderedVisibleIds = orderedList.map { it.event.id }
-                            val persistenceRequest = homeReorderPersistenceRequestOrNull(
-                                dragEnabledAtEnd = latestDragEnabled,
-                                visibleIds = visibleIds,
-                                reorderedVisibleIds = reorderedVisibleIds
-                            )
-                            if (persistenceRequest != null) {
-                                pendingLocalReorder = persistenceRequest.snapshot
-                            }
-                            dragInProgress = false
-                            if (persistenceRequest != null) {
-                                latestViewModel.updateCustomEventOrder(
-                                    visibleIds = persistenceRequest.visibleIds,
-                                    reorderedVisibleIds = persistenceRequest.reorderedVisibleIds,
-                                    onPersistenceResult = { persistedMergedIds ->
-                                        if (pendingLocalReorder == persistenceRequest.snapshot) {
-                                            val authoritativeItems = if (
-                                                persistedMergedIds != null && latestSortType == SortType.Custom
-                                            ) {
-                                                settlePersistedHomeReorder(
-                                                    displayedItems = latestDisplayedItems,
-                                                    persistedMergedIds = persistedMergedIds,
-                                                    pinnedEventIds = latestPinnedEventIds,
-                                                    sortType = latestSortType
-                                                )
-                                            } else {
-                                                latestDisplayedItems
-                                            }
-                                            orderedList.replaceWithOrderedItems(authoritativeItems) {
-                                                it.event.id
-                                            }
-                                            pendingDisplayedList = null
-                                            pendingLocalReorder = null
-                                            listInitialized = true
-                                        }
-                                    }
-                                )
-                            }
-                        }
+                        onDragEnd = { _, _ -> finishReorder() }
                     )
 
                     AnimatedContent(
@@ -409,22 +414,19 @@ fun HomeScreen(
                                 ) {
                                     items(orderedList, key = { it.event.id }) { eventState ->
                                         ReorderableItem(reorderState, key = eventState.event.id) { isDragging ->
+                                            val eventId = eventState.event.id
+                                            val itemDragging = isDragging || manuallyDraggingEventId == eventId
+                                            var accumulatedDragY by remember(eventId) { mutableFloatStateOf(0f) }
+                                            val reorderStepPx = with(LocalDensity.current) { 64.dp.toPx() }
                                             val haptic = LocalHapticFeedback.current
-                                            LaunchedEffect(isDragging) {
-                                                if (isDragging) {
+                                            LaunchedEffect(itemDragging) {
+                                                if (itemDragging) {
                                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                                 }
                                             }
                                             Box(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
-                                                    .then(
-                                                        if (dragEnabled && !useListLevelReorderDetection) {
-                                                            Modifier.detectReorderAfterLongPress(reorderState)
-                                                        } else {
-                                                            Modifier
-                                                        }
-                                                    )
                                                     .then(
                                                         if (listInitialized) Modifier.animateItemPlacement(animationSpec = AnimationSpecs.springItemPlacement)
                                                         else Modifier
@@ -462,7 +464,8 @@ fun HomeScreen(
                                                         showHours = showHours,
                                                         showMilestone = showMilestone,
                                                         showDetail = showDetail,
-                                                        isDragging = isDragging
+                                                        isDragging = itemDragging,
+                                                        modifier = if (dragEnabled) Modifier.padding(end = 48.dp) else Modifier
                                                     )
                                                 } else {
                                                     val persistedMode = perEventDateDeltaModes[eventState.event.id] ?: dateDeltaDisplayMode
@@ -491,8 +494,72 @@ fun HomeScreen(
                                                         },
                                                         tapOnlyInteraction = tapOnlyInteraction,
                                                         tapNavigationEnabled = tapNavigationEnabled,
-                                                        isDragging = isDragging
+                                                        isDragging = itemDragging,
+                                                        modifier = if (dragEnabled) Modifier.padding(end = 48.dp) else Modifier
                                                     )
+                                                }
+                                                if (dragEnabled) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .align(Alignment.CenterEnd)
+                                                            .size(48.dp)
+                                                            .pointerInput(eventId, dragEnabled) {
+                                                                detectDragGestures(
+                                                                    onDragStart = {
+                                                                        if (latestDragEnabled && pendingLocalReorder == null) {
+                                                                            visibleIdsAtDragStart = latestDisplayedIds
+                                                                            manuallyDraggingEventId = eventId
+                                                                            accumulatedDragY = 0f
+                                                                            dragInProgress = true
+                                                                        }
+                                                                    },
+                                                                    onDragEnd = {
+                                                                        if (manuallyDraggingEventId == eventId) {
+                                                                            manuallyDraggingEventId = null
+                                                                            accumulatedDragY = 0f
+                                                                            finishReorder()
+                                                                        }
+                                                                    },
+                                                                    onDragCancel = {
+                                                                        if (manuallyDraggingEventId == eventId) {
+                                                                            manuallyDraggingEventId = null
+                                                                            accumulatedDragY = 0f
+                                                                            finishReorder()
+                                                                        }
+                                                                    }
+                                                                ) { change, dragAmount ->
+                                                                    if (manuallyDraggingEventId == eventId) {
+                                                                        change.consume()
+                                                                        accumulatedDragY += dragAmount.y
+                                                                        val direction = when {
+                                                                            accumulatedDragY >= reorderStepPx -> 1
+                                                                            accumulatedDragY <= -reorderStepPx -> -1
+                                                                            else -> 0
+                                                                        }
+                                                                        if (direction != 0) {
+                                                                            val fromIndex = orderedList.indexOfFirst { it.event.id == eventId }
+                                                                            val toIndex = fromIndex + direction
+                                                                            if (fromIndex in orderedList.indices && toIndex in orderedList.indices) {
+                                                                                val item = orderedList.removeAt(fromIndex)
+                                                                                orderedList.add(toIndex, item)
+                                                                                accumulatedDragY -= direction * reorderStepPx
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                            .semantics {
+                                                                contentDescription = context.getString(R.string.cd_reorder_event)
+                                                            },
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        SongLineIcon(
+                                                            kind = SongLineIconKind.More,
+                                                            contentDescription = null,
+                                                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.72f),
+                                                            size = 20.dp
+                                                        )
+                                                    }
                                                 }
                                             }
                                         }

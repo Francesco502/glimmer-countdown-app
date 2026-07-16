@@ -17,7 +17,8 @@ internal fun homeCardTapNavigationEnabled(sortType: SortType): Boolean = true
 
 internal fun homeCardDragSortEnabled(sortType: SortType): Boolean = sortType == SortType.Custom
 
-internal fun homeUsesListLevelReorderDetection(sortType: SortType): Boolean = false
+internal fun homeUsesListLevelReorderDetection(sortType: SortType): Boolean =
+    false
 
 internal fun mergeVisibleOrderIntoGlobalOrder(
     globalIds: List<Int>,

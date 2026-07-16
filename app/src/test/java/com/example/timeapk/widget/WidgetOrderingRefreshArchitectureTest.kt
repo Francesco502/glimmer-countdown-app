@@ -159,7 +159,8 @@ class WidgetOrderingRefreshArchitectureTest {
         val reorderSetup = source.substringAfter("val reorderState = rememberReorderableLazyListState(")
             .substringBefore("AnimatedContent(")
         val move = reorderSetup.substringAfter("onMove =").substringBefore("onDragEnd =")
-        val dragEnd = reorderSetup.substringAfter("onDragEnd =")
+        val dragEnd = source.substringAfter("val finishReorder: () -> Unit = {")
+            .substringBefore("val reorderState =")
 
         assertTrue(source.contains("val latestDragEnabled by rememberUpdatedState(dragEnabled)"))
         assertTrue(source.contains("val latestDisplayedIds by rememberUpdatedState("))
@@ -178,7 +179,8 @@ class WidgetOrderingRefreshArchitectureTest {
     fun homeKeepsAReorderedSnapshotOnlyWhileItsPersistenceIsPending() {
         val source = mainSource("ui/home/HomeScreen.kt").readText(Charsets.UTF_8)
         val sync = mainSource("ui/home/HomeListSync.kt").readText(Charsets.UTF_8)
-        val dragEnd = source.substringAfter("onDragEnd =").substringBefore("AnimatedContent(")
+        val dragEnd = source.substringAfter("val finishReorder: () -> Unit = {")
+            .substringBefore("val reorderState =")
 
         assertTrue(source.contains("var pendingLocalReorder by remember"))
         assertTrue(source.contains("decideHomeListTargetSync("))
@@ -200,7 +202,8 @@ class WidgetOrderingRefreshArchitectureTest {
         val reorderSetup = source.substringAfter("val reorderState = rememberReorderableLazyListState(")
             .substringBefore("AnimatedContent(")
         val move = reorderSetup.substringAfter("onMove =").substringBefore("onDragEnd =")
-        val dragEnd = reorderSetup.substringAfter("onDragEnd =")
+        val dragEnd = source.substringAfter("val finishReorder: () -> Unit = {")
+            .substringBefore("val reorderState =")
 
         assertTrue(source.contains("val dragEnabled = canStartHomeReorder(sortType, pendingLocalReorder)"))
         assertTrue(move.contains("latestDragEnabled && pendingLocalReorder == null"))
@@ -219,7 +222,8 @@ class WidgetOrderingRefreshArchitectureTest {
     @Test
     fun dragEndingAfterSortModeChangeCannotLeavePendingWithoutAWrite() {
         val source = mainSource("ui/home/HomeScreen.kt").readText(Charsets.UTF_8)
-        val dragEnd = source.substringAfter("onDragEnd =").substringBefore("AnimatedContent(")
+        val dragEnd = source.substringAfter("val finishReorder: () -> Unit = {")
+            .substringBefore("val reorderState =")
 
         assertTrue(dragEnd.contains("val persistenceRequest = homeReorderPersistenceRequestOrNull("))
         assertEquals(2, dragEnd.windowedSequence("if (persistenceRequest != null)".length)
@@ -232,7 +236,8 @@ class WidgetOrderingRefreshArchitectureTest {
     fun persistedHomeReorderSettlesFromLatestAuthoritativeInputsBeforeUnlocking() {
         val source = mainSource("ui/home/HomeScreen.kt").readText(Charsets.UTF_8)
         val viewModel = mainSource("ui/home/HomeViewModel.kt").readText(Charsets.UTF_8)
-        val dragEnd = source.substringAfter("onDragEnd =").substringBefore("AnimatedContent(")
+        val dragEnd = source.substringAfter("val finishReorder: () -> Unit = {")
+            .substringBefore("val reorderState =")
         val persistenceCallback = dragEnd.substringAfter("onPersistenceResult =")
 
         assertTrue(source.contains("val latestDisplayedItems by rememberUpdatedState(displayedList)"))
@@ -255,7 +260,8 @@ class WidgetOrderingRefreshArchitectureTest {
         val source = mainSource("ui/home/HomeScreen.kt").readText(Charsets.UTF_8)
         val snapshotSync = source.substringAfter("fun applyDisplayedListSnapshot(")
             .substringBefore("if (orderedList.isEmpty() && displayedList.isNotEmpty())")
-        val dragEnd = source.substringAfter("onDragEnd =").substringBefore("AnimatedContent(")
+        val dragEnd = source.substringAfter("val finishReorder: () -> Unit = {")
+            .substringBefore("val reorderState =")
         val persistenceCallback = dragEnd.substringAfter("onPersistenceResult =")
 
         assertTrue(snapshotSync.contains("decideHomeListTargetSync("))
@@ -290,7 +296,8 @@ class WidgetOrderingRefreshArchitectureTest {
             source = viewModel.substringAfter("fun updateCustomEventOrder(").substringBefore("suspend fun deleteEvent"),
             persistence = "userPrefs.setCustomEventOrder(mergedIds)"
         )
-        val dragEnd = homeScreen.substringAfter("onDragEnd =").substringBefore("onDragCancel =")
+        val dragEnd = homeScreen.substringAfter("val finishReorder: () -> Unit = {")
+            .substringBefore("val reorderState =")
         assertTrue(dragEnd.contains("latestViewModel.updateCustomEventOrder("))
         assertTrue(!dragEnd.contains("prefs.setCustomEventOrder("))
         assertPersistedBeforeRefresh(
