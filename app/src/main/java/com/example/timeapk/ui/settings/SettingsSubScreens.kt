@@ -789,7 +789,9 @@ fun LegacyDisplaySettingsContent(
                 modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
             )
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .selectableGroup(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 listOf(1 to R.string.settings_milestone_remind_days_1,
@@ -849,6 +851,7 @@ fun LegacyDisplaySettingsContent(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .selectableGroup()
                     .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {

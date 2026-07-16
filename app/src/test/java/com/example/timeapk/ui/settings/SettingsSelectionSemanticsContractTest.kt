@@ -10,6 +10,8 @@ class SettingsSelectionSemanticsContractTest {
     fun filterChipsExposeRadioSelectionWhileCustomActionRemainsAButton() {
         val componentSource = readProjectFile("app/src/main/java/com/example/timeapk/ui/theme/SongComponents.kt")
         val eventEntrySource = readProjectFile("app/src/main/java/com/example/timeapk/ui/event/EventEntryScreen.kt")
+        val datePickerSource = readProjectFile("app/src/main/java/com/example/timeapk/ui/components/BottomSheetDatePicker.kt")
+        val settingsSource = readProjectFile("app/src/main/java/com/example/timeapk/ui/settings/SettingsSubScreens.kt")
 
         val chip = componentSource.substringAfter("fun SongFilterChip(")
             .substringBefore("@Composable\nfun SongColorSwatch")
@@ -19,6 +21,23 @@ class SettingsSelectionSemanticsContractTest {
         assertTrue(chip.contains("selected = selected"))
         assertTrue(chip.contains("role = selectionRole"))
         assertTrue(eventEntrySource.contains("selectionRole = null"))
+
+        val inkChoiceRow = eventEntrySource.substringAfter("private fun SongInkChoiceRow(")
+            .substringBefore("@Composable\nfun SongColorSpectrumDialog")
+        val reminderPresetRow = eventEntrySource.substringAfter("private fun <T> ReminderPresetChipRow(")
+            .substringBefore("private fun formatRemindDaysBefore")
+        val datePicker = datePickerSource.substringAfter("fun SongDateWheelPickerDialog(")
+            .substringBefore("private fun DatePartField")
+        val legacySettings = settingsSource.substringAfter("fun LegacyDisplaySettingsContent(")
+            .substringBefore("@Composable\nfun DisplaySettingsContent")
+        val reminderLeadTimeRow = settingsSource.substringAfter("private fun ReminderLeadTimePresetRow(")
+            .substringBefore("@Composable\nfun DataSettingsContent")
+
+        assertTrue(inkChoiceRow.contains(".selectableGroup()"))
+        assertTrue(reminderPresetRow.contains(".selectableGroup()"))
+        assertTrue(datePicker.contains(".selectableGroup()"))
+        assertTrue(legacySettings.countOccurrences(".selectableGroup()") >= 2)
+        assertTrue(reminderLeadTimeRow.contains(".selectableGroup()"))
     }
 
     @Test
