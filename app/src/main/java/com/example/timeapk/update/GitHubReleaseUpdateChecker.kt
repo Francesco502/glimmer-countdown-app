@@ -5,20 +5,24 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
 data class ReleaseFetchResult(
     val isSuccessful: Boolean,
-    val release: ReleaseInfo? = null,
+    val responseBody: String? = null,
     val errorMessage: String? = null
 )
 
-data class ReleaseInfo(
+private data class ParsedReleaseInfo(
     val tagName: String,
     val releaseNotes: String? = null,
-    val downloadUrl: String? = null
+    val assets: List<ReleaseAsset>
 )
+
+internal const val EXPECTED_DIRECT_APK_ERROR =
+    "Expected Direct APK asset is missing or ambiguous"
 
 /**
  * 通过 GitHub API 获取仓库最新 Release，与当前 [BuildConfig.VERSION_NAME] 比较，
@@ -59,46 +63,32 @@ class GitHubReleaseUpdateChecker(
                             errorMessage = "HTTP ${resp.code}"
                         )
                     } else {
-                        val json = JSONObject(resp.body?.string() ?: "")
-                        val tagName = json.optString("tag_name", "").trim().removePrefix("v")
-                        val body = json.optString("body", "").trim()
-                        val assets = json.optJSONArray("assets")
-                        var downloadUrl: String? = null
-                        if (assets != null) {
-                            for (i in 0 until assets.length()) {
-                                val asset = assets.getJSONObject(i)
-                                val name = asset.optString("name", "")
-                                if (name.endsWith(".apk", ignoreCase = true)) {
-                                    downloadUrl = asset.optString("browser_download_url", "").takeIf { it.isNotBlank() }
-                                    break
-                                }
-                            }
-                        }
                         ReleaseFetchResult(
                             isSuccessful = true,
-                            release = ReleaseInfo(
-                                tagName = tagName,
-                                releaseNotes = body.ifBlank { null },
-                                downloadUrl = downloadUrl
-                            )
+                            responseBody = resp.body?.string()
                         )
                     }
                 }
             }
-            if (!release.isSuccessful || release.release == null) {
+            if (!release.isSuccessful || release.responseBody.isNullOrBlank()) {
                 return@withContext CheckUpdateResult(
                     hasUpdate = false,
                     checkFailed = true,
                     errorMessage = release.errorMessage ?: "Release fetch failed"
                 )
             }
-            val releaseInfo = release.release
-            val tagName = releaseInfo.tagName
-            val downloadUrl = releaseInfo.downloadUrl
+            val releaseInfo = parseReleaseInfo(release.responseBody)
+            val tagName = releaseInfo.tagName.trim().removePrefix("v")
             val currentVersion = BuildConfig.VERSION_NAME
-            if (downloadUrl.isNullOrBlank() || !isVersionNewer(tagName, currentVersion)) {
+            if (!isVersionNewer(tagName, currentVersion)) {
                 return@withContext CheckUpdateResult(hasUpdate = false)
             }
+            val downloadUrl = selectDirectApkAsset(releaseInfo.tagName, releaseInfo.assets)?.downloadUrl
+                ?: return@withContext CheckUpdateResult(
+                    hasUpdate = false,
+                    checkFailed = true,
+                    errorMessage = EXPECTED_DIRECT_APK_ERROR
+                )
             CheckUpdateResult(
                 hasUpdate = true,
                 versionName = tagName,
@@ -130,4 +120,27 @@ class GitHubReleaseUpdateChecker(
 
     private fun parseVersionSegments(version: String): List<Int> =
         version.split(".").map { it.filter { c -> c.isDigit() }.toIntOrNull() ?: 0 }
+
+    private fun parseReleaseInfo(responseBody: String): ParsedReleaseInfo {
+        val json = JSONObject(responseBody)
+        val tagName = json.getString("tag_name").trim()
+        require(tagName.isNotBlank()) { "Release tag is missing" }
+        val assetsJson = json.optJSONArray("assets") ?: JSONArray()
+        val assets = buildList {
+            for (index in 0 until assetsJson.length()) {
+                val asset = assetsJson.getJSONObject(index)
+                add(
+                    ReleaseAsset(
+                        name = asset.optString("name").trim(),
+                        downloadUrl = asset.optString("browser_download_url").trim()
+                    )
+                )
+            }
+        }
+        return ParsedReleaseInfo(
+            tagName = tagName,
+            releaseNotes = json.optString("body").trim().ifBlank { null },
+            assets = assets
+        )
+    }
 }
