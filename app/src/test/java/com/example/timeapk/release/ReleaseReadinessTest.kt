@@ -9,46 +9,68 @@ import java.util.Properties
 
 class ReleaseReadinessTest {
     @Test
-    fun versionConfigTargets317Release() {
+    fun versionConfigTargets40Release() {
         val properties = Properties().apply {
             rootGradlePropertiesFile().inputStream().use(::load)
         }
 
-        assertEquals("22", properties.getProperty("VERSION_CODE"))
-        assertEquals("3.17", properties.getProperty("VERSION_NAME"))
+        assertEquals("23", properties.getProperty("VERSION_CODE"))
+        assertEquals("4.0", properties.getProperty("VERSION_NAME"))
 
         val buildFile = appBuildGradleFile().readText(Charsets.UTF_8)
-        assertTrue(buildFile.contains("versionCode = versionCodeOverride ?: 22"))
-        assertTrue(buildFile.contains("versionName = versionNameOverride ?: \"3.17\""))
-        assertTrue(buildFile.contains("val versionNameForApk = versionNameOverride ?: \"3.17\""))
+        assertTrue(buildFile.contains("versionCode = versionCodeOverride ?: 23"))
+        assertTrue(buildFile.contains("versionName = versionNameOverride ?: \"4.0\""))
+        assertTrue(buildFile.contains("val versionNameForApk = versionNameOverride ?: \"4.0\""))
     }
 
     @Test
-    fun releaseDocsTarget317AndDirectGithubApkOnly() {
-        val docs = listOf(
-            existingFile("README.md", "../README.md"),
-            existingFile("CHANGELOG.md", "../CHANGELOG.md"),
-            existingFile("docs/RELEASE_CHECKLIST.md", "../docs/RELEASE_CHECKLIST.md"),
-            existingFile("docs/GITHUB_AND_RELEASE.md", "../docs/GITHUB_AND_RELEASE.md"),
-            existingFile("docs/release_and_update_guide.md", "../docs/release_and_update_guide.md")
-        )
-        val combined = docs.joinToString("\n") { it.readText(Charsets.UTF_8) }
+    fun releasePackagingFailsClosedButReleaseLintRemainsSecretFree() {
+        val build = appBuildGradleFile().readText(Charsets.UTF_8)
 
-        assertTrue(combined.contains("3.17"))
-        assertTrue(combined.contains("versionCode=22") || combined.contains("versionCode`：`22"))
-        assertTrue(combined.contains("glimmer-countdown-3-17.apk"))
+        assertTrue(build.contains("validateReleaseSigning"))
+        assertTrue(build.contains("Missing or invalid release signing configuration"))
+        assertTrue(build.contains("assemble|bundle|package"))
+        assertTrue(build.contains("dependsOn(validateReleaseSigning)"))
+    }
+
+    @Test
+    fun directArtifactRenameRequiresSignedSourceAndExactOutput() {
+        val build = appBuildGradleFile().readText(Charsets.UTF_8)
+
+        assertTrue(build.contains("glimmer-countdown-${'$'}{versionNameForApk.replace(\".\", \"-\")}"))
+        assertTrue(build.contains("Missing signed Direct release APK"))
+        assertTrue(build.contains("StandardCopyOption.REPLACE_EXISTING"))
+    }
+
+    @Test
+    fun releaseDocsTarget40MaturityCandidateAndDirectGithubApkOnly() {
+        val readme = existingFile("README.md", "../README.md").readText(Charsets.UTF_8)
+        val changelog = existingFile("CHANGELOG.md", "../CHANGELOG.md").readText(Charsets.UTF_8)
+        val checklist = existingFile(
+            "docs/RELEASE_CHECKLIST.md",
+            "../docs/RELEASE_CHECKLIST.md"
+        ).readText(Charsets.UTF_8)
+        val githubGuide = existingFile(
+            "docs/GITHUB_AND_RELEASE.md",
+            "../docs/GITHUB_AND_RELEASE.md"
+        ).readText(Charsets.UTF_8)
+        val releaseGuide = existingFile(
+            "docs/release_and_update_guide.md",
+            "../docs/release_and_update_guide.md"
+        ).readText(Charsets.UTF_8)
+        val combined = listOf(readme, changelog, checklist, githubGuide, releaseGuide).joinToString("\n")
+
+        assertTrue(readme.contains("4.0 发布目标"))
+        assertTrue(readme.contains("最新公开版本仍为 `3.17`"))
+        assertTrue(readme.contains("releases/tag/v3.17"))
+        assertTrue(changelog.contains("## [4.0] - 待发布"))
+        assertTrue(checklist.contains("# 发布检查清单（v4.0）"))
+        assertTrue(checklist.contains("发布状态：待验证"))
+        assertTrue(combined.contains("versionCode=23") || combined.contains("versionCode`：`23"))
+        assertTrue(combined.contains("glimmer-countdown-4-0.apk"))
         assertTrue(combined.contains("预览宽度 / 预览高度"))
         assertTrue(combined.contains("无可写系统日历"))
         assertFalse(combined.contains("小组件 2x2、3x3、4x2 模板"))
-        assertFalse(combined.contains("glimmer-countdown-3-16.apk"))
-        assertFalse(combined.contains("versionName`：`3.16"))
-        assertFalse(combined.contains("versionCode`：`21"))
-        assertFalse(combined.contains("glimmer-countdown-3-14.apk"))
-        assertFalse(combined.contains("versionName`：`3.14"))
-        assertFalse(combined.contains("versionCode`：`19"))
-        assertFalse(combined.contains("glimmer-countdown-3-12.apk"))
-        assertFalse(combined.contains("versionName`：`3.12"))
-        assertFalse(combined.contains("versionCode`：`17"))
 
         val script = existingFile(
             "scripts/publish-release.ps1",
@@ -56,6 +78,10 @@ class ReleaseReadinessTest {
         ).readText(Charsets.UTF_8)
 
         assertTrue(script.contains("Publish the direct APK to GitHub Release"))
+        assertTrue(script.contains("publish-release.ps1 -Tag v4.0 -ReleaseName v4.0"))
+        assertTrue(script.contains("Unable to resolve VERSION_NAME"))
+        assertTrue(script.contains("does not match VERSION_NAME"))
+        assertFalse(script.contains("${'$'}fallback = '3.17'"))
         assertFalse(script.contains("Upload-ReleaseAsset `\n    -Release ${'$'}release `\n    -AssetName ${'$'}aabName"))
         assertFalse(script.contains("ERROR: AAB not found"))
     }
