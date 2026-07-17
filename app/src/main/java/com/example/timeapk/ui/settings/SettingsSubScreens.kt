@@ -2030,12 +2030,16 @@ fun DataSettingsContent(
                         useRRuleSync = useRRuleSync
                     )
                 } else {
-                    ScheduleSyncManager.removeScheduleReminderByEventId(context, savedEvent.id)
-                    ScheduleSyncManager.ScheduleSyncResult(
+                    val cleanup = ScheduleSyncManager.removeScheduleReminderByEventId(
+                        context,
+                        savedEvent.id
+                    )
+                    ScheduleSyncManager.scheduleSyncResultAfterCleanup(
+                        event = savedEvent,
                         primaryScheduleEventId = null,
                         targetCalendarId = null,
                         lastSyncAt = System.currentTimeMillis(),
-                        error = null
+                        cleanupResult = cleanup
                     )
                 }
             } catch (_: Exception) {

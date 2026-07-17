@@ -151,6 +151,54 @@ object ScheduleSyncManager {
         return writable.first().id
     }
 
+    internal fun cleanupReminderSeriesEntries(
+        expectedEntriesPresent: Boolean,
+        staleIds: Iterable<Long>,
+        cleanupWholeSeries: () -> CalendarCleanupResult,
+        cleanupSingleEntry: (Long) -> CalendarCleanupResult
+    ): CalendarCleanupResult {
+        if (!expectedEntriesPresent) return cleanupWholeSeries()
+
+        var firstFailure: CalendarCleanupResult? = null
+        staleIds.forEach { staleId ->
+            val result = cleanupSingleEntry(staleId)
+            if (!result.isSuccess && firstFailure == null) {
+                firstFailure = result
+            }
+        }
+        return firstFailure ?: CalendarCleanupResult.RemovedOrNotPresent
+    }
+
+    internal fun scheduleSyncResultAfterCleanup(
+        event: Event,
+        primaryScheduleEventId: Long?,
+        targetCalendarId: Long?,
+        lastSyncAt: Long,
+        cleanupResult: CalendarCleanupResult,
+        baseError: String? = null
+    ): ScheduleSyncResult {
+        val cleanupFailed = !cleanupResult.isSuccess
+        val error = listOfNotNull(baseError, cleanupResult.message)
+            .filter { it.isNotBlank() }
+            .distinct()
+            .joinToString("; ")
+            .ifBlank { null }
+        return ScheduleSyncResult(
+            primaryScheduleEventId = if (cleanupFailed) {
+                primaryScheduleEventId ?: event.scheduleEventId
+            } else {
+                primaryScheduleEventId
+            },
+            targetCalendarId = if (cleanupFailed) {
+                targetCalendarId ?: event.targetCalendarId
+            } else {
+                targetCalendarId
+            },
+            lastSyncAt = lastSyncAt,
+            error = error
+        )
+    }
+
     fun syncReminderSeries(
         context: Context,
         event: Event,
@@ -162,24 +210,47 @@ object ScheduleSyncManager {
 
         return try {
             if (!sanitizedEvent.syncToScheduleEnabled) {
-                removeScheduleReminder(context, sanitizedEvent.scheduleEventId)
-                removeScheduleReminderByEventId(context, sanitizedEvent.id)
-                ScheduleSyncResult(
+                val cleanupResult = cleanupReminderSeriesEntries(
+                    expectedEntriesPresent = false,
+                    staleIds = emptySet(),
+                    cleanupWholeSeries = {
+                        removeReminderSeriesEntries(
+                            context = context,
+                            eventId = sanitizedEvent.id,
+                            calendarEventId = sanitizedEvent.scheduleEventId
+                        )
+                    },
+                    cleanupSingleEntry = { staleId -> removeScheduleReminder(context, staleId) }
+                )
+                scheduleSyncResultAfterCleanup(
+                    event = sanitizedEvent,
                     primaryScheduleEventId = null,
                     targetCalendarId = null,
                     lastSyncAt = lastSyncAt,
-                    error = null
+                    cleanupResult = cleanupResult
                 )
             } else {
                 val targetCalendarId = resolveTargetCalendarId(context, sanitizedEvent, preferredCalendarId)
                 if (targetCalendarId == null) {
-                    removeScheduleReminder(context, sanitizedEvent.scheduleEventId)
-                    removeScheduleReminderByEventId(context, sanitizedEvent.id)
-                    ScheduleSyncResult(
+                    val cleanupResult = cleanupReminderSeriesEntries(
+                        expectedEntriesPresent = false,
+                        staleIds = emptySet(),
+                        cleanupWholeSeries = {
+                            removeReminderSeriesEntries(
+                                context = context,
+                                eventId = sanitizedEvent.id,
+                                calendarEventId = sanitizedEvent.scheduleEventId
+                            )
+                        },
+                        cleanupSingleEntry = { staleId -> removeScheduleReminder(context, staleId) }
+                    )
+                    scheduleSyncResultAfterCleanup(
+                        event = sanitizedEvent,
                         primaryScheduleEventId = null,
                         targetCalendarId = null,
                         lastSyncAt = lastSyncAt,
-                        error = ERROR_NO_WRITABLE_CALENDAR
+                        cleanupResult = cleanupResult,
+                        baseError = ERROR_NO_WRITABLE_CALENDAR
                     )
                 } else {
                     val expectedEntries = buildExpectedReminderEntries(
@@ -240,12 +311,26 @@ object ScheduleSyncManager {
                         }
                     }
 
-                    (allExistingIds - usedIds).forEach { staleId ->
-                        removeScheduleReminder(context, staleId)
-                    }
-                    if (expectedEntries.isEmpty()) {
-                        removeScheduleReminder(context, sanitizedEvent.scheduleEventId)
-                        removeScheduleReminderByEventId(context, sanitizedEvent.id)
+                    val cleanupResult = cleanupReminderSeriesEntries(
+                        expectedEntriesPresent = expectedEntries.isNotEmpty(),
+                        staleIds = allExistingIds - usedIds,
+                        cleanupWholeSeries = {
+                            removeReminderSeriesEntries(
+                                context = context,
+                                eventId = sanitizedEvent.id,
+                                calendarEventId = sanitizedEvent.scheduleEventId
+                            )
+                        },
+                        cleanupSingleEntry = { staleId -> removeScheduleReminder(context, staleId) }
+                    )
+                    if (!cleanupResult.isSuccess) {
+                        return scheduleSyncResultAfterCleanup(
+                            event = sanitizedEvent,
+                            primaryScheduleEventId = primaryId,
+                            targetCalendarId = targetCalendarId,
+                            lastSyncAt = lastSyncAt,
+                            cleanupResult = cleanupResult
+                        )
                     }
                     if (metadataWarnings > 0) {
                         Log.w(
@@ -274,11 +359,12 @@ object ScheduleSyncManager {
                         )
                     }
 
-                    ScheduleSyncResult(
+                    scheduleSyncResultAfterCleanup(
+                        event = sanitizedEvent,
                         primaryScheduleEventId = primaryId,
-                        targetCalendarId = targetCalendarId,
+                        targetCalendarId = targetCalendarId.takeIf { expectedEntries.isNotEmpty() },
                         lastSyncAt = lastSyncAt,
-                        error = null
+                        cleanupResult = cleanupResult
                     )
                 }
             }
@@ -447,6 +533,20 @@ object ScheduleSyncManager {
         return removeScheduleReminderByEventId(
             gateway = ContextCalendarCleanupGateway(context),
             eventId = eventId
+        )
+    }
+
+    private fun removeReminderSeriesEntries(
+        context: Context,
+        eventId: Int,
+        calendarEventId: Long?
+    ): CalendarCleanupResult {
+        return cleanupManagedCalendarEntries(
+            gateway = ContextCalendarCleanupGateway(context),
+            eventId = eventId,
+            calendarEventId = calendarEventId,
+            includeReminders = true,
+            includeMilestones = false
         )
     }
 
@@ -1124,8 +1224,23 @@ object ScheduleSyncManager {
     ): ScheduleSyncResult? {
         val targetCalendarId = resolveTargetCalendarId(context, event, preferredCalendarId) ?: return null
         return try {
-            removeScheduleReminder(context, event.scheduleEventId)
-            removeScheduleReminderByEventId(context, event.id)
+            val cleanupResult = cleanupReminderSeriesEntries(
+                expectedEntriesPresent = false,
+                staleIds = emptySet(),
+                cleanupWholeSeries = {
+                    removeReminderSeriesEntries(context, event.id, event.scheduleEventId)
+                },
+                cleanupSingleEntry = { staleId -> removeScheduleReminder(context, staleId) }
+            )
+            if (!cleanupResult.isSuccess) {
+                return scheduleSyncResultAfterCleanup(
+                    event = event,
+                    primaryScheduleEventId = null,
+                    targetCalendarId = targetCalendarId,
+                    lastSyncAt = lastSyncAt,
+                    cleanupResult = cleanupResult
+                )
+            }
             val insertedId = insertLegacyReminderSeries(
                 context = context,
                 event = event,

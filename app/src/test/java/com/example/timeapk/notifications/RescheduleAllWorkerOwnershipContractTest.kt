@@ -1,7 +1,9 @@
 package com.example.timeapk.notifications
 
 import java.io.File
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -51,6 +53,32 @@ class RescheduleAllWorkerOwnershipContractTest {
                 source.contains("scheduleEventId = syncResult.primaryScheduleEventId")
             )
         }
+    }
+
+    @Test
+    fun removedEventCleanupFailure_keepsFingerprintStatePendingForRetry() {
+        val previous = RescheduleState(
+            preferencesFingerprint = "prefs-old",
+            eventFingerprints = mapOf(41 to "orphan", 42 to "active-old"),
+            lastSuccessAt = 100L
+        )
+        val cleanupFailures = cleanupRemovedCalendarEntries(setOf(41)) {
+            CalendarCleanupResult.PermissionRequired
+        }
+        val candidate = RescheduleState(
+            preferencesFingerprint = "prefs-new",
+            eventFingerprints = mapOf(42 to "active-new"),
+            lastSuccessAt = 200L
+        )
+
+        val stateToPersist = completedRescheduleState(
+            candidate = candidate,
+            shouldRetry = cleanupFailures.isNotEmpty()
+        )
+
+        assertEquals(setOf(41), cleanupFailures.keys)
+        assertNull(stateToPersist)
+        assertEquals("orphan", previous.eventFingerprints[41])
     }
 
     private fun source(name: String): String {

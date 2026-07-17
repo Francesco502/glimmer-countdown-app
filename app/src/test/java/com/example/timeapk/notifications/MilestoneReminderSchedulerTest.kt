@@ -8,6 +8,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlinx.coroutines.runBlocking
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZoneOffset
@@ -31,6 +32,30 @@ class MilestoneReminderSchedulerTest {
         assertTrue(
             shouldClearCalendarBeforeMilestoneSync(calendarCleanupHandledExternally = false)
         )
+    }
+
+    @Test
+    fun cleanupFailure_doesNotInsertMilestoneReplacement() = runBlocking {
+        var insertionCalled = false
+
+        val result = syncMilestoneCalendarReplacement(
+            cleanup = { CalendarCleanupResult.ProviderFailure("provider down") },
+            onCleanupFailure = { cleanup ->
+                ScheduleSyncManager.MilestoneScheduleSyncResult(
+                    scheduleEventId = null,
+                    targetCalendarId = 7L,
+                    lastSyncAt = 123L,
+                    error = cleanup.message
+                )
+            },
+            replacement = {
+                insertionCalled = true
+                ScheduleSyncManager.MilestoneScheduleSyncResult(99L, 7L, 123L, null)
+            }
+        )
+
+        assertFalse(insertionCalled)
+        assertEquals("provider down", result?.error)
     }
 
     @Test

@@ -232,6 +232,88 @@ class ScheduleSyncManagerTest {
     }
 
     @Test
+    fun disabledSync_cleanupFailureBecomesErrorAndRetainsKnownOwnership() {
+        val event = ownedCalendarEvent()
+        var cleanupAttempts = 0
+
+        val cleanup = ScheduleSyncManager.cleanupReminderSeriesEntries(
+            expectedEntriesPresent = false,
+            staleIds = emptySet(),
+            cleanupWholeSeries = {
+                cleanupAttempts += 1
+                CalendarCleanupResult.PermissionRequired
+            },
+            cleanupSingleEntry = { error("No single-entry cleanup expected") }
+        )
+        val result = ScheduleSyncManager.scheduleSyncResultAfterCleanup(
+            event = event,
+            primaryScheduleEventId = null,
+            targetCalendarId = null,
+            lastSyncAt = 456L,
+            cleanupResult = cleanup
+        )
+
+        assertEquals(1, cleanupAttempts)
+        assertEquals(183L, result.primaryScheduleEventId)
+        assertEquals(5L, result.targetCalendarId)
+        assertEquals("Calendar permission required", result.error)
+    }
+
+    @Test
+    fun emptySeries_cleanupFailureBecomesErrorWithoutClearingOwnership() {
+        val event = ownedCalendarEvent()
+
+        val cleanup = ScheduleSyncManager.cleanupReminderSeriesEntries(
+            expectedEntriesPresent = false,
+            staleIds = setOf(183L),
+            cleanupWholeSeries = { CalendarCleanupResult.ProviderFailure("provider down") },
+            cleanupSingleEntry = { error("Empty series must use whole-series cleanup") }
+        )
+        val result = ScheduleSyncManager.scheduleSyncResultAfterCleanup(
+            event = event,
+            primaryScheduleEventId = null,
+            targetCalendarId = null,
+            lastSyncAt = 789L,
+            cleanupResult = cleanup
+        )
+
+        assertEquals(183L, result.primaryScheduleEventId)
+        assertEquals(5L, result.targetCalendarId)
+        assertEquals("provider down", result.error)
+    }
+
+    @Test
+    fun staleSeries_checksEveryDeleteAndReportsFailure() {
+        val attempts = mutableListOf<Long>()
+
+        val cleanup = ScheduleSyncManager.cleanupReminderSeriesEntries(
+            expectedEntriesPresent = true,
+            staleIds = setOf(201L, 202L),
+            cleanupWholeSeries = { error("Non-empty series must clean stale entries individually") },
+            cleanupSingleEntry = { id ->
+                attempts += id
+                if (id == 201L) {
+                    CalendarCleanupResult.ProviderFailure("stale delete failed")
+                } else {
+                    CalendarCleanupResult.RemovedOrNotPresent
+                }
+            }
+        )
+        val result = ScheduleSyncManager.scheduleSyncResultAfterCleanup(
+            event = ownedCalendarEvent(),
+            primaryScheduleEventId = 300L,
+            targetCalendarId = 8L,
+            lastSyncAt = 999L,
+            cleanupResult = cleanup
+        )
+
+        assertEquals(listOf(201L, 202L), attempts)
+        assertEquals(300L, result.primaryScheduleEventId)
+        assertEquals(8L, result.targetCalendarId)
+        assertEquals("stale delete failed", result.error)
+    }
+
+    @Test
     fun reminderMarker_containsStablePrefixAndEventId() {
         val marker = ScheduleSyncManager.buildReminderMarkerForTest(42)
         assertEquals("[TimeAPK][Reminder]:42", marker)
@@ -439,6 +521,16 @@ class ScheduleSyncManagerTest {
             )
         )
     }
+
+    private fun ownedCalendarEvent() = Event(
+        id = 1,
+        title = "owned",
+        date = 1_800_000_000_000L,
+        category = CATEGORY_OTHER,
+        syncToScheduleEnabled = true,
+        scheduleEventId = 183L,
+        targetCalendarId = 5L
+    )
 
     private class FakeCalendarCleanupGateway(
         var descriptions: List<CalendarCleanupDescriptionCandidate>?,

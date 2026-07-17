@@ -59,8 +59,8 @@ class MilestoneReminderWorker(
             nm.notify(MILESTONE_NOTIFICATION_ID_BASE + eventId, notification)
         }
 
-        rescheduleMilestoneChain()
-        return Result.success()
+        val scheduleResult = rescheduleMilestoneChain()
+        return if (!scheduleResult?.error.isNullOrBlank()) Result.retry() else Result.success()
     }
 
     private fun canPostNotifications(): Boolean {
@@ -80,11 +80,11 @@ class MilestoneReminderWorker(
         }
     }
 
-    private suspend fun rescheduleMilestoneChain() {
-        val app = applicationContext as? TimeApplication ?: return
+    private suspend fun rescheduleMilestoneChain(): ScheduleSyncManager.MilestoneScheduleSyncResult? {
+        val app = applicationContext as? TimeApplication ?: return null
         val eventId = inputData.getInt(KEY_EVENT_ID, 0)
-        val event = app.repository.getEvent(eventId) ?: return
-        syncMilestoneReminderForEvent(app, event)
+        val event = app.repository.getEvent(eventId) ?: return null
+        return syncMilestoneReminderForEvent(app, event)
     }
 
     companion object {
@@ -95,6 +95,5 @@ class MilestoneReminderWorker(
         private const val MILESTONE_NOTIFICATION_ID_BASE = 100000
     }
 }
-
 
 

@@ -21,6 +21,20 @@ import kotlinx.coroutines.flow.first
 import org.json.JSONObject
 import java.security.MessageDigest
 
+internal fun cleanupRemovedCalendarEntries(
+    removedEventIds: Iterable<Int>,
+    cleanup: (Int) -> CalendarCleanupResult
+): Map<Int, CalendarCleanupResult> {
+    val failures = linkedMapOf<Int, CalendarCleanupResult>()
+    removedEventIds.forEach { eventId ->
+        val result = cleanup(eventId)
+        if (!result.isSuccess) {
+            failures[eventId] = result
+        }
+    }
+    return failures
+}
+
 class RescheduleAllWorker(
     context: Context,
     params: WorkerParameters
@@ -72,16 +86,25 @@ class RescheduleAllWorker(
 
             var shouldRetry = false
 
-            removedEventIds.forEach { removedId ->
+            val removedCleanupFailures = cleanupRemovedCalendarEntries(removedEventIds) { removedId ->
                 try {
                     cancelReminder(applicationContext, removedId)
                     cancelMilestoneReminders(applicationContext, removedId)
-                    ScheduleSyncManager.removeScheduleReminderByEventId(applicationContext, removedId)
-                    ScheduleSyncManager.clearMilestoneScheduleRemindersByEventId(applicationContext, removedId)
+                    ScheduleSyncManager.removeManagedCalendarEntries(
+                        context = applicationContext,
+                        eventId = removedId,
+                        calendarEventId = null
+                    )
                 } catch (t: Throwable) {
-                    shouldRetry = true
                     Log.w(TAG, "Failed to cleanup removed event $removedId", t)
+                    CalendarCleanupResult.ProviderFailure(
+                        t.message?.takeIf { it.isNotBlank() } ?: "Calendar cleanup failed"
+                    )
                 }
+            }
+            removedCleanupFailures.forEach { (removedId, cleanupResult) ->
+                shouldRetry = true
+                Log.w(TAG, "Failed to cleanup removed event $removedId: ${cleanupResult.message}")
             }
 
             targetEvents.forEach { event ->
@@ -122,16 +145,20 @@ class RescheduleAllWorker(
                 Log.w(TAG, "Failed to refresh widgets after reschedule", t)
             }
 
-            if (shouldRetry) {
+            val completedState = completedRescheduleState(
+                candidate = RescheduleState(
+                    preferencesFingerprint = preferencesFingerprint,
+                    eventFingerprints = eventFingerprints,
+                    lastSuccessAt = System.currentTimeMillis()
+                ),
+                shouldRetry = shouldRetry
+            )
+            if (completedState == null) {
                 Result.retry()
             } else {
                 saveState(
                     context = applicationContext,
-                    state = RescheduleState(
-                        preferencesFingerprint = preferencesFingerprint,
-                        eventFingerprints = eventFingerprints,
-                        lastSuccessAt = System.currentTimeMillis()
-                    )
+                    state = completedState
                 )
                 Result.success()
             }
@@ -191,10 +218,19 @@ class RescheduleAllWorker(
 
         try {
             if (milestoneEnabled) {
-                syncMilestoneReminderForEvent(app, updatedEvent)
+                val milestoneResult = syncMilestoneReminderForEvent(app, updatedEvent)
+                if (!milestoneResult?.error.isNullOrBlank()) {
+                    onFailure(IllegalStateException(milestoneResult?.error))
+                }
             } else {
                 cancelMilestoneReminders(applicationContext, event.id)
-                ScheduleSyncManager.clearMilestoneScheduleRemindersByEventId(applicationContext, event.id)
+                val cleanup = ScheduleSyncManager.clearMilestoneScheduleRemindersByEventId(
+                    applicationContext,
+                    event.id
+                )
+                if (!cleanup.isSuccess) {
+                    onFailure(IllegalStateException(cleanup.message ?: "Calendar cleanup failed"))
+                }
             }
         } catch (t: Throwable) {
             onFailure(t)
@@ -303,8 +339,13 @@ class RescheduleAllWorker(
     }
 }
 
-private data class RescheduleState(
+internal data class RescheduleState(
     val preferencesFingerprint: String,
     val eventFingerprints: Map<Int, String>,
     val lastSuccessAt: Long
 )
+
+internal fun completedRescheduleState(
+    candidate: RescheduleState,
+    shouldRetry: Boolean
+): RescheduleState? = candidate.takeUnless { shouldRetry }

@@ -581,12 +581,14 @@ class HomeViewModel(
                     )
                     eventAfterScheduleSyncAttempt(savedEvent, syncResult)
                 } else {
-                    ScheduleSyncManager.removeScheduleReminderByEventId(application, savedEvent.id)
-                    savedEvent.copy(
-                        scheduleEventId = null,
-                        targetCalendarId = null,
-                        lastScheduleSyncAt = System.currentTimeMillis(),
-                        lastScheduleSyncError = null
+                    val cleanup = ScheduleSyncManager.removeScheduleReminderByEventId(
+                        application,
+                        savedEvent.id
+                    )
+                    eventAfterCleanupAttempt(
+                        event = savedEvent,
+                        result = cleanup,
+                        nowMillis = System.currentTimeMillis()
                     )
                 }
                 repository.updateEvent(updatedEvent)

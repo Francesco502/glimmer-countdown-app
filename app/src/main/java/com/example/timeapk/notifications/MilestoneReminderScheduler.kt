@@ -46,57 +46,98 @@ internal fun shouldClearCalendarBeforeMilestoneSync(
     calendarCleanupHandledExternally: Boolean
 ): Boolean = !calendarCleanupHandledExternally
 
+internal suspend fun syncMilestoneCalendarReplacement(
+    cleanup: suspend () -> CalendarCleanupResult,
+    onCleanupFailure: suspend (CalendarCleanupResult) -> ScheduleSyncManager.MilestoneScheduleSyncResult?,
+    replacement: suspend () -> ScheduleSyncManager.MilestoneScheduleSyncResult?
+): ScheduleSyncManager.MilestoneScheduleSyncResult? {
+    val cleanupResult = cleanup()
+    return if (cleanupResult.isSuccess) {
+        replacement()
+    } else {
+        onCleanupFailure(cleanupResult)
+    }
+}
+
 suspend fun syncMilestoneReminderForEvent(
     application: Application,
     event: Event,
     calendarCleanupHandledExternally: Boolean = false
-) {
-    val app = application as? TimeApplication ?: return
+): ScheduleSyncManager.MilestoneScheduleSyncResult? {
+    val app = application as? TimeApplication ?: return null
     val context = application
     cancelMilestoneReminders(context, event.id)
-    if (shouldClearCalendarBeforeMilestoneSync(calendarCleanupHandledExternally)) {
-        ScheduleSyncManager.clearMilestoneScheduleRemindersByEventId(context, event.id)
-    }
 
-    val enabled = app.userPrefs.milestoneRemindEnabledFlow.first()
-    if (!enabled) return
-
-    val daysAhead = app.userPrefs.milestoneRemindDaysAheadFlow.first()
-    val remindMinuteOfDay = app.userPrefs.milestoneRemindTimeMinutesOfDayFlow.first()
-    val milestones = app.userPrefs.customMilestonesFlow.first()
-    val smartMilestonesEnabled = app.userPrefs.smartMilestonesEnabledFlow.first()
-    val preferredCalendarId = app.userPrefs.scheduleTargetCalendarIdFlow.first()
-
-    val scheduleResult = scheduleMilestoneReminderForEvent(
-        context = context,
-        event = event,
-        milestones = milestones,
-        remindDaysAhead = daysAhead,
-        remindMinuteOfDay = remindMinuteOfDay,
-        smartMilestonesEnabled = smartMilestonesEnabled,
-        targetCalendarId = preferredCalendarId
-    )
-
-    if (scheduleResult != null && event.syncToScheduleEnabled) {
-        val shouldStampSyncTime =
-            event.lastScheduleSyncAt == null ||
-                scheduleResult.targetCalendarId != event.targetCalendarId ||
-                scheduleResult.error != event.lastScheduleSyncError
-        val updatedEvent = event.copy(
-            targetCalendarId = scheduleResult.targetCalendarId ?: event.targetCalendarId,
-            lastScheduleSyncAt = if (shouldStampSyncTime) scheduleResult.lastSyncAt else event.lastScheduleSyncAt,
-            lastScheduleSyncError = scheduleResult.error
-        )
-        if (updatedEvent != event) {
-            try {
-                app.repository.updateEvent(updatedEvent)
-            } catch (t: Throwable) {
-                Log.w(TAG, "Failed to persist milestone schedule status for eventId=${event.id}", t)
+    return syncMilestoneCalendarReplacement(
+        cleanup = {
+            if (shouldClearCalendarBeforeMilestoneSync(calendarCleanupHandledExternally)) {
+                ScheduleSyncManager.clearMilestoneScheduleRemindersByEventId(context, event.id)
+            } else {
+                CalendarCleanupResult.RemovedOrNotPresent
             }
+        },
+        onCleanupFailure = { cleanupResult ->
+            val failure = ScheduleSyncManager.MilestoneScheduleSyncResult(
+                scheduleEventId = null,
+                targetCalendarId = event.targetCalendarId,
+                lastSyncAt = System.currentTimeMillis(),
+                error = cleanupResult.message ?: "Calendar cleanup failed"
+            )
+            persistMilestoneScheduleStatus(app, event, failure)
+            failure
+        },
+        replacement = {
+            val enabled = app.userPrefs.milestoneRemindEnabledFlow.first()
+            if (!enabled) return@syncMilestoneCalendarReplacement null
+
+            val daysAhead = app.userPrefs.milestoneRemindDaysAheadFlow.first()
+            val remindMinuteOfDay = app.userPrefs.milestoneRemindTimeMinutesOfDayFlow.first()
+            val milestones = app.userPrefs.customMilestonesFlow.first()
+            val smartMilestonesEnabled = app.userPrefs.smartMilestonesEnabledFlow.first()
+            val preferredCalendarId = app.userPrefs.scheduleTargetCalendarIdFlow.first()
+
+            val scheduleResult = scheduleMilestoneReminderForEvent(
+                context = context,
+                event = event,
+                milestones = milestones,
+                remindDaysAhead = daysAhead,
+                remindMinuteOfDay = remindMinuteOfDay,
+                smartMilestonesEnabled = smartMilestonesEnabled,
+                targetCalendarId = preferredCalendarId
+            )
+            if (scheduleResult != null) {
+                persistMilestoneScheduleStatus(app, event, scheduleResult)
+            }
+            scheduleResult
         }
-        if (!scheduleResult.error.isNullOrBlank()) {
-            Log.w(TAG, "Milestone schedule sync warning for eventId=${event.id}: ${scheduleResult.error}")
+    )
+}
+
+private suspend fun persistMilestoneScheduleStatus(
+    app: TimeApplication,
+    event: Event,
+    scheduleResult: ScheduleSyncManager.MilestoneScheduleSyncResult
+) {
+    if (!event.syncToScheduleEnabled && scheduleResult.error.isNullOrBlank()) return
+
+    val shouldStampSyncTime =
+        event.lastScheduleSyncAt == null ||
+            scheduleResult.targetCalendarId != event.targetCalendarId ||
+            scheduleResult.error != event.lastScheduleSyncError
+    val updatedEvent = event.copy(
+        targetCalendarId = scheduleResult.targetCalendarId ?: event.targetCalendarId,
+        lastScheduleSyncAt = if (shouldStampSyncTime) scheduleResult.lastSyncAt else event.lastScheduleSyncAt,
+        lastScheduleSyncError = scheduleResult.error
+    )
+    if (updatedEvent != event) {
+        try {
+            app.repository.updateEvent(updatedEvent)
+        } catch (t: Throwable) {
+            Log.w(TAG, "Failed to persist milestone schedule status for eventId=${event.id}", t)
         }
+    }
+    if (!scheduleResult.error.isNullOrBlank()) {
+        Log.w(TAG, "Milestone schedule sync warning for eventId=${event.id}: ${scheduleResult.error}")
     }
 }
 

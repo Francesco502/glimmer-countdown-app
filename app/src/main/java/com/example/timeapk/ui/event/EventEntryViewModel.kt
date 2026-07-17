@@ -312,7 +312,24 @@ class EventEntryViewModel(
                 )
             ) {
                 cancelMilestoneReminders(application, updatedEvent.id)
-                ScheduleSyncManager.clearMilestoneScheduleRemindersByEventId(application, updatedEvent.id)
+                val cleanup = ScheduleSyncManager.clearMilestoneScheduleRemindersByEventId(
+                    application,
+                    updatedEvent.id
+                )
+                if (!cleanup.isSuccess) {
+                    scheduleSyncError = cleanup.message ?: "Calendar cleanup failed"
+                    updatedEvent = eventAfterCleanupAttempt(
+                        event = updatedEvent,
+                        result = cleanup,
+                        nowMillis = System.currentTimeMillis()
+                    )
+                    try {
+                        repository.updateEvent(updatedEvent)
+                    } catch (t: Exception) {
+                        Log.w(TAG, "Failed to persist milestone cleanup status for eventId=${updatedEvent.id}", t)
+                        hasGenericSideEffectFailure = true
+                    }
+                }
             }
         } catch (t: Exception) {
             Log.w(TAG, "Failed to sync milestone reminders for eventId=${updatedEvent.id}", t)
