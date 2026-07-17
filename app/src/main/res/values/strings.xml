@@ -2,6 +2,9 @@
 <resources>
     <string name="app_name">拾光</string>
     <string name="home_empty_title">空空如也，待录佳期</string>
+    <string name="home_empty_first_event_cta">记录第一个日期</string>
+    <string name="home_empty_no_matches">当前搜索、筛选或时间线中没有匹配的日期</string>
+    <string name="home_empty_clear_constraints">清除搜索与筛选</string>
     <string name="days_left">天</string>
     <string name="days_left_label">剩余</string>
     <string name="days_until_label">还有</string>

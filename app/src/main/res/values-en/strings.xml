@@ -4,6 +4,9 @@
 
     <!-- Home -->
     <string name="home_empty_title">No countdowns yet</string>
+    <string name="home_empty_first_event_cta">Record your first event</string>
+    <string name="home_empty_no_matches">No events match the current search, filter, or timeline.</string>
+    <string name="home_empty_clear_constraints">Clear search and filters</string>
     <string name="days_left">days</string>
     <string name="days_left_label">left</string>
     <string name="days_until_label">until</string>

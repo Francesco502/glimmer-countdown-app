@@ -492,7 +492,7 @@ class HomeViewModel(
         initialValue = emptyList()
     )
 
-    val calendarUiState: StateFlow<List<EventUiState>> = homeUiState
+    val calendarUiState: StateFlow<List<EventUiState>> = allHomeUiState
 
     fun updateSearchQuery(query: String) {
         _searchQuery.value = query

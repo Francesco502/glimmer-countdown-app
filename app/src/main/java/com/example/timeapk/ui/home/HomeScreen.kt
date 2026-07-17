@@ -150,6 +150,12 @@ fun HomeScreen(
         }
     }
     val displayedList = focusedTimelineList ?: homeUiState
+    val emptyStateKind = resolveHomeEmptyStateKind(calendarUiState.isEmpty())
+    val clearEmptyStateConstraints: () -> Unit = {
+        viewModel.updateSearchQuery("")
+        viewModel.updateFilterType(FilterType.All)
+        timelineFocus = null
+    }
 
     // Reorder list state is seeded synchronously to avoid first-frame jump/glitch.
     val orderedList = remember { mutableStateListOf<EventUiState>() }
@@ -247,29 +253,31 @@ fun HomeScreen(
         },
         floatingActionButtonPosition = FabPosition.Center,
         floatingActionButton = {
-            val isEmpty = displayedList.isEmpty()
-            val fabScale by animateFloatAsState(
-                if (isEmpty) 1.03f else 1f,
-                animationSpec = AnimationSpecs.springButton,
-                label = "fabScale"
-            )
-            Surface(
-                onClick = navigateToItemEntry,
-                modifier = Modifier
-                    .size(48.dp)
-                    .graphicsLayer { scaleX = fabScale; scaleY = fabScale },
-                shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.surface,
-                border = BorderStroke(SongDesignTokens.BorderWidth.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = SongDesignTokens.BorderAlphaStrong)),
-                shadowElevation = 0.dp
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    SongLineIcon(
-                        kind = SongLineIconKind.Add,
-                        contentDescription = stringResource(R.string.cd_add_event),
-                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                        size = 24.dp
-                    )
+            if (emptyStateKind != HomeEmptyStateKind.FirstEvent) {
+                val isEmpty = displayedList.isEmpty()
+                val fabScale by animateFloatAsState(
+                    if (isEmpty) 1.03f else 1f,
+                    animationSpec = AnimationSpecs.springButton,
+                    label = "fabScale"
+                )
+                Surface(
+                    onClick = navigateToItemEntry,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .graphicsLayer { scaleX = fabScale; scaleY = fabScale },
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(SongDesignTokens.BorderWidth.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = SongDesignTokens.BorderAlphaStrong)),
+                    shadowElevation = 0.dp
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        SongLineIcon(
+                            kind = SongLineIconKind.Add,
+                            contentDescription = stringResource(R.string.cd_add_event),
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                            size = 24.dp
+                        )
+                    }
                 }
             }
         }
@@ -292,7 +300,12 @@ fun HomeScreen(
             // Event list / month view
             if (homeDisplayMode == 2) {
                 if (calendarUiState.isEmpty()) {
-                    EmptyState(modifier = Modifier.fillMaxSize())
+                    EmptyState(
+                        kind = emptyStateKind,
+                        onFirstEventClick = navigateToItemEntry,
+                        onClearConstraints = clearEmptyStateConstraints,
+                        modifier = Modifier.fillMaxSize()
+                    )
                 } else {
                     MonthCalendarView(
                         events = calendarUiState,
@@ -390,7 +403,12 @@ fun HomeScreen(
                         label = "listOrEmpty"
                     ) { isEmpty ->
                         if (isEmpty) {
-                            EmptyState(modifier = Modifier.fillMaxSize())
+                            EmptyState(
+                                kind = emptyStateKind,
+                                onFirstEventClick = navigateToItemEntry,
+                                onClearConstraints = clearEmptyStateConstraints,
+                                modifier = Modifier.fillMaxSize()
+                            )
                         } else {
                             CompositionLocalProvider(LocalOverscrollConfiguration provides null) {
                                 LazyColumn(
@@ -1196,21 +1214,99 @@ private fun InlineActionIconButton(
 }
 
 @Composable
-private fun EmptyState(modifier: Modifier = Modifier) {
+private fun EmptyState(
+    kind: HomeEmptyStateKind,
+    onFirstEventClick: () -> Unit,
+    onClearConstraints: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            SongLineIcon(
-                kind = SongLineIconKind.Add,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f),
-                size = 64.dp
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = stringResource(R.string.home_empty_title),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onBackground
-            )
+        when (kind) {
+            HomeEmptyStateKind.FirstEvent -> {
+                val firstEventCta = stringResource(R.string.home_empty_first_event_cta)
+                Surface(
+                    onClick = onFirstEventClick,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp)
+                        .semantics(mergeDescendants = true) {
+                            role = Role.Button
+                            contentDescription = firstEventCta
+                        },
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(
+                        SongDesignTokens.BorderWidth.dp,
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = SongDesignTokens.BorderAlphaStrong)
+                    ),
+                    shadowElevation = 0.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        SongLineIcon(
+                            kind = SongLineIconKind.Add,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            size = 24.dp
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = firstEventCta,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+            }
+
+            HomeEmptyStateKind.NoMatches -> {
+                val noMatches = stringResource(R.string.home_empty_no_matches)
+                val clearConstraints = stringResource(R.string.home_empty_clear_constraints)
+                Surface(
+                    onClick = onClearConstraints,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp)
+                        .semantics(mergeDescendants = true) {
+                            role = Role.Button
+                            contentDescription = clearConstraints
+                        },
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(
+                        SongDesignTokens.BorderWidth.dp,
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = SongDesignTokens.BorderAlphaStrong)
+                    ),
+                    shadowElevation = 0.dp
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        SongLineIcon(
+                            kind = SongLineIconKind.Search,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            size = 24.dp
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            text = noMatches,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = clearConstraints,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
         }
     }
 }

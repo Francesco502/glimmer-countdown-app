@@ -7,14 +7,48 @@ import java.io.File
 
 class HomeInteractionPolicyTest {
     @Test
-    fun emptyStateAddIconIsDecorativeBecauseTheFabOwnsTheAddAction() {
+    fun emptyStateFirstEventCtaIsTheOnlyAccessibleAddAction() {
         val source = readSource("ui/home/HomeScreen.kt")
         val emptyState = source.substringAfter("private fun EmptyState(")
             .substringBefore("@OptIn(ExperimentalFoundationApi::class)")
+        val firstEvent = emptyState.substringAfter("HomeEmptyStateKind.FirstEvent ->")
+            .substringBefore("HomeEmptyStateKind.NoMatches ->")
 
-        assertTrue(emptyState.contains("kind = SongLineIconKind.Add"))
-        assertTrue(emptyState.contains("contentDescription = null"))
-        assertFalse(emptyState.contains("R.string.cd_add_event"))
+        assertTrue(firstEvent.contains("Surface("))
+        assertTrue(firstEvent.contains("onClick = onFirstEventClick"))
+        assertTrue(firstEvent.contains(".fillMaxWidth()"))
+        assertTrue(firstEvent.contains(".heightIn(min = 48.dp)"))
+        assertTrue(firstEvent.contains("role = Role.Button"))
+        assertTrue(firstEvent.contains("stringResource(R.string.home_empty_first_event_cta)"))
+        assertTrue(firstEvent.contains("contentDescription = firstEventCta"))
+        assertTrue(firstEvent.contains("kind = SongLineIconKind.Add"))
+        assertTrue(firstEvent.contains("contentDescription = null"))
+        assertFalse(firstEvent.contains(".clickable("))
+    }
+
+    @Test
+    fun homeEmptyStateUsesUnfilteredCalendarEventsAndClearsEveryActiveConstraintForNoMatches() {
+        val source = readSource("ui/home/HomeScreen.kt")
+        val screen = source.substringAfter("fun HomeScreen(")
+            .substringBefore("@Composable\nprivate fun HomeDisplayModeSegmentedControl")
+
+        assertTrue(screen.contains("resolveHomeEmptyStateKind(calendarUiState.isEmpty())"))
+        assertTrue(screen.contains("viewModel.updateSearchQuery(\"\")"))
+        assertTrue(screen.contains("viewModel.updateFilterType(FilterType.All)"))
+        assertTrue(screen.contains("timelineFocus = null"))
+        assertTrue(screen.contains("kind = emptyStateKind"))
+        assertTrue(screen.contains("onClearConstraints = clearEmptyStateConstraints"))
+    }
+
+    @Test
+    fun homeOmitsBottomAddForFirstEventButKeepsItForNoMatches() {
+        val source = readSource("ui/home/HomeScreen.kt")
+        val fab = source.substringAfter("floatingActionButton = {")
+            .substringBefore("    ) { innerPadding ->")
+
+        assertTrue(fab.contains("if (emptyStateKind != HomeEmptyStateKind.FirstEvent)"))
+        assertTrue(fab.contains("Surface("))
+        assertTrue(fab.contains("onClick = navigateToItemEntry"))
     }
 
 
