@@ -104,7 +104,7 @@ class RescheduleAllWorkerOwnershipContractTest {
             )
         )
 
-        assertEquals("primary cleanup failed; milestone cleanup failed", updated.lastScheduleSyncError)
+        assertEquals("primary cleanup failed; [Milestone] milestone cleanup failed", updated.lastScheduleSyncError)
         assertEquals(71L, updated.scheduleEventId)
     }
 

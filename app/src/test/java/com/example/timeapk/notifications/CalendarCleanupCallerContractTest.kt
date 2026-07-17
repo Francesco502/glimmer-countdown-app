@@ -77,8 +77,25 @@ class CalendarCleanupCallerContractTest {
         val reschedule = source("notifications/RescheduleAllWorker.kt")
 
         assertTrue(manager.contains("fun clearAllMilestoneScheduleReminders(context: Context): CalendarCleanupResult"))
-        assertTrue(scheduler.contains("val cleanup = ScheduleSyncManager.clearAllMilestoneScheduleReminders(application)"))
-        assertTrue(reschedule.contains("val cleanup = ScheduleSyncManager.clearAllMilestoneScheduleReminders(applicationContext)"))
+        assertTrue(scheduler.contains("val cleanup = clearAllPendingMilestoneCalendarOwnership(application)"))
+        assertTrue(reschedule.contains("val cleanup = clearAllPendingMilestoneCalendarOwnership(applicationContext)"))
+    }
+
+    @Test
+    fun milestoneCleanupIsGatedByTrackedPendingOwnership() {
+        val scheduler = source("notifications/MilestoneReminderScheduler.kt")
+        val ownership = source("notifications/MilestoneCalendarOwnership.kt")
+        val reschedule = source("notifications/RescheduleAllWorker.kt")
+        val reminderWorker = source("notifications/ReminderWorker.kt")
+        val eventEntry = source("ui/event/EventEntryViewModel.kt")
+
+        assertTrue(scheduler.contains("MilestoneCalendarOwnershipStore.markPending(context, event.id)"))
+        assertTrue(ownership.contains("cleanupPendingMilestoneOwnership("))
+        assertTrue(reschedule.contains("clearAllPendingMilestoneCalendarOwnership("))
+        assertTrue(reschedule.contains("recordManagedCalendarCleanupForMilestoneOwnership("))
+        assertTrue(reminderWorker.contains("recordManagedCalendarCleanupForMilestoneOwnership("))
+        assertTrue(eventEntry.contains("recordManagedCalendarCleanupForMilestoneOwnership("))
+        assertTrue(eventEntry.contains("clearPendingMilestoneCalendarOwnership("))
     }
 
     private fun source(relativePath: String): String {

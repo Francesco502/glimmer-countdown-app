@@ -6,6 +6,7 @@ import com.example.timeapk.data.REPEAT_NONE
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlinx.coroutines.runBlocking
@@ -103,10 +104,61 @@ class MilestoneReminderSchedulerTest {
             retryRequests += 1
         }
 
-        assertEquals("primary failed; milestone cleanup failed", updated.lastScheduleSyncError)
+        assertEquals("primary failed; [Milestone] milestone cleanup failed", updated.lastScheduleSyncError)
         assertEquals(200L, updated.lastScheduleSyncAt)
         assertTrue(retryRequested)
         assertEquals(1, retryRequests)
+    }
+
+    @Test
+    fun milestoneFailureThenSuccess_clearsOnlyTaggedMilestoneError() {
+        val primaryEvent = ownedEvent(lastError = "primary failed", lastSyncAt = 100L)
+        val failed = eventAfterMilestoneScheduleSyncAttempt(
+            primaryEvent,
+            ScheduleSyncManager.MilestoneScheduleSyncResult(
+                scheduleEventId = null,
+                targetCalendarId = 5L,
+                lastSyncAt = 200L,
+                error = "provider down"
+            )
+        )
+        val recovered = eventAfterMilestoneScheduleSyncAttempt(
+            failed,
+            ScheduleSyncManager.MilestoneScheduleSyncResult(
+                scheduleEventId = 901L,
+                targetCalendarId = 5L,
+                lastSyncAt = 300L,
+                error = null
+            )
+        )
+
+        assertEquals("primary failed; [Milestone] provider down", failed.lastScheduleSyncError)
+        assertEquals("primary failed", recovered.lastScheduleSyncError)
+    }
+
+    @Test
+    fun milestoneOnlyFailureThenSuccess_clearsResolvedError() {
+        val failed = eventAfterMilestoneScheduleSyncAttempt(
+            ownedEvent(lastError = null, lastSyncAt = 100L),
+            ScheduleSyncManager.MilestoneScheduleSyncResult(
+                scheduleEventId = null,
+                targetCalendarId = 5L,
+                lastSyncAt = 200L,
+                error = "permission denied"
+            )
+        )
+        val recovered = eventAfterMilestoneScheduleSyncAttempt(
+            failed,
+            ScheduleSyncManager.MilestoneScheduleSyncResult(
+                scheduleEventId = 902L,
+                targetCalendarId = 5L,
+                lastSyncAt = 300L,
+                error = null
+            )
+        )
+
+        assertEquals("[Milestone] permission denied", failed.lastScheduleSyncError)
+        assertNull(recovered.lastScheduleSyncError)
     }
 
     @Test

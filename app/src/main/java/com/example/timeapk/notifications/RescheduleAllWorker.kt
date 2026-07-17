@@ -90,10 +90,14 @@ class RescheduleAllWorker(
                 try {
                     cancelReminder(applicationContext, removedId)
                     cancelMilestoneReminders(applicationContext, removedId)
-                    ScheduleSyncManager.removeManagedCalendarEntries(
+                    recordManagedCalendarCleanupForMilestoneOwnership(
                         context = applicationContext,
                         eventId = removedId,
-                        calendarEventId = null
+                        result = ScheduleSyncManager.removeManagedCalendarEntries(
+                            context = applicationContext,
+                            eventId = removedId,
+                            calendarEventId = null
+                        )
                     )
                 } catch (t: Throwable) {
                     Log.w(TAG, "Failed to cleanup removed event $removedId", t)
@@ -131,7 +135,7 @@ class RescheduleAllWorker(
             if (!milestoneEnabled && (forceFullReschedule || removedEventIds.isNotEmpty() || targetEvents.isNotEmpty())) {
                 try {
                     cancelAllMilestoneReminders(applicationContext)
-                    val cleanup = ScheduleSyncManager.clearAllMilestoneScheduleReminders(applicationContext)
+                    val cleanup = clearAllPendingMilestoneCalendarOwnership(applicationContext)
                     if (!cleanup.isSuccess) {
                         shouldRetry = true
                         Log.w(TAG, "Failed to clear all milestone reminders: ${cleanup.message}")
@@ -203,10 +207,14 @@ class RescheduleAllWorker(
             }
             eventAfterScheduleSyncAttempt(event, syncResult)
         } else if (calendarCleanupRequired(event)) {
-            val cleanup = ScheduleSyncManager.removeManagedCalendarEntries(
+            val cleanup = recordManagedCalendarCleanupForMilestoneOwnership(
                 context = applicationContext,
                 eventId = event.id,
-                calendarEventId = event.scheduleEventId
+                result = ScheduleSyncManager.removeManagedCalendarEntries(
+                    context = applicationContext,
+                    eventId = event.id,
+                    calendarEventId = event.scheduleEventId
+                )
             )
             if (!cleanup.isSuccess) {
                 onFailure(IllegalStateException(cleanup.message ?: "Calendar cleanup failed"))
@@ -229,7 +237,7 @@ class RescheduleAllWorker(
                 }
             } else {
                 cancelMilestoneReminders(applicationContext, event.id)
-                val cleanup = ScheduleSyncManager.clearMilestoneScheduleRemindersByEventId(
+                val cleanup = clearPendingMilestoneCalendarOwnership(
                     applicationContext,
                     event.id
                 )

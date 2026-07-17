@@ -21,6 +21,7 @@ import com.example.timeapk.notifications.syncMilestoneReminderForEvent
 import com.example.timeapk.notifications.enqueueMilestoneScheduleRetry
 import com.example.timeapk.notifications.eventAfterMilestoneScheduleSyncAttempt
 import com.example.timeapk.notifications.requestMilestoneScheduleRetryOnFailure
+import com.example.timeapk.notifications.recordManagedCalendarCleanupForMilestoneOwnership
 import com.example.timeapk.ui.utils.eventDateToLocalDate
 import com.example.timeapk.ui.utils.getNextLunarOccurrence
 import com.example.timeapk.ui.utils.getPreviousLunarOccurrence
@@ -554,10 +555,14 @@ class HomeViewModel(
         event = event,
         nowMillis = System::currentTimeMillis,
         cleanup = { target ->
-            ScheduleSyncManager.removeManagedCalendarEntries(
+            recordManagedCalendarCleanupForMilestoneOwnership(
                 context = application,
                 eventId = target.id,
-                calendarEventId = target.scheduleEventId
+                result = ScheduleSyncManager.removeManagedCalendarEntries(
+                    context = application,
+                    eventId = target.id,
+                    calendarEventId = target.scheduleEventId
+                )
             )
         },
         update = repository::updateEvent,

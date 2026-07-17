@@ -102,10 +102,14 @@ class ReminderWorker(
             )
             eventAfterScheduleSyncAttempt(event, syncResult)
         } else {
-            val cleanup = ScheduleSyncManager.removeManagedCalendarEntries(
+            val cleanup = recordManagedCalendarCleanupForMilestoneOwnership(
                 context = applicationContext,
                 eventId = event.id,
-                calendarEventId = event.scheduleEventId
+                result = ScheduleSyncManager.removeManagedCalendarEntries(
+                    context = applicationContext,
+                    eventId = event.id,
+                    calendarEventId = event.scheduleEventId
+                )
             )
             eventAfterCleanupAttempt(
                 event = event,
@@ -126,5 +130,4 @@ class ReminderWorker(
         private const val NOTIFICATION_ID_BASE = 1000
     }
 }
-
 

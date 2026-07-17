@@ -24,6 +24,7 @@ import java.util.concurrent.TimeUnit
 private const val MILESTONE_REMIND_TAG = "milestone_remind"
 private const val MILESTONE_WORK_PREFIX = "milestone_event_"
 private const val TAG = "MilestoneScheduler"
+private const val MILESTONE_ERROR_PREFIX = "[Milestone] "
 private val SMART_MILESTONE_REMIND_VALUES = listOf(
     1L, 3L, 7L, 14L, 30L, 60L, 90L, 100L, 180L, 365L, 520L, 730L, 1000L
 )
@@ -56,17 +57,37 @@ internal fun mergeScheduleSyncErrors(vararg errors: String?): String? = errors
     .joinToString("; ")
     .ifBlank { null }
 
+internal fun mergeMilestoneScheduleError(
+    existingError: String?,
+    milestoneError: String?
+): String? {
+    val nonMilestoneComponents = existingError
+        ?.split("; ")
+        .orEmpty()
+        .map(String::trim)
+        .filter { it.isNotBlank() && !it.startsWith(MILESTONE_ERROR_PREFIX) }
+    val taggedMilestoneError = milestoneError
+        ?.removePrefix(MILESTONE_ERROR_PREFIX)
+        ?.trim()
+        ?.takeIf(String::isNotBlank)
+        ?.let { "$MILESTONE_ERROR_PREFIX$it" }
+    return (nonMilestoneComponents + listOfNotNull(taggedMilestoneError))
+        .distinct()
+        .joinToString("; ")
+        .ifBlank { null }
+}
+
 internal fun eventAfterMilestoneScheduleSyncAttempt(
     event: Event,
     result: ScheduleSyncManager.MilestoneScheduleSyncResult?
 ): Event {
     if (result == null) return event
     val targetCalendarId = result.targetCalendarId ?: event.targetCalendarId
-    val mergedError = mergeScheduleSyncErrors(event.lastScheduleSyncError, result.error)
+    val mergedError = mergeMilestoneScheduleError(event.lastScheduleSyncError, result.error)
     val shouldStampSyncTime =
         event.lastScheduleSyncAt == null ||
             targetCalendarId != event.targetCalendarId ||
-            !result.error.isNullOrBlank()
+            mergedError != event.lastScheduleSyncError
     return event.copy(
         targetCalendarId = targetCalendarId,
         lastScheduleSyncAt = if (shouldStampSyncTime) result.lastSyncAt else event.lastScheduleSyncAt,
@@ -132,7 +153,7 @@ internal suspend fun syncMilestoneReminderForEvent(
     return syncMilestoneCalendarReplacement(
         cleanup = {
             if (shouldClearCalendarBeforeMilestoneSync(calendarCleanupHandledExternally)) {
-                ScheduleSyncManager.clearMilestoneScheduleRemindersByEventId(context, event.id)
+                clearPendingMilestoneCalendarOwnership(context, event.id)
             } else {
                 CalendarCleanupResult.RemovedOrNotPresent
             }
@@ -167,6 +188,9 @@ internal suspend fun syncMilestoneReminderForEvent(
                 targetCalendarId = preferredCalendarId
             )
             if (scheduleResult != null) {
+                if (scheduleResult.scheduleEventId != null) {
+                    MilestoneCalendarOwnershipStore.markPending(context, event.id)
+                }
                 persistMilestoneScheduleStatus(app, event, scheduleResult)
             }
             scheduleResult
@@ -199,7 +223,7 @@ internal suspend fun rescheduleMilestoneReminders(application: Application): Mil
     val enabled = app.userPrefs.milestoneRemindEnabledFlow.first()
     if (!enabled) {
         cancelAllMilestoneReminders(application)
-        val cleanup = ScheduleSyncManager.clearAllMilestoneScheduleReminders(application)
+        val cleanup = clearAllPendingMilestoneCalendarOwnership(application)
         val result = milestoneRescheduleResult(listOf(cleanup.message))
         requestMilestoneScheduleRetryOnFailure(result.error) {
             enqueueMilestoneScheduleRetry(application)

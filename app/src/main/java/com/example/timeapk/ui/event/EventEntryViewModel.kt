@@ -26,8 +26,9 @@ import com.example.timeapk.notifications.scheduleReminder
 import com.example.timeapk.notifications.syncMilestoneReminderForEvent
 import com.example.timeapk.notifications.enqueueMilestoneScheduleRetry
 import com.example.timeapk.notifications.eventAfterMilestoneScheduleSyncAttempt
-import com.example.timeapk.notifications.mergeScheduleSyncErrors
 import com.example.timeapk.notifications.requestMilestoneScheduleRetryOnFailure
+import com.example.timeapk.notifications.clearPendingMilestoneCalendarOwnership
+import com.example.timeapk.notifications.recordManagedCalendarCleanupForMilestoneOwnership
 import com.example.timeapk.ui.home.calendarCleanupRequired
 import com.example.timeapk.ui.home.eventAfterCleanupAttempt
 import com.example.timeapk.notifications.eventAfterScheduleSyncAttempt
@@ -276,10 +277,14 @@ class EventEntryViewModel(
             }
         } else {
             if (calendarCleanupRequired(persistedEvent)) {
-                val cleanup = ScheduleSyncManager.removeManagedCalendarEntries(
+                val cleanup = recordManagedCalendarCleanupForMilestoneOwnership(
                     context = application,
                     eventId = persistedEvent.id,
-                    calendarEventId = persistedEvent.scheduleEventId
+                    result = ScheduleSyncManager.removeManagedCalendarEntries(
+                        context = application,
+                        eventId = persistedEvent.id,
+                        calendarEventId = persistedEvent.scheduleEventId
+                    )
                 )
                 scheduleSyncError = cleanup.message
                 eventAfterCleanupAttempt(
@@ -322,7 +327,7 @@ class EventEntryViewModel(
                     hasGenericSideEffectFailure = true
                 }
             }
-            scheduleSyncError = mergeScheduleSyncErrors(scheduleSyncError, milestoneResult?.error)
+            scheduleSyncError = updatedEvent.lastScheduleSyncError
             requestMilestoneScheduleRetryOnFailure(milestoneResult?.error) {
                 enqueueMilestoneScheduleRetry(application)
             }
@@ -333,13 +338,12 @@ class EventEntryViewModel(
                 )
             ) {
                 cancelMilestoneReminders(application, updatedEvent.id)
-                val cleanup = ScheduleSyncManager.clearMilestoneScheduleRemindersByEventId(
+                val cleanup = clearPendingMilestoneCalendarOwnership(
                     application,
                     updatedEvent.id
                 )
                 if (!cleanup.isSuccess) {
                     val cleanupError = cleanup.message ?: "Calendar cleanup failed"
-                    scheduleSyncError = mergeScheduleSyncErrors(scheduleSyncError, cleanupError)
                     updatedEvent = eventAfterMilestoneScheduleSyncAttempt(
                         updatedEvent,
                         ScheduleSyncManager.MilestoneScheduleSyncResult(
@@ -349,6 +353,7 @@ class EventEntryViewModel(
                             error = cleanupError
                         )
                     )
+                    scheduleSyncError = updatedEvent.lastScheduleSyncError
                     enqueueMilestoneScheduleRetry(application)
                     try {
                         repository.updateEvent(updatedEvent)
