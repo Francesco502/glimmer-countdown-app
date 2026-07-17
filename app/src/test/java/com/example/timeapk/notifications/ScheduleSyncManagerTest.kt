@@ -232,6 +232,43 @@ class ScheduleSyncManagerTest {
     }
 
     @Test
+    fun clearAllMilestones_requiresReadAndWriteWithoutCallingProvider() {
+        var queryCalls = 0
+
+        val result = ScheduleSyncManager.cleanupAllMilestoneEntries(
+            readGranted = false,
+            writeGranted = true,
+            queryMetadataIds = { queryCalls += 1; emptyList() },
+            queryDescriptionIds = { queryCalls += 1; emptyList() },
+            deleteEvent = {}
+        )
+
+        assertEquals(CalendarCleanupResult.PermissionRequired, result)
+        assertEquals(0, queryCalls)
+    }
+
+    @Test
+    fun clearAllMilestones_mapsProviderAndDeleteFailures() {
+        val queryFailure = ScheduleSyncManager.cleanupAllMilestoneEntries(
+            readGranted = true,
+            writeGranted = true,
+            queryMetadataIds = { throw IllegalStateException("query failed") },
+            queryDescriptionIds = { emptyList() },
+            deleteEvent = {}
+        )
+        val deleteFailure = ScheduleSyncManager.cleanupAllMilestoneEntries(
+            readGranted = true,
+            writeGranted = true,
+            queryMetadataIds = { listOf(10L) },
+            queryDescriptionIds = { listOf(10L, 11L) },
+            deleteEvent = { id -> if (id == 11L) throw SecurityException("denied") }
+        )
+
+        assertEquals(CalendarCleanupResult.ProviderFailure("query failed"), queryFailure)
+        assertEquals(CalendarCleanupResult.PermissionRequired, deleteFailure)
+    }
+
+    @Test
     fun disabledSync_cleanupFailureBecomesErrorAndRetainsKnownOwnership() {
         val event = ownedCalendarEvent()
         var cleanupAttempts = 0

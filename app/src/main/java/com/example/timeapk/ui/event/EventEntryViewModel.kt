@@ -24,6 +24,10 @@ import com.example.timeapk.notifications.cancelMilestoneReminders
 import com.example.timeapk.notifications.cancelReminder
 import com.example.timeapk.notifications.scheduleReminder
 import com.example.timeapk.notifications.syncMilestoneReminderForEvent
+import com.example.timeapk.notifications.enqueueMilestoneScheduleRetry
+import com.example.timeapk.notifications.eventAfterMilestoneScheduleSyncAttempt
+import com.example.timeapk.notifications.mergeScheduleSyncErrors
+import com.example.timeapk.notifications.requestMilestoneScheduleRetryOnFailure
 import com.example.timeapk.ui.home.calendarCleanupRequired
 import com.example.timeapk.ui.home.eventAfterCleanupAttempt
 import com.example.timeapk.notifications.eventAfterScheduleSyncAttempt
@@ -298,13 +302,30 @@ class EventEntryViewModel(
         }
 
         try {
-            syncMilestoneReminderForEvent(
+            val milestoneResult = syncMilestoneReminderForEvent(
                 application = application,
                 event = updatedEvent,
                 calendarCleanupHandledExternally = calendarCleanupHandledExternallyForSave(
                     updatedEvent.syncToScheduleEnabled
                 )
             )
+            val milestoneUpdatedEvent = eventAfterMilestoneScheduleSyncAttempt(
+                updatedEvent,
+                milestoneResult
+            )
+            if (milestoneUpdatedEvent != updatedEvent) {
+                updatedEvent = milestoneUpdatedEvent
+                try {
+                    repository.updateEvent(updatedEvent)
+                } catch (t: Exception) {
+                    Log.w(TAG, "Failed to persist milestone schedule status for eventId=${updatedEvent.id}", t)
+                    hasGenericSideEffectFailure = true
+                }
+            }
+            scheduleSyncError = mergeScheduleSyncErrors(scheduleSyncError, milestoneResult?.error)
+            requestMilestoneScheduleRetryOnFailure(milestoneResult?.error) {
+                enqueueMilestoneScheduleRetry(application)
+            }
             if (
                 shouldClearMilestoneCalendarAfterSave(
                     updatedEvent.syncToScheduleEnabled,
@@ -317,12 +338,18 @@ class EventEntryViewModel(
                     updatedEvent.id
                 )
                 if (!cleanup.isSuccess) {
-                    scheduleSyncError = cleanup.message ?: "Calendar cleanup failed"
-                    updatedEvent = eventAfterCleanupAttempt(
-                        event = updatedEvent,
-                        result = cleanup,
-                        nowMillis = System.currentTimeMillis()
+                    val cleanupError = cleanup.message ?: "Calendar cleanup failed"
+                    scheduleSyncError = mergeScheduleSyncErrors(scheduleSyncError, cleanupError)
+                    updatedEvent = eventAfterMilestoneScheduleSyncAttempt(
+                        updatedEvent,
+                        ScheduleSyncManager.MilestoneScheduleSyncResult(
+                            scheduleEventId = null,
+                            targetCalendarId = updatedEvent.targetCalendarId,
+                            lastSyncAt = System.currentTimeMillis(),
+                            error = cleanupError
+                        )
                     )
+                    enqueueMilestoneScheduleRetry(application)
                     try {
                         repository.updateEvent(updatedEvent)
                     } catch (t: Exception) {
@@ -333,6 +360,8 @@ class EventEntryViewModel(
             }
         } catch (t: Exception) {
             Log.w(TAG, "Failed to sync milestone reminders for eventId=${updatedEvent.id}", t)
+            hasGenericSideEffectFailure = true
+            enqueueMilestoneScheduleRetry(application)
         }
 
         try {

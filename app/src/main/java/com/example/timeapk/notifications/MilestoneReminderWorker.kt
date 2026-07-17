@@ -16,6 +16,18 @@ import com.example.timeapk.TimeApplication
 /**
  * Milestone reminder worker.
  */
+internal enum class MilestoneWorkerCompletion {
+    COMPLETE
+}
+
+internal fun handleMilestoneWorkerScheduleResult(
+    result: ScheduleSyncManager.MilestoneScheduleSyncResult?,
+    enqueueReschedule: () -> Unit
+): MilestoneWorkerCompletion {
+    requestMilestoneScheduleRetryOnFailure(result?.error, enqueueReschedule)
+    return MilestoneWorkerCompletion.COMPLETE
+}
+
 class MilestoneReminderWorker(
     context: Context,
     params: WorkerParameters
@@ -60,7 +72,13 @@ class MilestoneReminderWorker(
         }
 
         val scheduleResult = rescheduleMilestoneChain()
-        return if (!scheduleResult?.error.isNullOrBlank()) Result.retry() else Result.success()
+        handleMilestoneWorkerScheduleResult(scheduleResult) {
+            RescheduleAllWorker.enqueue(
+                applicationContext,
+                "manual_milestone_worker_schedule_retry"
+            )
+        }
+        return Result.success()
     }
 
     private fun canPostNotifications(): Boolean {
@@ -84,7 +102,11 @@ class MilestoneReminderWorker(
         val app = applicationContext as? TimeApplication ?: return null
         val eventId = inputData.getInt(KEY_EVENT_ID, 0)
         val event = app.repository.getEvent(eventId) ?: return null
-        return syncMilestoneReminderForEvent(app, event)
+        return syncMilestoneReminderForEvent(
+            application = app,
+            event = event,
+            origin = MilestoneSyncOrigin.WORKER_AFTER_NOTIFICATION
+        )
     }
 
     companion object {
@@ -95,5 +117,4 @@ class MilestoneReminderWorker(
         private const val MILESTONE_NOTIFICATION_ID_BASE = 100000
     }
 }
-
 

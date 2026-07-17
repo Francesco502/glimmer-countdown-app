@@ -1,6 +1,7 @@
 package com.example.timeapk.notifications
 
 import android.app.Application
+import android.content.Context
 import android.util.Log
 import androidx.work.Data
 import androidx.work.ExistingWorkPolicy
@@ -32,6 +33,63 @@ internal data class MilestoneReminderPlan(
     val remindAtMillis: Long
 )
 
+internal enum class MilestoneSyncOrigin {
+    CALLER,
+    WORKER_AFTER_NOTIFICATION
+}
+
+internal data class MilestoneRescheduleResult(val error: String?) {
+    val isSuccess: Boolean
+        get() = error.isNullOrBlank()
+}
+
+internal fun shouldCancelMilestoneWorkBeforeSync(origin: MilestoneSyncOrigin): Boolean =
+    origin != MilestoneSyncOrigin.WORKER_AFTER_NOTIFICATION
+
+internal fun mergeScheduleSyncErrors(vararg errors: String?): String? = errors
+    .asSequence()
+    .filterNotNull()
+    .flatMap { it.split("; ").asSequence() }
+    .map(String::trim)
+    .filter(String::isNotBlank)
+    .distinct()
+    .joinToString("; ")
+    .ifBlank { null }
+
+internal fun eventAfterMilestoneScheduleSyncAttempt(
+    event: Event,
+    result: ScheduleSyncManager.MilestoneScheduleSyncResult?
+): Event {
+    if (result == null) return event
+    val targetCalendarId = result.targetCalendarId ?: event.targetCalendarId
+    val mergedError = mergeScheduleSyncErrors(event.lastScheduleSyncError, result.error)
+    val shouldStampSyncTime =
+        event.lastScheduleSyncAt == null ||
+            targetCalendarId != event.targetCalendarId ||
+            !result.error.isNullOrBlank()
+    return event.copy(
+        targetCalendarId = targetCalendarId,
+        lastScheduleSyncAt = if (shouldStampSyncTime) result.lastSyncAt else event.lastScheduleSyncAt,
+        lastScheduleSyncError = mergedError
+    )
+}
+
+internal fun requestMilestoneScheduleRetryOnFailure(
+    error: String?,
+    enqueueRetry: () -> Unit
+): Boolean {
+    if (error.isNullOrBlank()) return false
+    enqueueRetry()
+    return true
+}
+
+internal fun milestoneRescheduleResult(errors: Iterable<String?>): MilestoneRescheduleResult =
+    MilestoneRescheduleResult(mergeScheduleSyncErrors(*errors.toList().toTypedArray()))
+
+internal fun enqueueMilestoneScheduleRetry(context: Context) {
+    RescheduleAllWorker.enqueue(context, "manual_milestone_schedule_retry")
+}
+
 fun cancelMilestoneReminders(context: android.content.Context, eventId: Int) {
     val wm = WorkManager.getInstance(context)
     wm.cancelUniqueWork("$MILESTONE_WORK_PREFIX$eventId")
@@ -59,14 +117,17 @@ internal suspend fun syncMilestoneCalendarReplacement(
     }
 }
 
-suspend fun syncMilestoneReminderForEvent(
+internal suspend fun syncMilestoneReminderForEvent(
     application: Application,
     event: Event,
-    calendarCleanupHandledExternally: Boolean = false
+    calendarCleanupHandledExternally: Boolean = false,
+    origin: MilestoneSyncOrigin = MilestoneSyncOrigin.CALLER
 ): ScheduleSyncManager.MilestoneScheduleSyncResult? {
     val app = application as? TimeApplication ?: return null
     val context = application
-    cancelMilestoneReminders(context, event.id)
+    if (shouldCancelMilestoneWorkBeforeSync(origin)) {
+        cancelMilestoneReminders(context, event.id)
+    }
 
     return syncMilestoneCalendarReplacement(
         cleanup = {
@@ -120,15 +181,7 @@ private suspend fun persistMilestoneScheduleStatus(
 ) {
     if (!event.syncToScheduleEnabled && scheduleResult.error.isNullOrBlank()) return
 
-    val shouldStampSyncTime =
-        event.lastScheduleSyncAt == null ||
-            scheduleResult.targetCalendarId != event.targetCalendarId ||
-            scheduleResult.error != event.lastScheduleSyncError
-    val updatedEvent = event.copy(
-        targetCalendarId = scheduleResult.targetCalendarId ?: event.targetCalendarId,
-        lastScheduleSyncAt = if (shouldStampSyncTime) scheduleResult.lastSyncAt else event.lastScheduleSyncAt,
-        lastScheduleSyncError = scheduleResult.error
-    )
+    val updatedEvent = eventAfterMilestoneScheduleSyncAttempt(event, scheduleResult)
     if (updatedEvent != event) {
         try {
             app.repository.updateEvent(updatedEvent)
@@ -141,19 +194,28 @@ private suspend fun persistMilestoneScheduleStatus(
     }
 }
 
-suspend fun rescheduleMilestoneReminders(application: Application) {
-    val app = application as? TimeApplication ?: return
+internal suspend fun rescheduleMilestoneReminders(application: Application): MilestoneRescheduleResult {
+    val app = application as? TimeApplication ?: return MilestoneRescheduleResult(null)
     val enabled = app.userPrefs.milestoneRemindEnabledFlow.first()
     if (!enabled) {
         cancelAllMilestoneReminders(application)
-        ScheduleSyncManager.clearAllMilestoneScheduleReminders(application)
-        return
+        val cleanup = ScheduleSyncManager.clearAllMilestoneScheduleReminders(application)
+        val result = milestoneRescheduleResult(listOf(cleanup.message))
+        requestMilestoneScheduleRetryOnFailure(result.error) {
+            enqueueMilestoneScheduleRetry(application)
+        }
+        return result
     }
 
     val events = app.repository.getAllEventsSnapshot()
-    events.forEach { event ->
-        syncMilestoneReminderForEvent(application, event)
+    val errors = events.map { event ->
+        syncMilestoneReminderForEvent(application, event)?.error
     }
+    val result = milestoneRescheduleResult(errors)
+    requestMilestoneScheduleRetryOnFailure(result.error) {
+        enqueueMilestoneScheduleRetry(application)
+    }
+    return result
 }
 
 private fun scheduleMilestoneReminderForEvent(

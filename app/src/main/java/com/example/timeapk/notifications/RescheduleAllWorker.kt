@@ -131,7 +131,11 @@ class RescheduleAllWorker(
             if (!milestoneEnabled && (forceFullReschedule || removedEventIds.isNotEmpty() || targetEvents.isNotEmpty())) {
                 try {
                     cancelAllMilestoneReminders(applicationContext)
-                    ScheduleSyncManager.clearAllMilestoneScheduleReminders(applicationContext)
+                    val cleanup = ScheduleSyncManager.clearAllMilestoneScheduleReminders(applicationContext)
+                    if (!cleanup.isSuccess) {
+                        shouldRetry = true
+                        Log.w(TAG, "Failed to clear all milestone reminders: ${cleanup.message}")
+                    }
                 } catch (t: Throwable) {
                     shouldRetry = true
                     Log.w(TAG, "Failed to clear all milestone reminders", t)
@@ -219,6 +223,7 @@ class RescheduleAllWorker(
         try {
             if (milestoneEnabled) {
                 val milestoneResult = syncMilestoneReminderForEvent(app, updatedEvent)
+                updatedEvent = eventAfterMilestoneScheduleSyncAttempt(updatedEvent, milestoneResult)
                 if (!milestoneResult?.error.isNullOrBlank()) {
                     onFailure(IllegalStateException(milestoneResult?.error))
                 }
@@ -229,6 +234,15 @@ class RescheduleAllWorker(
                     event.id
                 )
                 if (!cleanup.isSuccess) {
+                    updatedEvent = eventAfterMilestoneScheduleSyncAttempt(
+                        updatedEvent,
+                        ScheduleSyncManager.MilestoneScheduleSyncResult(
+                            scheduleEventId = null,
+                            targetCalendarId = updatedEvent.targetCalendarId,
+                            lastSyncAt = System.currentTimeMillis(),
+                            error = cleanup.message ?: "Calendar cleanup failed"
+                        )
+                    )
                     onFailure(IllegalStateException(cleanup.message ?: "Calendar cleanup failed"))
                 }
             }

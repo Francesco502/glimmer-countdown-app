@@ -18,6 +18,9 @@ import com.example.timeapk.notifications.cancelReminder
 import com.example.timeapk.notifications.rescheduleMilestoneReminders
 import com.example.timeapk.notifications.scheduleReminder
 import com.example.timeapk.notifications.syncMilestoneReminderForEvent
+import com.example.timeapk.notifications.enqueueMilestoneScheduleRetry
+import com.example.timeapk.notifications.eventAfterMilestoneScheduleSyncAttempt
+import com.example.timeapk.notifications.requestMilestoneScheduleRetryOnFailure
 import com.example.timeapk.ui.utils.eventDateToLocalDate
 import com.example.timeapk.ui.utils.getNextLunarOccurrence
 import com.example.timeapk.ui.utils.getPreviousLunarOccurrence
@@ -592,7 +595,22 @@ class HomeViewModel(
                     )
                 }
                 repository.updateEvent(updatedEvent)
-                syncMilestoneReminderForEvent(application, updatedEvent)
+                val milestoneResult = try {
+                    syncMilestoneReminderForEvent(application, updatedEvent)
+                } catch (error: Exception) {
+                    enqueueMilestoneScheduleRetry(application)
+                    throw error
+                }
+                val milestoneUpdatedEvent = eventAfterMilestoneScheduleSyncAttempt(
+                    updatedEvent,
+                    milestoneResult
+                )
+                requestMilestoneScheduleRetryOnFailure(milestoneResult?.error) {
+                    enqueueMilestoneScheduleRetry(application)
+                }
+                if (milestoneUpdatedEvent != updatedEvent) {
+                    repository.updateEvent(milestoneUpdatedEvent)
+                }
                 WidgetUpdater.refreshCountdownWidgets(application)
             } catch (_: Exception) {
                 // Ignore duplicate key or persistence failures during restore.

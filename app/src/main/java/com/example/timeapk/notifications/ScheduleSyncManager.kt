@@ -512,11 +512,44 @@ object ScheduleSyncManager {
         }
     }
 
-    fun clearAllMilestoneScheduleReminders(context: Context) {
-        if (!hasCalendarReadAccess(context)) return
-        val idsByKind = findEventIdsByExtendedProperty(context, META_NAME_KIND, META_KIND_MILESTONE)
-        removeEventsByIds(context, idsByKind)
-        removeEventsByDescriptionLike(context, "$MILESTONE_MARKER_PREFIX%")
+    fun clearAllMilestoneScheduleReminders(context: Context): CalendarCleanupResult {
+        return cleanupAllMilestoneEntries(
+            readGranted = hasPermission(context, Manifest.permission.READ_CALENDAR),
+            writeGranted = hasCalendarWriteAccess(context),
+            queryMetadataIds = { queryMilestoneIdsByExtendedProperty(context) },
+            queryDescriptionIds = { queryMilestoneIdsByDescription(context) },
+            deleteEvent = { id ->
+                val uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, id)
+                context.contentResolver.delete(uri, null, null)
+            }
+        )
+    }
+
+    internal fun cleanupAllMilestoneEntries(
+        readGranted: Boolean,
+        writeGranted: Boolean,
+        queryMetadataIds: () -> Iterable<Long>?,
+        queryDescriptionIds: () -> Iterable<Long>?,
+        deleteEvent: (Long) -> Unit
+    ): CalendarCleanupResult {
+        return try {
+            if (!hasRequiredCalendarCleanupPermissions(readGranted, writeGranted)) {
+                return CalendarCleanupResult.PermissionRequired
+            }
+            val ids = linkedSetOf<Long>()
+            ids += requireCalendarCleanupQuery(
+                queryMetadataIds(),
+                "Calendar extended-properties"
+            )
+            ids += requireCalendarCleanupQuery(
+                queryDescriptionIds(),
+                "Calendar events"
+            )
+            ids.forEach(deleteEvent)
+            CalendarCleanupResult.RemovedOrNotPresent
+        } catch (t: Exception) {
+            calendarCleanupFailureFor(t)
+        }
     }
 
     fun clearMilestoneScheduleRemindersByEventId(context: Context, eventId: Int): CalendarCleanupResult {
@@ -1156,42 +1189,37 @@ object ScheduleSyncManager {
         return listOf(marker, note.takeIf { it.isNotBlank() }).joinToString("\n")
     }
 
-    private fun removeEventsByIds(context: Context, ids: Iterable<Long>) {
-        if (!hasCalendarWriteAccess(context)) return
-        ids.forEach { id ->
-            try {
-                val uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, id)
-                context.contentResolver.delete(uri, null, null)
-            } catch (_: SecurityException) {
-            } catch (_: Exception) {
+    private fun queryMilestoneIdsByExtendedProperty(context: Context): List<Long>? {
+        return context.contentResolver.query(
+            CalendarContract.ExtendedProperties.CONTENT_URI,
+            arrayOf(CalendarContract.ExtendedProperties.EVENT_ID),
+            "${CalendarContract.ExtendedProperties.NAME} = ? AND ${CalendarContract.ExtendedProperties.VALUE} = ?",
+            arrayOf(META_NAME_KIND, META_KIND_MILESTONE),
+            null
+        )?.use { cursor ->
+            val ids = mutableListOf<Long>()
+            val idIndex = cursor.getColumnIndex(CalendarContract.ExtendedProperties.EVENT_ID)
+            while (cursor.moveToNext()) {
+                ids += cursor.getLong(idIndex)
             }
+            ids
         }
     }
 
-    private fun removeEventsByDescriptionLike(context: Context, pattern: String) {
-        if (!hasCalendarReadAccess(context)) return
-        try {
-            val projection = arrayOf(CalendarContract.Events._ID)
-            val selection = "${CalendarContract.Events.DESCRIPTION} LIKE ?"
-            val args = arrayOf(pattern)
+    private fun queryMilestoneIdsByDescription(context: Context): List<Long>? {
+        return context.contentResolver.query(
+            CalendarContract.Events.CONTENT_URI,
+            arrayOf(CalendarContract.Events._ID),
+            "${CalendarContract.Events.DESCRIPTION} LIKE ?",
+            arrayOf("$MILESTONE_MARKER_PREFIX%"),
+            null
+        )?.use { cursor ->
             val ids = mutableListOf<Long>()
-
-            context.contentResolver.query(
-                CalendarContract.Events.CONTENT_URI,
-                projection,
-                selection,
-                args,
-                null
-            )?.use { cursor ->
-                val idIndex = cursor.getColumnIndex(CalendarContract.Events._ID)
-                while (cursor.moveToNext()) {
-                    ids += cursor.getLong(idIndex)
-                }
+            val idIndex = cursor.getColumnIndex(CalendarContract.Events._ID)
+            while (cursor.moveToNext()) {
+                ids += cursor.getLong(idIndex)
             }
-
-            removeEventsByIds(context, ids)
-        } catch (_: SecurityException) {
-        } catch (_: Exception) {
+            ids
         }
     }
 

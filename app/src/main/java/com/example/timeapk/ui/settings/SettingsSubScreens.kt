@@ -53,6 +53,7 @@ import com.example.timeapk.notifications.rescheduleMilestoneReminders
 import com.example.timeapk.notifications.scheduleReminder
 import com.example.timeapk.notifications.ScheduleSyncManager
 import com.example.timeapk.notifications.eventAfterScheduleSyncAttempt
+import com.example.timeapk.notifications.enqueueMilestoneScheduleRetry
 import com.example.timeapk.ui.components.PermissionActionDialog
 import com.example.timeapk.ui.components.PermissionDialogSpec
 import com.example.timeapk.ui.components.SongDialogButton
@@ -2066,9 +2067,13 @@ fun DataSettingsContent(
 
         if (successCount > 0) {
             try {
-                rescheduleMilestoneReminders(app)
+                val milestoneResult = rescheduleMilestoneReminders(app)
+                if (!milestoneResult.isSuccess) {
+                    warningCount += 1
+                }
             } catch (_: Exception) {
                 warningCount += 1
+                enqueueMilestoneScheduleRetry(context)
             }
             try {
                 WidgetUpdater.refreshCountdownWidgets(context)

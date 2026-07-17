@@ -59,6 +59,67 @@ class MilestoneReminderSchedulerTest {
     }
 
     @Test
+    fun workerOrigin_doesNotCancelItsRunningMilestoneWork() {
+        assertFalse(
+            shouldCancelMilestoneWorkBeforeSync(MilestoneSyncOrigin.WORKER_AFTER_NOTIFICATION)
+        )
+        assertTrue(
+            shouldCancelMilestoneWorkBeforeSync(MilestoneSyncOrigin.CALLER)
+        )
+    }
+
+    @Test
+    fun successfulMilestoneSync_preservesUnresolvedPrimaryError() {
+        val event = ownedEvent(lastError = "primary cleanup failed", lastSyncAt = 100L)
+
+        val updated = eventAfterMilestoneScheduleSyncAttempt(
+            event = event,
+            result = ScheduleSyncManager.MilestoneScheduleSyncResult(
+                scheduleEventId = 900L,
+                targetCalendarId = 5L,
+                lastSyncAt = 200L,
+                error = null
+            )
+        )
+
+        assertEquals("primary cleanup failed", updated.lastScheduleSyncError)
+        assertEquals(100L, updated.lastScheduleSyncAt)
+        assertEquals(183L, updated.scheduleEventId)
+    }
+
+    @Test
+    fun failedMilestoneSync_mergesErrorAndSignalsRetry() {
+        val event = ownedEvent(lastError = "primary failed", lastSyncAt = 100L)
+        var retryRequests = 0
+        val result = ScheduleSyncManager.MilestoneScheduleSyncResult(
+            scheduleEventId = null,
+            targetCalendarId = 5L,
+            lastSyncAt = 200L,
+            error = "milestone cleanup failed"
+        )
+
+        val updated = eventAfterMilestoneScheduleSyncAttempt(event, result)
+        val retryRequested = requestMilestoneScheduleRetryOnFailure(result.error) {
+            retryRequests += 1
+        }
+
+        assertEquals("primary failed; milestone cleanup failed", updated.lastScheduleSyncError)
+        assertEquals(200L, updated.lastScheduleSyncAt)
+        assertTrue(retryRequested)
+        assertEquals(1, retryRequests)
+    }
+
+    @Test
+    fun rescheduleResult_aggregatesEveryMilestoneError() {
+        val result = milestoneRescheduleResult(
+            listOf("provider down", null, "permission denied", "provider down")
+        )
+
+        assertFalse(result.isSuccess)
+        assertEquals("provider down; permission denied", result.error)
+    }
+
+    @Test
     fun computeNextMilestoneReminderPlan_futureEventStillProducesUpcomingReminder() {
         val today = LocalDate.of(2026, 3, 17)
         val nowMillis = today.atTime(9, 0).atZone(zoneId).toInstant().toEpochMilli()
@@ -87,4 +148,16 @@ class MilestoneReminderSchedulerTest {
         assertEquals(1L, plan!!.milestoneValue)
         assertEquals(expectedReminderAt, plan.remindAtMillis)
     }
+
+    private fun ownedEvent(lastError: String?, lastSyncAt: Long) = Event(
+        id = 1,
+        title = "owned",
+        date = 1_800_000_000_000L,
+        category = CATEGORY_OTHER,
+        syncToScheduleEnabled = true,
+        scheduleEventId = 183L,
+        targetCalendarId = 5L,
+        lastScheduleSyncAt = lastSyncAt,
+        lastScheduleSyncError = lastError
+    )
 }

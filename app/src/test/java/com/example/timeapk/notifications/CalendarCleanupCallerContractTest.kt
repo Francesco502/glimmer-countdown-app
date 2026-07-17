@@ -43,6 +43,44 @@ class CalendarCleanupCallerContractTest {
         assertFalse(eventEntry.contains("                ScheduleSyncManager.clearMilestoneScheduleRemindersByEventId(application, updatedEvent.id)\n"))
     }
 
+    @Test
+    fun workerOriginAvoidsSelfCancellationAndHandsFailureToRescheduleWorker() {
+        val worker = source("notifications/MilestoneReminderWorker.kt")
+        val scheduler = source("notifications/MilestoneReminderScheduler.kt")
+
+        assertTrue(worker.contains("MilestoneSyncOrigin.WORKER_AFTER_NOTIFICATION"))
+        assertTrue(worker.contains("RescheduleAllWorker.enqueue("))
+        assertFalse(worker.contains("Result.retry()"))
+        assertTrue(scheduler.contains("shouldCancelMilestoneWorkBeforeSync(origin)"))
+    }
+
+    @Test
+    fun milestoneStatusIsMergedAndCallersInspectErrors() {
+        val scheduler = source("notifications/MilestoneReminderScheduler.kt")
+        val reschedule = source("notifications/RescheduleAllWorker.kt")
+        val eventEntry = source("ui/event/EventEntryViewModel.kt")
+        val home = source("ui/home/HomeViewModel.kt")
+        val settings = source("ui/settings/SettingsSubScreens.kt")
+
+        assertTrue(scheduler.contains("eventAfterMilestoneScheduleSyncAttempt("))
+        assertTrue(reschedule.contains("updatedEvent = eventAfterMilestoneScheduleSyncAttempt("))
+        assertTrue(eventEntry.contains("val milestoneResult = syncMilestoneReminderForEvent("))
+        assertTrue(home.contains("val milestoneResult = try {"))
+        assertTrue(home.contains("syncMilestoneReminderForEvent(application, updatedEvent)"))
+        assertTrue(settings.contains("val milestoneResult = rescheduleMilestoneReminders(app)"))
+    }
+
+    @Test
+    fun clearAllMilestonesReturnsAndPropagatesCleanupFailure() {
+        val manager = source("notifications/ScheduleSyncManager.kt")
+        val scheduler = source("notifications/MilestoneReminderScheduler.kt")
+        val reschedule = source("notifications/RescheduleAllWorker.kt")
+
+        assertTrue(manager.contains("fun clearAllMilestoneScheduleReminders(context: Context): CalendarCleanupResult"))
+        assertTrue(scheduler.contains("val cleanup = ScheduleSyncManager.clearAllMilestoneScheduleReminders(application)"))
+        assertTrue(reschedule.contains("val cleanup = ScheduleSyncManager.clearAllMilestoneScheduleReminders(applicationContext)"))
+    }
+
     private fun source(relativePath: String): String {
         val direct = File("src/main/java/com/example/timeapk/$relativePath")
         return (if (direct.exists()) direct else File("app/${direct.path}")).readText()

@@ -81,6 +81,33 @@ class RescheduleAllWorkerOwnershipContractTest {
         assertEquals("orphan", previous.eventFingerprints[41])
     }
 
+    @Test
+    fun milestoneFailure_isMergedIntoReturnedEventBeforeRepositoryPersistence() {
+        val primary = com.example.timeapk.data.Event(
+            id = 9,
+            title = "event",
+            date = 1_800_000_000_000L,
+            category = com.example.timeapk.data.CATEGORY_OTHER,
+            scheduleEventId = 71L,
+            targetCalendarId = 5L,
+            lastScheduleSyncAt = 100L,
+            lastScheduleSyncError = "primary cleanup failed"
+        )
+
+        val updated = eventAfterMilestoneScheduleSyncAttempt(
+            primary,
+            ScheduleSyncManager.MilestoneScheduleSyncResult(
+                scheduleEventId = null,
+                targetCalendarId = 5L,
+                lastSyncAt = 200L,
+                error = "milestone cleanup failed"
+            )
+        )
+
+        assertEquals("primary cleanup failed; milestone cleanup failed", updated.lastScheduleSyncError)
+        assertEquals(71L, updated.scheduleEventId)
+    }
+
     private fun source(name: String): String {
         return sourceAt("notifications/$name")
     }
