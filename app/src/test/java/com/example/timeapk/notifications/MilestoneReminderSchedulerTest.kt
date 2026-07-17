@@ -60,6 +60,145 @@ class MilestoneReminderSchedulerTest {
     }
 
     @Test
+    fun upgradedLegacyCleanup_runsBeforeMilestoneInsertion() = runBlocking {
+        val calls = mutableListOf<String>()
+        val legacyScanPending = shouldInitializeLegacyMilestoneScan(
+            firstInstallTimeMillis = 100L,
+            lastUpdateTimeMillis = 200L
+        )
+
+        val result = syncMilestoneCalendarReplacement(
+            cleanup = {
+                cleanupPendingMilestoneOwnership(
+                    exactOwnershipPending = false,
+                    legacyScanPending = legacyScanPending,
+                    scope = MilestoneCleanupScope.EVENT,
+                    cleanup = {
+                        calls += "cleanup"
+                        CalendarCleanupResult.RemovedOrNotPresent
+                    },
+                    clearExactOwnership = { error("No exact ownership should be cleared") },
+                    clearLegacyScan = { error("Per-event cleanup must retain the global legacy marker") }
+                )
+            },
+            onCleanupFailure = { error("Cleanup should succeed") },
+            replacement = {
+                calls += "insert"
+                ScheduleSyncManager.MilestoneScheduleSyncResult(99L, 7L, 123L, null)
+            }
+        )
+
+        assertEquals(listOf("cleanup", "insert"), calls)
+        assertEquals(99L, result?.scheduleEventId)
+    }
+
+    @Test
+    fun durableMilestoneInsertion_premarksBeforeProviderAttempt() {
+        val calls = mutableListOf<String>()
+
+        val result = insertMilestoneWithDurableOwnership(
+            markPendingDurably = {
+                calls += "premark"
+                true
+            },
+            clearPendingDurably = { calls += "clear" },
+            insertion = {
+                calls += "insert"
+                MilestoneCalendarInsertionAttempt(
+                    result = ScheduleSyncManager.MilestoneScheduleSyncResult(99L, 7L, 123L, null),
+                    providerEventMayExist = true
+                )
+            },
+            insertionFailure = { error("Insertion should not fail") },
+            registryFailure = { error("Registry should be durable") }
+        )
+
+        assertEquals(listOf("premark", "insert"), calls)
+        assertEquals(99L, result.scheduleEventId)
+    }
+
+    @Test
+    fun durableMilestoneInsertion_nullProviderInsertClearsPremark() {
+        var ownershipPending = false
+
+        val result = insertMilestoneWithDurableOwnership(
+            markPendingDurably = {
+                ownershipPending = true
+                true
+            },
+            clearPendingDurably = { ownershipPending = false },
+            insertion = {
+                MilestoneCalendarInsertionAttempt(
+                    result = ScheduleSyncManager.MilestoneScheduleSyncResult(
+                        scheduleEventId = null,
+                        targetCalendarId = 7L,
+                        lastSyncAt = 123L,
+                        error = "Milestone schedule insert failed"
+                    ),
+                    providerEventMayExist = false
+                )
+            },
+            insertionFailure = { error("Insertion should return a result") },
+            registryFailure = { error("Registry should be durable") }
+        )
+
+        assertFalse(ownershipPending)
+        assertNull(result.scheduleEventId)
+    }
+
+    @Test
+    fun durableMilestoneInsertion_exceptionRetainsPremarkForRepair() {
+        var ownershipPending = false
+
+        val result = insertMilestoneWithDurableOwnership(
+            markPendingDurably = {
+                ownershipPending = true
+                true
+            },
+            clearPendingDurably = { ownershipPending = false },
+            insertion = { error("crashed after provider insert") },
+            insertionFailure = { throwable ->
+                ScheduleSyncManager.MilestoneScheduleSyncResult(
+                    scheduleEventId = null,
+                    targetCalendarId = null,
+                    lastSyncAt = 123L,
+                    error = throwable.message
+                )
+            },
+            registryFailure = { error("Registry should be durable") }
+        )
+
+        assertTrue(ownershipPending)
+        assertEquals("crashed after provider insert", result.error)
+    }
+
+    @Test
+    fun durableMilestoneInsertion_failedPremarkSkipsProvider() {
+        var insertionCalled = false
+
+        val result = insertMilestoneWithDurableOwnership(
+            markPendingDurably = { false },
+            clearPendingDurably = { error("Nothing was marked") },
+            insertion = {
+                insertionCalled = true
+                error("Provider must not be called")
+            },
+            insertionFailure = { error("Provider must not be called") },
+            registryFailure = {
+                ScheduleSyncManager.MilestoneScheduleSyncResult(
+                    scheduleEventId = null,
+                    targetCalendarId = null,
+                    lastSyncAt = 123L,
+                    error = "Ownership registry unavailable"
+                )
+            }
+        )
+
+        assertFalse(insertionCalled)
+        assertEquals("Ownership registry unavailable", result.error)
+    }
+
+    @Test
     fun workerOrigin_doesNotCancelItsRunningMilestoneWork() {
         assertFalse(
             shouldCancelMilestoneWorkBeforeSync(MilestoneSyncOrigin.WORKER_AFTER_NOTIFICATION)

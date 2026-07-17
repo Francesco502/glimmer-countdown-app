@@ -109,7 +109,8 @@ class ReminderWorker(
                     context = applicationContext,
                     eventId = event.id,
                     calendarEventId = event.scheduleEventId
-                )
+                ),
+                repairReason = "reminder_worker_cleanup"
             )
             eventAfterCleanupAttempt(
                 event = event,
@@ -130,4 +131,3 @@ class ReminderWorker(
         private const val NOTIFICATION_ID_BASE = 1000
     }
 }
-

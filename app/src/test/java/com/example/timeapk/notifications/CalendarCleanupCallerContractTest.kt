@@ -89,13 +89,15 @@ class CalendarCleanupCallerContractTest {
         val reminderWorker = source("notifications/ReminderWorker.kt")
         val eventEntry = source("ui/event/EventEntryViewModel.kt")
 
-        assertTrue(scheduler.contains("MilestoneCalendarOwnershipStore.markPending(context, event.id)"))
+        assertTrue(scheduler.contains("MilestoneCalendarOwnershipStore.markPendingDurably(context, event.id)"))
         assertTrue(ownership.contains("cleanupPendingMilestoneOwnership("))
         assertTrue(reschedule.contains("clearAllPendingMilestoneCalendarOwnership("))
         assertTrue(reschedule.contains("recordManagedCalendarCleanupForMilestoneOwnership("))
         assertTrue(reminderWorker.contains("recordManagedCalendarCleanupForMilestoneOwnership("))
         assertTrue(eventEntry.contains("recordManagedCalendarCleanupForMilestoneOwnership("))
         assertTrue(eventEntry.contains("clearPendingMilestoneCalendarOwnership("))
+        assertTrue(reminderWorker.contains("repairReason = \"reminder_worker_cleanup\""))
+        assertTrue(eventEntry.contains("repairReason = \"event_save_cleanup\""))
     }
 
     private fun source(relativePath: String): String {

@@ -442,15 +442,35 @@ object ScheduleSyncManager {
         description: String,
         triggerAtMillis: Long,
         targetCalendarId: Long? = null
-    ): MilestoneScheduleSyncResult {
+    ): MilestoneScheduleSyncResult = insertMilestoneScheduleReminderAttempt(
+        context = context,
+        eventId = eventId,
+        title = title,
+        description = description,
+        triggerAtMillis = triggerAtMillis,
+        targetCalendarId = targetCalendarId
+    ).result
+
+    internal fun insertMilestoneScheduleReminderAttempt(
+        context: Context,
+        eventId: Int,
+        title: String,
+        description: String,
+        triggerAtMillis: Long,
+        targetCalendarId: Long? = null
+    ): MilestoneCalendarInsertionAttempt {
         val lastSyncAt = System.currentTimeMillis()
+        var providerEventMayExist = false
         return try {
             val resolvedCalendarId = targetCalendarId ?: getDefaultCalendarId(context)
-                ?: return MilestoneScheduleSyncResult(
-                    scheduleEventId = null,
-                    targetCalendarId = null,
-                    lastSyncAt = lastSyncAt,
-                    error = ERROR_NO_WRITABLE_CALENDAR
+                ?: return MilestoneCalendarInsertionAttempt(
+                    result = MilestoneScheduleSyncResult(
+                        scheduleEventId = null,
+                        targetCalendarId = null,
+                        lastSyncAt = lastSyncAt,
+                        error = ERROR_NO_WRITABLE_CALENDAR
+                    ),
+                    providerEventMayExist = false
                 )
             val triggerDate = Instant.ofEpochMilli(triggerAtMillis).atZone(ZoneId.systemDefault()).toLocalDate()
             val marker = milestoneMarker(eventId, triggerDate.toEpochDay())
@@ -462,8 +482,10 @@ object ScheduleSyncManager {
                 put(CalendarContract.Events.CALENDAR_ID, resolvedCalendarId)
                 put(CalendarContract.Events.EVENT_TIMEZONE, TimeZone.getDefault().id)
             }
-            val insertedId = insertEventAndReminder(context, values)
-            if (insertedId == null) {
+            val insertedId = insertMilestoneEventAndReminder(context, values) {
+                providerEventMayExist = true
+            }
+            val result = if (insertedId == null) {
                 MilestoneScheduleSyncResult(
                     scheduleEventId = null,
                     targetCalendarId = resolvedCalendarId,
@@ -495,19 +517,26 @@ object ScheduleSyncManager {
                     error = null
                 )
             }
+            MilestoneCalendarInsertionAttempt(result, providerEventMayExist)
         } catch (t: SecurityException) {
-            MilestoneScheduleSyncResult(
-                scheduleEventId = null,
-                targetCalendarId = null,
-                lastSyncAt = lastSyncAt,
-                error = "Calendar permission denied"
+            MilestoneCalendarInsertionAttempt(
+                result = MilestoneScheduleSyncResult(
+                    scheduleEventId = null,
+                    targetCalendarId = null,
+                    lastSyncAt = lastSyncAt,
+                    error = "Calendar permission denied"
+                ),
+                providerEventMayExist = providerEventMayExist
             )
         } catch (t: Throwable) {
-            MilestoneScheduleSyncResult(
-                scheduleEventId = null,
-                targetCalendarId = null,
-                lastSyncAt = lastSyncAt,
-                error = (t.message ?: "Unknown milestone schedule sync error").take(180)
+            MilestoneCalendarInsertionAttempt(
+                result = MilestoneScheduleSyncResult(
+                    scheduleEventId = null,
+                    targetCalendarId = null,
+                    lastSyncAt = lastSyncAt,
+                    error = (t.message ?: "Unknown milestone schedule sync error").take(180)
+                ),
+                providerEventMayExist = providerEventMayExist
             )
         }
     }
@@ -1157,6 +1186,19 @@ object ScheduleSyncManager {
     private fun insertEventAndReminder(context: Context, values: ContentValues): Long? {
         if (!hasCalendarWriteAccess(context)) return null
         val uri = context.contentResolver.insert(CalendarContract.Events.CONTENT_URI, values) ?: return null
+        val eventId = ContentUris.parseId(uri)
+        upsertReminderAlert(context, eventId)
+        return eventId
+    }
+
+    private fun insertMilestoneEventAndReminder(
+        context: Context,
+        values: ContentValues,
+        onProviderEventCreated: () -> Unit
+    ): Long? {
+        if (!hasCalendarWriteAccess(context)) return null
+        val uri = context.contentResolver.insert(CalendarContract.Events.CONTENT_URI, values) ?: return null
+        onProviderEventCreated()
         val eventId = ContentUris.parseId(uri)
         upsertReminderAlert(context, eventId)
         return eventId

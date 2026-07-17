@@ -44,6 +44,30 @@ internal data class MilestoneRescheduleResult(val error: String?) {
         get() = error.isNullOrBlank()
 }
 
+internal data class MilestoneCalendarInsertionAttempt(
+    val result: ScheduleSyncManager.MilestoneScheduleSyncResult,
+    val providerEventMayExist: Boolean
+)
+
+internal fun insertMilestoneWithDurableOwnership(
+    markPendingDurably: () -> Boolean,
+    clearPendingDurably: () -> Unit,
+    insertion: () -> MilestoneCalendarInsertionAttempt,
+    insertionFailure: (Throwable) -> ScheduleSyncManager.MilestoneScheduleSyncResult,
+    registryFailure: () -> ScheduleSyncManager.MilestoneScheduleSyncResult
+): ScheduleSyncManager.MilestoneScheduleSyncResult {
+    if (!markPendingDurably()) return registryFailure()
+    val attempt = try {
+        insertion()
+    } catch (t: Throwable) {
+        return insertionFailure(t)
+    }
+    if (attempt.result.scheduleEventId == null && !attempt.providerEventMayExist) {
+        clearPendingDurably()
+    }
+    return attempt.result
+}
+
 internal fun shouldCancelMilestoneWorkBeforeSync(origin: MilestoneSyncOrigin): Boolean =
     origin != MilestoneSyncOrigin.WORKER_AFTER_NOTIFICATION
 
@@ -188,9 +212,6 @@ internal suspend fun syncMilestoneReminderForEvent(
                 targetCalendarId = preferredCalendarId
             )
             if (scheduleResult != null) {
-                if (scheduleResult.scheduleEventId != null) {
-                    MilestoneCalendarOwnershipStore.markPending(context, event.id)
-                }
                 persistMilestoneScheduleStatus(app, event, scheduleResult)
             }
             scheduleResult
@@ -225,6 +246,19 @@ internal suspend fun rescheduleMilestoneReminders(application: Application): Mil
         cancelAllMilestoneReminders(application)
         val cleanup = clearAllPendingMilestoneCalendarOwnership(application)
         val result = milestoneRescheduleResult(listOf(cleanup.message))
+        requestMilestoneScheduleRetryOnFailure(result.error) {
+            enqueueMilestoneScheduleRetry(application)
+        }
+        return result
+    }
+
+    val legacyCleanup = if (MilestoneCalendarOwnershipStore.hasLegacyScanPending(application)) {
+        clearAllPendingMilestoneCalendarOwnership(application)
+    } else {
+        CalendarCleanupResult.RemovedOrNotPresent
+    }
+    if (!legacyCleanup.isSuccess) {
+        val result = milestoneRescheduleResult(listOf(legacyCleanup.message))
         requestMilestoneScheduleRetryOnFailure(result.error) {
             enqueueMilestoneScheduleRetry(application)
         }
@@ -298,13 +332,39 @@ private fun scheduleMilestoneReminderForEvent(
                 remindDaysAhead
             )
         }
-        milestoneScheduleResult = ScheduleSyncManager.insertMilestoneScheduleReminderWithStatus(
-            context = context,
-            eventId = event.id,
-            title = scheduleTitle,
-            description = event.note,
-            triggerAtMillis = plan.remindAtMillis,
-            targetCalendarId = targetCalendarId
+        milestoneScheduleResult = insertMilestoneWithDurableOwnership(
+            markPendingDurably = {
+                MilestoneCalendarOwnershipStore.markPendingDurably(context, event.id)
+            },
+            clearPendingDurably = {
+                MilestoneCalendarOwnershipStore.clearPendingWithoutProviderDurably(context, event.id)
+            },
+            insertion = {
+                ScheduleSyncManager.insertMilestoneScheduleReminderAttempt(
+                    context = context,
+                    eventId = event.id,
+                    title = scheduleTitle,
+                    description = event.note,
+                    triggerAtMillis = plan.remindAtMillis,
+                    targetCalendarId = targetCalendarId
+                )
+            },
+            insertionFailure = { throwable ->
+                ScheduleSyncManager.MilestoneScheduleSyncResult(
+                    scheduleEventId = null,
+                    targetCalendarId = targetCalendarId,
+                    lastSyncAt = System.currentTimeMillis(),
+                    error = (throwable.message ?: "Unknown milestone schedule sync error").take(180)
+                )
+            },
+            registryFailure = {
+                ScheduleSyncManager.MilestoneScheduleSyncResult(
+                    scheduleEventId = null,
+                    targetCalendarId = targetCalendarId,
+                    lastSyncAt = System.currentTimeMillis(),
+                    error = "Unable to record milestone calendar ownership"
+                )
+            }
         )
     }
     return milestoneScheduleResult

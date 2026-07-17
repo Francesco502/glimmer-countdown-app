@@ -70,7 +70,9 @@ class RescheduleAllWorker(
             )
             val eventFingerprints = events.associate { event -> event.id to fingerprintEvent(event) }
 
-            val forceFullReschedule = shouldForceFullReschedule(
+            val legacyMilestoneScanPending =
+                MilestoneCalendarOwnershipStore.hasLegacyScanPending(applicationContext)
+            val forceFullReschedule = legacyMilestoneScanPending || shouldForceFullReschedule(
                 reason = reason,
                 previous = state,
                 preferencesFingerprint = preferencesFingerprint
@@ -85,6 +87,14 @@ class RescheduleAllWorker(
             }
 
             var shouldRetry = false
+
+            if (milestoneEnabled && legacyMilestoneScanPending) {
+                val cleanup = clearAllPendingMilestoneCalendarOwnership(applicationContext)
+                if (!cleanup.isSuccess) {
+                    shouldRetry = true
+                    Log.w(TAG, "Failed to scan legacy milestone reminders: ${cleanup.message}")
+                }
+            }
 
             val removedCleanupFailures = cleanupRemovedCalendarEntries(removedEventIds) { removedId ->
                 try {
