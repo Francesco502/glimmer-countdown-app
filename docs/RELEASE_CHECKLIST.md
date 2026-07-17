@@ -26,7 +26,7 @@
 - [x] “记得日子” `.mdb` 导入、数据库迁移与重复数据处理通过回归
 - [x] 公历、农历、按天 / 周 / 月 / 半年 / 年重复在月末、闰年和跨年边界正确
 - [x] 通知提醒在当天、提前多天、设备重启和权限变化后仍按预期工作
-- [ ] 系统日历存在可写账户时同步正确；无可写系统日历时提示清楚且事件主体仍安全保存
+- [x] 系统日历存在可写账户时同步正确；无可写系统日历时提示清楚且事件主体仍安全保存
 - [ ] 分享图片、系统分享面板、更新检查和 Direct APK 安装路径可用
 
 ## 三、首页与桌面小组件
@@ -75,7 +75,8 @@
 - 数据往返补充（2026-07-17）：API 37 Direct Debug 通过系统文件选择器导入 2 条包含农历、半年/年度重复、颜色、提醒时间以及逗号/引号/换行备注的 JSON fixture；导出 JSON 忽略数据库 ID 后逐字段与原始 fixture 完全一致，CSV 由标准解析器还原为 12 列、2 条记录且复杂备注无损。再次选择最新 JSON 导出文件时显示“识别2，可入0，重事2，未解0”，导入按钮禁用；新增 JVM 回归固定 JSON 往返和 CSV 转义行为。
 - 重复日期边界补充（2026-07-17）：聚焦 JVM 用例先复现 2020-02-29 年度事件在 2025-02-27 被错误反推为 2024-02-28；修复后覆盖公历按天 / 周 / 月 / 半年 / 年跨年、31 日短月裁剪后恢复、闰日闰年与非闰年，以及农历春节前、当天发生、发生后跨公历年搜索，确认所有周期保留原始日期锚点。
 - 通知与重启补充（2026-07-17）：API 37 Direct Debug 导入“当天提醒”和“提前 1 天提醒”两条匿名事件，在拒绝 `POST_NOTIFICATIONS` 时执行真实模拟器重启并收到 `BOOT_COMPLETED`；重启后两条 `ReminderWorker` 均重新入队，`RescheduleAllWorker` 成功结束。运行态继续验证“拒绝 → 授予 → 再次拒绝”权限切换，两条提醒始终保留且每次统一重排均成功。测试同时发现从未同步过系统日历的普通提醒会被错误执行日历清理，并在无日历权限时进入永久重试；现仅对仍有日历 provider ownership 或既有同步错误的事件执行清理，干净数据复测不再产生虚假日历错误或重试循环。
-- 最终质量门补充（2026-07-17）：当前候选代码的 Direct / Play JVM 各 415 项通过，均为 0 failures / 0 errors / 0 skipped；API 37 connected 10/10 通过，包含完整 6→10 迁移、编辑恢复、筛选拖拽、小组件多实例及 Compose 语义回归。`compileDirectDebugAndroidTestKotlin`、Direct / Play Debug 构建与五项 lint / vital lint 同轮成功，DirectDebug、DirectRelease、PlayRelease 报告均为 `No issues found.`
+- 系统日历正向同步补充（2026-07-17）：API 37 Direct Debug 在设置中显式选择独立的 `TimeAPK_v4_QA` 可写本地日历；从 UI 新建当天提醒后，Room 保存 `scheduleEventId=251`、`targetCalendarId=6` 且同步错误为空，CalendarProvider 对应记录位于日历 6。编辑标题时原地复用事件 ID 251 且无重复；关闭同步后 provider 记录消失并清空本地 ownership 字段；重新开启同步生成活动记录 252，从详情删除后 CalendarProvider 与 Room 均无残留。新增 connected 回归会自行创建唯一的本地日历，覆盖新增、原地更新、提醒记录、关闭同步和活动记录清理，并在 `finally` 删除临时账户；手工 QA 日历、测试事件和 Direct 测试应用均已清理。Android 12 无可写日历与 API 37 撤权恢复证据继续覆盖负向路径。
+- 最终质量门补充（2026-07-17）：当前候选代码的 Direct / Play JVM 各 415 项通过，均为 0 failures / 0 errors / 0 skipped；API 37 connected 11/11 通过，包含完整 6→10 迁移、编辑恢复、筛选拖拽、小组件多实例、CalendarProvider 正向同步及 Compose 语义回归。`compileDirectDebugAndroidTestKotlin`、Direct / Play Debug 构建与五项 lint / vital lint 同轮成功，DirectDebug、DirectRelease、PlayRelease 报告均为 `No issues found.`
 
 ## 六、发布动作
 
