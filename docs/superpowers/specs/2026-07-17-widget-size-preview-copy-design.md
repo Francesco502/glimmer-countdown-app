@@ -1,6 +1,6 @@
 # Widget Preview Size Guidance Design
 
-**Status:** Approved design option A; awaiting written-spec review.
+**Status:** Approved for implementation on 2026-07-17.
 
 **Goal:** Make it explicit that the width and height controls in widget settings change only the in-app preview proportions. Users resize the actual home-screen widget through their launcher.
 
