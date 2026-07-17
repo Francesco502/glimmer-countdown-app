@@ -1,18 +1,54 @@
 package com.example.timeapk.ui.home
 
+import com.example.timeapk.data.CATEGORY_BIRTHDAY
+import com.example.timeapk.data.Event
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
+import java.time.LocalDate
 
 class HomeEmptyStatePolicyTest {
     @Test
     fun resolveHomeEmptyStateKind_usesFirstEventOnlyWhenTheUnfilteredCalendarIsEmpty() {
         assertEquals(HomeEmptyStateKind.FirstEvent, resolveHomeEmptyStateKind(isCalendarEmpty = true))
         assertEquals(HomeEmptyStateKind.NoMatches, resolveHomeEmptyStateKind(isCalendarEmpty = false))
+    }
+
+    @Test
+    fun calendarMode_keepsFilteredEventsWhileUnfilteredEventsResolveNoMatches() {
+        val allEvents = listOf(
+            EventUiState(
+                event = Event(
+                    id = 1,
+                    title = "Birthday",
+                    date = 0L,
+                    category = CATEGORY_BIRTHDAY
+                ),
+                daysRemaining = 0L,
+                isPast = false,
+                nextOccurrenceDate = LocalDate.of(2026, 7, 17)
+            )
+        )
+        val calendarEvents = buildHomeVisibleList(
+            all = allEvents,
+            filterType = FilterType.Other,
+            sortType = SortType.Custom,
+            query = "",
+            customEventOrderIds = emptyList(),
+            pinnedEventIds = emptyList()
+        )
 
         val viewModelSource = readSource("ui/home/HomeViewModel.kt")
-        assertTrue(viewModelSource.contains("val calendarUiState: StateFlow<List<EventUiState>> = allHomeUiState"))
+        val homeScreenSource = readSource("ui/home/HomeScreen.kt")
+        assertFalse(allEvents.isEmpty())
+        assertTrue(calendarEvents.isEmpty())
+        assertEquals(HomeEmptyStateKind.NoMatches, resolveHomeEmptyStateKind(allEvents.isEmpty()))
+        assertTrue(viewModelSource.contains("val calendarUiState: StateFlow<List<EventUiState>> = homeUiState"))
+        assertTrue(viewModelSource.contains("val unfilteredCalendarUiState: StateFlow<List<EventUiState>> = allHomeUiState"))
+        assertTrue(homeScreenSource.contains("val unfilteredCalendarUiState by viewModel.unfilteredCalendarUiState.collectAsState()"))
+        assertTrue(homeScreenSource.contains("resolveHomeEmptyStateKind(unfilteredCalendarUiState.isEmpty())"))
     }
 
     @Test

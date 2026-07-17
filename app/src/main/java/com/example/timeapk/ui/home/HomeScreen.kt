@@ -114,6 +114,7 @@ fun HomeScreen(
 ) {
     val homeUiState by viewModel.homeUiState.collectAsState()
     val calendarUiState by viewModel.calendarUiState.collectAsState()
+    val unfilteredCalendarUiState by viewModel.unfilteredCalendarUiState.collectAsState()
     val context = LocalContext.current
     val prefs = (context.applicationContext as TimeApplication).userPrefs
     val today = LocalDate.now()
@@ -150,7 +151,7 @@ fun HomeScreen(
         }
     }
     val displayedList = focusedTimelineList ?: homeUiState
-    val emptyStateKind = resolveHomeEmptyStateKind(calendarUiState.isEmpty())
+    val emptyStateKind = resolveHomeEmptyStateKind(unfilteredCalendarUiState.isEmpty())
     val clearEmptyStateConstraints: () -> Unit = {
         viewModel.updateSearchQuery("")
         viewModel.updateFilterType(FilterType.All)

@@ -32,7 +32,7 @@ class HomeInteractionPolicyTest {
         val screen = source.substringAfter("fun HomeScreen(")
             .substringBefore("@Composable\nprivate fun HomeDisplayModeSegmentedControl")
 
-        assertTrue(screen.contains("resolveHomeEmptyStateKind(calendarUiState.isEmpty())"))
+        assertTrue(screen.contains("resolveHomeEmptyStateKind(unfilteredCalendarUiState.isEmpty())"))
         assertTrue(screen.contains("viewModel.updateSearchQuery(\"\")"))
         assertTrue(screen.contains("viewModel.updateFilterType(FilterType.All)"))
         assertTrue(screen.contains("timelineFocus = null"))
