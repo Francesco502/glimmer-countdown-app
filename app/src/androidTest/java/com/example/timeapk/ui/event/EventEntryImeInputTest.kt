@@ -7,6 +7,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -30,11 +31,10 @@ class EventEntryImeInputTest {
 
     @Test
     fun composingCommitAndHardwareKeySurviveRecreationAndBack() {
-        val addDescription = composeRule.activity.getString(R.string.cd_add_event)
         val titleLabel = composeRule.activity.getString(R.string.field_title)
         val discardTitle = composeRule.activity.getString(R.string.discard_changes_dialog_title)
 
-        composeRule.onNodeWithContentDescription(addDescription).performClick()
+        openEventEntry()
         composeRule.onNodeWithContentDescription(titleLabel).performClick()
         composeRule.waitForIdle()
 
@@ -73,10 +73,9 @@ class EventEntryImeInputTest {
 
     @Test
     fun composingTextAlreadyDeliveredByImeSurvivesActivityRecreationAsDraft() {
-        val addDescription = composeRule.activity.getString(R.string.cd_add_event)
         val titleLabel = composeRule.activity.getString(R.string.field_title)
 
-        composeRule.onNodeWithContentDescription(addDescription).performClick()
+        openEventEntry()
         composeRule.onNodeWithContentDescription(titleLabel).performClick()
         composeRule.waitForIdle()
 
@@ -98,6 +97,17 @@ class EventEntryImeInputTest {
             connection = focusedView?.onCreateInputConnection(EditorInfo())
         }
         return requireNotNull(connection) { "The focused Compose field did not expose an InputConnection" }
+    }
+
+    private fun openEventEntry() {
+        val addDescription = composeRule.activity.getString(R.string.cd_add_event)
+        val firstEventDescription = composeRule.activity.getString(R.string.home_empty_first_event_cta)
+        val addNodes = composeRule.onAllNodesWithContentDescription(addDescription).fetchSemanticsNodes()
+        if (addNodes.isNotEmpty()) {
+            composeRule.onNodeWithContentDescription(addDescription).performClick()
+        } else {
+            composeRule.onNodeWithContentDescription(firstEventDescription).performClick()
+        }
     }
 
     private companion object {

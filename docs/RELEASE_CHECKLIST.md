@@ -88,7 +88,8 @@
 - 首页空状态与提醒默认值补充（2026-07-17）：候选提交 `1b2ec22`、`2ed017e`、`732b8a9` 以测试先行完成唯一中央空状态 CTA、无匹配清除条件、月历筛选结果保持、缺省提醒关闭、显式偏好保留和语言镜像 KTX 写入。API 37 运行态确认完全空首页仅有一个可点击“记录第一个日期”入口且隐藏底部添加按钮；搜索 `NOMATCH999` 后显示“清除搜索与筛选”并保留底部“添加事件”；新建页默认显示“未设置提醒”，保存普通事件未出现通知权限对话框。最新完整 connected 套件 20/20 通过，0 skipped / 0 failed。
 - 语言冷启动补充（2026-07-17）：API 37 通过应用界面完成中文→英文→中文切换；英文与中文各强制停止冷启动一次，日志均只有一次 MainActivity START / Displayed 且无额外重建，界面语言正确、crash buffer 为空。该 Debug 启动计时不作为 Release 性能结论。
 - 4.0 截图补充（2026-07-17）：重新导入 3.17 导出的 22 条脱敏事件并制作首页纸笺、月历、设置与小组件设置四张当前候选截图；逐张确认仅含 `Event 01`–`Event 22` 脱敏标题，README 已切换至 `docs/screenshots/4.0`。
-- 最新自动质量门补充（2026-07-17）：在 `732b8a9` 代码上新鲜运行 Direct / Play JVM 各 439 项，均为 0 failures / 0 errors / 0 skipped；`compileDirectDebugAndroidTestKotlin`、Direct / Play Debug 构建及五项 lint / vital lint 同轮成功，DirectDebug、DirectRelease、PlayRelease 三份报告均为 `No issues found.`，`LocalePreferenceMirror` 不再产生 `UseKtx` issue。随后使用仓库外临时 QA 证书完成 Direct / Play Release APK 与 Play AAB 打包，验证 exact Direct 文件名及 Direct 独有 `REQUEST_INSTALL_PACKAGES`；该临时签名产物仅证明打包路径，不得发布，也不替代最终 `v4.0` tag 的正式证书新鲜构建。
+- 日历清理可靠性补充（2026-07-17）：提交 `f2617c6`–`a9c0db6` 修复此前被忽略的 `CalendarCleanupResult`，清理失败不再继续重建或持久化成功指纹；活动 / 写入中 ownership 登记、v3.17 旧数据首次扫描、事件级互斥、插入中断恢复与同步 `SharedPreferences.commit()` 失败回滚均有 JVM 回归。提醒保存触发的修复会强制全量重排，通知 Worker 不再通过自取消重试制造重复通知。独立代码复核结论为通过，未增加外部 API、未修改 Room schema，也未迁移既有事件字段。
+- 最新自动质量门补充（2026-07-17）：在最终生产代码 `a9c0db6` 上新鲜运行 Direct / Play JVM 各 487 项，均为 0 failures / 0 errors / 0 skipped；完整 API 37 connected 套件 20/20、`compileDirectDebugAndroidTestKotlin` 及五项 lint / vital lint 均通过，DirectDebug、DirectRelease、PlayRelease 三份报告均为 `No issues found.`。`LocalePreferenceMirror` 的 KTX 写入不再产生 `UseKtx` issue；日历 ownership 登记因必须检查同步 `commit()` 返回值，仅在最小作用域保留有理由的 suppression。仓库外临时 QA 证书构建只用于验证打包路径，不得发布，也不替代最终 `v4.0` tag 的正式证书新鲜构建。
 
 ## 六、发布动作
 
