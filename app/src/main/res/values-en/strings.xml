@@ -469,6 +469,7 @@
     <string name="widget_config_preview_value_secondary">Today</string>
     <string name="widget_config_width_cells">Preview width</string>
     <string name="widget_config_height_cells">Preview height</string>
+    <string name="widget_config_size_preview_guidance">These controls only adjust the preview proportions. Resize the actual widget from your launcher.</string>
     <plurals name="widget_config_cell_count">
         <item quantity="one">%1$d cell</item>
         <item quantity="other">%1$d cells</item>

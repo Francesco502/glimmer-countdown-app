@@ -105,6 +105,17 @@ class SettingsWidgetArchitectureTest {
         assertTrue(displayBody.contains("widget_config_width_cells"))
         assertTrue(displayBody.contains("widget_config_height_cells"))
         assertTrue(displayBody.contains("(1..5).map"))
+        assertTrue(displayBody.contains("widget_config_size_preview_guidance"))
+        assertTrue(
+            displayBody.indexOf("widget_config_height_cells") <
+                displayBody.indexOf("widget_config_size_preview_guidance")
+        )
+        assertTrue(
+            displayBody.indexOf("widget_config_size_preview_guidance") <
+                displayBody.indexOf("widget_config_density")
+        )
+        assertTrue(displayBody.contains("style = MaterialTheme.typography.bodySmall"))
+        assertTrue(displayBody.contains("color = MaterialTheme.colorScheme.onSurfaceVariant"))
         assertTrue(displayBody.contains("widget_config_density"))
 
         assertTrue(appearanceBody.contains("widget_config_appearance"))

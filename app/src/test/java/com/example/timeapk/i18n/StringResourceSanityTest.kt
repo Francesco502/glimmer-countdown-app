@@ -167,15 +167,19 @@ class StringResourceSanityTest {
         val defaultText = readResourceText("values/strings.xml")
         val zhText = readResourceText("values-zh/strings.xml")
         val enText = readResourceText("values-en/strings.xml")
+        val zhGuidance = "<string name=\"widget_config_size_preview_guidance\">这里只调整预览比例，不会改变桌面小组件的实际尺寸。实际尺寸请在桌面拖动小组件边框调整。</string>"
+        val enGuidance = "<string name=\"widget_config_size_preview_guidance\">These controls only adjust the preview proportions. Resize the actual widget from your launcher.</string>"
 
         listOf(defaultText, zhText).forEach { xml ->
             assertTrue(xml.contains("<string name=\"widget_config_width_cells\">预览宽度</string>"))
             assertTrue(xml.contains("<string name=\"widget_config_height_cells\">预览高度</string>"))
+            assertTrue(xml.contains(zhGuidance))
             assertFalse(xml.contains("<string name=\"widget_config_width_cells\">宽度</string>"))
             assertFalse(xml.contains("<string name=\"widget_config_height_cells\">高度</string>"))
         }
         assertTrue(enText.contains("<string name=\"widget_config_width_cells\">Preview width</string>"))
         assertTrue(enText.contains("<string name=\"widget_config_height_cells\">Preview height</string>"))
+        assertTrue(enText.contains(enGuidance))
     }
 
     @Test

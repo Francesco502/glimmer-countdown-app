@@ -201,6 +201,12 @@ fun WidgetConfigEditor(
                 selected = config.heightCells,
                 onSelected = { onConfigChange(config.copy(heightCells = it).sanitize()) }
             )
+            Text(
+                text = stringResource(R.string.widget_config_size_preview_guidance),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
+            )
             WidgetOptionGroup(
                 title = stringResource(R.string.widget_config_density),
                 options = listOf(
