@@ -14,6 +14,7 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.example.timeapk.TimeApplication
 import com.example.timeapk.data.Event
+import com.example.timeapk.ui.home.calendarCleanupRequired
 import com.example.timeapk.ui.home.eventAfterCleanupAttempt
 import com.example.timeapk.widget.WidgetUpdater
 import kotlinx.coroutines.flow.first
@@ -170,7 +171,7 @@ class RescheduleAllWorker(
                 onFailure(IllegalStateException(syncResult.error))
             }
             eventAfterScheduleSyncAttempt(event, syncResult)
-        } else {
+        } else if (calendarCleanupRequired(event)) {
             val cleanup = ScheduleSyncManager.removeManagedCalendarEntries(
                 context = applicationContext,
                 eventId = event.id,
@@ -184,6 +185,8 @@ class RescheduleAllWorker(
                 result = cleanup,
                 nowMillis = System.currentTimeMillis()
             )
+        } else {
+            event
         }
 
         try {

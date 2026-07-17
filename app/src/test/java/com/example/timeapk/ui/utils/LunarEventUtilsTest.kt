@@ -31,4 +31,12 @@ class LunarEventUtilsTest {
 
         assertEquals(pivot, getNextLunarOccurrence(origin, pivot))
     }
+
+    @Test
+    fun nextLunarOccurrence_afterCurrentOccurrence_crossesGregorianYear() {
+        val origin = LocalDate.of(1996, 1, 25) // lunar 1995-12-06
+        val pivot = LocalDate.of(2026, 1, 25)
+
+        assertEquals(LocalDate.of(2027, 1, 13), getNextLunarOccurrence(origin, pivot))
+    }
 }

@@ -45,6 +45,74 @@ class RepeatDetailHelperTest {
     }
 
     @Test
+    fun nextOccurrence_crossYearAndClampedDateMatrix_preservesOriginalSchedule() {
+        assertEquals(
+            LocalDate.of(2026, 1, 1),
+            nextOccurrenceDate(
+                origin = LocalDate.of(2025, 12, 31),
+                today = LocalDate.of(2026, 1, 1),
+                repeatType = REPEAT_DAILY
+            )
+        )
+        assertEquals(
+            LocalDate.of(2026, 1, 7),
+            nextOccurrenceDate(
+                origin = LocalDate.of(2025, 12, 31),
+                today = LocalDate.of(2026, 1, 1),
+                repeatType = REPEAT_WEEKLY
+            )
+        )
+        assertEquals(
+            LocalDate.of(2026, 1, 31),
+            nextOccurrenceDate(
+                origin = LocalDate.of(2025, 12, 31),
+                today = LocalDate.of(2026, 1, 1),
+                repeatType = REPEAT_MONTHLY
+            )
+        )
+        assertEquals(
+            LocalDate.of(2025, 2, 28),
+            nextOccurrenceDate(
+                origin = LocalDate.of(2024, 8, 31),
+                today = LocalDate.of(2025, 2, 27),
+                repeatType = REPEAT_HALF_YEARLY
+            )
+        )
+        assertEquals(
+            LocalDate.of(2025, 8, 31),
+            nextOccurrenceDate(
+                origin = LocalDate.of(2024, 8, 31),
+                today = LocalDate.of(2025, 3, 1),
+                repeatType = REPEAT_HALF_YEARLY
+            )
+        )
+        assertEquals(
+            LocalDate.of(2024, 2, 29),
+            nextOccurrenceDate(
+                origin = LocalDate.of(2020, 2, 29),
+                today = LocalDate.of(2024, 2, 28),
+                repeatType = REPEAT_YEARLY
+            )
+        )
+        assertEquals(
+            LocalDate.of(2025, 2, 28),
+            nextOccurrenceDate(
+                origin = LocalDate.of(2020, 2, 29),
+                today = LocalDate.of(2025, 2, 27),
+                repeatType = REPEAT_YEARLY
+            )
+        )
+        assertEquals(
+            LocalDate.of(2026, 2, 28),
+            nextOccurrenceDate(
+                origin = LocalDate.of(2020, 2, 29),
+                today = LocalDate.of(2025, 3, 1),
+                repeatType = REPEAT_YEARLY
+            )
+        )
+    }
+
+    @Test
     fun formatLunarMonthDay_matchesLunarLibraryValue() {
         val date = LocalDate.of(2024, 2, 10)
         val lunar = Solar.fromYmd(date.year, date.monthValue, date.dayOfMonth).lunar

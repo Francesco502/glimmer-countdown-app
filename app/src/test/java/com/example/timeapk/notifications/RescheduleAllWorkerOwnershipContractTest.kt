@@ -26,6 +26,7 @@ class RescheduleAllWorkerOwnershipContractTest {
     fun workerDisabledPathUsesRecoverableCombinedCleanup() {
         val source = source("RescheduleAllWorker.kt")
 
+        assertTrue(source.contains("} else if (calendarCleanupRequired(event)) {"))
         assertTrue(source.contains("ScheduleSyncManager.removeManagedCalendarEntries("))
         assertTrue(source.contains("eventAfterCleanupAttempt("))
         assertFalse(source.contains("ScheduleSyncManager.removeScheduleReminder(applicationContext, event.scheduleEventId)"))
