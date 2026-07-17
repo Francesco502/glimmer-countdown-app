@@ -44,7 +44,7 @@
 ## 四、体验、无障碍与性能
 
 - [x] 新建 / 编辑输入法、拼音组合态、硬件键盘、旋转和返回手势无数据丢失
-- [ ] TalkBack 可识别主要按钮、开关、展开状态、列表项和日期选择器
+- [x] TalkBack 可识别主要按钮、开关、展开状态、列表项和日期选择器
 - [x] 常用触控目标满足尺寸要求，颜色与文字对比通过项目守卫测试
 - [ ] 冷启动、首页滚动、月历切换、详情与设置导航无明显卡顿或异常内存增长
 - [x] Android 8、Android 12 和当前 target SDK 设备至少各完成一轮核心 smoke
@@ -54,7 +54,7 @@
 
 - JVM 回归（2026-07-16）：Direct / Play 各 410 项通过，0 failures / 0 errors / 0 skipped；覆盖农历重复、导入校验、数据库恢复、首页排序、小组件解析、无障碍架构、当前界面语言解析及渠道更新契约等确定性行为。`compileDirectDebugAndroidTestKotlin`、`assembleDirectDebug`、`assemblePlayDebug` 同轮通过。
 - 数据库迁移（2026-07-16）：从已发布 v3.4 的真实 Room v6 schema 启动，依次执行生产迁移 6→7→8→9→10；API 37 上 2 项 connected migration 测试通过，验证删除字段、新增字段、核心数据保留与 v10 schema 严格校验。
-- UI / 无障碍（2026-07-16）：API 37 验证首页列表与卡片深色模式、月历 150% 系统字体、日期滚轮与设置单选组。修复事件文字和选中日期对比、48dp 触控目标、滚轮可调语义、装饰性空状态按钮重复朗读及设置单选行合并语义；镜像内置 TalkBack 已以触摸探索模式绑定，首页视图标签取得真实读屏焦点，UI 语义树能识别月历入口、月份切换、事件和添加按钮的中文标签。自动注入手势未能可靠完成开关、展开区与日期选择器的端到端顺序遍历，因此总项仍保留未勾选。
+- UI / 无障碍（2026-07-16）：API 37 验证首页列表与卡片深色模式、月历 150% 系统字体、日期滚轮与设置单选组。修复事件文字和选中日期对比、48dp 触控目标、滚轮可调语义、装饰性空状态按钮重复朗读及设置单选行合并语义；镜像内置 TalkBack 已以触摸探索模式绑定，首页视图标签取得真实读屏焦点，UI 语义树能识别月历入口、月份切换、事件和添加按钮的中文标签。首轮自动注入手势未能可靠完成开关、展开区与日期选择器的顺序遍历，后续以真实 TalkBack 操作结合确定性语义回归补齐，详见本节 2026-07-17 复测记录。
 - 性能（2026-07-17）：分享卡 1080×1350 渲染移至 Default dispatcher，PNG 写入移至 IO；Debug 首页滚动 Perfetto trace 无丢样。临时测试签名 Direct Release 在 API 37 模拟器执行 10 次强制停止启动，其中 9 次 COLD 为 488–827ms、中位数 719ms，另 1 次被系统标记为 WARM（551ms）。纠正“系统返回可能只关闭输入法”的旧测法后，以页面顶部返回键完成预热及 100 次真实“添加事件 / 返回首页”循环；三次采样的稳定值从基线到第 100 次为 TOTAL PSS 144,127KB→151,654KB，其中第 25→100 次仅增加 2,169KB，Java Heap 40,208KB→40,240KB、Native Heap 16,816KB→17,376KB，且 `Activities=1`、`ViewRootImpl=1`、`AppContexts=6` 始终不变。第 100 次循环后触发完整堆转储与 GC，Local Binder 降至 23；Shark 2.14 分析当前堆与 2026-07-16 的旧 Release 堆均为 0 application leaks、0 library leaks、0 unreachable objects，未发现确定的持续引用链。另以开启系统动画的临时测试签名、混淆 Direct Release 执行月历前后翻页、详情 / 设置往返及三种首页视图切换：282 帧中位数 17ms、P90 29ms、P95 34ms，29 帧（10.28%）超过截止时间；ADB 输入注入产生 325 次高输入延迟，模拟器结果不作为真机流畅度结论。堆与帧数据保存在 `/tmp/timeapk-v4-perf-20260717-d0501c4/`；因真机长时与导航流畅度验证仍未完成，性能总项继续保留未勾选。
 - 工程门（2026-07-16）：五项 lint / vital lint 均通过，DirectDebug、DirectRelease、PlayRelease 报告均为 `No issues found.`；新增 Android pull request CI，执行双渠道 JVM、AndroidTest 编译、五项 lint / vital lint 与双渠道 Debug 构建。
 - 渠道验收（2026-07-16）：API 37 `emulator-5554` 安装 Direct / Play Debug APK；Direct 关于页显示 `4.0` 和“探寻新章”，Play 关于页显示 `4.0-play` 和“更新由应用商店管理”，且不暴露 Direct 下载或安装入口。`aapt` 验证 Direct Debug APK 包含 `REQUEST_INSTALL_PACKAGES`、Play Debug APK 不包含；正式发布密钥 Release 产物的最终权限与签名检查仍未执行。
@@ -77,9 +77,9 @@
 - 通知与重启补充（2026-07-17）：API 37 Direct Debug 导入“当天提醒”和“提前 1 天提醒”两条匿名事件，在拒绝 `POST_NOTIFICATIONS` 时执行真实模拟器重启并收到 `BOOT_COMPLETED`；重启后两条 `ReminderWorker` 均重新入队，`RescheduleAllWorker` 成功结束。运行态继续验证“拒绝 → 授予 → 再次拒绝”权限切换，两条提醒始终保留且每次统一重排均成功。测试同时发现从未同步过系统日历的普通提醒会被错误执行日历清理，并在无日历权限时进入永久重试；现仅对仍有日历 provider ownership 或既有同步错误的事件执行清理，干净数据复测不再产生虚假日历错误或重试循环。
 - 系统日历正向同步补充（2026-07-17）：API 37 Direct Debug 在设置中显式选择独立的 `TimeAPK_v4_QA` 可写本地日历；从 UI 新建当天提醒后，Room 保存 `scheduleEventId=251`、`targetCalendarId=6` 且同步错误为空，CalendarProvider 对应记录位于日历 6。编辑标题时原地复用事件 ID 251 且无重复；关闭同步后 provider 记录消失并清空本地 ownership 字段；重新开启同步生成活动记录 252，从详情删除后 CalendarProvider 与 Room 均无残留。新增 connected 回归会自行创建唯一的本地日历，覆盖新增、原地更新、提醒记录、关闭同步和活动记录清理，并在 `finally` 删除临时账户；手工 QA 日历、测试事件和 Direct 测试应用均已清理。Android 12 无可写日历与 API 37 撤权恢复证据继续覆盖负向路径。
 - 小组件外观补充（2026-07-17）：API 37 Pixel Launcher 真实实例验证小 / 大圆角与系统宣纸背景有 / 无边框的视觉差异。进一步复现应用进程退出后 Launcher 将背景切到夜间资源、但旧 RemoteViews 写死文字色导致“深底深字”；现由主题自适应布局管理自动文字色，在进程退出状态下从深色切回浅色，实测分别为深底浅字与浅底深字。配置预览同步反映圆角、农历前缀及紧凑 / 标准 / 宽松密度。最终人工矩阵覆盖透明、半透明、宣纸、青瓷、朱印五种背景的浅色 / 深色 Launcher：全部可读；同一圆角内连续执行墨线→透明、青瓷→朱印等切换时不再残留旧背景。期间发现 Android 12+ 仅可靠识别顶层 `@android:id/background`，现已同步基础与 v31 布局，并让配置保存等待 RemoteViews 刷新完成后再关闭。
-- 最终质量门补充（2026-07-17）：当前候选代码强制重跑 Direct / Play JVM 各 425 项，均为 0 failures / 0 errors / 0 skipped；API 37 connected 17/17 通过，包含完整 6→10 迁移、编辑恢复、拼音组合态与硬件键盘输入、输入框标签语义、筛选拖拽、小组件多实例、CalendarProvider 正向同步、小组件根背景结构、透明专用布局、圆角 RemoteViews 及 Compose 语义回归。`compileDirectDebugAndroidTestKotlin`、Direct / Play Debug 构建与五项 lint / vital lint 同轮成功，DirectDebug、DirectRelease、PlayRelease 报告均为 `No issues found.`
+- 最终质量门补充（2026-07-17）：当前候选代码强制重跑 Direct / Play JVM 各 425 项，均为 0 failures / 0 errors / 0 skipped；API 37 connected 19/19 通过，包含完整 6→10 迁移、编辑恢复、拼音组合态与硬件键盘输入、输入框标签语义、筛选拖拽、小组件多实例、CalendarProvider 正向同步、小组件根背景结构、透明专用布局、圆角 RemoteViews，以及开关、展开区与日期滚轮 Compose 语义回归。`compileDirectDebugAndroidTestKotlin`、Direct / Play Debug 构建与五项 lint / vital lint 同轮成功，DirectDebug、DirectRelease、PlayRelease 报告均为 `No issues found.`
 - 输入框无障碍补充（2026-07-17）：API 37 新鲜 UI 树复现标题编辑框缺少字段名称并被标记为 `NAF=true`；根因是自定义输入框把“标题 / 备注”渲染为独立视觉文本，却未把标签写入编辑框语义。新增失败测试后为复用组件补齐标签语义，运行时 UI 树不再出现 NAF，旋转回竖屏后标题节点明确为 `content-desc="标题"`、备注节点为 `content-desc="备注"`；聚焦 JVM 6/6 与编辑 connected 2/2 通过。
-- 输入 / TalkBack 复测补充（2026-07-17）：API 37 在 150% 系统字体与真实 Gboard 下输入匿名标题，关闭 / 重开键盘、旋转横屏并旋回后草稿仍保留，顶部栏与表单稳定布局正常；首次改字体时 Gboard 自身的“Keyboard font size updated”横幅会短暂改变输入法高度，横幅关闭后不再复现。内置 TalkBack 17.0.0 已绑定，`touchExplorationEnabled=true`，首页“近期入口”获得真实绿色读屏焦点；`uiautomator dump` 会重启服务，连续自动手势仍不能作为可靠的开关、展开区与日期选择器顺序遍历证据，因此 TalkBack 综合项继续保留未勾选。测试结束已恢复 100% 字体、自动旋转并关闭 TalkBack。
+- 输入 / TalkBack 复测补充（2026-07-17）：API 37 在 150% 系统字体与真实 Gboard 下输入匿名标题，关闭 / 重开键盘、旋转横屏并旋回后草稿仍保留，顶部栏与表单稳定布局正常；首次改字体时 Gboard 自身的“Keyboard font size updated”横幅会短暂改变输入法高度，横幅关闭后不再复现。内置 TalkBack 17.0.0 已绑定，`touchExplorationEnabled=true`；首页“卡片”入口真实朗读“已选择、单选按钮、第 1 个，共 3 个”，匿名事件列表项和设置按钮均可通过触摸探索激活，详情页与设置页返回按钮取得绿色读屏焦点。设置页开关经 TalkBack 激活后从“开”变为“关”，展开区从“收起设置分组”变为“展开设置分组”；日期对话框取得真实绿色焦点，语义树将年、月、日暴露为可调节点。新增 connected 回归确定性验证开关角色及“开 / 关”、展开区“已折叠 / 已展开”，并通过无障碍 `SetProgress` 将日期滚轮从 2026-07-17 调至 2027-08-18 后确认回调。Shell 连续滑动注入仍不够稳定，不作为顺序遍历证据；综合真实 TalkBack 激活、焦点与朗读证据及 19/19 语义回归后关闭 TalkBack 检查项。测试结束已恢复 100% 字体、自动旋转、原输入法子类型和关闭 TalkBack，测试包与数据均已清理。
 
 ## 六、发布动作
 
