@@ -15,27 +15,27 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.lifecycleScope
+import com.example.timeapk.data.LANG_ZH
 import com.example.timeapk.ui.theme.FONT_PRESET_NOTO_SERIF_SC
 import com.example.timeapk.ui.theme.AnimationSpecs
 import com.example.timeapk.ui.theme.TimeAPKTheme
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
     private val openEventIdState = mutableStateOf<Int?>(null)
 
     override fun attachBaseContext(newBase: Context) {
-        val app = newBase.applicationContext as TimeApplication
-        val languageMode = runBlocking(Dispatchers.IO) { app.userPrefs.languageModeFlow.first() }
-        val wrapped = LocaleUtils.wrapContext(newBase, languageMode)
-        super.attachBaseContext(wrapped)
+        val mode = LocalePreferenceMirror.read(newBase) ?: LANG_ZH
+        super.attachBaseContext(LocaleUtils.wrapContext(newBase, mode))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         updateOpenEventIdFromIntent(intent)
+        migrateLocaleMirror()
         setContent {
             val openEventId by openEventIdState
             val app = applicationContext as TimeApplication
@@ -85,5 +85,17 @@ class MainActivity : ComponentActivity() {
 
     private fun updateOpenEventIdFromIntent(intent: Intent) {
         openEventIdState.value = intent.getIntExtra("open_event_id", -1).takeIf { it >= 0 }
+    }
+
+    private fun migrateLocaleMirror() {
+        val app = applicationContext as TimeApplication
+        lifecycleScope.launch {
+            val stored = app.userPrefs.languageModeFlow.first()
+            val mirrored = LocalePreferenceMirror.read(this@MainActivity)
+            if (mirrored == null || mirrored != stored) {
+                LocalePreferenceMirror.write(this@MainActivity, stored)
+                if (mirrored != null || stored != LANG_ZH) recreate()
+            }
+        }
     }
 }

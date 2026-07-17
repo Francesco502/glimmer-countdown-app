@@ -10,11 +10,12 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.example.timeapk.LocalePreferenceMirror
+import com.example.timeapk.ui.theme.FONT_PRESET_NOTO_SERIF_SC
+import com.example.timeapk.ui.theme.sanitizeFontPreset
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import com.example.timeapk.ui.theme.FONT_PRESET_NOTO_SERIF_SC
-import com.example.timeapk.ui.theme.sanitizeFontPreset
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -287,6 +288,7 @@ class UserPreferencesRepository(private val context: Context) {
 
     suspend fun setLanguageMode(mode: Int) {
         context.dataStore.edit { it[LANGUAGE_MODE] = mode }
+        LocalePreferenceMirror.write(context, mode)
     }
 
     suspend fun setDateFormatMode(mode: Int) {

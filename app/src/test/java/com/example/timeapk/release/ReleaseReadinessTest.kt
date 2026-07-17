@@ -331,12 +331,15 @@ class ReleaseReadinessTest {
     }
 
     @Test
-    fun localeBootstrapReadsPreferencesOnIoDispatcher() {
-        val source = mainSource("MainActivity.kt").readText(Charsets.UTF_8)
-
-        assertTrue(source.contains("runBlocking(Dispatchers.IO)"))
-        assertTrue(source.contains("languageModeFlow.first()"))
-        assertFalse(source.contains("runBlocking { app.userPrefs.languageModeFlow.first() }"))
+    fun mainActivityUsesLocaleMirrorWithoutRunBlocking() {
+        val main = mainSource("MainActivity.kt").readText()
+        assertFalse(main.contains("runBlocking"))
+        assertTrue(main.contains("LocalePreferenceMirror.read(newBase)"))
+        assertTrue(main.contains("migrateLocaleMirror"))
+        val prefs = mainSource("data/UserPreferencesRepository.kt").readText()
+        val setter = prefs.substringAfter("suspend fun setLanguageMode")
+            .substringBefore("suspend fun setDateFormatMode")
+        assertTrue(setter.contains("LocalePreferenceMirror.write"))
     }
 
     @Test
