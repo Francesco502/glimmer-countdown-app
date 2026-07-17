@@ -97,7 +97,7 @@ class CalendarCleanupCallerContractTest {
         assertTrue(eventEntry.contains("recordManagedCalendarCleanupForMilestoneOwnership("))
         assertTrue(eventEntry.contains("clearPendingMilestoneCalendarOwnership("))
         assertTrue(reminderWorker.contains("repairReason = \"reminder_worker_cleanup\""))
-        assertTrue(eventEntry.contains("repairReason = \"event_save_cleanup\""))
+        assertTrue(eventEntry.contains("repairReason = \"manual_event_save_cleanup\""))
     }
 
     private fun source(relativePath: String): String {

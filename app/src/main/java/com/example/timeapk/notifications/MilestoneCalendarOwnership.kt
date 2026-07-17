@@ -8,6 +8,23 @@ internal enum class MilestoneCleanupScope {
     GLOBAL
 }
 
+internal data class MilestoneOwnershipRegistryState(
+    val exactEventIds: Set<Int>,
+    val inflightEventIds: Set<Int>,
+    val legacyScanPending: Boolean,
+    val initialized: Boolean
+)
+
+internal fun commitMilestoneOwnershipStateWithRollback(
+    oldState: MilestoneOwnershipRegistryState,
+    newState: MilestoneOwnershipRegistryState,
+    write: (MilestoneOwnershipRegistryState) -> Boolean
+): Boolean {
+    if (write(newState)) return true
+    write(oldState)
+    return false
+}
+
 internal fun shouldInitializeLegacyMilestoneScan(
     firstInstallTimeMillis: Long,
     lastUpdateTimeMillis: Long
@@ -33,12 +50,14 @@ internal fun cleanupPendingMilestoneOwnership(
     }
     val result = cleanup()
     if (result.isSuccess) {
-        val exactCleared = !exactOwnershipPending || clearExactOwnership()
-        val legacyCleared =
-            legacyScanPending.not() ||
-                scope != MilestoneCleanupScope.GLOBAL ||
-                clearLegacyScan()
-        if (!exactCleared || !legacyCleared) {
+        if (exactOwnershipPending && !clearExactOwnership()) {
+            return CalendarCleanupResult.ProviderFailure("Calendar ownership registry update failed")
+        }
+        if (
+            legacyScanPending &&
+            scope == MilestoneCleanupScope.GLOBAL &&
+            !clearLegacyScan()
+        ) {
             return CalendarCleanupResult.ProviderFailure("Calendar ownership registry update failed")
         }
         return result
@@ -76,48 +95,62 @@ internal object MilestoneCalendarOwnershipStore {
     private const val KEY_INFLIGHT_EVENT_IDS = "inflight_event_ids"
     private val lock = Any()
 
+    private data class InitializedPreferences(
+        val prefs: SharedPreferences,
+        val isDurable: Boolean
+    )
+
     fun markPendingDurably(context: Context, eventId: Int): Boolean = synchronized(lock) {
-        val prefs = initializedPreferences(context)
-        val exactIds = pendingEventIds(prefs).toMutableSet()
-        val inflightIds = inflightEventIds(prefs).toMutableSet()
-        val exactAdded = exactIds.add(eventId)
-        val inflightAdded = inflightIds.add(eventId)
-        if (!exactAdded && !inflightAdded) {
-            true
-        } else {
-            writeOwnershipEventIds(prefs, exactIds, inflightIds)
+        val initialized = initializedPreferences(context)
+        if (!initialized.isDurable) return@synchronized false
+        updateRegistryState(initialized.prefs) { state ->
+            state.copy(
+                exactEventIds = state.exactEventIds + eventId,
+                inflightEventIds = state.inflightEventIds + eventId
+            )
         }
     }
 
     fun clearPendingWithoutProviderDurably(context: Context, eventId: Int): Boolean = synchronized(lock) {
-        val prefs = initializedPreferences(context)
-        val exactIds = pendingEventIds(prefs).toMutableSet()
-        val inflightIds = inflightEventIds(prefs).toMutableSet()
-        val exactRemoved = exactIds.remove(eventId)
-        val inflightRemoved = inflightIds.remove(eventId)
-        if (!exactRemoved && !inflightRemoved) {
-            true
-        } else {
-            writeOwnershipEventIds(prefs, exactIds, inflightIds)
+        val initialized = initializedPreferences(context)
+        if (!initialized.isDurable) return@synchronized false
+        updateRegistryState(initialized.prefs) { state ->
+            state.copy(
+                exactEventIds = state.exactEventIds - eventId,
+                inflightEventIds = state.inflightEventIds - eventId
+            )
         }
     }
 
     fun transitionInflightToActiveDurably(context: Context, eventId: Int): Boolean = synchronized(lock) {
-        val prefs = initializedPreferences(context)
-        val inflightIds = inflightEventIds(prefs).toMutableSet()
-        if (!inflightIds.remove(eventId)) {
-            true
-        } else {
-            writeOwnershipEventIds(prefs, pendingEventIds(prefs), inflightIds)
+        val initialized = initializedPreferences(context)
+        if (!initialized.isDurable) return@synchronized false
+        val state = readRegistryState(initialized.prefs)
+        if (eventId !in state.inflightEventIds) return@synchronized false
+        updateRegistryState(initialized.prefs) {
+            it.copy(inflightEventIds = it.inflightEventIds - eventId)
+        }
+    }
+
+    fun restoreInflightDurably(context: Context, eventId: Int): Boolean = synchronized(lock) {
+        val initialized = initializedPreferences(context)
+        if (!initialized.isDurable) return@synchronized false
+        updateRegistryState(initialized.prefs) { state ->
+            state.copy(
+                exactEventIds = state.exactEventIds + eventId,
+                inflightEventIds = state.inflightEventIds + eventId
+            )
         }
     }
 
     fun hasRecoveryPending(context: Context): Boolean = synchronized(lock) {
-        val prefs = initializedPreferences(context)
+        val initialized = initializedPreferences(context)
+        if (!initialized.isDurable) return@synchronized true
+        val state = readRegistryState(initialized.prefs)
         shouldForceMilestoneRecovery(
-            activeOwnershipPending = pendingEventIds(prefs).isNotEmpty(),
-            inflightRecoveryPending = inflightEventIds(prefs).isNotEmpty(),
-            legacyScanPending = prefs.getBoolean(KEY_LEGACY_SCAN_PENDING, false)
+            activeOwnershipPending = state.exactEventIds.isNotEmpty(),
+            inflightRecoveryPending = state.inflightEventIds.isNotEmpty(),
+            legacyScanPending = state.legacyScanPending
         )
     }
 
@@ -126,20 +159,26 @@ internal object MilestoneCalendarOwnershipStore {
         eventId: Int,
         cleanup: () -> CalendarCleanupResult
     ): CalendarCleanupResult = synchronized(lock) {
-        val prefs = initializedPreferences(context)
-        val exactIds = pendingEventIds(prefs)
-        val inflightIds = inflightEventIds(prefs)
+        val initialized = initializedPreferences(context)
+        if (!initialized.isDurable) {
+            return@synchronized CalendarCleanupResult.ProviderFailure(
+                "Calendar ownership registry update failed"
+            )
+        }
+        val state = readRegistryState(initialized.prefs)
         cleanupPendingMilestoneOwnership(
-            exactOwnershipPending = eventId in exactIds || eventId in inflightIds,
-            legacyScanPending = prefs.getBoolean(KEY_LEGACY_SCAN_PENDING, false),
+            exactOwnershipPending =
+                eventId in state.exactEventIds || eventId in state.inflightEventIds,
+            legacyScanPending = state.legacyScanPending,
             scope = MilestoneCleanupScope.EVENT,
             cleanup = cleanup,
             clearExactOwnership = {
-                writeOwnershipEventIds(
-                    prefs = prefs,
-                    exactEventIds = exactIds - eventId,
-                    inflightEventIds = inflightIds - eventId
-                )
+                updateRegistryState(initialized.prefs) {
+                    it.copy(
+                        exactEventIds = it.exactEventIds - eventId,
+                        inflightEventIds = it.inflightEventIds - eventId
+                    )
+                }
             },
             clearLegacyScan = { true }
         )
@@ -149,19 +188,28 @@ internal object MilestoneCalendarOwnershipStore {
         context: Context,
         cleanup: () -> CalendarCleanupResult
     ): CalendarCleanupResult = synchronized(lock) {
-        val prefs = initializedPreferences(context)
-        val exactIds = pendingEventIds(prefs)
-        val inflightIds = inflightEventIds(prefs)
+        val initialized = initializedPreferences(context)
+        if (!initialized.isDurable) {
+            return@synchronized CalendarCleanupResult.ProviderFailure(
+                "Calendar ownership registry update failed"
+            )
+        }
+        val state = readRegistryState(initialized.prefs)
         cleanupPendingMilestoneOwnership(
-            exactOwnershipPending = exactIds.isNotEmpty() || inflightIds.isNotEmpty(),
-            legacyScanPending = prefs.getBoolean(KEY_LEGACY_SCAN_PENDING, false),
+            exactOwnershipPending =
+                state.exactEventIds.isNotEmpty() || state.inflightEventIds.isNotEmpty(),
+            legacyScanPending = state.legacyScanPending,
             scope = MilestoneCleanupScope.GLOBAL,
             cleanup = cleanup,
             clearExactOwnership = {
-                writeOwnershipEventIds(prefs, emptySet(), emptySet())
+                updateRegistryState(initialized.prefs) {
+                    it.copy(exactEventIds = emptySet(), inflightEventIds = emptySet())
+                }
             },
             clearLegacyScan = {
-                prefs.edit().putBoolean(KEY_LEGACY_SCAN_PENDING, false).commit()
+                updateRegistryState(initialized.prefs) {
+                    it.copy(legacyScanPending = false)
+                }
             }
         )
     }
@@ -175,27 +223,24 @@ internal object MilestoneCalendarOwnershipStore {
             result = result,
             clearOwnership = {
                 synchronized(lock) {
-                    val prefs = initializedPreferences(context)
-                    val exactIds = pendingEventIds(prefs)
-                    val inflightIds = inflightEventIds(prefs)
-                    if (eventId in exactIds || eventId in inflightIds) {
-                        writeOwnershipEventIds(
-                            prefs = prefs,
-                            exactEventIds = exactIds - eventId,
-                            inflightEventIds = inflightIds - eventId
+                    val initialized = initializedPreferences(context)
+                    if (!initialized.isDurable) return@synchronized false
+                    updateRegistryState(initialized.prefs) {
+                        it.copy(
+                            exactEventIds = it.exactEventIds - eventId,
+                            inflightEventIds = it.inflightEventIds - eventId
                         )
-                    } else {
-                        true
                     }
                 }
             },
             enqueueRepair = enqueueRepair
         )
 
-    private fun initializedPreferences(context: Context): SharedPreferences {
+    private fun initializedPreferences(context: Context): InitializedPreferences {
         val appContext = context.applicationContext
         val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        if (!prefs.getBoolean(KEY_INITIALIZED, false)) {
+        val state = readRegistryState(prefs)
+        if (!state.initialized) {
             val legacyScanPending = runCatching {
                 val packageInfo = appContext.packageManager.getPackageInfo(appContext.packageName, 0)
                 shouldInitializeLegacyMilestoneScan(
@@ -203,43 +248,68 @@ internal object MilestoneCalendarOwnershipStore {
                     lastUpdateTimeMillis = packageInfo.lastUpdateTime
                 )
             }.getOrDefault(true)
-            prefs.edit()
-                .putBoolean(KEY_INITIALIZED, true)
-                .putBoolean(KEY_LEGACY_SCAN_PENDING, legacyScanPending)
-                .commit()
+            val initialized = commitMilestoneOwnershipStateWithRollback(
+                oldState = state,
+                newState = state.copy(
+                    initialized = true,
+                    legacyScanPending = legacyScanPending
+                ),
+                write = { writeRegistryState(prefs, it) }
+            )
+            return InitializedPreferences(prefs, initialized)
         }
-        return prefs
+        return InitializedPreferences(prefs, true)
     }
 
-    private fun pendingEventIds(prefs: SharedPreferences): Set<Int> {
-        return prefs.getStringSet(KEY_PENDING_EVENT_IDS, emptySet())
-            .orEmpty()
-            .mapNotNull(String::toIntOrNull)
-            .toSet()
-    }
-
-    private fun inflightEventIds(prefs: SharedPreferences): Set<Int> {
-        return prefs.getStringSet(KEY_INFLIGHT_EVENT_IDS, emptySet())
-            .orEmpty()
-            .mapNotNull(String::toIntOrNull)
-            .toSet()
-    }
-
-    private fun writeOwnershipEventIds(
+    private fun updateRegistryState(
         prefs: SharedPreferences,
-        exactEventIds: Set<Int>,
-        inflightEventIds: Set<Int>
+        transform: (MilestoneOwnershipRegistryState) -> MilestoneOwnershipRegistryState
+    ): Boolean {
+        val oldState = readRegistryState(prefs)
+        val newState = transform(oldState)
+        if (newState == oldState) return true
+        return commitMilestoneOwnershipStateWithRollback(
+            oldState = oldState,
+            newState = newState,
+            write = { writeRegistryState(prefs, it) }
+        )
+    }
+
+    private fun readRegistryState(prefs: SharedPreferences): MilestoneOwnershipRegistryState {
+        fun eventIds(key: String): Set<Int> = prefs.getStringSet(key, emptySet())
+            .orEmpty()
+            .mapNotNull(String::toIntOrNull)
+            .toSet()
+        return MilestoneOwnershipRegistryState(
+            exactEventIds = eventIds(KEY_PENDING_EVENT_IDS),
+            inflightEventIds = eventIds(KEY_INFLIGHT_EVENT_IDS),
+            legacyScanPending = prefs.getBoolean(KEY_LEGACY_SCAN_PENDING, false),
+            initialized = prefs.getBoolean(KEY_INITIALIZED, false)
+        )
+    }
+
+    private fun writeRegistryState(
+        prefs: SharedPreferences,
+        state: MilestoneOwnershipRegistryState
     ): Boolean {
         val editor = prefs.edit()
-        if (exactEventIds.isEmpty()) {
+            .putBoolean(KEY_INITIALIZED, state.initialized)
+            .putBoolean(KEY_LEGACY_SCAN_PENDING, state.legacyScanPending)
+        if (state.exactEventIds.isEmpty()) {
             editor.remove(KEY_PENDING_EVENT_IDS)
         } else {
-            editor.putStringSet(KEY_PENDING_EVENT_IDS, exactEventIds.map(Int::toString).toSet())
+            editor.putStringSet(
+                KEY_PENDING_EVENT_IDS,
+                state.exactEventIds.map(Int::toString).toSet()
+            )
         }
-        if (inflightEventIds.isEmpty()) {
+        if (state.inflightEventIds.isEmpty()) {
             editor.remove(KEY_INFLIGHT_EVENT_IDS)
         } else {
-            editor.putStringSet(KEY_INFLIGHT_EVENT_IDS, inflightEventIds.map(Int::toString).toSet())
+            editor.putStringSet(
+                KEY_INFLIGHT_EVENT_IDS,
+                state.inflightEventIds.map(Int::toString).toSet()
+            )
         }
         return editor.commit()
     }

@@ -16,15 +16,19 @@ import com.example.timeapk.data.REPEAT_YEARLY
 import com.example.timeapk.ui.home.getMilestoneLabel
 import com.example.timeapk.ui.utils.eventDateToLocalDate
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.ConcurrentHashMap
 
 private const val MILESTONE_REMIND_TAG = "milestone_remind"
 private const val MILESTONE_WORK_PREFIX = "milestone_event_"
 private const val TAG = "MilestoneScheduler"
 private const val MILESTONE_ERROR_PREFIX = "[Milestone] "
+private val milestoneEventSyncLocks = ConcurrentHashMap<Int, Mutex>()
 private val SMART_MILESTONE_REMIND_VALUES = listOf(
     1L, 3L, 7L, 14L, 30L, 60L, 90L, 100L, 180L, 365L, 520L, 730L, 1000L
 )
@@ -49,10 +53,18 @@ internal data class MilestoneCalendarInsertionAttempt(
     val providerEventMayExist: Boolean
 )
 
+internal suspend fun <T> withMilestoneEventSyncLock(
+    eventId: Int,
+    transaction: suspend () -> T
+): T = milestoneEventSyncLocks.getOrPut(eventId) { Mutex() }.withLock {
+    transaction()
+}
+
 internal fun insertMilestoneWithDurableOwnership(
     markPendingDurably: () -> Boolean,
     clearPendingDurably: () -> Boolean,
     transitionInflightToActiveDurably: () -> Boolean,
+    restoreInflightDurably: () -> Boolean,
     insertion: () -> MilestoneCalendarInsertionAttempt,
     insertionFailure: (Throwable) -> ScheduleSyncManager.MilestoneScheduleSyncResult,
     registryFailure: () -> ScheduleSyncManager.MilestoneScheduleSyncResult
@@ -66,7 +78,10 @@ internal fun insertMilestoneWithDurableOwnership(
     if (attempt.result.scheduleEventId == null && !attempt.providerEventMayExist) {
         if (!clearPendingDurably()) return registryFailure()
     } else if (attempt.result.scheduleEventId != null) {
-        if (!transitionInflightToActiveDurably()) return registryFailure()
+        if (!transitionInflightToActiveDurably()) {
+            restoreInflightDurably()
+            return registryFailure()
+        }
     }
     return attempt.result
 }
@@ -173,11 +188,12 @@ internal suspend fun syncMilestoneReminderForEvent(
 ): ScheduleSyncManager.MilestoneScheduleSyncResult? {
     val app = application as? TimeApplication ?: return null
     val context = application
-    if (shouldCancelMilestoneWorkBeforeSync(origin)) {
-        cancelMilestoneReminders(context, event.id)
-    }
+    return withMilestoneEventSyncLock(event.id) {
+        if (shouldCancelMilestoneWorkBeforeSync(origin)) {
+            cancelMilestoneReminders(context, event.id)
+        }
 
-    return syncMilestoneCalendarReplacement(
+        syncMilestoneCalendarReplacement(
         cleanup = {
             if (shouldClearCalendarBeforeMilestoneSync(calendarCleanupHandledExternally)) {
                 clearPendingMilestoneCalendarOwnership(context, event.id)
@@ -219,7 +235,8 @@ internal suspend fun syncMilestoneReminderForEvent(
             }
             scheduleResult
         }
-    )
+        )
+    }
 }
 
 private suspend fun persistMilestoneScheduleStatus(
@@ -344,6 +361,9 @@ private fun scheduleMilestoneReminderForEvent(
             },
             transitionInflightToActiveDurably = {
                 MilestoneCalendarOwnershipStore.transitionInflightToActiveDurably(context, event.id)
+            },
+            restoreInflightDurably = {
+                MilestoneCalendarOwnershipStore.restoreInflightDurably(context, event.id)
             },
             insertion = {
                 ScheduleSyncManager.insertMilestoneScheduleReminderAttempt(

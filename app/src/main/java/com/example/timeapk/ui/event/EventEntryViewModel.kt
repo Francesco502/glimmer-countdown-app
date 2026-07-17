@@ -285,7 +285,7 @@ class EventEntryViewModel(
                         eventId = persistedEvent.id,
                         calendarEventId = persistedEvent.scheduleEventId
                     ),
-                    repairReason = "event_save_cleanup"
+                    repairReason = "manual_event_save_cleanup"
                 )
                 scheduleSyncError = cleanup.message
                 eventAfterCleanupAttempt(

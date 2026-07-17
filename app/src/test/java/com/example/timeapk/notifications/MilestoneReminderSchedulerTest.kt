@@ -10,6 +10,9 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZoneOffset
@@ -109,6 +112,7 @@ class MilestoneReminderSchedulerTest {
                 calls += "activate"
                 true
             },
+            restoreInflightDurably = { error("Transition should succeed") },
             insertion = {
                 calls += "insert"
                 MilestoneCalendarInsertionAttempt(
@@ -138,6 +142,7 @@ class MilestoneReminderSchedulerTest {
                 true
             },
             transitionInflightToActiveDurably = { error("Null insert cannot become active") },
+            restoreInflightDurably = { error("Null insert has no provider event") },
             insertion = {
                 MilestoneCalendarInsertionAttempt(
                     result = ScheduleSyncManager.MilestoneScheduleSyncResult(
@@ -171,6 +176,7 @@ class MilestoneReminderSchedulerTest {
                 true
             },
             transitionInflightToActiveDurably = { error("Exception cannot become active") },
+            restoreInflightDurably = { error("Existing premark must remain") },
             insertion = { error("crashed after provider insert") },
             insertionFailure = { throwable ->
                 ScheduleSyncManager.MilestoneScheduleSyncResult(
@@ -195,6 +201,7 @@ class MilestoneReminderSchedulerTest {
             markPendingDurably = { false },
             clearPendingDurably = { error("Nothing was marked") },
             transitionInflightToActiveDurably = { error("Nothing was marked") },
+            restoreInflightDurably = { error("Nothing was marked") },
             insertion = {
                 insertionCalled = true
                 error("Provider must not be called")
@@ -230,6 +237,7 @@ class MilestoneReminderSchedulerTest {
                 inflightIds -= 41
                 true
             },
+            restoreInflightDurably = { error("Transition should succeed") },
             insertion = {
                 assertEquals(setOf(41), exactIds)
                 assertEquals(setOf(41), inflightIds)
@@ -259,7 +267,14 @@ class MilestoneReminderSchedulerTest {
                 true
             },
             clearPendingDurably = { error("Successful provider insert must stay owned") },
-            transitionInflightToActiveDurably = { false },
+            transitionInflightToActiveDurably = {
+                inflightRecoveryPending = false
+                false
+            },
+            restoreInflightDurably = {
+                inflightRecoveryPending = true
+                true
+            },
             insertion = {
                 MilestoneCalendarInsertionAttempt(
                     result = ScheduleSyncManager.MilestoneScheduleSyncResult(99L, 7L, 123L, null),
@@ -280,6 +295,85 @@ class MilestoneReminderSchedulerTest {
         assertTrue(exactOwnershipPending)
         assertTrue(inflightRecoveryPending)
         assertEquals("Ownership registry transition failed", result.error)
+    }
+
+    @Test
+    fun missingInflightAtTransition_isRestoredAndReportedAsFailure() {
+        var exactOwnershipPending = true
+        var inflightRecoveryPending = false
+
+        val result = insertMilestoneWithDurableOwnership(
+            markPendingDurably = { true },
+            clearPendingDurably = { error("Provider event exists") },
+            transitionInflightToActiveDurably = { false },
+            restoreInflightDurably = {
+                exactOwnershipPending = true
+                inflightRecoveryPending = true
+                true
+            },
+            insertion = {
+                MilestoneCalendarInsertionAttempt(
+                    result = ScheduleSyncManager.MilestoneScheduleSyncResult(99L, 7L, 123L, null),
+                    providerEventMayExist = true
+                )
+            },
+            insertionFailure = { error("Insertion should not fail") },
+            registryFailure = {
+                ScheduleSyncManager.MilestoneScheduleSyncResult(
+                    scheduleEventId = null,
+                    targetCalendarId = 7L,
+                    lastSyncAt = 123L,
+                    error = "Ownership registry transition failed"
+                )
+            }
+        )
+
+        assertTrue(exactOwnershipPending)
+        assertTrue(inflightRecoveryPending)
+        assertEquals("Ownership registry transition failed", result.error)
+    }
+
+    @Test
+    fun concurrentSameEventTransactions_neverLeaveTwoProviderEntries() = runBlocking {
+        val firstEntered = CompletableDeferred<Unit>()
+        val releaseFirst = CompletableDeferred<Unit>()
+        val secondEntered = CompletableDeferred<Unit>()
+        val providerEntries = linkedSetOf<Int>()
+        var nextProviderId = 0
+        var maxProviderEntries = 0
+        var exactOwnershipPending = false
+        var inflightRecoveryPending = false
+
+        suspend fun replacement(isFirst: Boolean) = withMilestoneEventSyncLock(eventId = 41) {
+            providerEntries.clear()
+            exactOwnershipPending = false
+            inflightRecoveryPending = false
+            if (isFirst) {
+                firstEntered.complete(Unit)
+                releaseFirst.await()
+            } else {
+                secondEntered.complete(Unit)
+            }
+            exactOwnershipPending = true
+            inflightRecoveryPending = true
+            providerEntries += ++nextProviderId
+            maxProviderEntries = maxOf(maxProviderEntries, providerEntries.size)
+            inflightRecoveryPending = false
+        }
+
+        val first = async { replacement(isFirst = true) }
+        firstEntered.await()
+        val second = async { replacement(isFirst = false) }
+        delay(50)
+        assertFalse(secondEntered.isCompleted)
+        releaseFirst.complete(Unit)
+        first.await()
+        second.await()
+
+        assertEquals(1, maxProviderEntries)
+        assertEquals(1, providerEntries.size)
+        assertTrue(exactOwnershipPending)
+        assertFalse(inflightRecoveryPending)
     }
 
     @Test
