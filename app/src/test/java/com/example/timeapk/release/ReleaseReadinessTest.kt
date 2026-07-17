@@ -194,20 +194,27 @@ class ReleaseReadinessTest {
     }
 
     @Test
-    fun releaseChecklistKeepsUnexecuted40EvidenceUnchecked() {
+    fun releaseChecklistDistinguishesVerifiedCandidateArtifactsFromFinalPublication() {
         val checklist = existingFile(
             "docs/RELEASE_CHECKLIST.md",
             "../docs/RELEASE_CHECKLIST.md"
         ).readText(Charsets.UTF_8)
 
         assertTrue(checklist.contains("临时签名配置"))
-        assertTrue(checklist.contains("正式发布密钥产物仍需最终重跑"))
+        assertTrue(checklist.contains("候选提交使用与线上 v3.17 相同的正式发布证书"))
+        assertTrue(checklist.contains("最终仍须从不可变 `v4.0` tag 再次新鲜构建"))
         assertTrue(checklist.contains("Direct / Play 各 410 项通过"))
         assertTrue(checklist.contains("- [x] Direct Debug APK 包含 `REQUEST_INSTALL_PACKAGES`"))
-        assertTrue(checklist.contains("正式发布密钥 Release 产物的最终权限与签名检查仍未执行"))
-        assertTrue(checklist.contains("- [ ] 使用正式发布证书重复完整构建、签名、权限"))
+        assertTrue(checklist.contains("- [x] 使用正式发布证书重复完整构建、签名、权限"))
+        assertTrue(checklist.contains("证书与线上 v3.17 一致"))
+        assertTrue(checklist.contains("保留数据原地升级"))
+        assertTrue(checklist.contains("AAB 已通过 bundletool 生成与安装测试"))
         assertTrue(checklist.contains("PowerShell 脚本运行：未检查"))
         assertTrue(checklist.contains("真实 GitHub mutation：未检查"))
+        assertTrue(checklist.contains("- [ ] publisher 删除 owned draft 中的所有旧资产"))
+        assertTrue(checklist.contains("- [ ] 冷启动、首页滚动、月历切换、详情与设置导航"))
+        assertTrue(checklist.contains("- [ ] 从该 tag 对应 commit 的工作树重新正式签名构建"))
+        assertTrue(checklist.contains("- [ ] 发布后安装线上 APK 并完成更新检查与关键链路 smoke"))
         assertTrue(checklist.contains("Backup / restore smoke"))
         assertTrue(checklist.contains("筛选后的真实拖拽"))
         assertTrue(checklist.contains("真机：未检查"))
