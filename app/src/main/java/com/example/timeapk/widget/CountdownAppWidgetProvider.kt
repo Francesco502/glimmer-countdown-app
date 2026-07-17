@@ -26,13 +26,18 @@ class CountdownAppWidgetProvider : AppWidgetProvider() {
 
         fun refreshAllWidgets(context: Context) {
             val app = context.applicationContext as? TimeApplication ?: return
+            app.launchAppTask {
+                refreshAllWidgetsAndAwait(context)
+            }
+        }
+
+        suspend fun refreshAllWidgetsAndAwait(context: Context) {
+            val app = context.applicationContext as? TimeApplication ?: return
             val appWidgetManager = AppWidgetManager.getInstance(context)
             val ids = getAppWidgetIds(context, appWidgetManager)
             if (ids.isEmpty()) return
-            app.launchAppTask {
-                withContext(Dispatchers.IO) {
-                    runCoordinatedRefresh(app, appWidgetManager, ids)
-                }
+            withContext(Dispatchers.IO) {
+                runCoordinatedRefresh(app, appWidgetManager, ids)
             }
         }
 

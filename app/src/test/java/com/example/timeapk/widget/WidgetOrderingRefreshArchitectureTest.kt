@@ -131,6 +131,20 @@ class WidgetOrderingRefreshArchitectureTest {
     }
 
     @Test
+    fun widgetConfigSaveAwaitsLauncherRefreshBeforeClosing() {
+        val provider = mainSource("widget/CountdownAppWidgetProvider.kt").readText(Charsets.UTF_8)
+        val activity = mainSource("widget/WidgetConfigActivity.kt").readText(Charsets.UTF_8)
+        val save = activity.substringAfter("onSaveClick = {")
+            .substringBefore("onSaved()", missingDelimiterValue = "")
+
+        assertTrue(provider.contains("suspend fun refreshAllWidgetsAndAwait("))
+        assertTrue(save.contains("repository.setConfigForWidget(appWidgetId, config)"))
+        assertTrue(save.contains("CountdownAppWidgetProvider.refreshAllWidgetsAndAwait(context)"))
+        assertFalse(save.contains("CountdownAppWidgetProvider.refreshAllWidgets(context)"))
+        assertTrue(activity.substringAfter(save).contains("onSaved()"))
+    }
+
+    @Test
     fun allProviderCallbacksLaunchAsyncRefreshes() {
         val provider = mainSource("widget/CountdownAppWidgetProvider.kt").readText(Charsets.UTF_8)
         val configuration = provider.substringAfter("override fun onReceive(").substringBefore("override fun onUpdate(")

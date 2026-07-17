@@ -9,6 +9,44 @@ import org.junit.Test
 
 class WidgetRenderPolicyTest {
     @Test
+    fun resolve_transparentSurfacesUseDedicatedRootLayoutsForEveryCornerMode() {
+        val theme = WidgetThemeSnapshot(isDark = false, usesSystemPalette = true)
+        val cornerModes = listOf(CORNER_SYSTEM, CORNER_SMALL, CORNER_MEDIUM, CORNER_LARGE)
+
+        cornerModes.forEach { cornerMode ->
+            val solid = WidgetRenderPolicy.resolve(
+                WidgetConfig.default().copy(
+                    cornerMode = cornerMode,
+                    appearancePreset = APPEARANCE_SOLID
+                ),
+                theme
+            )
+            val transparentPreset = WidgetRenderPolicy.resolve(
+                WidgetConfig.default().copy(
+                    cornerMode = cornerMode,
+                    appearancePreset = APPEARANCE_TRANSPARENT
+                ),
+                theme
+            )
+            val transparentSystemSurface = WidgetRenderPolicy.resolve(
+                WidgetConfig.default().copy(
+                    cornerMode = cornerMode,
+                    appearancePreset = APPEARANCE_SYSTEM,
+                    backgroundOpacityPercent = 0
+                ),
+                theme
+            )
+
+            assertNotEquals(
+                "Transparent and opaque surfaces must not share a RemoteViews layout for corner $cornerMode",
+                solid.rootLayoutResId,
+                transparentPreset.rootLayoutResId
+            )
+            assertEquals(transparentPreset.rootLayoutResId, transparentSystemSurface.rootLayoutResId)
+        }
+    }
+
+    @Test
     fun resolve_themeAdaptiveAutoSurfacesDelegateTextColorsToLayoutTheme() {
         val adaptiveConfigs = listOf(
             WidgetConfig.default().copy(

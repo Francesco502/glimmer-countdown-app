@@ -1,16 +1,75 @@
 package com.example.timeapk.widget
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.view.LayoutInflater
+import android.view.View
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.example.timeapk.R
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class WidgetConfigRepositoryInstrumentationTest {
+    @Test
+    fun widgetRootLayoutsExposeTopLevelLauncherBackground() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val rootLayouts = listOf(
+            R.layout.widget_countdown,
+            R.layout.widget_countdown_corner_small,
+            R.layout.widget_countdown_corner_medium,
+            R.layout.widget_countdown_corner_large,
+            R.layout.widget_countdown_transparent,
+            R.layout.widget_countdown_transparent_corner_small,
+            R.layout.widget_countdown_transparent_corner_medium,
+            R.layout.widget_countdown_transparent_corner_large
+        )
+
+        rootLayouts.forEach { layoutResId ->
+            val root = LayoutInflater.from(context).inflate(layoutResId, null, false)
+
+            assertEquals(
+                "Android 12+ Launcher background must be the top-level view for layout $layoutResId",
+                android.R.id.background,
+                root.id
+            )
+            assertTrue(
+                "Clickable widget content root is missing for layout $layoutResId",
+                root.findViewById<View>(R.id.widget_root) != null
+            )
+        }
+    }
+
+    @Test
+    fun transparentRootLayoutsStartWithIdentifiableLauncherBackground() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val transparentLayouts = listOf(
+            R.layout.widget_countdown_transparent,
+            R.layout.widget_countdown_transparent_corner_small,
+            R.layout.widget_countdown_transparent_corner_medium,
+            R.layout.widget_countdown_transparent_corner_large
+        )
+
+        transparentLayouts.forEach { layoutResId ->
+            val root = LayoutInflater.from(context).inflate(layoutResId, null, false)
+            val background = root.findViewById<View>(android.R.id.background).background
+            val bitmap = Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888)
+            background.setBounds(0, 0, bitmap.width, bitmap.height)
+            background.draw(Canvas(bitmap))
+
+            assertTrue(
+                "Launcher must be able to identify the initial widget background for layout $layoutResId",
+                Color.alpha(bitmap.getPixel(bitmap.width / 2, bitmap.height / 2)) > 0
+            )
+        }
+    }
+
     @Test
     fun cornerModesSelectDistinctRemoteViewsLayouts() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext

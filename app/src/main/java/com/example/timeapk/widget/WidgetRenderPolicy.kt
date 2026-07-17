@@ -65,12 +65,25 @@ internal object WidgetRenderPolicy {
     }
 
     private fun resolveRootLayoutResId(config: WidgetConfig): Int {
+        if (isTransparentSurface(config)) {
+            return when (config.cornerMode) {
+                CORNER_SMALL -> R.layout.widget_countdown_transparent_corner_small
+                CORNER_MEDIUM -> R.layout.widget_countdown_transparent_corner_medium
+                CORNER_LARGE -> R.layout.widget_countdown_transparent_corner_large
+                else -> R.layout.widget_countdown_transparent
+            }
+        }
         return when (config.cornerMode) {
             CORNER_SMALL -> R.layout.widget_countdown_corner_small
             CORNER_MEDIUM -> R.layout.widget_countdown_corner_medium
             CORNER_LARGE -> R.layout.widget_countdown_corner_large
             else -> R.layout.widget_countdown
         }
+    }
+
+    private fun isTransparentSurface(config: WidgetConfig): Boolean {
+        return config.appearancePreset == APPEARANCE_TRANSPARENT ||
+            (config.appearancePreset == APPEARANCE_SYSTEM && config.backgroundOpacityPercent == 0)
     }
 
     private fun resolveBackgroundResId(config: WidgetConfig): Int {

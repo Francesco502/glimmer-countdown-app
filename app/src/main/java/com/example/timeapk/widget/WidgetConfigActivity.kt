@@ -151,7 +151,7 @@ private fun WidgetConfigRoute(
                 onSaveClick = {
                     scope.launch {
                         repository.setConfigForWidget(appWidgetId, config)
-                        CountdownAppWidgetProvider.refreshAllWidgets(context)
+                        CountdownAppWidgetProvider.refreshAllWidgetsAndAwait(context)
                         onSaved()
                     }
                 }

@@ -39,7 +39,7 @@
 - [x] 小组件默认配置页显示 1-5 格“预览宽度 / 预览高度”，并说明这些选项只改变预览比例；Launcher 实际尺寸仍在桌面拖动边框调整
 - [x] 添加、编辑、删除多个小组件时实例配置互不污染，事件和设置变化后可及时刷新
 - [x] 小组件内容筛选、排序、密度、边框、圆角、文字对比和农历前缀配置生效
-- [ ] 透明、半透明、宣纸、青瓷、朱印背景在浅色 / 深色 Launcher 下均可读
+- [x] 透明、半透明、宣纸、青瓷、朱印背景在浅色 / 深色 Launcher 下均可读
 
 ## 四、体验、无障碍与性能
 
@@ -76,8 +76,8 @@
 - 重复日期边界补充（2026-07-17）：聚焦 JVM 用例先复现 2020-02-29 年度事件在 2025-02-27 被错误反推为 2024-02-28；修复后覆盖公历按天 / 周 / 月 / 半年 / 年跨年、31 日短月裁剪后恢复、闰日闰年与非闰年，以及农历春节前、当天发生、发生后跨公历年搜索，确认所有周期保留原始日期锚点。
 - 通知与重启补充（2026-07-17）：API 37 Direct Debug 导入“当天提醒”和“提前 1 天提醒”两条匿名事件，在拒绝 `POST_NOTIFICATIONS` 时执行真实模拟器重启并收到 `BOOT_COMPLETED`；重启后两条 `ReminderWorker` 均重新入队，`RescheduleAllWorker` 成功结束。运行态继续验证“拒绝 → 授予 → 再次拒绝”权限切换，两条提醒始终保留且每次统一重排均成功。测试同时发现从未同步过系统日历的普通提醒会被错误执行日历清理，并在无日历权限时进入永久重试；现仅对仍有日历 provider ownership 或既有同步错误的事件执行清理，干净数据复测不再产生虚假日历错误或重试循环。
 - 系统日历正向同步补充（2026-07-17）：API 37 Direct Debug 在设置中显式选择独立的 `TimeAPK_v4_QA` 可写本地日历；从 UI 新建当天提醒后，Room 保存 `scheduleEventId=251`、`targetCalendarId=6` 且同步错误为空，CalendarProvider 对应记录位于日历 6。编辑标题时原地复用事件 ID 251 且无重复；关闭同步后 provider 记录消失并清空本地 ownership 字段；重新开启同步生成活动记录 252，从详情删除后 CalendarProvider 与 Room 均无残留。新增 connected 回归会自行创建唯一的本地日历，覆盖新增、原地更新、提醒记录、关闭同步和活动记录清理，并在 `finally` 删除临时账户；手工 QA 日历、测试事件和 Direct 测试应用均已清理。Android 12 无可写日历与 API 37 撤权恢复证据继续覆盖负向路径。
-- 小组件外观补充（2026-07-17）：API 37 Pixel Launcher 真实实例验证小 / 大圆角与系统宣纸背景有 / 无边框的视觉差异。进一步复现应用进程退出后 Launcher 将背景切到夜间资源、但旧 RemoteViews 写死文字色导致“深底深字”；现由主题自适应布局管理自动文字色，在进程退出状态下从深色切回浅色，实测分别为深底浅字与浅底深字。配置预览同步反映圆角、农历前缀及紧凑 / 标准 / 宽松密度；透明、半透明、青瓷、朱印在两种 Launcher 主题下的完整人工矩阵仍未完成，因此下一项继续保留未勾选。
-- 最终质量门补充（2026-07-17）：当前候选代码强制重跑 Direct / Play JVM 各 422 项，均为 0 failures / 0 errors；API 37 connected 12/12 通过，包含完整 6→10 迁移、编辑恢复、筛选拖拽、小组件多实例、CalendarProvider 正向同步、小组件圆角 RemoteViews 及 Compose 语义回归。`compileDirectDebugAndroidTestKotlin`、Direct / Play Debug 构建与五项 lint / vital lint 同轮成功，DirectDebug、DirectRelease、PlayRelease 报告均为 `No issues found.`
+- 小组件外观补充（2026-07-17）：API 37 Pixel Launcher 真实实例验证小 / 大圆角与系统宣纸背景有 / 无边框的视觉差异。进一步复现应用进程退出后 Launcher 将背景切到夜间资源、但旧 RemoteViews 写死文字色导致“深底深字”；现由主题自适应布局管理自动文字色，在进程退出状态下从深色切回浅色，实测分别为深底浅字与浅底深字。配置预览同步反映圆角、农历前缀及紧凑 / 标准 / 宽松密度。最终人工矩阵覆盖透明、半透明、宣纸、青瓷、朱印五种背景的浅色 / 深色 Launcher：全部可读；同一圆角内连续执行墨线→透明、青瓷→朱印等切换时不再残留旧背景。期间发现 Android 12+ 仅可靠识别顶层 `@android:id/background`，现已同步基础与 v31 布局，并让配置保存等待 RemoteViews 刷新完成后再关闭。
+- 最终质量门补充（2026-07-17）：当前候选代码强制重跑 Direct / Play JVM 各 424 项，均为 0 failures / 0 errors / 0 skipped；API 37 connected 14/14 通过，包含完整 6→10 迁移、编辑恢复、筛选拖拽、小组件多实例、CalendarProvider 正向同步、小组件根背景结构、透明专用布局、圆角 RemoteViews 及 Compose 语义回归。`compileDirectDebugAndroidTestKotlin`、Direct / Play Debug 构建与五项 lint / vital lint 同轮成功，DirectDebug、DirectRelease、PlayRelease 报告均为 `No issues found.`
 
 ## 六、发布动作
 
