@@ -32,6 +32,7 @@
 ## 三、首页与桌面小组件
 
 - [x] 首页卡片、列表、月历在浅色 / 深色主题与 150% 系统字体下文字可读、布局不溢出
+- [x] 完全空首页只有一个 48dp 以上的中央“记录第一个日期”入口；搜索 / 筛选无匹配时可一键清除条件、保留底部新建入口且没有重复无障碍操作
 - [x] 首页按天数、按日期、自定义排序均保持置顶事件在前
 - [x] 小组件“跟随首页”与首页顺序一致，3.17 导出的 22 条脱敏事件 fixture 回归通过
 - [x] 首页选择按距离天数排列时，小组件置顶项在前，其余项目按相同天数规则排序
@@ -49,6 +50,7 @@
 - [ ] 冷启动、首页滚动、月历切换、详情与设置导航无明显卡顿或异常内存增长
 - [x] Android 8、Android 12 和当前 target SDK 设备至少各完成一轮核心 smoke
 - [x] Direct 与 Play 渠道关于页、权限和更新能力符合各自渠道约束
+- [x] 缺少已保存偏好时新事件默认关闭提醒；显式开启 / 关闭偏好继续保留，预览与实际状态一致，默认保存普通事件不请求通知权限
 
 ## 五、4.0 实测记录
 
@@ -83,6 +85,10 @@
 - 正式签名与升级补充（2026-07-17）：从干净候选提交 `19ec656` 注入仓库外正式签名配置，`validateReleaseSigning` 与 `clean assembleDirectRelease assemblePlayRelease bundlePlayRelease` 成功。Direct APK、Play APK 与 Play AAB 的证书 SHA-256 均为 `3B:7C:B4:26:A8:26:64:F8:91:C6:95:11:CC:25:05:B6:71:28:C8:50:36:64:63:9F:29:72:91:DA:4E:A9:03:CA`，与 GitHub v3.17 唯一 APK 完全一致；两个 APK 均通过 v2 签名验证，AAB 的 `jarsigner -verify` 返回 `jar verified.`，官方 bundletool 1.18.3 的 `validate`、`build-apks` 与模拟器 `install-apks` 全部成功。Direct APK 为 `26,393,406` bytes / `143d816f33148e1a403c7a47b7fce0a0edafea6382668967ec88b6a4314880d3`，Play APK 为 `26,389,242` bytes / `8e5f0fbeebe3e41a69796ce1a172196808c9eeb5127ab61a925b6f12cacdcffd`，Play AAB 为 `38,745,732` bytes / `42b7e5b3a94b443a2a501fc9df534f05a0b1e7aa125e506d4c8107cf25400e40`。Direct / Play 包名分别为 `com.example.timeapk` / `com.example.timeapk.play`，只有 Direct 含 `REQUEST_INSTALL_PACKAGES`；AAB manifest 同样确认 Play 包名且无该权限。
 - 正式升级链路补充（2026-07-17）：下载的线上 v3.17 APK 哈希与 GitHub digest `3319513689f7178306d593c90dd6ce16bb50533d495c0fbab9e2f755ec589c5c` 一致。在 API 37 安装 v3.17、通过 UI 创建匿名事件后，以正式签名 4.0 Direct APK 执行 `adb install -r`；`versionCode` 从 22 升至 23、`firstInstallTime` 保持不变、通知授权与日历拒绝状态保留，首页和详情均能读取原事件。关于页显示“版本 4.0”，真实 GitHub 更新检查返回“已是最新版本”，不会向 3.17 降级。正式 Play APK 可与 Direct 共存，关于页显示“版本 4.0-play / 更新由应用商店管理”；AAB 生成的测试 APK 集也可冷启动。全程 crash buffer 为空，最后卸载两个包、清理匿名数据和设备临时文件，并确认字体、旋转、输入法与 TalkBack 状态恢复。该候选产物不替代最终 `v4.0` tag 新鲜构建与线上安装复验。
 - PowerShell publisher 隔离补充（2026-07-17）：新增 `scripts/tests/publish-release-mock-harness.ps1`，每个场景将发布脚本、版本、变更日志和匿名假 APK 复制到独立临时仓库，用假 `git` / `apksigner` 与内存 GitHub REST 状态机执行真实 `publish-release.ps1`；测试容器使用微软官方 PowerShell 7.5.0、只读输入和 `--network none`。5/5 场景通过：新发布最终只含 exact Direct APK 并清理锁；并发锁 422 在创建 Release 前失败；带旧 ownership marker 的 draft 删除两个旧资产后恢复发布；上传失败保留 draft 但清理锁；上传与清理同时失败时保留残留锁阻止重试。未读取真实凭据、未访问网络、未创建远端 ref / draft / asset / Release。
+- 首页空状态与提醒默认值补充（2026-07-17）：候选提交 `1b2ec22`、`2ed017e`、`732b8a9` 以测试先行完成唯一中央空状态 CTA、无匹配清除条件、月历筛选结果保持、缺省提醒关闭、显式偏好保留和语言镜像 KTX 写入。API 37 运行态确认完全空首页仅有一个可点击“记录第一个日期”入口且隐藏底部添加按钮；搜索 `NOMATCH999` 后显示“清除搜索与筛选”并保留底部“添加事件”；新建页默认显示“未设置提醒”，保存普通事件未出现通知权限对话框。最新完整 connected 套件 20/20 通过，0 skipped / 0 failed。
+- 语言冷启动补充（2026-07-17）：API 37 通过应用界面完成中文→英文→中文切换；英文与中文各强制停止冷启动一次，日志均只有一次 MainActivity START / Displayed 且无额外重建，界面语言正确、crash buffer 为空。该 Debug 启动计时不作为 Release 性能结论。
+- 4.0 截图补充（2026-07-17）：重新导入 3.17 导出的 22 条脱敏事件并制作首页纸笺、月历、设置与小组件设置四张当前候选截图；逐张确认仅含 `Event 01`–`Event 22` 脱敏标题，README 已切换至 `docs/screenshots/4.0`。
+- 最新自动质量门补充（2026-07-17）：在 `732b8a9` 代码上新鲜运行 Direct / Play JVM 各 439 项，均为 0 failures / 0 errors / 0 skipped；`compileDirectDebugAndroidTestKotlin`、Direct / Play Debug 构建及五项 lint / vital lint 同轮成功，DirectDebug、DirectRelease、PlayRelease 三份报告均为 `No issues found.`，`LocalePreferenceMirror` 不再产生 `UseKtx` issue。随后使用仓库外临时 QA 证书完成 Direct / Play Release APK 与 Play AAB 打包，验证 exact Direct 文件名及 Direct 独有 `REQUEST_INSTALL_PACKAGES`；该临时签名产物仅证明打包路径，不得发布，也不替代最终 `v4.0` tag 的正式证书新鲜构建。
 
 ## 六、发布动作
 

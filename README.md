@@ -10,11 +10,11 @@
 
 | 首页纸笺 | 月历视图 |
 |---|---|
-| <img src="docs/screenshots/3.17/home-card.png" width="260" alt="拾光首页纸笺视图"> | <img src="docs/screenshots/3.17/month-calendar.png" width="260" alt="拾光月历视图"> |
+| <img src="docs/screenshots/4.0/home-card.png" width="260" alt="拾光 4.0 首页纸笺视图"> | <img src="docs/screenshots/4.0/month-calendar.png" width="260" alt="拾光 4.0 月历视图"> |
 
 | 设置入口 | 小组件设置 |
 |---|---|
-| <img src="docs/screenshots/3.17/settings.png" width="260" alt="拾光设置页"> | <img src="docs/screenshots/3.17/widget-settings.png" width="260" alt="拾光小组件设置页"> |
+| <img src="docs/screenshots/4.0/settings.png" width="260" alt="拾光 4.0 设置页"> | <img src="docs/screenshots/4.0/widget-settings.png" width="260" alt="拾光 4.0 小组件设置页"> |
 
 ## 4.0 成熟版目标
 
