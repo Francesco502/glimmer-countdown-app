@@ -67,7 +67,7 @@ const val THEME_DARK = 2
 const val LANG_ZH = 0
 const val LANG_EN = 1
 
-const val DEFAULT_NEW_EVENT_REMIND_ENABLED = true
+const val DEFAULT_NEW_EVENT_REMIND_ENABLED = false
 const val DEFAULT_NEW_EVENT_REMIND_DAYS_BEFORE = 7
 const val DEFAULT_NEW_EVENT_REMIND_TIME_MINUTES_OF_DAY = 10 * 60
 
@@ -97,6 +97,9 @@ data class DefaultEventReminderSettings(
     val daysBefore: Int = DEFAULT_NEW_EVENT_REMIND_DAYS_BEFORE,
     val timeMinutesOfDay: Int = DEFAULT_NEW_EVENT_REMIND_TIME_MINUTES_OF_DAY
 )
+
+internal fun resolveDefaultEventReminderEnabled(storedValue: Boolean?): Boolean =
+    storedValue ?: DEFAULT_NEW_EVENT_REMIND_ENABLED
 
 internal fun resolveHomeSortSelectionUpdate(selectedSortType: Int): HomeSortSelectionUpdate {
     return HomeSortSelectionUpdate(
@@ -158,7 +161,7 @@ class UserPreferencesRepository(private val context: Context) {
         sanitizeReminderTimeMinutesOfDay(it[MILESTONE_REMIND_TIME_MINUTES_OF_DAY] ?: 480)
     }
     val defaultEventRemindEnabledFlow: Flow<Boolean> = context.dataStore.data.map {
-        it[DEFAULT_EVENT_REMIND_ENABLED] ?: DEFAULT_NEW_EVENT_REMIND_ENABLED
+        resolveDefaultEventReminderEnabled(it[DEFAULT_EVENT_REMIND_ENABLED])
     }
     val defaultEventRemindDaysBeforeFlow: Flow<Int> = context.dataStore.data.map {
         sanitizeRemindDaysBefore(it[DEFAULT_EVENT_REMIND_DAYS_BEFORE] ?: DEFAULT_NEW_EVENT_REMIND_DAYS_BEFORE)
@@ -344,7 +347,7 @@ class UserPreferencesRepository(private val context: Context) {
     suspend fun getDefaultEventReminderSettings(): DefaultEventReminderSettings {
         val prefs = context.dataStore.data.first()
         return DefaultEventReminderSettings(
-            enabled = prefs[DEFAULT_EVENT_REMIND_ENABLED] ?: DEFAULT_NEW_EVENT_REMIND_ENABLED,
+            enabled = resolveDefaultEventReminderEnabled(prefs[DEFAULT_EVENT_REMIND_ENABLED]),
             daysBefore = sanitizeRemindDaysBefore(
                 prefs[DEFAULT_EVENT_REMIND_DAYS_BEFORE] ?: DEFAULT_NEW_EVENT_REMIND_DAYS_BEFORE
             ),

@@ -92,9 +92,10 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             val stored = app.userPrefs.languageModeFlow.first()
             val mirrored = LocalePreferenceMirror.read(this@MainActivity)
-            if (mirrored == null || mirrored != stored) {
+            val decision = resolveLocaleMirrorMigration(stored, mirrored)
+            if (decision.writeMirror) {
                 LocalePreferenceMirror.write(this@MainActivity, stored)
-                if (mirrored != null || stored != LANG_ZH) recreate()
+                if (decision.recreateActivity) recreate()
             }
         }
     }

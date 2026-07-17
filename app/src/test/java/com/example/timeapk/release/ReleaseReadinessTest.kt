@@ -343,6 +343,15 @@ class ReleaseReadinessTest {
     }
 
     @Test
+    fun localeMirrorUsesCoreEditExtensionWithoutRawEditorChain() {
+        val mirror = mainSource("LocalePreferenceMirror.kt").readText()
+
+        assertTrue(mirror.contains("import androidx.core.content.edit"))
+        assertTrue(mirror.contains(".edit(commit = false) {"))
+        assertFalse(mirror.contains(".edit()\n            .putInt(KEY, mode)\n            .apply()"))
+    }
+
+    @Test
     fun nativeSplashAssetsRemainConfiguredWithoutComposeSplashRoute() {
         val timeAppSource = mainSource("TimeApp.kt").readText(Charsets.UTF_8)
         assertTrue(timeAppSource.contains("val startDestination = Routes.Home"))
