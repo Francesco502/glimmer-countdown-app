@@ -37,6 +37,16 @@ class EventEntryInputFocusTest {
     }
 
     @Test
+    fun inkTextFieldExposesItsVisibleLabelToAccessibilityServices() {
+        val source = readSource("ui/event/EventEntryScreen.kt")
+        val textField = source.substringAfter("private fun SongInkTextField(")
+            .substringBefore("@Composable\nprivate fun SongInkDateRow(")
+
+        assertTrue(source.contains("import androidx.compose.ui.semantics.contentDescription"))
+        assertTrue(textField.contains(".semantics { contentDescription = label }"))
+    }
+
+    @Test
     fun inkTextFieldForcesImeVisibleWhenFocusedFromHardwareKeyboardMode() {
         val source = readSource("ui/event/EventEntryScreen.kt")
         val textField = source.substringAfter("private fun SongInkTextField(")

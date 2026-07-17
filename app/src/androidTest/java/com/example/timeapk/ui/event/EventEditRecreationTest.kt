@@ -84,6 +84,19 @@ class EventEditRecreationTest {
         assertEquals(UPDATED_TITLE, runBlocking { app.repository.getEvent(eventId)?.title })
     }
 
+    @Test
+    fun editableFieldsExposeTheirVisibleLabelsToAccessibilityServices() {
+        val editDescription = composeRule.activity.getString(R.string.cd_edit)
+        val titleLabel = composeRule.activity.getString(R.string.field_title)
+        val noteLabel = composeRule.activity.getString(R.string.field_note)
+
+        composeRule.onNodeWithText(SEED_TITLE).performClick()
+        composeRule.onNodeWithContentDescription(editDescription).performClick()
+
+        composeRule.onNodeWithContentDescription(titleLabel).assertExists()
+        composeRule.onNodeWithContentDescription(noteLabel).assertExists()
+    }
+
     private companion object {
         const val SEED_TITLE = "E2EEdit-Recreate-Seed"
         const val UPDATED_TITLE = "E2EEdit-Recreate-Saved"

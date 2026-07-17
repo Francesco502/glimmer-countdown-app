@@ -1369,6 +1369,7 @@ private fun SongInkTextField(
             modifier = Modifier
                 .fillMaxWidth()
                 .focusRequester(focusRequester)
+                .semantics { contentDescription = label }
                 .border(
                     SongDesignTokens.BorderWidth.dp,
                     if (isError) MaterialTheme.colorScheme.error.copy(alpha = 0.72f)
