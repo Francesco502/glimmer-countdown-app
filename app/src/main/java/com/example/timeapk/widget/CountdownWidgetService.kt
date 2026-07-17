@@ -71,8 +71,10 @@ private class CountdownRemoteViewsFactory(
         return RemoteViews(context.packageName, renderStyle.itemLayoutResId).apply {
             setTextViewText(R.id.widget_item_title, item.title)
             setTextViewText(R.id.widget_item_value, item.value)
-            setTextColor(R.id.widget_item_title, renderStyle.primaryTextColor)
-            setTextColor(R.id.widget_item_value, renderStyle.accentTextColor)
+            if (!renderStyle.useThemeTextColors) {
+                setTextColor(R.id.widget_item_title, renderStyle.primaryTextColor)
+                setTextColor(R.id.widget_item_value, renderStyle.accentTextColor)
+            }
             setTextViewTextSize(R.id.widget_item_title, TypedValue.COMPLEX_UNIT_SP, textStyle.titleSp)
             setTextViewTextSize(R.id.widget_item_value, TypedValue.COMPLEX_UNIT_SP, textStyle.valueSp)
             setViewPadding(

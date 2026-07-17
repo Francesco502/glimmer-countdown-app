@@ -154,6 +154,28 @@ class WidgetOrderingRefreshArchitectureTest {
     }
 
     @Test
+    fun themeAdaptiveRemoteViewsDoNotOverwriteLayoutTextColors() {
+        val provider = mainSource("widget/CountdownAppWidgetProvider.kt").readText(Charsets.UTF_8)
+        val service = mainSource("widget/CountdownWidgetService.kt").readText(Charsets.UTF_8)
+        val providerBuilder = provider.substringAfter("internal fun buildWidgetRemoteViews(")
+            .substringBefore("private fun resolveSizeBucket(")
+        val rowBuilder = service.substringAfter("override fun getViewAt(position: Int)")
+            .substringBefore("private fun dp(")
+
+        assertTrue(providerBuilder.contains("if (!renderStyle.useThemeTextColors)"))
+        assertTrue(
+            providerBuilder.substringAfter("if (!renderStyle.useThemeTextColors)")
+                .substringBefore("setTextViewTextSize")
+                .contains("setTextColor(R.id.widget_empty")
+        )
+        assertTrue(rowBuilder.contains("if (!renderStyle.useThemeTextColors)"))
+        val explicitColorBlock = rowBuilder.substringAfter("if (!renderStyle.useThemeTextColors)")
+            .substringBefore("setTextViewTextSize")
+        assertTrue(explicitColorBlock.contains("setTextColor(R.id.widget_item_title"))
+        assertTrue(explicitColorBlock.contains("setTextColor(R.id.widget_item_value"))
+    }
+
+    @Test
     fun homeDragCallbacksReadCurrentStateAndCaptureIdsAtFirstMove() {
         val source = mainSource("ui/home/HomeScreen.kt").readText(Charsets.UTF_8)
         val reorderSetup = source.substringAfter("val reorderState = rememberReorderableLazyListState(")

@@ -416,6 +416,7 @@
     <string name="widget_config_preview_event_primary">春日小聚</string>
     <string name="widget_config_preview_value_primary">12天</string>
     <string name="widget_config_preview_event_secondary">农·生辰</string>
+    <string name="widget_config_preview_event_secondary_plain">生辰</string>
     <string name="widget_config_preview_value_secondary">今天</string>
     <string name="widget_config_width_cells">预览宽度</string>
     <string name="widget_config_height_cells">预览高度</string>

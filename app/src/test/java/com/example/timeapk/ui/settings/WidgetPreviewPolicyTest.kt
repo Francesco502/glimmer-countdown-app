@@ -1,13 +1,48 @@
 package com.example.timeapk.ui.settings
 
+import com.example.timeapk.R
 import com.example.timeapk.widget.APPEARANCE_SYSTEM
 import com.example.timeapk.widget.APPEARANCE_TRANSPARENT
 import com.example.timeapk.widget.CONTRAST_AUTO
+import com.example.timeapk.widget.CORNER_LARGE
+import com.example.timeapk.widget.CORNER_MEDIUM
+import com.example.timeapk.widget.CORNER_SMALL
+import com.example.timeapk.widget.CORNER_SYSTEM
+import com.example.timeapk.widget.DENSITY_COMFORTABLE
+import com.example.timeapk.widget.DENSITY_COMPACT
+import com.example.timeapk.widget.DENSITY_STANDARD
 import com.example.timeapk.widget.WidgetConfig
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class WidgetPreviewPolicyTest {
+    @Test
+    fun previewCornerPolicy_distinguishesConfiguredModes() {
+        assertEquals(22, resolveWidgetPreviewCornerRadiusDp(CORNER_SYSTEM))
+        assertEquals(10, resolveWidgetPreviewCornerRadiusDp(CORNER_SMALL))
+        assertEquals(18, resolveWidgetPreviewCornerRadiusDp(CORNER_MEDIUM))
+        assertEquals(30, resolveWidgetPreviewCornerRadiusDp(CORNER_LARGE))
+    }
+
+    @Test
+    fun previewLunarTitlePolicy_reflectsPrefixToggle() {
+        assertEquals(
+            R.string.widget_config_preview_event_secondary,
+            resolveWidgetPreviewSecondaryTitleResId(showLunarPrefix = true)
+        )
+        assertEquals(
+            R.string.widget_config_preview_event_secondary_plain,
+            resolveWidgetPreviewSecondaryTitleResId(showLunarPrefix = false)
+        )
+    }
+
+    @Test
+    fun previewDensityPolicy_changesRowSpacing() {
+        assertEquals(1, resolveWidgetPreviewRowVerticalPaddingDp(DENSITY_COMPACT))
+        assertEquals(3, resolveWidgetPreviewRowVerticalPaddingDp(DENSITY_STANDARD))
+        assertEquals(5, resolveWidgetPreviewRowVerticalPaddingDp(DENSITY_COMFORTABLE))
+    }
+
     @Test
     fun resolveWidgetPreviewStyle_transparentAutoContrastFollowsDarkSystemTheme() {
         val style = resolveWidgetPreviewStyle(

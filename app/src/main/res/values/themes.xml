@@ -19,4 +19,16 @@
         <item name="widgetTextSecondaryColor">@color/widget_text_secondary_color</item>
         <item name="widgetTextAccentColor">@color/widget_text_accent_color</item>
     </style>
+
+    <style name="Theme.TimeAPK.Widget.Corner.Small" parent="Theme.TimeAPK.Widget">
+        <item name="widgetBackgroundRadius">@dimen/widget_background_radius_small</item>
+    </style>
+
+    <style name="Theme.TimeAPK.Widget.Corner.Medium" parent="Theme.TimeAPK.Widget">
+        <item name="widgetBackgroundRadius">@dimen/widget_background_radius_medium</item>
+    </style>
+
+    <style name="Theme.TimeAPK.Widget.Corner.Large" parent="Theme.TimeAPK.Widget">
+        <item name="widgetBackgroundRadius">@dimen/widget_background_radius_large</item>
+    </style>
 </resources>

@@ -113,9 +113,11 @@ class CountdownAppWidgetProvider : AppWidgetProvider() {
             val renderStyle = WidgetRenderPolicy.resolve(config, themeSnapshot)
             val textStyle = WidgetStylePolicy.resolve(sizeBucket, config.fontScale, config.densityMode)
 
-            return RemoteViews(context.packageName, R.layout.widget_countdown).apply {
+            return RemoteViews(context.packageName, renderStyle.rootLayoutResId).apply {
                 setInt(android.R.id.background, "setBackgroundResource", renderStyle.backgroundResId)
-                setTextColor(R.id.widget_empty, renderStyle.secondaryTextColor)
+                if (!renderStyle.useThemeTextColors) {
+                    setTextColor(R.id.widget_empty, renderStyle.secondaryTextColor)
+                }
                 setTextViewTextSize(R.id.widget_empty, TypedValue.COMPLEX_UNIT_SP, textStyle.emptyTextSp)
                 if (attachRemoteAdapter) {
                     setWidgetListRemoteAdapter(

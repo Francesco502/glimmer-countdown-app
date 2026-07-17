@@ -3,14 +3,24 @@ package com.example.timeapk.widget
 import com.example.timeapk.R
 
 internal data class WidgetRenderStyle(
+    val rootLayoutResId: Int,
     val backgroundResId: Int,
     val itemLayoutResId: Int,
+    val useThemeTextColors: Boolean,
     val primaryTextColor: Int,
     val secondaryTextColor: Int,
     val accentTextColor: Int
 ) {
     val cacheKey: String
-        get() = listOf(backgroundResId, itemLayoutResId, primaryTextColor, secondaryTextColor, accentTextColor)
+        get() = listOf(
+            rootLayoutResId,
+            backgroundResId,
+            itemLayoutResId,
+            if (useThemeTextColors) 1 else 0,
+            primaryTextColor,
+            secondaryTextColor,
+            accentTextColor
+        )
             .joinToString("-") { it.toString(16) }
 }
 
@@ -32,12 +42,35 @@ internal object WidgetRenderPolicy {
         val useLightText = resolveUseLightText(clean, theme)
         val colors = resolveTextColors(clean, useLightText)
         return WidgetRenderStyle(
+            rootLayoutResId = resolveRootLayoutResId(clean),
             backgroundResId = resolveBackgroundResId(clean),
             itemLayoutResId = resolveItemLayoutResId(clean, useLightText),
+            useThemeTextColors = resolveUseThemeTextColors(clean),
             primaryTextColor = colors.primary,
             secondaryTextColor = colors.secondary,
             accentTextColor = colors.accent
         )
+    }
+
+    private fun resolveUseThemeTextColors(config: WidgetConfig): Boolean {
+        if (config.contrastMode != CONTRAST_AUTO) return false
+        return when (config.appearancePreset) {
+            APPEARANCE_SYSTEM -> config.backgroundOpacityPercent == 0 ||
+                config.backgroundOpacityPercent == 100
+            APPEARANCE_SOLID,
+            APPEARANCE_TRANSPARENT,
+            APPEARANCE_CELADON -> true
+            else -> false
+        }
+    }
+
+    private fun resolveRootLayoutResId(config: WidgetConfig): Int {
+        return when (config.cornerMode) {
+            CORNER_SMALL -> R.layout.widget_countdown_corner_small
+            CORNER_MEDIUM -> R.layout.widget_countdown_corner_medium
+            CORNER_LARGE -> R.layout.widget_countdown_corner_large
+            else -> R.layout.widget_countdown
+        }
     }
 
     private fun resolveBackgroundResId(config: WidgetConfig): Int {
@@ -71,7 +104,11 @@ internal object WidgetRenderPolicy {
                     R.drawable.widget_background_transparent
                 }
                 25, 50, 75 -> resolveTranslucentBackgroundResId(config, borderless)
-                else -> R.drawable.widget_background
+                else -> if (borderless) {
+                    R.drawable.widget_background_borderless
+                } else {
+                    R.drawable.widget_background
+                }
             }
         }
     }

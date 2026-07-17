@@ -38,7 +38,7 @@
 - [x] 小组件“置顶优先”和“最近优先”显式模式维持各自定义，不受“跟随首页”修复影响
 - [x] 小组件默认配置页显示 1-5 格“预览宽度 / 预览高度”，并说明这些选项只改变预览比例；Launcher 实际尺寸仍在桌面拖动边框调整
 - [x] 添加、编辑、删除多个小组件时实例配置互不污染，事件和设置变化后可及时刷新
-- [ ] 小组件内容筛选、排序、密度、边框、圆角、文字对比和农历前缀配置生效
+- [x] 小组件内容筛选、排序、密度、边框、圆角、文字对比和农历前缀配置生效
 - [ ] 透明、半透明、宣纸、青瓷、朱印背景在浅色 / 深色 Launcher 下均可读
 
 ## 四、体验、无障碍与性能
@@ -76,7 +76,8 @@
 - 重复日期边界补充（2026-07-17）：聚焦 JVM 用例先复现 2020-02-29 年度事件在 2025-02-27 被错误反推为 2024-02-28；修复后覆盖公历按天 / 周 / 月 / 半年 / 年跨年、31 日短月裁剪后恢复、闰日闰年与非闰年，以及农历春节前、当天发生、发生后跨公历年搜索，确认所有周期保留原始日期锚点。
 - 通知与重启补充（2026-07-17）：API 37 Direct Debug 导入“当天提醒”和“提前 1 天提醒”两条匿名事件，在拒绝 `POST_NOTIFICATIONS` 时执行真实模拟器重启并收到 `BOOT_COMPLETED`；重启后两条 `ReminderWorker` 均重新入队，`RescheduleAllWorker` 成功结束。运行态继续验证“拒绝 → 授予 → 再次拒绝”权限切换，两条提醒始终保留且每次统一重排均成功。测试同时发现从未同步过系统日历的普通提醒会被错误执行日历清理，并在无日历权限时进入永久重试；现仅对仍有日历 provider ownership 或既有同步错误的事件执行清理，干净数据复测不再产生虚假日历错误或重试循环。
 - 系统日历正向同步补充（2026-07-17）：API 37 Direct Debug 在设置中显式选择独立的 `TimeAPK_v4_QA` 可写本地日历；从 UI 新建当天提醒后，Room 保存 `scheduleEventId=251`、`targetCalendarId=6` 且同步错误为空，CalendarProvider 对应记录位于日历 6。编辑标题时原地复用事件 ID 251 且无重复；关闭同步后 provider 记录消失并清空本地 ownership 字段；重新开启同步生成活动记录 252，从详情删除后 CalendarProvider 与 Room 均无残留。新增 connected 回归会自行创建唯一的本地日历，覆盖新增、原地更新、提醒记录、关闭同步和活动记录清理，并在 `finally` 删除临时账户；手工 QA 日历、测试事件和 Direct 测试应用均已清理。Android 12 无可写日历与 API 37 撤权恢复证据继续覆盖负向路径。
-- 最终质量门补充（2026-07-17）：当前候选代码的 Direct / Play JVM 各 415 项通过，均为 0 failures / 0 errors / 0 skipped；API 37 connected 11/11 通过，包含完整 6→10 迁移、编辑恢复、筛选拖拽、小组件多实例、CalendarProvider 正向同步及 Compose 语义回归。`compileDirectDebugAndroidTestKotlin`、Direct / Play Debug 构建与五项 lint / vital lint 同轮成功，DirectDebug、DirectRelease、PlayRelease 报告均为 `No issues found.`
+- 小组件外观补充（2026-07-17）：API 37 Pixel Launcher 真实实例验证小 / 大圆角与系统宣纸背景有 / 无边框的视觉差异。进一步复现应用进程退出后 Launcher 将背景切到夜间资源、但旧 RemoteViews 写死文字色导致“深底深字”；现由主题自适应布局管理自动文字色，在进程退出状态下从深色切回浅色，实测分别为深底浅字与浅底深字。配置预览同步反映圆角、农历前缀及紧凑 / 标准 / 宽松密度；透明、半透明、青瓷、朱印在两种 Launcher 主题下的完整人工矩阵仍未完成，因此下一项继续保留未勾选。
+- 最终质量门补充（2026-07-17）：当前候选代码强制重跑 Direct / Play JVM 各 422 项，均为 0 failures / 0 errors；API 37 connected 12/12 通过，包含完整 6→10 迁移、编辑恢复、筛选拖拽、小组件多实例、CalendarProvider 正向同步、小组件圆角 RemoteViews 及 Compose 语义回归。`compileDirectDebugAndroidTestKotlin`、Direct / Play Debug 构建与五项 lint / vital lint 同轮成功，DirectDebug、DirectRelease、PlayRelease 报告均为 `No issues found.`
 
 ## 六、发布动作
 
@@ -110,5 +111,6 @@
 - [x] 3.17 导出的 22 条脱敏事件 fixture；首页 Custom / ByDays / ByDate 与真实 Pixel Launcher `SORT_HOME` 小组件顺序一致，置顶 `Event 06`、`Event 03` 始终在前。
 - [x] 两个真实小组件实例分别保持“全部事件 / 跟随首页”和“仅置顶 / 最近优先”配置；显式日期边界广播刷新两个 RemoteViews，下一次本地午夜 alarm 已布置。
 - [x] API 37 connected 回归验证两个实例配置独立持久化、默认配置只作用于未配置实例、删除单个实例配置不会污染另一实例。
+- [x] 圆角配置通过 connected RemoteViews 布局断言与 Pixel Launcher 实例复测；系统宣纸关闭边框时不再残留描边，应用进程退出后的深浅主题切换仍保持文字可读。
 - [x] 筛选后的真实拖拽：API 37 connected test 使用独立 48dp 把手移动搜索子集中的中间项，界面换位、DataStore 持久化和隐藏全局槽位全部通过；ADB 可见把手拖拽复测顺序同样更新。
 - 本次会话工作报告为 `.superpowers/sdd/home-task-6-report.md`；`/tmp/timeapk-home-widget-task6-2026-07-16-final/` 仅为本机匿名临时证据目录，二者均不作为长期发布附件。

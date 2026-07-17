@@ -3,10 +3,71 @@ package com.example.timeapk.widget
 import com.example.timeapk.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class WidgetRenderPolicyTest {
+    @Test
+    fun resolve_themeAdaptiveAutoSurfacesDelegateTextColorsToLayoutTheme() {
+        val adaptiveConfigs = listOf(
+            WidgetConfig.default().copy(
+                appearancePreset = APPEARANCE_SYSTEM,
+                backgroundOpacityPercent = 100
+            ),
+            WidgetConfig.default().copy(appearancePreset = APPEARANCE_SOLID),
+            WidgetConfig.default().copy(appearancePreset = APPEARANCE_CELADON),
+            WidgetConfig.default().copy(appearancePreset = APPEARANCE_TRANSPARENT)
+        )
+        adaptiveConfigs.forEach { config ->
+            val light = WidgetRenderPolicy.resolve(
+                config,
+                WidgetThemeSnapshot(isDark = false, usesSystemPalette = true)
+            )
+            val dark = WidgetRenderPolicy.resolve(
+                config,
+                WidgetThemeSnapshot(isDark = true, usesSystemPalette = true)
+            )
+            assertTrue("Light theme should come from the layout for $config", light.useThemeTextColors)
+            assertTrue("Dark theme should come from the layout for $config", dark.useThemeTextColors)
+        }
+    }
+
+    @Test
+    fun resolve_fixedSurfacesAndManualContrastKeepExplicitTextColors() {
+        val fixedConfigs = listOf(
+            WidgetConfig.default().copy(
+                appearancePreset = APPEARANCE_SYSTEM,
+                backgroundOpacityPercent = 25,
+                contrastMode = CONTRAST_AUTO
+            ),
+            WidgetConfig.default().copy(
+                appearancePreset = APPEARANCE_TRANSLUCENT,
+                contrastMode = CONTRAST_AUTO
+            ),
+            WidgetConfig.default().copy(
+                appearancePreset = APPEARANCE_SEAL,
+                contrastMode = CONTRAST_AUTO
+            ),
+            WidgetConfig.default().copy(
+                appearancePreset = APPEARANCE_SOLID,
+                contrastMode = CONTRAST_LIGHT_TEXT
+            ),
+            WidgetConfig.default().copy(
+                appearancePreset = APPEARANCE_TRANSPARENT,
+                contrastMode = CONTRAST_DARK_TEXT
+            )
+        )
+
+        fixedConfigs.forEach { config ->
+            val style = WidgetRenderPolicy.resolve(
+                config,
+                WidgetThemeSnapshot(isDark = true, usesSystemPalette = true)
+            )
+            assertFalse("Explicit colors are required for $config", style.useThemeTextColors)
+        }
+    }
+
     @Test
     fun resolve_transparentWithLightTextOverrideUsesTransparentBackgroundAndLightText() {
         val transparent = WidgetRenderPolicy.resolve(
@@ -210,6 +271,24 @@ class WidgetRenderPolicyTest {
 
         assertEquals(R.drawable.widget_background_transparent_border, transparentBorder.backgroundResId)
         assertEquals(R.drawable.widget_background_solid_borderless, solidBorderless.backgroundResId)
+    }
+
+    @Test
+    fun resolve_systemSolidBorderOffSelectsDifferentBackgroundFromBorderOn() {
+        val base = WidgetConfig.default().copy(
+            appearancePreset = APPEARANCE_SYSTEM,
+            backgroundOpacityPercent = 100
+        )
+        val bordered = WidgetRenderPolicy.resolve(
+            config = base.copy(borderMode = BORDER_ON),
+            theme = WidgetThemeSnapshot(isDark = false, usesSystemPalette = true)
+        )
+        val borderless = WidgetRenderPolicy.resolve(
+            config = base.copy(borderMode = BORDER_OFF),
+            theme = WidgetThemeSnapshot(isDark = false, usesSystemPalette = true)
+        )
+
+        assertNotEquals(bordered.backgroundResId, borderless.backgroundResId)
     }
 
     @Test

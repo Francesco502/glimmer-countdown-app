@@ -504,8 +504,9 @@ private fun WidgetConfigPreview(
     val baseCellSize = 64.dp
     val desiredPreviewWidth = baseCellSize * clean.widthCells.toFloat()
     val maxPreviewHeight = 320.dp
-    val cornerRadius = if (clean.widthCells == 1 || clean.heightCells == 1) 18.dp else 22.dp
+    val cornerRadius = resolveWidgetPreviewCornerRadiusDp(clean.cornerMode).dp
     val contentPadding = if (clean.widthCells == 1) 8.dp else if (clean.heightCells == 1) 10.dp else 14.dp
+    val rowVerticalPadding = resolveWidgetPreviewRowVerticalPaddingDp(clean.densityMode).dp
 
     BoxWithConstraints(
         modifier = modifier.fillMaxWidth(),
@@ -533,19 +534,43 @@ private fun WidgetConfigPreview(
                 value = stringResource(R.string.widget_config_preview_value_primary),
                 contentColor = contentColor,
                 accentColor = accentColor,
-                compact = clean.widthCells <= 1
+                compact = clean.widthCells <= 1,
+                verticalPadding = rowVerticalPadding
             )
             if (clean.heightCells > 1) {
                 WidgetPreviewRow(
-                    title = stringResource(R.string.widget_config_preview_event_secondary),
+                    title = stringResource(
+                        resolveWidgetPreviewSecondaryTitleResId(clean.showLunarPrefix)
+                    ),
                     value = stringResource(R.string.widget_config_preview_value_secondary),
                     contentColor = secondaryContentColor,
                     accentColor = accentColor.copy(alpha = 0.82f),
-                    compact = clean.widthCells <= 1
+                    compact = clean.widthCells <= 1,
+                    verticalPadding = rowVerticalPadding
                 )
             }
         }
     }
+}
+
+internal fun resolveWidgetPreviewCornerRadiusDp(cornerMode: Int): Int = when (cornerMode) {
+    CORNER_SMALL -> 10
+    CORNER_MEDIUM -> 18
+    CORNER_LARGE -> 30
+    else -> 22
+}
+
+internal fun resolveWidgetPreviewSecondaryTitleResId(showLunarPrefix: Boolean): Int =
+    if (showLunarPrefix) {
+        R.string.widget_config_preview_event_secondary
+    } else {
+        R.string.widget_config_preview_event_secondary_plain
+    }
+
+internal fun resolveWidgetPreviewRowVerticalPaddingDp(densityMode: Int): Int = when (densityMode) {
+    DENSITY_COMPACT -> 1
+    DENSITY_COMFORTABLE -> 5
+    else -> 3
 }
 
 internal data class WidgetPreviewStyle(
@@ -620,9 +645,13 @@ private fun WidgetPreviewRow(
     value: String,
     contentColor: Color,
     accentColor: Color,
-    compact: Boolean = false
+    compact: Boolean = false,
+    verticalPadding: androidx.compose.ui.unit.Dp = 0.dp
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier = Modifier.padding(vertical = verticalPadding),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Box(
             modifier = Modifier
                 .width(3.dp)
