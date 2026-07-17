@@ -45,7 +45,10 @@ class MilestoneCalendarOwnershipPolicyTest {
             legacyScanPending = false,
             scope = MilestoneCleanupScope.EVENT,
             cleanup = { CalendarCleanupResult.PermissionRequired },
-            clearExactOwnership = { pendingOwnershipCleared = true },
+            clearExactOwnership = {
+                pendingOwnershipCleared = true
+                true
+            },
             clearLegacyScan = { error("No legacy scan should be cleared") }
         )
         val state = completedRescheduleState(
@@ -67,7 +70,10 @@ class MilestoneCalendarOwnershipPolicyTest {
             legacyScanPending = false,
             scope = MilestoneCleanupScope.EVENT,
             cleanup = { CalendarCleanupResult.RemovedOrNotPresent },
-            clearExactOwnership = { pendingOwnershipCleared = true },
+            clearExactOwnership = {
+                pendingOwnershipCleared = true
+                true
+            },
             clearLegacyScan = { error("No legacy scan should be cleared") }
         )
 
@@ -104,7 +110,10 @@ class MilestoneCalendarOwnershipPolicyTest {
             scope = MilestoneCleanupScope.GLOBAL,
             cleanup = { CalendarCleanupResult.PermissionRequired },
             clearExactOwnership = { error("No exact ownership should be cleared") },
-            clearLegacyScan = { legacyScanCleared = true }
+            clearLegacyScan = {
+                legacyScanCleared = true
+                true
+            }
         )
         val state = completedRescheduleState(
             candidate = RescheduleState("prefs", emptyMap(), 123L),
@@ -126,7 +135,10 @@ class MilestoneCalendarOwnershipPolicyTest {
             scope = MilestoneCleanupScope.GLOBAL,
             cleanup = { CalendarCleanupResult.RemovedOrNotPresent },
             clearExactOwnership = { error("No exact ownership should be cleared") },
-            clearLegacyScan = { legacyScanCleared = true }
+            clearLegacyScan = {
+                legacyScanCleared = true
+                true
+            }
         )
 
         assertTrue(cleanup.isSuccess)
@@ -140,7 +152,10 @@ class MilestoneCalendarOwnershipPolicyTest {
 
         applyManagedCalendarCleanupOwnershipPolicy(
             result = CalendarCleanupResult.ProviderFailure("provider down"),
-            clearOwnership = { ownershipPending = false },
+            clearOwnership = {
+                ownershipPending = false
+                true
+            },
             enqueueRepair = { repairRequests += 1 }
         )
 
@@ -153,13 +168,75 @@ class MilestoneCalendarOwnershipPolicyTest {
         var ownershipPending = true
         var repairRequests = 0
 
-        applyManagedCalendarCleanupOwnershipPolicy(
+        val result = applyManagedCalendarCleanupOwnershipPolicy(
             result = CalendarCleanupResult.RemovedOrNotPresent,
-            clearOwnership = { ownershipPending = false },
+            clearOwnership = {
+                ownershipPending = false
+                true
+            },
             enqueueRepair = { repairRequests += 1 }
         )
 
+        assertTrue(result.isSuccess)
         assertFalse(ownershipPending)
         assertEquals(0, repairRequests)
+    }
+
+    @Test
+    fun eventCleanupCommitFailure_returnsFailureForRetry() {
+        val result = cleanupPendingMilestoneOwnership(
+            exactOwnershipPending = true,
+            legacyScanPending = false,
+            scope = MilestoneCleanupScope.EVENT,
+            cleanup = { CalendarCleanupResult.RemovedOrNotPresent },
+            clearExactOwnership = { false },
+            clearLegacyScan = { error("No legacy marker should be cleared") }
+        )
+
+        assertTrue(result is CalendarCleanupResult.ProviderFailure)
+    }
+
+    @Test
+    fun globalExactCleanupCommitFailure_returnsFailureForRetry() {
+        val result = cleanupPendingMilestoneOwnership(
+            exactOwnershipPending = true,
+            legacyScanPending = false,
+            scope = MilestoneCleanupScope.GLOBAL,
+            cleanup = { CalendarCleanupResult.RemovedOrNotPresent },
+            clearExactOwnership = { false },
+            clearLegacyScan = { error("No legacy marker should be cleared") }
+        )
+
+        assertTrue(result is CalendarCleanupResult.ProviderFailure)
+    }
+
+    @Test
+    fun globalLegacyCleanupCommitFailure_returnsFailureForRetry() {
+        val result = cleanupPendingMilestoneOwnership(
+            exactOwnershipPending = false,
+            legacyScanPending = true,
+            scope = MilestoneCleanupScope.GLOBAL,
+            cleanup = { CalendarCleanupResult.RemovedOrNotPresent },
+            clearExactOwnership = { error("No exact ownership should be cleared") },
+            clearLegacyScan = { false }
+        )
+
+        assertTrue(result is CalendarCleanupResult.ProviderFailure)
+    }
+
+    @Test
+    fun managedCleanupCommitFailure_retainsOwnershipAndRequestsRepair() {
+        var ownershipPending = true
+        var repairRequests = 0
+
+        val result = applyManagedCalendarCleanupOwnershipPolicy(
+            result = CalendarCleanupResult.RemovedOrNotPresent,
+            clearOwnership = { false },
+            enqueueRepair = { repairRequests += 1 }
+        )
+
+        assertTrue(result is CalendarCleanupResult.ProviderFailure)
+        assertTrue(ownershipPending)
+        assertEquals(1, repairRequests)
     }
 }

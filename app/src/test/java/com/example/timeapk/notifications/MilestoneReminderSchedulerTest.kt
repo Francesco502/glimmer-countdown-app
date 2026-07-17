@@ -101,7 +101,14 @@ class MilestoneReminderSchedulerTest {
                 calls += "premark"
                 true
             },
-            clearPendingDurably = { calls += "clear" },
+            clearPendingDurably = {
+                calls += "clear"
+                true
+            },
+            transitionInflightToActiveDurably = {
+                calls += "activate"
+                true
+            },
             insertion = {
                 calls += "insert"
                 MilestoneCalendarInsertionAttempt(
@@ -113,7 +120,7 @@ class MilestoneReminderSchedulerTest {
             registryFailure = { error("Registry should be durable") }
         )
 
-        assertEquals(listOf("premark", "insert"), calls)
+        assertEquals(listOf("premark", "insert", "activate"), calls)
         assertEquals(99L, result.scheduleEventId)
     }
 
@@ -126,7 +133,11 @@ class MilestoneReminderSchedulerTest {
                 ownershipPending = true
                 true
             },
-            clearPendingDurably = { ownershipPending = false },
+            clearPendingDurably = {
+                ownershipPending = false
+                true
+            },
+            transitionInflightToActiveDurably = { error("Null insert cannot become active") },
             insertion = {
                 MilestoneCalendarInsertionAttempt(
                     result = ScheduleSyncManager.MilestoneScheduleSyncResult(
@@ -155,7 +166,11 @@ class MilestoneReminderSchedulerTest {
                 ownershipPending = true
                 true
             },
-            clearPendingDurably = { ownershipPending = false },
+            clearPendingDurably = {
+                ownershipPending = false
+                true
+            },
+            transitionInflightToActiveDurably = { error("Exception cannot become active") },
             insertion = { error("crashed after provider insert") },
             insertionFailure = { throwable ->
                 ScheduleSyncManager.MilestoneScheduleSyncResult(
@@ -179,6 +194,7 @@ class MilestoneReminderSchedulerTest {
         val result = insertMilestoneWithDurableOwnership(
             markPendingDurably = { false },
             clearPendingDurably = { error("Nothing was marked") },
+            transitionInflightToActiveDurably = { error("Nothing was marked") },
             insertion = {
                 insertionCalled = true
                 error("Provider must not be called")
@@ -196,6 +212,74 @@ class MilestoneReminderSchedulerTest {
 
         assertFalse(insertionCalled)
         assertEquals("Ownership registry unavailable", result.error)
+    }
+
+    @Test
+    fun durableMilestoneInsertion_successTransitionsInflightToActive() {
+        val exactIds = mutableSetOf<Int>()
+        val inflightIds = mutableSetOf<Int>()
+
+        val result = insertMilestoneWithDurableOwnership(
+            markPendingDurably = {
+                exactIds += 41
+                inflightIds += 41
+                true
+            },
+            clearPendingDurably = { error("Successful insert must stay owned") },
+            transitionInflightToActiveDurably = {
+                inflightIds -= 41
+                true
+            },
+            insertion = {
+                assertEquals(setOf(41), exactIds)
+                assertEquals(setOf(41), inflightIds)
+                MilestoneCalendarInsertionAttempt(
+                    result = ScheduleSyncManager.MilestoneScheduleSyncResult(99L, 7L, 123L, null),
+                    providerEventMayExist = true
+                )
+            },
+            insertionFailure = { error("Insertion should not fail") },
+            registryFailure = { error("Registry transition should succeed") }
+        )
+
+        assertEquals(99L, result.scheduleEventId)
+        assertEquals(setOf(41), exactIds)
+        assertTrue(inflightIds.isEmpty())
+    }
+
+    @Test
+    fun durableMilestoneInsertion_transitionCommitFailureRetainsInflightAndReportsFailure() {
+        var exactOwnershipPending = false
+        var inflightRecoveryPending = false
+
+        val result = insertMilestoneWithDurableOwnership(
+            markPendingDurably = {
+                exactOwnershipPending = true
+                inflightRecoveryPending = true
+                true
+            },
+            clearPendingDurably = { error("Successful provider insert must stay owned") },
+            transitionInflightToActiveDurably = { false },
+            insertion = {
+                MilestoneCalendarInsertionAttempt(
+                    result = ScheduleSyncManager.MilestoneScheduleSyncResult(99L, 7L, 123L, null),
+                    providerEventMayExist = true
+                )
+            },
+            insertionFailure = { error("Insertion should not fail") },
+            registryFailure = {
+                ScheduleSyncManager.MilestoneScheduleSyncResult(
+                    scheduleEventId = null,
+                    targetCalendarId = 7L,
+                    lastSyncAt = 123L,
+                    error = "Ownership registry transition failed"
+                )
+            }
+        )
+
+        assertTrue(exactOwnershipPending)
+        assertTrue(inflightRecoveryPending)
+        assertEquals("Ownership registry transition failed", result.error)
     }
 
     @Test

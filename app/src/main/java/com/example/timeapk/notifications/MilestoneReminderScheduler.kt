@@ -51,7 +51,8 @@ internal data class MilestoneCalendarInsertionAttempt(
 
 internal fun insertMilestoneWithDurableOwnership(
     markPendingDurably: () -> Boolean,
-    clearPendingDurably: () -> Unit,
+    clearPendingDurably: () -> Boolean,
+    transitionInflightToActiveDurably: () -> Boolean,
     insertion: () -> MilestoneCalendarInsertionAttempt,
     insertionFailure: (Throwable) -> ScheduleSyncManager.MilestoneScheduleSyncResult,
     registryFailure: () -> ScheduleSyncManager.MilestoneScheduleSyncResult
@@ -63,7 +64,9 @@ internal fun insertMilestoneWithDurableOwnership(
         return insertionFailure(t)
     }
     if (attempt.result.scheduleEventId == null && !attempt.providerEventMayExist) {
-        clearPendingDurably()
+        if (!clearPendingDurably()) return registryFailure()
+    } else if (attempt.result.scheduleEventId != null) {
+        if (!transitionInflightToActiveDurably()) return registryFailure()
     }
     return attempt.result
 }
@@ -252,7 +255,7 @@ internal suspend fun rescheduleMilestoneReminders(application: Application): Mil
         return result
     }
 
-    val legacyCleanup = if (MilestoneCalendarOwnershipStore.hasLegacyScanPending(application)) {
+    val legacyCleanup = if (MilestoneCalendarOwnershipStore.hasRecoveryPending(application)) {
         clearAllPendingMilestoneCalendarOwnership(application)
     } else {
         CalendarCleanupResult.RemovedOrNotPresent
@@ -338,6 +341,9 @@ private fun scheduleMilestoneReminderForEvent(
             },
             clearPendingDurably = {
                 MilestoneCalendarOwnershipStore.clearPendingWithoutProviderDurably(context, event.id)
+            },
+            transitionInflightToActiveDurably = {
+                MilestoneCalendarOwnershipStore.transitionInflightToActiveDurably(context, event.id)
             },
             insertion = {
                 ScheduleSyncManager.insertMilestoneScheduleReminderAttempt(

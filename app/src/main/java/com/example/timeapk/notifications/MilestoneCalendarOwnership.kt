@@ -13,24 +13,33 @@ internal fun shouldInitializeLegacyMilestoneScan(
     lastUpdateTimeMillis: Long
 ): Boolean = lastUpdateTimeMillis > firstInstallTimeMillis
 
+@Suppress("UNUSED_PARAMETER")
+internal fun shouldForceMilestoneRecovery(
+    activeOwnershipPending: Boolean,
+    inflightRecoveryPending: Boolean,
+    legacyScanPending: Boolean
+): Boolean = inflightRecoveryPending || legacyScanPending
+
 internal fun cleanupPendingMilestoneOwnership(
     exactOwnershipPending: Boolean,
     legacyScanPending: Boolean,
     scope: MilestoneCleanupScope,
     cleanup: () -> CalendarCleanupResult,
-    clearExactOwnership: () -> Unit,
-    clearLegacyScan: () -> Unit
+    clearExactOwnership: () -> Boolean,
+    clearLegacyScan: () -> Boolean
 ): CalendarCleanupResult {
     if (!exactOwnershipPending && !legacyScanPending) {
         return CalendarCleanupResult.RemovedOrNotPresent
     }
     val result = cleanup()
     if (result.isSuccess) {
-        if (exactOwnershipPending) {
-            clearExactOwnership()
-        }
-        if (legacyScanPending && scope == MilestoneCleanupScope.GLOBAL) {
-            clearLegacyScan()
+        val exactCleared = !exactOwnershipPending || clearExactOwnership()
+        val legacyCleared =
+            legacyScanPending.not() ||
+                scope != MilestoneCleanupScope.GLOBAL ||
+                clearLegacyScan()
+        if (!exactCleared || !legacyCleared) {
+            return CalendarCleanupResult.ProviderFailure("Calendar ownership registry update failed")
         }
         return result
     }
@@ -47,14 +56,16 @@ internal fun cleanupPendingMilestoneOwnership(
 
 internal fun applyManagedCalendarCleanupOwnershipPolicy(
     result: CalendarCleanupResult,
-    clearOwnership: () -> Unit,
+    clearOwnership: () -> Boolean,
     enqueueRepair: () -> Unit
-): CalendarCleanupResult = result.also {
-    if (it.isSuccess) {
-        clearOwnership()
-    } else {
+): CalendarCleanupResult {
+    if (!result.isSuccess) {
         enqueueRepair()
+        return result
     }
+    if (clearOwnership()) return result
+    enqueueRepair()
+    return CalendarCleanupResult.ProviderFailure("Calendar ownership registry update failed")
 }
 
 internal object MilestoneCalendarOwnershipStore {
@@ -62,30 +73,52 @@ internal object MilestoneCalendarOwnershipStore {
     private const val KEY_INITIALIZED = "registry_initialized"
     private const val KEY_LEGACY_SCAN_PENDING = "legacy_scan_pending"
     private const val KEY_PENDING_EVENT_IDS = "pending_event_ids"
+    private const val KEY_INFLIGHT_EVENT_IDS = "inflight_event_ids"
     private val lock = Any()
 
     fun markPendingDurably(context: Context, eventId: Int): Boolean = synchronized(lock) {
         val prefs = initializedPreferences(context)
-        val ids = pendingEventIds(prefs).toMutableSet()
-        if (!ids.add(eventId)) {
+        val exactIds = pendingEventIds(prefs).toMutableSet()
+        val inflightIds = inflightEventIds(prefs).toMutableSet()
+        val exactAdded = exactIds.add(eventId)
+        val inflightAdded = inflightIds.add(eventId)
+        if (!exactAdded && !inflightAdded) {
             true
         } else {
-            writePendingEventIds(prefs, ids)
+            writeOwnershipEventIds(prefs, exactIds, inflightIds)
         }
     }
 
     fun clearPendingWithoutProviderDurably(context: Context, eventId: Int): Boolean = synchronized(lock) {
         val prefs = initializedPreferences(context)
-        val ids = pendingEventIds(prefs).toMutableSet()
-        if (!ids.remove(eventId)) {
+        val exactIds = pendingEventIds(prefs).toMutableSet()
+        val inflightIds = inflightEventIds(prefs).toMutableSet()
+        val exactRemoved = exactIds.remove(eventId)
+        val inflightRemoved = inflightIds.remove(eventId)
+        if (!exactRemoved && !inflightRemoved) {
             true
         } else {
-            writePendingEventIds(prefs, ids)
+            writeOwnershipEventIds(prefs, exactIds, inflightIds)
         }
     }
 
-    fun hasLegacyScanPending(context: Context): Boolean = synchronized(lock) {
-        initializedPreferences(context).getBoolean(KEY_LEGACY_SCAN_PENDING, false)
+    fun transitionInflightToActiveDurably(context: Context, eventId: Int): Boolean = synchronized(lock) {
+        val prefs = initializedPreferences(context)
+        val inflightIds = inflightEventIds(prefs).toMutableSet()
+        if (!inflightIds.remove(eventId)) {
+            true
+        } else {
+            writeOwnershipEventIds(prefs, pendingEventIds(prefs), inflightIds)
+        }
+    }
+
+    fun hasRecoveryPending(context: Context): Boolean = synchronized(lock) {
+        val prefs = initializedPreferences(context)
+        shouldForceMilestoneRecovery(
+            activeOwnershipPending = pendingEventIds(prefs).isNotEmpty(),
+            inflightRecoveryPending = inflightEventIds(prefs).isNotEmpty(),
+            legacyScanPending = prefs.getBoolean(KEY_LEGACY_SCAN_PENDING, false)
+        )
     }
 
     fun clearEventIfPending(
@@ -94,17 +127,21 @@ internal object MilestoneCalendarOwnershipStore {
         cleanup: () -> CalendarCleanupResult
     ): CalendarCleanupResult = synchronized(lock) {
         val prefs = initializedPreferences(context)
+        val exactIds = pendingEventIds(prefs)
+        val inflightIds = inflightEventIds(prefs)
         cleanupPendingMilestoneOwnership(
-            exactOwnershipPending = eventId in pendingEventIds(prefs),
+            exactOwnershipPending = eventId in exactIds || eventId in inflightIds,
             legacyScanPending = prefs.getBoolean(KEY_LEGACY_SCAN_PENDING, false),
             scope = MilestoneCleanupScope.EVENT,
             cleanup = cleanup,
             clearExactOwnership = {
-                val ids = pendingEventIds(prefs).toMutableSet()
-                ids.remove(eventId)
-                writePendingEventIds(prefs, ids)
+                writeOwnershipEventIds(
+                    prefs = prefs,
+                    exactEventIds = exactIds - eventId,
+                    inflightEventIds = inflightIds - eventId
+                )
             },
-            clearLegacyScan = {}
+            clearLegacyScan = { true }
         )
     }
 
@@ -113,12 +150,16 @@ internal object MilestoneCalendarOwnershipStore {
         cleanup: () -> CalendarCleanupResult
     ): CalendarCleanupResult = synchronized(lock) {
         val prefs = initializedPreferences(context)
+        val exactIds = pendingEventIds(prefs)
+        val inflightIds = inflightEventIds(prefs)
         cleanupPendingMilestoneOwnership(
-            exactOwnershipPending = pendingEventIds(prefs).isNotEmpty(),
+            exactOwnershipPending = exactIds.isNotEmpty() || inflightIds.isNotEmpty(),
             legacyScanPending = prefs.getBoolean(KEY_LEGACY_SCAN_PENDING, false),
             scope = MilestoneCleanupScope.GLOBAL,
             cleanup = cleanup,
-            clearExactOwnership = { writePendingEventIds(prefs, emptySet()) },
+            clearExactOwnership = {
+                writeOwnershipEventIds(prefs, emptySet(), emptySet())
+            },
             clearLegacyScan = {
                 prefs.edit().putBoolean(KEY_LEGACY_SCAN_PENDING, false).commit()
             }
@@ -130,21 +171,26 @@ internal object MilestoneCalendarOwnershipStore {
         eventId: Int,
         result: CalendarCleanupResult,
         enqueueRepair: () -> Unit
-    ) {
-        applyManagedCalendarCleanupOwnershipPolicy(
+    ): CalendarCleanupResult = applyManagedCalendarCleanupOwnershipPolicy(
             result = result,
             clearOwnership = {
                 synchronized(lock) {
                     val prefs = initializedPreferences(context)
-                    val ids = pendingEventIds(prefs).toMutableSet()
-                    if (ids.remove(eventId)) {
-                        writePendingEventIds(prefs, ids)
+                    val exactIds = pendingEventIds(prefs)
+                    val inflightIds = inflightEventIds(prefs)
+                    if (eventId in exactIds || eventId in inflightIds) {
+                        writeOwnershipEventIds(
+                            prefs = prefs,
+                            exactEventIds = exactIds - eventId,
+                            inflightEventIds = inflightIds - eventId
+                        )
+                    } else {
+                        true
                     }
                 }
             },
             enqueueRepair = enqueueRepair
         )
-    }
 
     private fun initializedPreferences(context: Context): SharedPreferences {
         val appContext = context.applicationContext
@@ -172,12 +218,28 @@ internal object MilestoneCalendarOwnershipStore {
             .toSet()
     }
 
-    private fun writePendingEventIds(prefs: SharedPreferences, eventIds: Set<Int>): Boolean {
+    private fun inflightEventIds(prefs: SharedPreferences): Set<Int> {
+        return prefs.getStringSet(KEY_INFLIGHT_EVENT_IDS, emptySet())
+            .orEmpty()
+            .mapNotNull(String::toIntOrNull)
+            .toSet()
+    }
+
+    private fun writeOwnershipEventIds(
+        prefs: SharedPreferences,
+        exactEventIds: Set<Int>,
+        inflightEventIds: Set<Int>
+    ): Boolean {
         val editor = prefs.edit()
-        if (eventIds.isEmpty()) {
+        if (exactEventIds.isEmpty()) {
             editor.remove(KEY_PENDING_EVENT_IDS)
         } else {
-            editor.putStringSet(KEY_PENDING_EVENT_IDS, eventIds.map(Int::toString).toSet())
+            editor.putStringSet(KEY_PENDING_EVENT_IDS, exactEventIds.map(Int::toString).toSet())
+        }
+        if (inflightEventIds.isEmpty()) {
+            editor.remove(KEY_INFLIGHT_EVENT_IDS)
+        } else {
+            editor.putStringSet(KEY_INFLIGHT_EVENT_IDS, inflightEventIds.map(Int::toString).toSet())
         }
         return editor.commit()
     }
@@ -200,13 +262,11 @@ internal fun recordManagedCalendarCleanupForMilestoneOwnership(
     eventId: Int,
     result: CalendarCleanupResult,
     repairReason: String? = null
-): CalendarCleanupResult = result.also {
-    MilestoneCalendarOwnershipStore.recordManagedCleanup(
+): CalendarCleanupResult = MilestoneCalendarOwnershipStore.recordManagedCleanup(
         context = context,
         eventId = eventId,
-        result = it,
+        result = result,
         enqueueRepair = {
             repairReason?.let { reason -> RescheduleAllWorker.enqueue(context, reason) }
         }
     )
-}

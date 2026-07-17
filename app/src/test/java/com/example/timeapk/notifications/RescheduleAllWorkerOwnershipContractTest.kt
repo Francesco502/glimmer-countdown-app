@@ -10,6 +10,28 @@ import org.junit.Test
 class RescheduleAllWorkerOwnershipContractTest {
 
     @Test
+    fun unchangedFingerprints_withInflightOwnership_forceRecovery() {
+        assertTrue(
+            shouldForceMilestoneRecovery(
+                activeOwnershipPending = true,
+                inflightRecoveryPending = true,
+                legacyScanPending = false
+            )
+        )
+    }
+
+    @Test
+    fun unchangedFingerprints_withActiveOwnershipOnly_doNotForceColdStart() {
+        assertFalse(
+            shouldForceMilestoneRecovery(
+                activeOwnershipPending = true,
+                inflightRecoveryPending = false,
+                legacyScanPending = false
+            )
+        )
+    }
+
+    @Test
     fun workerMergesEnabledSyncThroughOwnershipPolicy() {
         val source = source("RescheduleAllWorker.kt")
 
