@@ -110,7 +110,7 @@ class ReminderWorker(
                     eventId = event.id,
                     calendarEventId = event.scheduleEventId
                 ),
-                repairReason = "reminder_worker_cleanup"
+                repairReason = "manual_reminder_worker_cleanup"
             )
             eventAfterCleanupAttempt(
                 event = event,
