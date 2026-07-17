@@ -143,9 +143,27 @@ fun previousOccurrenceDate(origin: LocalDate, today: LocalDate, repeatType: Stri
     return when (repeatType) {
         REPEAT_DAILY -> today
         REPEAT_WEEKLY -> nextOnOrAfterToday.minusWeeks(1)
-        REPEAT_MONTHLY -> nextOnOrAfterToday.minusMonths(1)
-        REPEAT_HALF_YEARLY -> nextOnOrAfterToday.minusMonths(6)
-        REPEAT_YEARLY -> nextOnOrAfterToday.minusYears(1)
+        REPEAT_MONTHLY -> previousMonthAnchoredOccurrence(origin, today, monthsPerRepeat = 1)
+        REPEAT_HALF_YEARLY -> previousMonthAnchoredOccurrence(origin, today, monthsPerRepeat = 6)
+        REPEAT_YEARLY -> previousMonthAnchoredOccurrence(origin, today, monthsPerRepeat = 12)
         else -> origin
     }
+}
+
+private fun previousMonthAnchoredOccurrence(
+    origin: LocalDate,
+    today: LocalDate,
+    monthsPerRepeat: Long
+): LocalDate {
+    val monthOffset = ChronoUnit.MONTHS.between(
+        origin.withDayOfMonth(1),
+        today.withDayOfMonth(1)
+    )
+    var repeatCount = monthOffset / monthsPerRepeat
+    var candidate = origin.plusMonths(repeatCount * monthsPerRepeat)
+    if (candidate.isAfter(today)) {
+        repeatCount -= 1
+        candidate = origin.plusMonths(repeatCount * monthsPerRepeat)
+    }
+    return candidate
 }

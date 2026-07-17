@@ -46,6 +46,68 @@ class EventJsonTest {
     }
 
     @Test
+    fun jsonExportImport_preservesFunctionalFieldsAndDropsProviderOwnership() {
+        val original = Event(
+            id = 7,
+            title = "Trip, \"Summer\"",
+            date = 1771286400000,
+            category = CATEGORY_BIRTHDAY,
+            note = "Line one\nLine two, \"quoted\"",
+            colorHex = "#AABBCC",
+            repeatType = REPEAT_YEARLY,
+            remindDaysBefore = 3,
+            reminderTimeMinutesOfDay = 525,
+            remindEnabled = true,
+            syncToScheduleEnabled = true,
+            scheduleEventId = 99,
+            targetCalendarId = 8,
+            lastScheduleSyncAt = 1234,
+            lastScheduleSyncError = "old error",
+            createdAt = 1700000000000,
+            isLunar = true
+        )
+
+        val result = parseEventsFromJson(listOf(original).toJsonString())
+
+        assertEquals(0, result.errorCount)
+        assertEquals(
+            original.copy(
+                id = 0,
+                scheduleEventId = null,
+                targetCalendarId = null,
+                lastScheduleSyncAt = null,
+                lastScheduleSyncError = null
+            ),
+            result.events.single()
+        )
+    }
+
+    @Test
+    fun csvExport_escapesCommaQuoteAndNewlineWithoutDroppingFields() {
+        val event = Event(
+            title = "Trip, \"Summer\"",
+            date = 1771286400000,
+            category = CATEGORY_OTHER,
+            note = "Line one\nLine two, \"quoted\"",
+            colorHex = "#AABBCC",
+            repeatType = REPEAT_HALF_YEARLY,
+            remindDaysBefore = 3,
+            reminderTimeMinutesOfDay = 525,
+            remindEnabled = true,
+            syncToScheduleEnabled = false,
+            createdAt = 1700000000000,
+            isLunar = false
+        )
+
+        val expected = listOf(
+            "title,date,category,note,colorHex,repeatType,remindDaysBefore,reminderTimeMinutesOfDay,remindEnabled,syncToScheduleEnabled,createdAt,isLunar",
+            "\"Trip, \"\"Summer\"\"\",1771286400000,other,\"Line one\nLine two, \"\"quoted\"\"\",#AABBCC,half_yearly,3,525,true,false,1700000000000,false"
+        ).joinToString("\n")
+
+        assertEquals(expected, listOf(event).toCsvString())
+    }
+
+    @Test
     fun parseEventsFromJson_emptyArray_returnsEmptyList() {
         val result = parseEventsFromJson("[]")
 

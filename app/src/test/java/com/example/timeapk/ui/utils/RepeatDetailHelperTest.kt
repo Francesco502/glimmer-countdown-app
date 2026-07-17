@@ -96,6 +96,34 @@ class RepeatDetailHelperTest {
     }
 
     @Test
+    fun previousOccurrence_calendarRepeats_preserveOriginAnchorAfterClamping() {
+        assertEquals(
+            LocalDate.of(2024, 2, 29),
+            previousOccurrenceDate(
+                origin = LocalDate.of(2020, 2, 29),
+                today = LocalDate.of(2025, 2, 27),
+                repeatType = REPEAT_YEARLY
+            )
+        )
+        assertEquals(
+            LocalDate.of(2025, 1, 31),
+            previousOccurrenceDate(
+                origin = LocalDate.of(2025, 1, 31),
+                today = LocalDate.of(2025, 2, 27),
+                repeatType = REPEAT_MONTHLY
+            )
+        )
+        assertEquals(
+            LocalDate.of(2024, 8, 31),
+            previousOccurrenceDate(
+                origin = LocalDate.of(2024, 8, 31),
+                today = LocalDate.of(2025, 2, 27),
+                repeatType = REPEAT_HALF_YEARLY
+            )
+        )
+    }
+
+    @Test
     fun previousOccurrence_originAfterToday_returnsNull() {
         val origin = LocalDate.of(2026, 1, 1)
         val today = LocalDate.of(2025, 6, 1)
