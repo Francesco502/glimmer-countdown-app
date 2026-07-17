@@ -1,5 +1,6 @@
 package com.example.timeapk.notifications
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.SharedPreferences
 
@@ -288,6 +289,7 @@ internal object MilestoneCalendarOwnershipStore {
         )
     }
 
+    @SuppressLint("UseKtx") // The KTX helper discards commit(), but registry durability requires its Boolean result.
     private fun writeRegistryState(
         prefs: SharedPreferences,
         state: MilestoneOwnershipRegistryState
