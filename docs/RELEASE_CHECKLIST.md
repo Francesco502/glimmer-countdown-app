@@ -43,7 +43,7 @@
 
 ## 四、体验、无障碍与性能
 
-- [ ] 新建 / 编辑输入法、拼音组合态、硬件键盘、旋转和返回手势无数据丢失
+- [x] 新建 / 编辑输入法、拼音组合态、硬件键盘、旋转和返回手势无数据丢失
 - [ ] TalkBack 可识别主要按钮、开关、展开状态、列表项和日期选择器
 - [x] 常用触控目标满足尺寸要求，颜色与文字对比通过项目守卫测试
 - [ ] 冷启动、首页滚动、月历切换、详情与设置导航无明显卡顿或异常内存增长
@@ -65,7 +65,7 @@
 - PowerShell 脚本运行：未检查；当前环境没有 `pwsh` / Windows PowerShell，未执行解析或 mocked dry run。
 - 真实 GitHub mutation：未检查；未创建 Git ref 锁、draft、asset 或正式 Release，避免在未完成检查清单时改变远端发布状态。
 - Backup / restore smoke（2026-07-16）：Android 8 / API 26 启用系统 LocalTransport 后完成 `backupnow`、`pm clear` 与指定 token restore；事件数据库、用户偏好和小组件偏好均恢复，两个 DataStore 文件恢复前后 SHA-256 完全一致，恢复后的事件可在界面读取。
-- 输入 / 旋转（2026-07-16）：API 37 新建事件输入标题后旋转到横屏，标题与未保存状态保留，返回仍出现放弃修改确认；新增编辑链 connected 回归，验证编辑标题跨 Activity recreate 保留、返回“留在此页”不丢内容、保存落库并返回首页。该回归曾暴露保存完成后从 Room executor 调用导航的问题，现强制在 Main dispatcher 处理保存结果并复测通过。拼音组合态与硬件键盘组合测试仍未完成，因此总项保留未勾选。
+- 输入 / 旋转（2026-07-17）：API 37 新建事件输入标题后旋转到横屏，标题与未保存状态保留，返回仍出现放弃修改确认；编辑链 connected 回归继续验证编辑标题跨 Activity recreate 保留、返回“留在此页”不丢内容、保存落库并返回首页。新增 `EventEntryImeInputTest` 直接经过 Android `InputConnection`：`setComposingText("pin")` 后提交“拼”，再注入硬件数字键得到“拼1”，Activity recreate 与返回确认后内容仍完整；另一条用例确认 IME 已交付的 composing 文本在重建后仍作为草稿保留。运行态将 Gboard 切换到已启用的简体中文拼音子类型，通过系统硬件按键输入 `pin`，真实显示“品 / 拼 / 频”等候选并用空格提交“品”；标题框和顶部摘要均只出现“品”，竖屏→横屏、系统返回、选择“留在此页”及恢复竖屏后内容均未丢失。测试结束恢复英文 Gboard、自动旋转并清除应用数据；完整 connected 套件 17/17 通过。
 - 小组件多实例（2026-07-16）：在两个真实 Pixel Launcher 小组件实例运行验证基础上，新增 API 37 DataStore connected 回归；两个实例分别保存不同外观、内容范围和排序，更新默认配置不会覆盖已有实例，删除单个实例配置后仅该实例回退最新默认，另一个实例保持不变。
 - 筛选后的真实拖拽（2026-07-16）：API 37 connected test 从“按天数”切换“自定义排序”，搜索得到 3 个可见事件并隐藏 1 个事件，通过 48dp 拖动把手移动中间项；界面换位与 DataStore 全局顺序均成功，隐藏事件保持原槽位。包含编辑恢复与小组件多实例回归在内的完整 connected 套件 10/10 通过；另以 ADB 在三张匿名卡片的可见把手上拖动 `QA_B`，UI 顺序从 C/B/A 变为 C/A/B，复核把手未遮挡卡片内容。
 - 小组件设置说明（2026-07-17）：API 37 `emulator-5554` 的 Direct Debug 在 100% / 150% 系统字体下验证默认配置页；1-5 格预览宽高、完整 Launcher 尺寸说明及后续显示密度均可读且可滚动到达，系统字体已恢复 100%。同轮资源与架构契约覆盖默认中文、简体中文、英文文案及说明节点位置。
@@ -77,7 +77,7 @@
 - 通知与重启补充（2026-07-17）：API 37 Direct Debug 导入“当天提醒”和“提前 1 天提醒”两条匿名事件，在拒绝 `POST_NOTIFICATIONS` 时执行真实模拟器重启并收到 `BOOT_COMPLETED`；重启后两条 `ReminderWorker` 均重新入队，`RescheduleAllWorker` 成功结束。运行态继续验证“拒绝 → 授予 → 再次拒绝”权限切换，两条提醒始终保留且每次统一重排均成功。测试同时发现从未同步过系统日历的普通提醒会被错误执行日历清理，并在无日历权限时进入永久重试；现仅对仍有日历 provider ownership 或既有同步错误的事件执行清理，干净数据复测不再产生虚假日历错误或重试循环。
 - 系统日历正向同步补充（2026-07-17）：API 37 Direct Debug 在设置中显式选择独立的 `TimeAPK_v4_QA` 可写本地日历；从 UI 新建当天提醒后，Room 保存 `scheduleEventId=251`、`targetCalendarId=6` 且同步错误为空，CalendarProvider 对应记录位于日历 6。编辑标题时原地复用事件 ID 251 且无重复；关闭同步后 provider 记录消失并清空本地 ownership 字段；重新开启同步生成活动记录 252，从详情删除后 CalendarProvider 与 Room 均无残留。新增 connected 回归会自行创建唯一的本地日历，覆盖新增、原地更新、提醒记录、关闭同步和活动记录清理，并在 `finally` 删除临时账户；手工 QA 日历、测试事件和 Direct 测试应用均已清理。Android 12 无可写日历与 API 37 撤权恢复证据继续覆盖负向路径。
 - 小组件外观补充（2026-07-17）：API 37 Pixel Launcher 真实实例验证小 / 大圆角与系统宣纸背景有 / 无边框的视觉差异。进一步复现应用进程退出后 Launcher 将背景切到夜间资源、但旧 RemoteViews 写死文字色导致“深底深字”；现由主题自适应布局管理自动文字色，在进程退出状态下从深色切回浅色，实测分别为深底浅字与浅底深字。配置预览同步反映圆角、农历前缀及紧凑 / 标准 / 宽松密度。最终人工矩阵覆盖透明、半透明、宣纸、青瓷、朱印五种背景的浅色 / 深色 Launcher：全部可读；同一圆角内连续执行墨线→透明、青瓷→朱印等切换时不再残留旧背景。期间发现 Android 12+ 仅可靠识别顶层 `@android:id/background`，现已同步基础与 v31 布局，并让配置保存等待 RemoteViews 刷新完成后再关闭。
-- 最终质量门补充（2026-07-17）：当前候选代码强制重跑 Direct / Play JVM 各 425 项，均为 0 failures / 0 errors / 0 skipped；API 37 connected 15/15 通过，包含完整 6→10 迁移、编辑恢复、输入框标签语义、筛选拖拽、小组件多实例、CalendarProvider 正向同步、小组件根背景结构、透明专用布局、圆角 RemoteViews 及 Compose 语义回归。`compileDirectDebugAndroidTestKotlin`、Direct / Play Debug 构建与五项 lint / vital lint 同轮成功，DirectDebug、DirectRelease、PlayRelease 报告均为 `No issues found.`
+- 最终质量门补充（2026-07-17）：当前候选代码强制重跑 Direct / Play JVM 各 425 项，均为 0 failures / 0 errors / 0 skipped；API 37 connected 17/17 通过，包含完整 6→10 迁移、编辑恢复、拼音组合态与硬件键盘输入、输入框标签语义、筛选拖拽、小组件多实例、CalendarProvider 正向同步、小组件根背景结构、透明专用布局、圆角 RemoteViews 及 Compose 语义回归。`compileDirectDebugAndroidTestKotlin`、Direct / Play Debug 构建与五项 lint / vital lint 同轮成功，DirectDebug、DirectRelease、PlayRelease 报告均为 `No issues found.`
 - 输入框无障碍补充（2026-07-17）：API 37 新鲜 UI 树复现标题编辑框缺少字段名称并被标记为 `NAF=true`；根因是自定义输入框把“标题 / 备注”渲染为独立视觉文本，却未把标签写入编辑框语义。新增失败测试后为复用组件补齐标签语义，运行时 UI 树不再出现 NAF，旋转回竖屏后标题节点明确为 `content-desc="标题"`、备注节点为 `content-desc="备注"`；聚焦 JVM 6/6 与编辑 connected 2/2 通过。
 - 输入 / TalkBack 复测补充（2026-07-17）：API 37 在 150% 系统字体与真实 Gboard 下输入匿名标题，关闭 / 重开键盘、旋转横屏并旋回后草稿仍保留，顶部栏与表单稳定布局正常；首次改字体时 Gboard 自身的“Keyboard font size updated”横幅会短暂改变输入法高度，横幅关闭后不再复现。内置 TalkBack 17.0.0 已绑定，`touchExplorationEnabled=true`，首页“近期入口”获得真实绿色读屏焦点；`uiautomator dump` 会重启服务，连续自动手势仍不能作为可靠的开关、展开区与日期选择器顺序遍历证据，因此 TalkBack 综合项继续保留未勾选。测试结束已恢复 100% 字体、自动旋转并关闭 TalkBack。
 
