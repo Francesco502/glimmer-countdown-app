@@ -87,6 +87,19 @@ gh auth login
 
 脚本不会覆盖已发布 Release，也不会接管没有 ownership marker 的人工 draft。需要重新发布内容时递增版本号，重新走完整检查清单。
 
+### 隔离 publisher 回归
+
+以下命令只读挂载仓库并禁用容器网络。测试器在容器临时目录创建匿名假 APK，以内存 GitHub REST 状态机运行真实发布脚本；不会读取本机 GitHub 凭据，也不会创建远端 ref、draft、asset 或 Release。
+
+```bash
+docker run --rm --network none --platform linux/amd64 \
+  -v "$PWD:/workspace:ro" -w /workspace \
+  mcr.microsoft.com/powershell:7.5-ubuntu-24.04 \
+  pwsh -NoProfile -File scripts/tests/publish-release-mock-harness.ps1 -Scenario all
+```
+
+必须看到 5/5 通过：新发布成功、锁竞争拒绝、owned draft 恢复、失败后锁清理、清理失败保留残留锁。该回归验证脚本控制流与安全不变量，不替代最终 tag、正式签名产物、真实 GitHub 发布和发布后安装复验。
+
 ## 6. 发布后核对
 
 - Release 标题、标签与说明是否对应 `v4.0`

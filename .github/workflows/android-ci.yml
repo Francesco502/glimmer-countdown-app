@@ -33,6 +33,10 @@ jobs:
       - name: Verify Gradle wrapper mode
         run: test -x ./gradlew
 
+      - name: Test publisher state machine
+        shell: pwsh
+        run: ./scripts/tests/publish-release-mock-harness.ps1 -Scenario all
+
       - name: Test, lint, and build debug channels
         run: >-
           ./gradlew --no-daemon --no-parallel

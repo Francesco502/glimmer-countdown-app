@@ -29,6 +29,8 @@ class ReleaseReadinessTest {
         assertTrue(workflow.contains("lintPlayRelease"))
         assertTrue(workflow.contains("assembleDirectDebug"))
         assertTrue(workflow.contains("assemblePlayDebug"))
+        assertTrue(workflow.contains("shell: pwsh"))
+        assertTrue(workflow.contains("scripts/tests/publish-release-mock-harness.ps1 -Scenario all"))
         assertFalse(workflow.contains("assembleDirectRelease"))
         assertFalse(workflow.contains("GITHUB_TOKEN"))
         assertFalse(workflow.contains("TIMEAPK_KEYSTORE"))
@@ -199,6 +201,14 @@ class ReleaseReadinessTest {
             "docs/RELEASE_CHECKLIST.md",
             "../docs/RELEASE_CHECKLIST.md"
         ).readText(Charsets.UTF_8)
+        val publisherHarness = existingFile(
+            "scripts/tests/publish-release-mock-harness.ps1",
+            "../scripts/tests/publish-release-mock-harness.ps1"
+        ).readText(Charsets.UTF_8)
+        val githubGuide = existingFile(
+            "docs/GITHUB_AND_RELEASE.md",
+            "../docs/GITHUB_AND_RELEASE.md"
+        ).readText(Charsets.UTF_8)
 
         assertTrue(checklist.contains("临时签名配置"))
         assertTrue(checklist.contains("候选提交使用与线上 v3.17 相同的正式发布证书"))
@@ -209,9 +219,16 @@ class ReleaseReadinessTest {
         assertTrue(checklist.contains("证书与线上 v3.17 一致"))
         assertTrue(checklist.contains("保留数据原地升级"))
         assertTrue(checklist.contains("AAB 已通过 bundletool 生成与安装测试"))
-        assertTrue(checklist.contains("PowerShell 脚本运行：未检查"))
+        assertTrue(checklist.contains("PowerShell 脚本运行（2026-07-17）"))
+        assertTrue(checklist.contains("5/5 场景通过"))
         assertTrue(checklist.contains("真实 GitHub mutation：未检查"))
-        assertTrue(checklist.contains("- [ ] publisher 删除 owned draft 中的所有旧资产"))
+        assertTrue(checklist.contains("- [x] publisher 隔离 PowerShell 状态机验证"))
+        assertTrue(publisherHarness.contains("'lock-contention'"))
+        assertTrue(publisherHarness.contains("'owned-draft'"))
+        assertTrue(publisherHarness.contains("'failure-cleanup'"))
+        assertTrue(publisherHarness.contains("'residual-lock'"))
+        assertTrue(publisherHarness.contains(". ${'$'}publisherPath"))
+        assertTrue(githubGuide.contains("--network none"))
         assertTrue(checklist.contains("- [ ] 冷启动、首页滚动、月历切换、详情与设置导航"))
         assertTrue(checklist.contains("- [ ] 从该 tag 对应 commit 的工作树重新正式签名构建"))
         assertTrue(checklist.contains("- [ ] 发布后安装线上 APK 并完成更新检查与关键链路 smoke"))

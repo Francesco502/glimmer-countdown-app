@@ -78,7 +78,7 @@
 - Direct release APK 模拟器与真机 smoke test
 - Direct 渠道 GitHub Release 更新检查
 
-候选提交已使用与线上 v3.17 相同的正式发布证书完成 Direct APK、Play APK 与 Play AAB 构建、签名、权限、哈希及模拟器原地升级验证。该候选产物不能替代最终 tag 构建；PowerShell publisher、真实 GitHub 发布、Play Console 和真机安装升级仍须按清单最终验证。发布流程禁止移动已推送的 `v4.0` tag 或覆盖已发布 Release，GitHub Release 仅上传 exact Direct APK，Play AAB 只交付 Play Console。
+候选提交已使用与线上 v3.17 相同的正式发布证书完成 Direct APK、Play APK 与 Play AAB 构建、签名、权限、哈希及模拟器原地升级验证；PowerShell publisher 的五类隔离状态机场景也已在无网络容器通过。候选产物不能替代最终 tag 构建；真实 GitHub 发布、Play Console 和真机安装升级仍须按清单最终验证。发布流程禁止移动已推送的 `v4.0` tag 或覆盖已发布 Release，GitHub Release 仅上传 exact Direct APK，Play AAB 只交付 Play Console。
 
 正式发布必须在代码与文档提交且工作区干净后推送不可变 tag，再从该 tag commit 新鲜构建和验证签名、渠道权限、SHA-256；不得复用旧产物。publisher 会删除 owned draft 中的所有旧资产，并要求整个 Release 只保留唯一的 exact Direct APK；Play AAB 只交付 Play Console。本地认证使用 `gh auth login` / 脚本内部 `gh auth token`，CI 才从 secret 注入 `GITHUB_TOKEN`，且不得打印凭据。
 

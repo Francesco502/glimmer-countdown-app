@@ -17,7 +17,7 @@
 - [x] 临时签名构建生成 exact Direct APK `app/build/outputs/apk/direct/release/glimmer-countdown-4-0.apk` 与 Play AAB `app/build/outputs/bundle/playRelease/app-play-release.aab`
 - [x] 候选提交使用与线上 v3.17 相同的正式发布证书重建并验证 Direct APK / Play APK / Play AAB 的签名、权限、大小与 SHA-256；最终仍须从不可变 `v4.0` tag 再次新鲜构建
 - [x] Direct Debug APK 包含 `REQUEST_INSTALL_PACKAGES`，Play Debug APK 不包含该权限
-- [ ] publisher 删除 owned draft 中的所有旧资产，且整个 Release 只保留唯一的 exact Direct APK；Play AAB 只交付 Play Console
+- [x] publisher 隔离 PowerShell 状态机验证会删除 owned draft 中的所有旧资产，且整个 Release 只保留唯一的 exact Direct APK；Play AAB 只交付 Play Console
 
 ## 二、数据与核心功能成熟度
 
@@ -62,7 +62,7 @@
 - 系统兼容矩阵（2026-07-16）：Android 8.0 / API 26、Android 12 / API 31 与当前 API 37 均完成 Direct Debug 冷启动、新建事件、首页持久化、主要导航和 4.0 关于页 smoke，未发现崩溃；Android 12 无可写系统日历路径还验证事件主体安全保存。实测发现保存提示曾错误使用 Application 的英文环境，现改由当前界面 Context 解析资源并在同一路径复测为中文。
 - Release 构建（2026-07-16）：以隔离的临时签名配置完成 Direct / Play APK 与 Play AAB，exact Direct 文件名、APK v2 签名及 AAB JAR 签名验证通过；该轮临时证书产物不用于发布，正式证书复测结果见 2026-07-17 记录。
 - 真机：未检查；待记录设备、系统版本、Launcher、小组件、通知、日历账户与安装升级验证。
-- PowerShell 脚本运行：未检查；当前环境没有 `pwsh` / Windows PowerShell，未执行解析或 mocked dry run。
+- PowerShell 脚本运行（2026-07-17）：微软官方 PowerShell 7.5 Ubuntu 容器在 `--network none` 下执行仓库内模拟器，成功、锁竞争、owned draft 恢复、失败清理和残留锁 5/5 场景通过；该结果不等于真实 GitHub mutation。
 - 真实 GitHub mutation：未检查；公开只读查询确认 v3.17 为非草稿、非预发布且只有一个 Direct APK，下载资产的 SHA-256 与 GitHub digest 一致。当前 `gh` 本地令牌已失效，最终发布前必须重新执行 `gh auth login`；本轮未创建 Git ref 锁、draft、asset 或正式 Release。
 - Backup / restore smoke（2026-07-16）：Android 8 / API 26 启用系统 LocalTransport 后完成 `backupnow`、`pm clear` 与指定 token restore；事件数据库、用户偏好和小组件偏好均恢复，两个 DataStore 文件恢复前后 SHA-256 完全一致，恢复后的事件可在界面读取。
 - 输入 / 旋转（2026-07-17）：API 37 新建事件输入标题后旋转到横屏，标题与未保存状态保留，返回仍出现放弃修改确认；编辑链 connected 回归继续验证编辑标题跨 Activity recreate 保留、返回“留在此页”不丢内容、保存落库并返回首页。新增 `EventEntryImeInputTest` 直接经过 Android `InputConnection`：`setComposingText("pin")` 后提交“拼”，再注入硬件数字键得到“拼1”，Activity recreate 与返回确认后内容仍完整；另一条用例确认 IME 已交付的 composing 文本在重建后仍作为草稿保留。运行态将 Gboard 切换到已启用的简体中文拼音子类型，通过系统硬件按键输入 `pin`，真实显示“品 / 拼 / 频”等候选并用空格提交“品”；标题框和顶部摘要均只出现“品”，竖屏→横屏、系统返回、选择“留在此页”及恢复竖屏后内容均未丢失。测试结束恢复英文 Gboard、自动旋转并清除应用数据；完整 connected 套件 17/17 通过。
@@ -82,6 +82,7 @@
 - 输入 / TalkBack 复测补充（2026-07-17）：API 37 在 150% 系统字体与真实 Gboard 下输入匿名标题，关闭 / 重开键盘、旋转横屏并旋回后草稿仍保留，顶部栏与表单稳定布局正常；首次改字体时 Gboard 自身的“Keyboard font size updated”横幅会短暂改变输入法高度，横幅关闭后不再复现。内置 TalkBack 17.0.0 已绑定，`touchExplorationEnabled=true`；首页“卡片”入口真实朗读“已选择、单选按钮、第 1 个，共 3 个”，匿名事件列表项和设置按钮均可通过触摸探索激活，详情页与设置页返回按钮取得绿色读屏焦点。设置页开关经 TalkBack 激活后从“开”变为“关”，展开区从“收起设置分组”变为“展开设置分组”；日期对话框取得真实绿色焦点，语义树将年、月、日暴露为可调节点。新增 connected 回归确定性验证开关角色及“开 / 关”、展开区“已折叠 / 已展开”，并通过无障碍 `SetProgress` 将日期滚轮从 2026-07-17 调至 2027-08-18 后确认回调。Shell 连续滑动注入仍不够稳定，不作为顺序遍历证据；综合真实 TalkBack 激活、焦点与朗读证据及 19/19 语义回归后关闭 TalkBack 检查项。测试结束已恢复 100% 字体、自动旋转、原输入法子类型和关闭 TalkBack，测试包与数据均已清理。
 - 正式签名与升级补充（2026-07-17）：从干净候选提交 `19ec656` 注入仓库外正式签名配置，`validateReleaseSigning` 与 `clean assembleDirectRelease assemblePlayRelease bundlePlayRelease` 成功。Direct APK、Play APK 与 Play AAB 的证书 SHA-256 均为 `3B:7C:B4:26:A8:26:64:F8:91:C6:95:11:CC:25:05:B6:71:28:C8:50:36:64:63:9F:29:72:91:DA:4E:A9:03:CA`，与 GitHub v3.17 唯一 APK 完全一致；两个 APK 均通过 v2 签名验证，AAB 的 `jarsigner -verify` 返回 `jar verified.`，官方 bundletool 1.18.3 的 `validate`、`build-apks` 与模拟器 `install-apks` 全部成功。Direct APK 为 `26,393,406` bytes / `143d816f33148e1a403c7a47b7fce0a0edafea6382668967ec88b6a4314880d3`，Play APK 为 `26,389,242` bytes / `8e5f0fbeebe3e41a69796ce1a172196808c9eeb5127ab61a925b6f12cacdcffd`，Play AAB 为 `38,745,732` bytes / `42b7e5b3a94b443a2a501fc9df534f05a0b1e7aa125e506d4c8107cf25400e40`。Direct / Play 包名分别为 `com.example.timeapk` / `com.example.timeapk.play`，只有 Direct 含 `REQUEST_INSTALL_PACKAGES`；AAB manifest 同样确认 Play 包名且无该权限。
 - 正式升级链路补充（2026-07-17）：下载的线上 v3.17 APK 哈希与 GitHub digest `3319513689f7178306d593c90dd6ce16bb50533d495c0fbab9e2f755ec589c5c` 一致。在 API 37 安装 v3.17、通过 UI 创建匿名事件后，以正式签名 4.0 Direct APK 执行 `adb install -r`；`versionCode` 从 22 升至 23、`firstInstallTime` 保持不变、通知授权与日历拒绝状态保留，首页和详情均能读取原事件。关于页显示“版本 4.0”，真实 GitHub 更新检查返回“已是最新版本”，不会向 3.17 降级。正式 Play APK 可与 Direct 共存，关于页显示“版本 4.0-play / 更新由应用商店管理”；AAB 生成的测试 APK 集也可冷启动。全程 crash buffer 为空，最后卸载两个包、清理匿名数据和设备临时文件，并确认字体、旋转、输入法与 TalkBack 状态恢复。该候选产物不替代最终 `v4.0` tag 新鲜构建与线上安装复验。
+- PowerShell publisher 隔离补充（2026-07-17）：新增 `scripts/tests/publish-release-mock-harness.ps1`，每个场景将发布脚本、版本、变更日志和匿名假 APK 复制到独立临时仓库，用假 `git` / `apksigner` 与内存 GitHub REST 状态机执行真实 `publish-release.ps1`；测试容器使用微软官方 PowerShell 7.5.0、只读输入和 `--network none`。5/5 场景通过：新发布最终只含 exact Direct APK 并清理锁；并发锁 422 在创建 Release 前失败；带旧 ownership marker 的 draft 删除两个旧资产后恢复发布；上传失败保留 draft 但清理锁；上传与清理同时失败时保留残留锁阻止重试。未读取真实凭据、未访问网络、未创建远端 ref / draft / asset / Release。
 
 ## 六、发布动作
 
@@ -102,7 +103,7 @@
 - [x] Play 关于页只显示商店托管更新说明，不暴露 Direct APK 检查或安装入口。
 - [x] Release / update 子系统验收：Direct / Play JVM 各 410 项通过，`compileDirectDebugAndroidTestKotlin` 通过，两个渠道 Debug APK 均成功构建并安装到 API 37 `emulator-5554`；关于页运行时文案与 Debug APK 权限符合渠道约束。
 - [x] 使用正式发布证书重复完整构建、签名、权限、文件大小与 SHA-256 记录；证书与线上 v3.17 一致，正式 Direct APK 已完成保留数据原地升级，AAB 已通过 bundletool 生成与安装测试。
-- [ ] 在隔离测试仓库运行 PowerShell publisher 的成功、并发锁、owned draft 恢复、残留锁与失败清理场景。
+- [x] 在隔离测试仓库运行 PowerShell publisher 的成功、并发锁、owned draft 恢复、残留锁与失败清理场景；无网络 PowerShell 7.5 容器 5/5 通过。
 
 ## Data Task 6 恢复验证（2026-07-16）
 
