@@ -5,54 +5,136 @@ import com.example.timeapk.data.Event
 import com.example.timeapk.data.eventWithScheduleSyncStateIfInputsUnchanged
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
-import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 
 class ScheduleSyncConcurrencyTest {
     @Test
-    fun twoSameEventProviderTransactionsNeverOverlap() {
-        val executor = Executors.newFixedThreadPool(2)
-        val firstEntered = CountDownLatch(1)
-        val releaseFirst = CountDownLatch(1)
-        val secondEntered = CountDownLatch(1)
+    fun twoSameEventProviderTransactionsNeverOverlap() = runBlocking {
+        val firstEntered = CompletableDeferred<Unit>()
+        val releaseFirst = CompletableDeferred<Unit>()
+        val secondEntered = CompletableDeferred<Unit>()
         val active = AtomicInteger(0)
         val maximumActive = AtomicInteger(0)
 
+        val first = async {
+            withScheduleEventProviderLock(41) {
+                val nowActive = active.incrementAndGet()
+                maximumActive.accumulateAndGet(nowActive, ::maxOf)
+                firstEntered.complete(Unit)
+                releaseFirst.await()
+                active.decrementAndGet()
+            }
+        }
+        firstEntered.await()
+        val second = async {
+            withScheduleEventProviderLock(41) {
+                val nowActive = active.incrementAndGet()
+                maximumActive.accumulateAndGet(nowActive, ::maxOf)
+                secondEntered.complete(Unit)
+                active.decrementAndGet()
+            }
+        }
+
+        delay(100)
+        assertFalse(secondEntered.isCompleted)
+        releaseFirst.complete(Unit)
+        withTimeout(5_000) {
+            first.await()
+            second.await()
+        }
+
+        assertEquals(1, maximumActive.get())
+    }
+
+    @Test
+    fun differentEventProviderTransactionsCanRunConcurrently() = runBlocking {
+        val bothEntered = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val active = AtomicInteger(0)
+        val maximumActive = AtomicInteger(0)
+
+        suspend fun enter(eventId: Int) = withScheduleEventProviderLock(eventId) {
+            val nowActive = active.incrementAndGet()
+            maximumActive.accumulateAndGet(nowActive, ::maxOf)
+            if (nowActive == 2) bothEntered.complete(Unit)
+            release.await()
+            active.decrementAndGet()
+        }
+
+        val first = async { enter(41) }
+        val second = async { enter(42) }
+        withTimeout(5_000) { bothEntered.await() }
+        release.complete(Unit)
+        first.await()
+        second.await()
+
+        assertEquals(2, maximumActive.get())
+    }
+
+    @Test
+    fun cancellationWhileWaitingNeverEntersProviderTransaction() = runBlocking {
+        val firstEntered = CompletableDeferred<Unit>()
+        val releaseFirst = CompletableDeferred<Unit>()
+        val waiterStarted = CompletableDeferred<Unit>()
+        var cancelledTransactionEntered = false
+
+        val first = launch {
+            withScheduleEventProviderLock(43) {
+                firstEntered.complete(Unit)
+                releaseFirst.await()
+            }
+        }
+        firstEntered.await()
+        val cancelledWaiter = launch {
+            waiterStarted.complete(Unit)
+            withScheduleEventProviderLock(43) {
+                cancelledTransactionEntered = true
+            }
+        }
+        waiterStarted.await()
+        delay(100)
+        cancelledWaiter.cancelAndJoin()
+        releaseFirst.complete(Unit)
+        first.join()
+        delay(100)
+
+        assertFalse(cancelledTransactionEntered)
+    }
+
+    @Test
+    fun callerThreadNeverRunsBlockingProviderTransaction() = runBlocking {
+        val callerDispatcher = Executors.newSingleThreadExecutor { runnable ->
+            Thread(runnable, "schedule-sync-test-main")
+        }.asCoroutineDispatcher()
         try {
-            val first = executor.submit {
-                withScheduleEventProviderLock(41) {
-                    val nowActive = active.incrementAndGet()
-                    maximumActive.accumulateAndGet(nowActive, ::maxOf)
-                    firstEntered.countDown()
-                    assertTrue(releaseFirst.await(5, TimeUnit.SECONDS))
-                    active.decrementAndGet()
-                }
-            }
-            assertTrue(firstEntered.await(5, TimeUnit.SECONDS))
-            val second = executor.submit {
-                withScheduleEventProviderLock(41) {
-                    val nowActive = active.incrementAndGet()
-                    maximumActive.accumulateAndGet(nowActive, ::maxOf)
-                    secondEntered.countDown()
-                    active.decrementAndGet()
+            var callerThread = ""
+            var transactionThread = ""
+            withContext(callerDispatcher) {
+                callerThread = Thread.currentThread().name
+                withScheduleEventProviderLock(44) {
+                    transactionThread = Thread.currentThread().name
                 }
             }
 
-            assertFalse(secondEntered.await(150, TimeUnit.MILLISECONDS))
-            releaseFirst.countDown()
-            first.get(5, TimeUnit.SECONDS)
-            second.get(5, TimeUnit.SECONDS)
-
-            assertEquals(1, maximumActive.get())
+            assertTrue(callerThread.startsWith("schedule-sync-test-main"))
+            assertNotEquals(callerThread, transactionThread)
         } finally {
-            releaseFirst.countDown()
-            executor.shutdownNow()
+            callerDispatcher.close()
         }
     }
 
@@ -100,7 +182,7 @@ class ScheduleSyncConcurrencyTest {
     }
 
     @Test
-    fun backgroundSyncUsesAtomicScheduleOnlyPersistenceAndRetriesCasMisses() {
+    fun backgroundSyncUsesAtomicScheduleOnlyPersistenceAndRepairsCasMisses() {
         val dao = source("data/EventDao.kt")
         val repository = source("data/EventRepository.kt")
         val reminderWorker = source("notifications/ReminderWorker.kt")
@@ -135,7 +217,9 @@ class ScheduleSyncConcurrencyTest {
         assertFalse(reminderWorker.contains("repository.updateEvent(updatedEvent)"))
         assertFalse(rescheduleWorker.contains("repository.updateEvent(updatedEvent)"))
         assertFalse(milestoneScheduler.contains("app.repository.updateEvent(updatedEvent)"))
-        assertTrue(reminderWorker.contains("Result.retry()"))
+        assertFalse(reminderWorker.contains("Result.retry()"))
+        assertTrue(reminderWorker.contains("REMINDER_DELIVERY_REPAIR_REASON"))
+        assertTrue(reminderWorker.contains("RescheduleAllWorker.enqueue("))
         assertTrue(rescheduleWorker.contains("shouldRetry = true"))
         assertTrue(milestoneScheduler.contains("EVENT_CHANGED_DURING_SCHEDULE_SYNC"))
     }
@@ -145,16 +229,20 @@ class ScheduleSyncConcurrencyTest {
         val manager = source("notifications/ScheduleSyncManager.kt")
         val coordinator = source("notifications/ScheduleEventCoordinator.kt")
 
-        assertTrue(coordinator.contains("ConcurrentHashMap<Int, ReentrantLock>()"))
+        assertTrue(coordinator.contains("ConcurrentHashMap<Int, Mutex>()"))
+        assertTrue(coordinator.contains("suspend fun <T> withScheduleEventProviderLock("))
         assertTrue(coordinator.contains("withScheduleEventProviderLock("))
-        val regularSync = manager.substringAfter("fun syncReminderSeries(")
+        assertTrue(coordinator.contains("withContext(Dispatchers.IO)"))
+        assertFalse(coordinator.contains("ReentrantLock"))
+        assertFalse(coordinator.contains("runBlocking"))
+        val regularSync = manager.substringAfter("suspend fun syncReminderSeries(")
             .substringBefore("private fun syncReminderSeriesLocked(")
         assertTrue(regularSync.contains("withScheduleEventProviderLock(event.id)"))
         listOf(
-            "fun insertMilestoneScheduleReminderAttempt(",
-            "fun clearMilestoneScheduleRemindersByEventId(",
-            "fun removeScheduleReminderByEventId(context:",
-            "fun removeManagedCalendarEntries("
+            "suspend fun insertMilestoneScheduleReminderAttempt(",
+            "suspend fun clearMilestoneScheduleRemindersByEventId(",
+            "suspend fun removeScheduleReminderByEventId(",
+            "suspend fun removeManagedCalendarEntries("
         ).forEach { entrypoint ->
             val body = manager.substringAfter(entrypoint).substringBefore("\n    }")
             assertTrue(entrypoint, body.contains("withScheduleEventProviderLock(eventId)"))

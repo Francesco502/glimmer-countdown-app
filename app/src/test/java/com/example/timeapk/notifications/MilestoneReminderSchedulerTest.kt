@@ -96,7 +96,7 @@ class MilestoneReminderSchedulerTest {
     }
 
     @Test
-    fun durableMilestoneInsertion_premarksBeforeProviderAttempt() {
+    fun durableMilestoneInsertion_premarksBeforeProviderAttempt() = runBlocking {
         val calls = mutableListOf<String>()
 
         val result = insertMilestoneWithDurableOwnership(
@@ -129,7 +129,7 @@ class MilestoneReminderSchedulerTest {
     }
 
     @Test
-    fun durableMilestoneInsertion_nullProviderInsertClearsPremark() {
+    fun durableMilestoneInsertion_nullProviderInsertClearsPremark() = runBlocking {
         var ownershipPending = false
 
         val result = insertMilestoneWithDurableOwnership(
@@ -163,7 +163,7 @@ class MilestoneReminderSchedulerTest {
     }
 
     @Test
-    fun durableMilestoneInsertion_exceptionRetainsPremarkForRepair() {
+    fun durableMilestoneInsertion_exceptionRetainsPremarkForRepair() = runBlocking {
         var ownershipPending = false
 
         val result = insertMilestoneWithDurableOwnership(
@@ -194,7 +194,7 @@ class MilestoneReminderSchedulerTest {
     }
 
     @Test
-    fun durableMilestoneInsertion_failedPremarkSkipsProvider() {
+    fun durableMilestoneInsertion_failedPremarkSkipsProvider() = runBlocking {
         var insertionCalled = false
 
         val result = insertMilestoneWithDurableOwnership(
@@ -222,7 +222,7 @@ class MilestoneReminderSchedulerTest {
     }
 
     @Test
-    fun durableMilestoneInsertion_successTransitionsInflightToActive() {
+    fun durableMilestoneInsertion_successTransitionsInflightToActive() = runBlocking {
         val exactIds = mutableSetOf<Int>()
         val inflightIds = mutableSetOf<Int>()
 
@@ -256,7 +256,7 @@ class MilestoneReminderSchedulerTest {
     }
 
     @Test
-    fun durableMilestoneInsertion_transitionCommitFailureRetainsInflightAndReportsFailure() {
+    fun durableMilestoneInsertion_transitionCommitFailureRetainsInflightAndReportsFailure() = runBlocking {
         var exactOwnershipPending = false
         var inflightRecoveryPending = false
 
@@ -298,7 +298,7 @@ class MilestoneReminderSchedulerTest {
     }
 
     @Test
-    fun missingInflightAtTransition_isRestoredAndReportedAsFailure() {
+    fun missingInflightAtTransition_isRestoredAndReportedAsFailure() = runBlocking {
         var exactOwnershipPending = true
         var inflightRecoveryPending = false
 

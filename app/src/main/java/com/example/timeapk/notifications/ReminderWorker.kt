@@ -15,6 +15,17 @@ import com.example.timeapk.TimeApplication
 import com.example.timeapk.ui.home.eventAfterCleanupAttempt
 import kotlinx.coroutines.flow.first
 
+internal const val REMINDER_DELIVERY_REPAIR_REASON = "reminder_delivery_schedule_state_conflict"
+
+internal fun completeReminderDeliveryScheduleRepair(
+    scheduleStatePersisted: Boolean,
+    enqueueRepair: (String) -> Unit
+) {
+    if (!scheduleStatePersisted) {
+        enqueueRepair(REMINDER_DELIVERY_REPAIR_REASON)
+    }
+}
+
 class ReminderWorker(
     context: Context,
     params: WorkerParameters
@@ -59,7 +70,11 @@ class ReminderWorker(
             nm.notify(NOTIFICATION_ID_BASE + eventId, notification)
         }
 
-        return if (rescheduleNextReminder(eventId)) Result.success() else Result.retry()
+        completeReminderDeliveryScheduleRepair(
+            scheduleStatePersisted = rescheduleNextReminder(eventId),
+            enqueueRepair = { reason -> RescheduleAllWorker.enqueue(applicationContext, reason) }
+        )
+        return Result.success()
     }
 
     private fun canPostNotifications(): Boolean {

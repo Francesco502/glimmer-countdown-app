@@ -18,12 +18,13 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.time.LocalDate
 import java.time.ZoneId
+import kotlinx.coroutines.runBlocking
 
 @RunWith(AndroidJUnit4::class)
 class ScheduleSyncManagerInstrumentationTest {
 
     @Test
-    fun writableCalendar_createUpdateDisableAndCleanup_preservesProviderOwnership() {
+    fun writableCalendar_createUpdateDisableAndCleanup_preservesProviderOwnership() = runBlocking {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
         val accountName = "timeapk_connected_${System.currentTimeMillis()}"

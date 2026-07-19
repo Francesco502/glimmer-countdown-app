@@ -3,6 +3,8 @@ package com.example.timeapk.notifications
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.SharedPreferences
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 internal enum class MilestoneCleanupScope {
     EVENT,
@@ -317,17 +319,22 @@ internal object MilestoneCalendarOwnershipStore {
     }
 }
 
-internal fun clearPendingMilestoneCalendarOwnership(
+internal suspend fun clearPendingMilestoneCalendarOwnership(
     context: Context,
     eventId: Int
-): CalendarCleanupResult = MilestoneCalendarOwnershipStore.clearEventIfPending(context, eventId) {
-    ScheduleSyncManager.clearMilestoneScheduleRemindersByEventId(context, eventId)
+): CalendarCleanupResult = withScheduleEventProviderLock(eventId) {
+    MilestoneCalendarOwnershipStore.clearEventIfPending(context, eventId) {
+        ScheduleSyncManager.clearMilestoneScheduleRemindersByEventIdLocked(context, eventId)
+    }
 }
 
-internal fun clearAllPendingMilestoneCalendarOwnership(context: Context): CalendarCleanupResult =
+internal suspend fun clearAllPendingMilestoneCalendarOwnership(
+    context: Context
+): CalendarCleanupResult = withContext(Dispatchers.IO) {
     MilestoneCalendarOwnershipStore.clearAllIfPending(context) {
-        ScheduleSyncManager.clearAllMilestoneScheduleReminders(context)
+        ScheduleSyncManager.clearAllMilestoneScheduleRemindersBlocking(context)
     }
+}
 
 internal fun recordManagedCalendarCleanupForMilestoneOwnership(
     context: Context,

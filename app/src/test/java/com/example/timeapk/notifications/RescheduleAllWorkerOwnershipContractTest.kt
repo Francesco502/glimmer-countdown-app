@@ -78,7 +78,7 @@ class RescheduleAllWorkerOwnershipContractTest {
     }
 
     @Test
-    fun removedEventCleanupFailure_keepsFingerprintStatePendingForRetry() {
+    fun removedEventCleanupFailure_keepsFingerprintStatePendingForRetry() = kotlinx.coroutines.runBlocking {
         val previous = RescheduleState(
             preferencesFingerprint = "prefs-old",
             eventFingerprints = mapOf(41 to "orphan", 42 to "active-old"),

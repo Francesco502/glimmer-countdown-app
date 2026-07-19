@@ -602,6 +602,8 @@ class HomeViewModel(
                 repository.updateEvent(updatedEvent)
                 val milestoneResult = try {
                     syncMilestoneReminderForEvent(application, updatedEvent)
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
                 } catch (error: Exception) {
                     enqueueMilestoneScheduleRetry(application)
                     throw error
@@ -617,6 +619,8 @@ class HomeViewModel(
                     repository.updateEvent(milestoneUpdatedEvent)
                 }
                 WidgetUpdater.refreshCountdownWidgets(application)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (_: Exception) {
                 // Ignore duplicate key or persistence failures during restore.
             }

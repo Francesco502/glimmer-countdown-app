@@ -16,6 +16,7 @@ import com.example.timeapk.data.REPEAT_YEARLY
 import com.example.timeapk.ui.home.getMilestoneLabel
 import com.example.timeapk.ui.utils.eventDateToLocalDate
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.time.LocalDate
@@ -61,18 +62,20 @@ internal suspend fun <T> withMilestoneEventSyncLock(
     transaction()
 }
 
-internal fun insertMilestoneWithDurableOwnership(
+internal suspend fun insertMilestoneWithDurableOwnership(
     markPendingDurably: () -> Boolean,
     clearPendingDurably: () -> Boolean,
     transitionInflightToActiveDurably: () -> Boolean,
     restoreInflightDurably: () -> Boolean,
-    insertion: () -> MilestoneCalendarInsertionAttempt,
+    insertion: suspend () -> MilestoneCalendarInsertionAttempt,
     insertionFailure: (Throwable) -> ScheduleSyncManager.MilestoneScheduleSyncResult,
     registryFailure: () -> ScheduleSyncManager.MilestoneScheduleSyncResult
 ): ScheduleSyncManager.MilestoneScheduleSyncResult {
     if (!markPendingDurably()) return registryFailure()
     val attempt = try {
         insertion()
+    } catch (cancelled: CancellationException) {
+        throw cancelled
     } catch (t: Throwable) {
         return insertionFailure(t)
     }
@@ -268,6 +271,8 @@ private suspend fun persistMilestoneScheduleStatus(
                     )
                 )
             }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (t: Throwable) {
             Log.w(TAG, "Failed to persist milestone schedule status for eventId=${event.id}", t)
             return scheduleResult.copy(
@@ -321,7 +326,7 @@ internal suspend fun rescheduleMilestoneReminders(application: Application): Mil
     return result
 }
 
-private fun scheduleMilestoneReminderForEvent(
+private suspend fun scheduleMilestoneReminderForEvent(
     context: android.content.Context,
     event: Event,
     milestones: List<Long>,

@@ -33,6 +33,7 @@ import com.example.timeapk.ui.home.calendarCleanupRequired
 import com.example.timeapk.ui.home.eventAfterCleanupAttempt
 import com.example.timeapk.notifications.eventAfterScheduleSyncAttempt
 import com.example.timeapk.widget.WidgetUpdater
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -270,6 +271,8 @@ class EventEntryViewModel(
                     scheduleSyncError = syncResult.error
                 }
                 eventAfterScheduleSyncAttempt(persistedEvent, syncResult)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (t: Exception) {
                 Log.w(TAG, "Calendar sync crashed for eventId=${persistedEvent.id}", t)
                 scheduleSyncError = "Schedule sync failed"
@@ -372,6 +375,8 @@ class EventEntryViewModel(
                     }
                 }
             }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (t: Exception) {
             Log.w(TAG, "Failed to sync milestone reminders for eventId=${updatedEvent.id}", t)
             hasGenericSideEffectFailure = true

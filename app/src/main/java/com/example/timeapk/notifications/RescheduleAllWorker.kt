@@ -17,13 +17,14 @@ import com.example.timeapk.data.Event
 import com.example.timeapk.ui.home.calendarCleanupRequired
 import com.example.timeapk.ui.home.eventAfterCleanupAttempt
 import com.example.timeapk.widget.WidgetUpdater
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import org.json.JSONObject
 import java.security.MessageDigest
 
-internal fun cleanupRemovedCalendarEntries(
+internal suspend fun cleanupRemovedCalendarEntries(
     removedEventIds: Iterable<Int>,
-    cleanup: (Int) -> CalendarCleanupResult
+    cleanup: suspend (Int) -> CalendarCleanupResult
 ): Map<Int, CalendarCleanupResult> {
     val failures = linkedMapOf<Int, CalendarCleanupResult>()
     removedEventIds.forEach { eventId ->
@@ -109,6 +110,8 @@ class RescheduleAllWorker(
                             calendarEventId = null
                         )
                     )
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
                 } catch (t: Throwable) {
                     Log.w(TAG, "Failed to cleanup removed event $removedId", t)
                     CalendarCleanupResult.ProviderFailure(
@@ -142,6 +145,8 @@ class RescheduleAllWorker(
                                 "Event changed during schedule sync for eventId=${event.id}; retrying"
                             )
                         }
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
                     } catch (t: Throwable) {
                         shouldRetry = true
                         Log.w(TAG, "Failed to persist event sync state for eventId=${event.id}", t)
@@ -157,6 +162,8 @@ class RescheduleAllWorker(
                         shouldRetry = true
                         Log.w(TAG, "Failed to clear all milestone reminders: ${cleanup.message}")
                     }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
                 } catch (t: Throwable) {
                     shouldRetry = true
                     Log.w(TAG, "Failed to clear all milestone reminders", t)
@@ -165,6 +172,8 @@ class RescheduleAllWorker(
 
             try {
                 WidgetUpdater.refreshCountdownWidgets(applicationContext)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (t: Throwable) {
                 shouldRetry = true
                 Log.w(TAG, "Failed to refresh widgets after reschedule", t)
@@ -187,6 +196,8 @@ class RescheduleAllWorker(
                 )
                 Result.success()
             }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (t: Throwable) {
             Log.w(TAG, "RescheduleAllWorker failed unexpectedly (reason=$reason)", t)
             Result.retry()
@@ -208,6 +219,8 @@ class RescheduleAllWorker(
             if (event.remindEnabled) {
                 scheduleReminder(applicationContext, event)
             }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (t: Throwable) {
             onFailure(t)
         }
@@ -275,6 +288,8 @@ class RescheduleAllWorker(
                     onFailure(IllegalStateException(cleanup.message ?: "Calendar cleanup failed"))
                 }
             }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (t: Throwable) {
             onFailure(t)
         }

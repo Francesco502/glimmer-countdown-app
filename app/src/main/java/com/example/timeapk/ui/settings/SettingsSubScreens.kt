@@ -2043,6 +2043,8 @@ fun DataSettingsContent(
                         cleanupResult = cleanup
                     )
                 }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (_: Exception) {
                 hasWarning = true
                 null
@@ -2071,6 +2073,8 @@ fun DataSettingsContent(
                 if (!milestoneResult.isSuccess) {
                     warningCount += 1
                 }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (_: Exception) {
                 warningCount += 1
                 enqueueMilestoneScheduleRetry(context)
