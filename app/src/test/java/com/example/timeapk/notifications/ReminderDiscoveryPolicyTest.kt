@@ -4,8 +4,11 @@ import com.example.timeapk.data.CATEGORY_OTHER
 import com.example.timeapk.data.Event
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertThrows
 import org.junit.Test
+import kotlinx.coroutines.CancellationException
 
 class ReminderDiscoveryPolicyTest {
     @Test
@@ -117,6 +120,40 @@ class ReminderDiscoveryPolicyTest {
         assertEquals(183L, result.primaryScheduleEventId)
         assertEquals(5L, result.targetCalendarId)
         assertEquals(0, queryCalls)
+    }
+
+    @Test
+    fun discoveryCancellationEscapesUnchanged() {
+        val cancellation = CancellationException("cancel reminder discovery")
+
+        val actual = assertThrows(CancellationException::class.java) {
+            discoverExistingReminderEntries(
+                readGranted = true,
+                queryDescriptionCandidates = { throw cancellation },
+                queryMetadataCandidates = { error("Metadata query must not run") },
+                eventId = 7
+            )
+        }
+
+        assertSame(cancellation, actual)
+    }
+
+    @Test
+    fun blankProviderMessagesUseStableNonblankDiscoveryFallback() {
+        listOf(null, "", "   ").forEach { providerMessage ->
+            val discovery = discoverExistingReminderEntries(
+                readGranted = true,
+                queryDescriptionCandidates = { throw IllegalStateException(providerMessage) },
+                queryMetadataCandidates = { error("Metadata query must not run") },
+                eventId = 7
+            )
+            val result = syncAfterReminderDiscovery(ownedEvent(), 999L, discovery) {
+                error("Provider mutation must not run after discovery failure")
+            }
+
+            assertEquals("Calendar provider discovery failed", result.error)
+            assertTrue(result.error?.isNotBlank() == true)
+        }
     }
 
     private fun ownedEvent() = Event(

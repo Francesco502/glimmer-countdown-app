@@ -48,6 +48,28 @@ internal sealed interface ReminderDiscoveryResult {
     data class Failure(val error: String) : ReminderDiscoveryResult
 }
 
+private fun providerDiscoveryFailureMessage(error: Throwable): String =
+    error.message
+        ?.takeIf(String::isNotBlank)
+        ?.take(180)
+        ?: "Calendar provider discovery failed"
+
+internal fun executeCalendarMetadataWrite(
+    write: () -> Boolean,
+    onPermissionFailure: (SecurityException) -> Unit,
+    onProviderFailure: (Throwable) -> Unit
+): Boolean = try {
+    write()
+} catch (permission: SecurityException) {
+    onPermissionFailure(permission)
+    false
+} catch (cancelled: CancellationException) {
+    throw cancelled
+} catch (t: Throwable) {
+    onProviderFailure(t)
+    false
+}
+
 internal fun discoverExistingReminderEntries(
     readGranted: Boolean,
     queryDescriptionCandidates: () -> List<ReminderDiscoveryDescriptionCandidate>?,
@@ -97,10 +119,10 @@ internal fun discoverExistingReminderEntries(
         ReminderDiscoveryResult.Success(entries)
     } catch (_: SecurityException) {
         ReminderDiscoveryResult.Failure("Calendar permission denied")
+    } catch (cancelled: CancellationException) {
+        throw cancelled
     } catch (t: Throwable) {
-        ReminderDiscoveryResult.Failure(
-            (t.message ?: "Calendar provider discovery failed").take(180)
-        )
+        ReminderDiscoveryResult.Failure(providerDiscoveryFailureMessage(t))
     }
 }
 
@@ -150,9 +172,7 @@ internal fun discoverWritableCalendars(
     } catch (cancelled: CancellationException) {
         throw cancelled
     } catch (t: Throwable) {
-        WritableCalendarDiscoveryResult.Failure(
-            (t.message ?: "Calendar provider discovery failed").take(180)
-        )
+        WritableCalendarDiscoveryResult.Failure(providerDiscoveryFailureMessage(t))
     }
 }
 
@@ -949,6 +969,8 @@ object ScheduleSyncManager {
 
             ids.forEach(gateway::deleteEvent)
             CalendarCleanupResult.RemovedOrNotPresent
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (t: Exception) {
             calendarCleanupFailureFor(t)
         }
@@ -1314,31 +1336,40 @@ object ScheduleSyncManager {
 
     private fun upsertExtendedProperties(context: Context, eventId: Long, properties: Map<String, String>): Boolean {
         if (!hasCalendarWriteAccess(context)) return false
-        return try {
-            properties.forEach { (name, value) ->
-                context.contentResolver.delete(
-                    CalendarContract.ExtendedProperties.CONTENT_URI,
-                    "${CalendarContract.ExtendedProperties.EVENT_ID} = ? AND ${CalendarContract.ExtendedProperties.NAME} = ?",
-                    arrayOf(eventId.toString(), name)
+        return executeCalendarMetadataWrite(
+            write = metadataWrite@{
+                for ((name, value) in properties) {
+                    context.contentResolver.delete(
+                        CalendarContract.ExtendedProperties.CONTENT_URI,
+                        "${CalendarContract.ExtendedProperties.EVENT_ID} = ? AND ${CalendarContract.ExtendedProperties.NAME} = ?",
+                        arrayOf(eventId.toString(), name)
+                    )
+                    val values = ContentValues().apply {
+                        put(CalendarContract.ExtendedProperties.EVENT_ID, eventId)
+                        put(CalendarContract.ExtendedProperties.NAME, name)
+                        put(CalendarContract.ExtendedProperties.VALUE, value)
+                    }
+                    val inserted = context.contentResolver.insert(
+                        CalendarContract.ExtendedProperties.CONTENT_URI,
+                        values
+                    )
+                    if (inserted == null) {
+                        return@metadataWrite false
+                    }
+                }
+                true
+            },
+            onPermissionFailure = { permission ->
+                Log.w(TAG, "No calendar permission when writing extended properties", permission)
+            },
+            onProviderFailure = { providerFailure ->
+                Log.w(
+                    TAG,
+                    "Failed to write extended properties for eventId=$eventId",
+                    providerFailure
                 )
-                val values = ContentValues().apply {
-                    put(CalendarContract.ExtendedProperties.EVENT_ID, eventId)
-                    put(CalendarContract.ExtendedProperties.NAME, name)
-                    put(CalendarContract.ExtendedProperties.VALUE, value)
-                }
-                val inserted = context.contentResolver.insert(CalendarContract.ExtendedProperties.CONTENT_URI, values)
-                if (inserted == null) {
-                    return false
-                }
             }
-            true
-        } catch (t: SecurityException) {
-            Log.w(TAG, "No calendar permission when writing extended properties", t)
-            false
-        } catch (t: Throwable) {
-            Log.w(TAG, "Failed to write extended properties for eventId=$eventId", t)
-            false
-        }
+        )
     }
 
     private fun insertEventAndReminder(context: Context, values: ContentValues): Long? {

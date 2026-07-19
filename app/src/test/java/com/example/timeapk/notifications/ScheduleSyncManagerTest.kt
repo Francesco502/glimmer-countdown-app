@@ -6,10 +6,13 @@ import com.example.timeapk.data.Event
 import com.example.timeapk.data.REPEAT_MONTHLY
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertThrows
 import org.junit.Test
 import java.time.LocalDate
 import java.time.ZoneId
+import kotlinx.coroutines.CancellationException
 
 class ScheduleSyncManagerTest {
 
@@ -196,6 +199,38 @@ class ScheduleSyncManagerTest {
             CalendarCleanupResult.ProviderFailure("cursor broken"),
             ScheduleSyncManager.removeManagedCalendarEntries(brokenCursor, 1, null)
         )
+    }
+
+    @Test
+    fun managedCalendarCleanupCancellationEscapesUnchanged() {
+        val cancellation = CancellationException("cancel managed cleanup")
+        val gateway = populatedCleanupGateway().apply {
+            descriptionFailure = cancellation
+        }
+
+        val actual = assertThrows(CancellationException::class.java) {
+            ScheduleSyncManager.removeManagedCalendarEntries(gateway, 1, null)
+        }
+
+        assertSame(cancellation, actual)
+        assertTrue(gateway.deleted.isEmpty())
+    }
+
+    @Test
+    fun calendarMetadataWriteCancellationEscapesWithoutWarning() {
+        val cancellation = CancellationException("cancel metadata write")
+        var warningCount = 0
+
+        val actual = assertThrows(CancellationException::class.java) {
+            executeCalendarMetadataWrite(
+                write = { throw cancellation },
+                onPermissionFailure = { warningCount += 1 },
+                onProviderFailure = { warningCount += 1 }
+            )
+        }
+
+        assertSame(cancellation, actual)
+        assertEquals(0, warningCount)
     }
 
     @Test

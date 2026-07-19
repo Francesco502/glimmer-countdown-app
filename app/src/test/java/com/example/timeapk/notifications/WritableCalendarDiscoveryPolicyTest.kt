@@ -3,8 +3,11 @@ package com.example.timeapk.notifications
 import com.example.timeapk.data.CATEGORY_OTHER
 import com.example.timeapk.data.Event
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertThrows
 import org.junit.Test
+import kotlinx.coroutines.CancellationException
 
 class WritableCalendarDiscoveryPolicyTest {
     @Test
@@ -78,6 +81,33 @@ class WritableCalendarDiscoveryPolicyTest {
         assertTrue(discovery is WritableCalendarDiscoveryResult.Success)
         assertEquals(ScheduleSyncManager.ERROR_NO_WRITABLE_CALENDAR, result.error)
         assertEquals(1, cleanupCalls)
+    }
+
+    @Test
+    fun writableDiscoveryCancellationEscapesUnchanged() {
+        val cancellation = CancellationException("cancel writable discovery")
+
+        val actual = assertThrows(CancellationException::class.java) {
+            discoverWritableCalendars(
+                queryDetailed = { throw cancellation },
+                queryLegacy = { error("Legacy query must not run") }
+            )
+        }
+
+        assertSame(cancellation, actual)
+    }
+
+    @Test
+    fun blankWritableProviderMessagesUseStableNonblankFallback() {
+        listOf(null, "", "   ").forEach { providerMessage ->
+            val discovery = discoverWritableCalendars(
+                queryDetailed = { throw IllegalStateException(providerMessage) },
+                queryLegacy = { error("Legacy query must not run") }
+            ) as WritableCalendarDiscoveryResult.Failure
+
+            assertEquals("Calendar provider discovery failed", discovery.error)
+            assertTrue(discovery.error.isNotBlank())
+        }
     }
 
     private fun ownedEvent() = Event(
