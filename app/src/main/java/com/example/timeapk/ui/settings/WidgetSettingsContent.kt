@@ -780,7 +780,8 @@ private fun widgetConfigSummary(config: WidgetConfig): String {
         stringResource(R.string.widget_config_size_summary, config.widthCells, config.heightCells),
         stringResource(R.string.widget_config_percent, config.backgroundOpacityPercent),
         stringResource(contrastLabelRes(config.contrastMode)),
-        stringResource(densityLabelRes(config.densityMode))
+        stringResource(densityLabelRes(config.densityMode)),
+        stringResource(sortLabelRes(config.sortMode))
     ).joinToString(" / ")
 }
 
@@ -804,6 +805,13 @@ private fun densityLabelRes(value: Int): Int = when (value) {
     DENSITY_COMPACT -> R.string.widget_config_density_compact
     DENSITY_COMFORTABLE -> R.string.widget_config_density_comfortable
     else -> R.string.widget_config_density_standard
+}
+
+private fun sortLabelRes(value: Int): Int = when (value) {
+    SORT_HOME -> R.string.widget_config_sort_home
+    SORT_PINNED_FIRST -> R.string.widget_config_sort_pinned
+    SORT_NEAREST_FIRST -> R.string.widget_config_sort_nearest
+    else -> R.string.widget_config_sort_home
 }
 
 private fun contrastLabelRes(value: Int): Int = when (value) {

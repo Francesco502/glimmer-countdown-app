@@ -319,6 +319,8 @@ class SongUiSourceConsistencyTest {
         val source = readSource("ui/home/HomeScreen.kt")
         val menuBlock = source.substringAfter("private fun HomeOverflowPanel(")
             .substringBefore("@Composable\nprivate fun TimelineActionTileGrid")
+        val slipBlock = source.substringAfter("private fun SongActionSlip(")
+            .substringBefore("@Composable\nprivate fun SongActionSlipFoldDecoration")
 
         assertTrue(source.contains("HomeOverflowPanel("))
         assertTrue(menuBlock.contains("SongActionSlip("))
@@ -328,6 +330,8 @@ class SongUiSourceConsistencyTest {
         assertFalse(menuBlock.contains("SongActionSlipItem("))
         assertFalse(menuBlock.contains("DropdownMenu("))
         assertFalse(menuBlock.contains("DropdownMenuItem("))
+        assertTrue(slipBlock.contains("backgroundColor = MaterialTheme.colorScheme.surface"))
+        assertFalse(slipBlock.contains("backgroundColor = MaterialTheme.colorScheme.surface.copy"))
     }
 
     @Test

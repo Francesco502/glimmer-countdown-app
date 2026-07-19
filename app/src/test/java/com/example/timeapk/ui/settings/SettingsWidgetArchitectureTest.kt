@@ -145,7 +145,12 @@ class SettingsWidgetArchitectureTest {
         assertTrue(summaryBody.contains("widget_config_percent"))
         assertTrue(summaryBody.contains("contrastLabelRes(config.contrastMode)"))
         assertTrue(summaryBody.contains("densityLabelRes(config.densityMode)"))
+        assertTrue(summaryBody.contains("sortLabelRes(config.sortMode)"))
         assertFalse(summaryBody.contains("contentScopeLabelRes"))
+
+        assertTrue(widgetSettings.contains("SORT_HOME -> R.string.widget_config_sort_home"))
+        assertTrue(widgetSettings.contains("SORT_PINNED_FIRST -> R.string.widget_config_sort_pinned"))
+        assertTrue(widgetSettings.contains("SORT_NEAREST_FIRST -> R.string.widget_config_sort_nearest"))
     }
 
     @Test

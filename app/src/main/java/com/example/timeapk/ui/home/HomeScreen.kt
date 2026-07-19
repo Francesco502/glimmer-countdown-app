@@ -883,7 +883,7 @@ private fun SongActionSlip(
             .widthIn(min = 228.dp, max = 276.dp)
             .heightIn(max = 420.dp)
             .padding(end = 8.dp),
-        backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+        backgroundColor = MaterialTheme.colorScheme.surface,
         borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.26f)
     ) {
         Box {
