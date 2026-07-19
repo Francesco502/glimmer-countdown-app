@@ -11,7 +11,7 @@
 - [x] `README.md`、`CHANGELOG.md` 与发布文档均明确 4.0 尚未发布
 - [x] `git diff --check` 未发现尾随空格或冲突标记
 - [x] `./gradlew testDirectDebugUnitTest testPlayDebugUnitTest` 通过
-- [x] `./gradlew compileDirectDebugAndroidTestKotlin` 通过
+- [x] `./gradlew compileDirectDebugAndroidTestKotlin compilePlayDebugAndroidTestKotlin` 通过
 - [x] `./gradlew lintDirectDebug lintDirectRelease lintPlayRelease lintVitalDirectRelease lintVitalPlayRelease` 通过且无未解释 warning
 - [x] 使用隔离的临时签名配置执行 `assembleDirectRelease assemblePlayRelease bundlePlayRelease` 通过，证明构建与签名门可工作
 - [x] 临时签名构建生成 exact Direct APK `app/build/outputs/apk/direct/release/glimmer-countdown-4-0.apk` 与 Play AAB `app/build/outputs/bundle/playRelease/app-play-release.aab`
@@ -90,9 +90,13 @@
 - 4.0 截图补充（2026-07-17）：重新导入 3.17 导出的 22 条脱敏事件并制作首页纸笺、月历、设置与小组件设置四张当前候选截图；逐张确认仅含 `Event 01`–`Event 22` 脱敏标题，README 已切换至 `docs/screenshots/4.0`。
 - 日历清理可靠性补充（2026-07-17）：提交 `f2617c6`–`a9c0db6` 修复此前被忽略的 `CalendarCleanupResult`，清理失败不再继续重建或持久化成功指纹；活动 / 写入中 ownership 登记、v3.17 旧数据首次扫描、事件级互斥、插入中断恢复与同步 `SharedPreferences.commit()` 失败回滚均有 JVM 回归。提醒保存触发的修复会强制全量重排，通知 Worker 不再通过自取消重试制造重复通知。独立代码复核结论为通过，未增加外部 API、未修改 Room schema，也未迁移既有事件字段。
 - 最新自动质量门补充（2026-07-17）：在最终生产代码 `a9c0db6` 上新鲜运行 Direct / Play JVM 各 487 项，均为 0 failures / 0 errors / 0 skipped；完整 API 37 connected 套件 20/20、`compileDirectDebugAndroidTestKotlin` 及五项 lint / vital lint 均通过，DirectDebug、DirectRelease、PlayRelease 三份报告均为 `No issues found.`。`LocalePreferenceMirror` 的 KTX 写入不再产生 `UseKtx` issue；日历 ownership 登记因必须检查同步 `commit()` 返回值，仅在最小作用域保留有理由的 suppression。仓库外临时 QA 证书构建只用于验证打包路径，不得发布，也不替代最终 `v4.0` tag 的正式证书新鲜构建。
+- 4.0 审计修复最终复验（2026-07-19，候选 `4f08149`）：强制新鲜运行 Direct / Play JVM 各 493 项，均为 0 failures / 0 errors / 0 skipped；`compileDirectDebugAndroidTestKotlin compilePlayDebugAndroidTestKotlin` 与 `lintDirectDebug lintDirectRelease lintPlayRelease lintVitalDirectRelease lintVitalPlayRelease` 均成功，三份完整 lint 报告均为 `No issues found.`。API 37 `emulator-5554`（Android 17，`google/sdk_gphone16k_arm64/emu64a16k:17/CP21.260330.005/15181570:userdebug/dev-keys`）清除历史异签名测试包后完整 connected 套件 20/20 通过；首次安装因旧 QA 证书不兼容在 0 tests 前被拒绝，清理包状态后的整套重跑为最终证据。
+- 4.0 审计修复临时打包复验（2026-07-19）：只使用 `/tmp/timeapk-v4-remediation-20260719-115312/signing/` 下两天有效的自签 QA 证书运行 `assembleDirectRelease assemblePlayRelease bundlePlayRelease`，三项均成功。exact Direct APK `glimmer-countdown-4-0.apk` 为 26,404,914 bytes / SHA-256 `b81da03ef3f938d657011540f54c1353dc35116ed5f1114b2f948d41364fa3cc`；Play APK 为 26,400,954 bytes / `2fcdf71be93e17f2c8d966656385977327d1f93618112917fd8b43aed8d866a1`；Play AAB 为 38,780,385 bytes / `35729d79d73541962fda9cbfb1b7e0017d3b82e2d1fe9dc639804020333c5ca0`。两个 APK 均通过 v2 验签且证书 SHA-256 同为 `eb5f3e74185c6ac72bf40d97cfe1c816c8b97ba6563d8560e34d933010c966dc`；Direct 为 `com.example.timeapk` / `4.0` 并含 `REQUEST_INSTALL_PACKAGES`，Play 为 `com.example.timeapk.play` / `4.0-play` 且 APK / AAB manifest 均不含该权限；AAB ZIP 完整性与 JAR 签名验证成功。临时证书、自签链及 JDK 对 AAB 的 JarInputStream 一致性 warning 均已记录，该产物不得发布。
+- 4.0 审计修复运行态复验（2026-07-19）：以 QA 签名 Direct Release 在 Asia/Hong_Kong 的 API 37 设备从清空数据启动，UI 树显示新事件日期为本地当天 `2026.07.19`，提醒与“同步到系统日程”均默认“关”；普通事件落笔直接返回首页且未出现权限对话框，最终 `READ_CALENDAR` / `WRITE_CALENDAR` 均为 `granted=false`、app-op `ignore`。首页切换“按剩余天数”后卡片直接显示排序指标“正当此时”；溢出面板截图确认表面不透出底层卡片；折叠的小组件默认配置摘要为 `2x2 / 75% / 自动文字 / 标准 / 跟随首页`，明确包含排序模式。深色及深色 + 150% 系统字体下，首页、溢出面板与折叠小组件摘要无结构性溢出，长文本只在既定边界内换行或省略。所有点击与滚动区域均来自对应步骤 UI 树；crash buffer 为空，logcat 无应用 FATAL / ANR。证据保存在 `/tmp/timeapk-v4-remediation-20260719-115312/`；测试后已恢复浅色、100% 字体并卸载 QA 包。
 
 ## 六、发布动作
 
+- [ ] 在至少一台物理手机完成最终安装 / 升级、通知、日历与 Launcher 小组件 smoke
 - [ ] 合并经过复核的 4.0 发布分支
 - [ ] 确认最终代码与发布文档已提交，且工作区干净
 - [ ] 创建并推送不可变的 exact `v4.0` tag
@@ -101,6 +105,7 @@
 - [ ] 准备安全凭据环境：本地使用 `gh auth login` / `gh auth token`；CI 才注入 secret 且不打印
 - [ ] 以 `CHANGELOG.md` 中的 4.0 小节作为 Release Notes
 - [ ] 运行发布脚本，发布 `glimmer-countdown-4-0.apk`，确认不存在 Play APK / AAB 或任何其他资产
+- [ ] 在 Play Console 上传并验证最终 tag 新鲜构建的 Play AAB
 - [ ] 发布后安装线上 APK 并完成更新检查与关键链路 smoke
 
 ## Release / Update Task 4 验证（2026-07-16）

@@ -27,6 +27,7 @@ Thumbs.db
 *.hprof
 
 # Internal and temporary workspace data
+.superpowers/
 .trae/
 .cursor/
 .gradle-user-home/
