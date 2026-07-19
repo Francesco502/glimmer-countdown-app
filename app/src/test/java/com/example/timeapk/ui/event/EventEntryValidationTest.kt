@@ -187,7 +187,8 @@ class EventEntryValidationTest {
                 timeMinutesOfDay = 10 * 60
             ),
             initialCategory = CATEGORY_ANNIVERSARY,
-            nowMillis = millis
+            nowMillis = millis,
+            zoneId = ZoneOffset.UTC
         )
 
         assertEquals(CATEGORY_ANNIVERSARY, details.category)
