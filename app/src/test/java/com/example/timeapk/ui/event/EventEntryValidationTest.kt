@@ -18,6 +18,8 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneId
 import java.time.ZoneOffset
 
 class EventEntryValidationTest {
@@ -197,6 +199,31 @@ class EventEntryValidationTest {
     }
 
     @Test
+    fun buildNewEventDetails_encodesTheCurrentLocalDateAtUtcMidnight() {
+        assertNewEventDate(
+            zoneId = ZoneId.of("Asia/Hong_Kong"),
+            localTime = LocalDateTime.of(2026, 7, 18, 1, 58)
+        )
+        assertNewEventDate(
+            zoneId = ZoneId.of("America/Los_Angeles"),
+            localTime = LocalDateTime.of(2026, 7, 18, 23, 58)
+        )
+    }
+
+    @Test
+    fun newEventDefaultsCalendarSyncOff_whilePersistedEventDetailsPreserveIt() {
+        assertFalse(EventDetails().syncToScheduleEnabled)
+        assertTrue(
+            Event(
+                title = "Persisted event",
+                date = 0,
+                category = CATEGORY_OTHER,
+                syncToScheduleEnabled = true
+            ).toEventDetails().syncToScheduleEnabled
+        )
+    }
+
+    @Test
     fun buildNewEventDetails_fallsBackToOtherCategoryAndSanitizesReminderValues() {
         val details = buildNewEventDetails(
             defaultReminderSettings = DefaultEventReminderSettings(
@@ -269,4 +296,23 @@ class EventEntryValidationTest {
         scheduleEventId = scheduleEventId,
         targetCalendarId = targetCalendarId
     )
+
+    private fun assertNewEventDate(zoneId: ZoneId, localTime: LocalDateTime) {
+        val nowMillis = localTime.atZone(zoneId).toInstant().toEpochMilli()
+
+        val details = buildNewEventDetails(
+            defaultReminderSettings = DefaultEventReminderSettings(),
+            nowMillis = nowMillis,
+            zoneId = zoneId
+        )
+
+        assertEquals(
+            LocalDate.of(2026, 7, 18)
+                .atStartOfDay(ZoneOffset.UTC)
+                .toInstant()
+                .toEpochMilli(),
+            details.date
+        )
+        assertEquals(nowMillis, details.createdAt)
+    }
 }

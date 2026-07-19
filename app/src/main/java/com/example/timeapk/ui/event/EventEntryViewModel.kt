@@ -38,7 +38,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.ZoneOffset
 import kotlin.random.Random
 
@@ -118,13 +120,19 @@ internal fun resolvePartialSaveMessageResId(
 internal fun buildNewEventDetails(
     defaultReminderSettings: DefaultEventReminderSettings,
     initialCategory: String? = null,
-    nowMillis: Long = System.currentTimeMillis()
+    nowMillis: Long = System.currentTimeMillis(),
+    zoneId: ZoneId = ZoneId.systemDefault()
 ): EventDetails {
     val resolvedCategory = initialCategory
         .takeIf { it in listOf(CATEGORY_BIRTHDAY, CATEGORY_ANNIVERSARY, CATEGORY_OTHER) }
         ?: CATEGORY_OTHER
     return EventDetails(
-        date = nowMillis,
+        date = Instant.ofEpochMilli(nowMillis)
+            .atZone(zoneId)
+            .toLocalDate()
+            .atStartOfDay(ZoneOffset.UTC)
+            .toInstant()
+            .toEpochMilli(),
         category = resolvedCategory,
         remindDaysBefore = sanitizeRemindDaysBefore(defaultReminderSettings.daysBefore),
         reminderTimeMinutesOfDay = sanitizeReminderTimeMinutesOfDay(defaultReminderSettings.timeMinutesOfDay),
@@ -441,7 +449,7 @@ data class EventDetails(
     val remindDaysBefore: Int = 0,
     val reminderTimeMinutesOfDay: Int = 480,
     val remindEnabled: Boolean = false,
-    val syncToScheduleEnabled: Boolean = true,
+    val syncToScheduleEnabled: Boolean = false,
     val scheduleEventId: Long? = null,
     val targetCalendarId: Long? = null,
     val lastScheduleSyncAt: Long? = null,
