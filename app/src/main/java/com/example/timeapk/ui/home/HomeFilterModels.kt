@@ -4,6 +4,8 @@ import com.example.timeapk.data.CATEGORY_ANNIVERSARY
 import com.example.timeapk.data.CATEGORY_BIRTHDAY
 import com.example.timeapk.data.CATEGORY_OTHER
 import com.example.timeapk.data.Event
+import com.example.timeapk.data.REPEAT_NONE
+import com.example.timeapk.ui.utils.DisplayModes
 
 enum class FilterType { All, Birthday, Anniversary, Other }
 
@@ -19,6 +21,16 @@ internal fun homeCardDragSortEnabled(sortType: SortType): Boolean = sortType == 
 
 internal fun homeUsesListLevelReorderDetection(sortType: SortType): Boolean =
     false
+
+internal fun resolveHomeDateDeltaDisplayMode(
+    sortType: SortType,
+    requestedMode: Int,
+    eventState: EventUiState
+): Int = when {
+    sortType != SortType.ByDays -> requestedMode
+    eventState.event.repeatType == REPEAT_NONE && eventState.isPast -> DisplayModes.PAST_DAYS
+    else -> DisplayModes.UNTIL_DAYS
+}
 
 internal fun mergeVisibleOrderIntoGlobalOrder(
     globalIds: List<Int>,

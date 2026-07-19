@@ -461,6 +461,7 @@ fun HomeScreen(
                                                         eventState = eventState,
                                                         today = today,
                                                         dateFormatter = dateFormatter,
+                                                        sortType = sortType,
                                                         dateDeltaDisplayMode = cardDisplayMode,
                                                         onToggleDateDeltaDisplayMode = {
                                                             val availableModes = getAvailableDisplayModes(eventState, showMilestone = true)
@@ -494,6 +495,7 @@ fun HomeScreen(
                                                     EventListItem(
                                                         eventState = eventState,
                                                         today = today,
+                                                        sortType = sortType,
                                                         dateDeltaDisplayMode = itemDisplayMode,
                                                         onToggleDateDeltaDisplayMode = {
                                                             val availableModes = getAvailableDisplayModes(eventState, showMilestone = true)
@@ -1318,6 +1320,7 @@ fun EventCard(
     eventState: EventUiState,
     today: LocalDate,
     dateFormatter: DateTimeFormatter,
+    sortType: SortType,
     dateDeltaDisplayMode: Int,
     onToggleDateDeltaDisplayMode: () -> Unit,
     onClick: () -> Unit,
@@ -1379,9 +1382,15 @@ fun EventCard(
     val isToday = eventState.daysRemaining == 0L && !eventState.isPast
     val todayLabel = stringResource(R.string.days_today_label)
 
+    val resolvedDateDeltaDisplayMode = resolveHomeDateDeltaDisplayMode(
+        sortType = sortType,
+        requestedMode = dateDeltaDisplayMode,
+        eventState = eventState
+    )
     val availableModes = getAvailableDisplayModes(eventState, showMilestone)
-    val modeIndex = availableModes.indexOf(dateDeltaDisplayMode)
-    val mode = if (modeIndex != -1) dateDeltaDisplayMode else availableModes.first()
+    val modeIndex = availableModes.indexOf(resolvedDateDeltaDisplayMode)
+    val mode = if (modeIndex != -1) resolvedDateDeltaDisplayMode else availableModes.first()
+    val dateDeltaToggleEnabled = sortType != SortType.ByDays && tapNavigationEnabled
 
     val displayContent: String
     val displayUnit: String
@@ -1571,7 +1580,7 @@ fun EventCard(
                     .widthIn(min = 72.dp)
                     .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                     .then(
-                        if (tapNavigationEnabled) {
+                        if (dateDeltaToggleEnabled) {
                             Modifier.clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = LocalIndication.current,
@@ -1581,10 +1590,16 @@ fun EventCard(
                             Modifier
                         }
                     )
-                    .semantics {
-                        role = Role.Button
-                        contentDescription = toggleDateDeltaDescription
-                    },
+                    .then(
+                        if (dateDeltaToggleEnabled) {
+                            Modifier.semantics {
+                                role = Role.Button
+                                contentDescription = toggleDateDeltaDescription
+                            }
+                        } else {
+                            Modifier
+                        }
+                    ),
                 contentAlignment = Alignment.CenterEnd
             ) {
                 Column(
@@ -1631,6 +1646,7 @@ fun EventCard(
 private fun EventListItem(
     eventState: EventUiState,
     today: LocalDate,
+    sortType: SortType,
     dateDeltaDisplayMode: Int,
     onToggleDateDeltaDisplayMode: () -> Unit,
     onClick: () -> Unit,
@@ -1657,9 +1673,15 @@ private fun EventListItem(
     val todayLabel = stringResource(R.string.days_today_label)
     val locale = androidx.compose.ui.platform.LocalContext.current.resources.configuration.locales[0]
 
+    val resolvedDateDeltaDisplayMode = resolveHomeDateDeltaDisplayMode(
+        sortType = sortType,
+        requestedMode = dateDeltaDisplayMode,
+        eventState = eventState
+    )
     val availableModes = getAvailableDisplayModes(eventState, showMilestone = true)
-    val modeIndex = availableModes.indexOf(dateDeltaDisplayMode)
-    val mode = if (modeIndex != -1) dateDeltaDisplayMode else availableModes.first()
+    val modeIndex = availableModes.indexOf(resolvedDateDeltaDisplayMode)
+    val mode = if (modeIndex != -1) resolvedDateDeltaDisplayMode else availableModes.first()
+    val dateDeltaToggleEnabled = sortType != SortType.ByDays && tapNavigationEnabled
 
     val labelText: String
     val daysDisplay: String
@@ -1819,7 +1841,7 @@ private fun EventListItem(
                 },
                 labelColor = itemContentColor.copy(alpha = 0.64f),
                 contentDescription = stringResource(R.string.cd_toggle_date_delta_display),
-                enabled = tapNavigationEnabled,
+                enabled = dateDeltaToggleEnabled,
                 onClick = onToggleDateDeltaDisplayMode
             )
         }
@@ -1856,10 +1878,16 @@ private fun CompactEventTime(
                     Modifier
                 }
             )
-            .semantics {
-                role = Role.Button
-                this.contentDescription = contentDescription
-            },
+            .then(
+                if (enabled) {
+                    Modifier.semantics {
+                        role = Role.Button
+                        this.contentDescription = contentDescription
+                    }
+                } else {
+                    Modifier
+                }
+            ),
         horizontalAlignment = Alignment.End,
         verticalArrangement = Arrangement.Center
     ) {
