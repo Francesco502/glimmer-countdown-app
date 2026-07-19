@@ -71,6 +71,9 @@ class EventEditRecreationTest {
 
         composeRule.onNode(hasSetTextAction() and hasText(UPDATED_TITLE)).assertExists()
         pressBack()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodes(hasText(discardTitle)).fetchSemanticsNodes().isNotEmpty()
+        }
         composeRule.onNodeWithText(discardTitle).assertExists()
         composeRule.onNodeWithText(stayLabel).performClick()
         composeRule.onNode(hasSetTextAction() and hasText(UPDATED_TITLE)).assertExists()
