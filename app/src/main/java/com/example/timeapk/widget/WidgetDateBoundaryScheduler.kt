@@ -44,8 +44,8 @@ internal object WidgetDateBoundaryScheduler {
     }
 
     private fun pendingIntent(context: Context): PendingIntent {
-        val intent = Intent(context, CountdownAppWidgetProvider::class.java)
-            .setAction(CountdownAppWidgetProvider.ACTION_REFRESH_DATE_BOUNDARY)
+        val intent = Intent(context, WidgetRefreshReceiver::class.java)
+            .setAction(WidgetRefreshReceiver.ACTION_REFRESH_DATE_BOUNDARY)
         return PendingIntent.getBroadcast(
             context,
             REQUEST_CODE,

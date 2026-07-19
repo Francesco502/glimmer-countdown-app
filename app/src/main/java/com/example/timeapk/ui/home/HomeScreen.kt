@@ -23,6 +23,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
@@ -100,7 +102,7 @@ import org.burnoutcrew.reorderable.rememberReorderableLazyListState
 import org.burnoutcrew.reorderable.reorderable
 import org.burnoutcrew.reorderable.ReorderableItem
 
-private val HomeOverflowActionItemHeight = 42.dp
+private val HomeOverflowActionItemHeight = 48.dp
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -866,7 +868,7 @@ private data class TimelineActionTileSpec(
     val onClick: () -> Unit
 )
 
-private data class SongActionOptionSpec(
+internal data class SongActionOptionSpec(
     val label: String,
     val selected: Boolean,
     val onClick: () -> Unit
@@ -1058,8 +1060,11 @@ private fun TimelineActionTile(
 }
 
 @Composable
-private fun SongActionOptionGrid(items: List<SongActionOptionSpec>) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+internal fun SongActionOptionGrid(items: List<SongActionOptionSpec>) {
+    Column(
+        modifier = Modifier.selectableGroup(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
         items.chunked(2).forEach { rowItems ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1102,7 +1107,11 @@ private fun SongActionOptionTile(
                 else MaterialTheme.colorScheme.surface.copy(alpha = 0.22f),
                 shape
             )
-            .clickable(onClick = spec.onClick)
+            .selectable(
+                selected = spec.selected,
+                onClick = spec.onClick,
+                role = Role.RadioButton
+            )
             .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

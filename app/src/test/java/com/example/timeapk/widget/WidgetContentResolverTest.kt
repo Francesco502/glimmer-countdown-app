@@ -146,6 +146,49 @@ class WidgetContentResolverTest {
     }
 
     @Test
+    fun filterAndSortStates_duplicatePinnedIdsNeverDuplicateWidgetRows() {
+        val states = listOf(
+            Event(
+                id = 1,
+                title = "first",
+                date = epochMillisOf(LocalDate.now().plusDays(8)),
+                category = CATEGORY_OTHER
+            ),
+            Event(
+                id = 2,
+                title = "second",
+                date = epochMillisOf(LocalDate.now().plusDays(4)),
+                category = CATEGORY_OTHER
+            ),
+            Event(
+                id = 3,
+                title = "third",
+                date = epochMillisOf(LocalDate.now().plusDays(2)),
+                category = CATEGORY_OTHER
+            )
+        ).map { it.toEventUiState() }
+        val duplicatePins = listOf(2, 2, 1, 2, 1)
+
+        val homeOrder = WidgetContentResolver.filterAndSortStates(
+            states = states,
+            config = WidgetConfig.default().copy(sortMode = SORT_HOME),
+            pinnedEventIds = duplicatePins,
+            customEventOrder = listOf(3, 1, 2),
+            homeSortType = SortType.Custom
+        )
+        val pinnedFirst = WidgetContentResolver.filterAndSortStates(
+            states = states,
+            config = WidgetConfig.default().copy(sortMode = SORT_PINNED_FIRST),
+            pinnedEventIds = duplicatePins,
+            customEventOrder = emptyList(),
+            homeSortType = SortType.ByDays
+        )
+
+        assertEquals(listOf(2, 1, 3), homeOrder.map { it.event.id })
+        assertEquals(listOf(2, 1, 3), pinnedFirst.map { it.event.id })
+    }
+
+    @Test
     fun filterAndSortStates_followHomeByDays_matchesHomeForExportedEvents_andKeepsPinsFirst() {
         val states = exportedEvents().map { it.toEventUiState() }
         val pinnedIds = listOf(4, 6)

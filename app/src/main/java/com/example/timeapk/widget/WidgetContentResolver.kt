@@ -137,8 +137,9 @@ internal object WidgetContentResolver {
         pinnedEventIds: List<Int>
     ): List<EventUiState> {
         if (pinnedEventIds.isEmpty()) return states
-        val pinnedSet = pinnedEventIds.toSet()
-        val pinned = pinnedEventIds.mapNotNull { id -> states.find { it.event.id == id } }
+        val normalizedPinnedEventIds = pinnedEventIds.distinct()
+        val pinnedSet = normalizedPinnedEventIds.toSet()
+        val pinned = normalizedPinnedEventIds.mapNotNull { id -> states.find { it.event.id == id } }
         val unpinned = states.filter { it.event.id !in pinnedSet }
         return pinned + unpinned
     }

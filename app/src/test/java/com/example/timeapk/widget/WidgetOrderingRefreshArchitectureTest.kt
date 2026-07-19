@@ -8,30 +8,39 @@ import java.io.File
 
 class WidgetOrderingRefreshArchitectureTest {
     @Test
-    fun clockChangeRefreshIsAnExplicitProviderBroadcastWithOwnedAsyncLifetime() {
+    fun clockChangeRefreshUsesNonExportedInternalReceiverWithOwnedAsyncLifetime() {
         val provider = mainSource("widget/CountdownAppWidgetProvider.kt").readText(Charsets.UTF_8)
+        val internalReceiver = mainSource("widget/WidgetRefreshReceiver.kt").readText(Charsets.UTF_8)
         val rescheduler = mainSource("notifications/RescheduleBroadcastReceiver.kt").readText(Charsets.UTF_8)
+        val manifest = manifestSource().readText(Charsets.UTF_8)
         val clockChangeBranch = rescheduler.substringAfter("Intent.ACTION_TIME_CHANGED")
             .substringBefore("RescheduleAllWorker.enqueue")
-        val receive = provider.substringAfter("override fun onReceive(")
+        val receive = internalReceiver.substringAfter("override fun onReceive(")
+        val providerReceive = provider.substringAfter("override fun onReceive(")
             .substringBefore("override fun onUpdate(")
+        val internalManifestReceiver = manifest.substringAfter("android:name=\".widget.WidgetRefreshReceiver\"")
+            .substringBefore("</receiver>")
 
         assertFalse(rescheduler.contains("refreshAllWidgets("))
-        assertTrue(provider.contains("ACTION_REFRESH_CLOCK_CHANGED"))
-        assertTrue(clockChangeBranch.contains("Intent(context, CountdownAppWidgetProvider::class.java)"))
-        assertTrue(clockChangeBranch.contains(".setAction(CountdownAppWidgetProvider.ACTION_REFRESH_CLOCK_CHANGED)"))
+        assertTrue(internalReceiver.contains("ACTION_REFRESH_CLOCK_CHANGED"))
+        assertTrue(clockChangeBranch.contains("Intent(context, WidgetRefreshReceiver::class.java)"))
+        assertTrue(clockChangeBranch.contains(".setAction(WidgetRefreshReceiver.ACTION_REFRESH_CLOCK_CHANGED)"))
         assertTrue(clockChangeBranch.contains("context.sendBroadcast"))
         assertTrue(receive.contains("ACTION_REFRESH_CLOCK_CHANGED"))
         assertTrue(receive.contains("if (action != ACTION_REFRESH_CLOCK_CHANGED)"))
         assertTrue(receive.contains("launchRefresh("))
         assertTrue(receive.contains("goAsync()"))
         assertTrue(receive.substringAfter("ACTION_REFRESH_CLOCK_CHANGED").contains("if (appWidgetIds.isEmpty()) return"))
+        assertFalse(providerReceive.contains("ACTION_REFRESH_CLOCK_CHANGED"))
+        assertFalse(providerReceive.contains("ACTION_REFRESH_DATE_BOUNDARY"))
+        assertTrue(internalManifestReceiver.contains("android:exported=\"false\""))
     }
 
     @Test
     fun widgetDateBoundaryAlarmIsExplicitAndRearmedAcrossLifecycleAndClockChanges() {
         val manifest = manifestSource().readText(Charsets.UTF_8)
         val provider = mainSource("widget/CountdownAppWidgetProvider.kt").readText(Charsets.UTF_8)
+        val internalReceiver = mainSource("widget/WidgetRefreshReceiver.kt").readText(Charsets.UTF_8)
         val scheduler = mainSource("widget/WidgetDateBoundaryScheduler.kt").readText(Charsets.UTF_8)
         val rescheduler = mainSource("notifications/RescheduleBroadcastReceiver.kt").readText(Charsets.UTF_8)
         val application = mainSource("TimeApplication.kt").readText(Charsets.UTF_8)
@@ -42,8 +51,8 @@ class WidgetOrderingRefreshArchitectureTest {
         val configurationCallback = application.substringAfter("override fun onConfigurationChanged(")
             .substringBefore("private fun refreshWidgetsOnThemeChange(")
         assertTrue(configurationCallback.contains("refreshWidgetsOnThemeChange()"))
-        assertTrue(scheduler.contains("Intent(context, CountdownAppWidgetProvider::class.java)"))
-        assertTrue(scheduler.contains(".setAction(CountdownAppWidgetProvider.ACTION_REFRESH_DATE_BOUNDARY)"))
+        assertTrue(scheduler.contains("Intent(context, WidgetRefreshReceiver::class.java)"))
+        assertTrue(scheduler.contains(".setAction(WidgetRefreshReceiver.ACTION_REFRESH_DATE_BOUNDARY)"))
         assertTrue(scheduler.contains("PendingIntent.FLAG_UPDATE_CURRENT"))
         assertTrue(scheduler.contains("PendingIntent.FLAG_IMMUTABLE"))
         assertTrue(scheduler.contains("AlarmManager.RTC_WAKEUP"))
@@ -62,9 +71,9 @@ class WidgetOrderingRefreshArchitectureTest {
             val section = provider.substringAfter(callback).substringBefore("override fun", provider.substringAfter(callback))
             assertTrue("$callback must maintain the date-boundary alarm", section.contains("WidgetDateBoundaryScheduler"))
         }
-        assertTrue(provider.contains("ACTION_REFRESH_DATE_BOUNDARY"))
-        assertTrue(provider.substringAfter("ACTION_REFRESH_DATE_BOUNDARY").contains("launchRefresh("))
-        assertTrue(provider.substringAfter("ACTION_REFRESH_DATE_BOUNDARY").contains("scheduleOrCancel("))
+        assertTrue(internalReceiver.contains("ACTION_REFRESH_DATE_BOUNDARY"))
+        assertTrue(internalReceiver.substringAfter("ACTION_REFRESH_DATE_BOUNDARY").contains("launchRefresh("))
+        assertTrue(internalReceiver.substringAfter("ACTION_REFRESH_DATE_BOUNDARY").contains("scheduleOrCancel("))
 
         listOf(
             "Intent.ACTION_BOOT_COMPLETED",

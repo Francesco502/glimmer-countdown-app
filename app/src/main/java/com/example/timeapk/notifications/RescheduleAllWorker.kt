@@ -134,7 +134,14 @@ class RescheduleAllWorker(
                 }
                 if (updatedEvent != null && updatedEvent != event) {
                     try {
-                        repository.updateEvent(updatedEvent)
+                        val persisted = repository.updateScheduleSyncState(event, updatedEvent)
+                        if (!persisted) {
+                            shouldRetry = true
+                            Log.w(
+                                TAG,
+                                "Event changed during schedule sync for eventId=${event.id}; retrying"
+                            )
+                        }
                     } catch (t: Throwable) {
                         shouldRetry = true
                         Log.w(TAG, "Failed to persist event sync state for eventId=${event.id}", t)
@@ -240,7 +247,11 @@ class RescheduleAllWorker(
 
         try {
             if (milestoneEnabled) {
-                val milestoneResult = syncMilestoneReminderForEvent(app, updatedEvent)
+                val milestoneResult = syncMilestoneReminderForEvent(
+                    application = app,
+                    event = updatedEvent,
+                    persistScheduleStatus = false
+                )
                 updatedEvent = eventAfterMilestoneScheduleSyncAttempt(updatedEvent, milestoneResult)
                 if (!milestoneResult?.error.isNullOrBlank()) {
                     onFailure(IllegalStateException(milestoneResult?.error))

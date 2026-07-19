@@ -28,6 +28,7 @@ private const val MILESTONE_REMIND_TAG = "milestone_remind"
 private const val MILESTONE_WORK_PREFIX = "milestone_event_"
 private const val TAG = "MilestoneScheduler"
 private const val MILESTONE_ERROR_PREFIX = "[Milestone] "
+internal const val EVENT_CHANGED_DURING_SCHEDULE_SYNC = "Event changed during schedule sync"
 private val milestoneEventSyncLocks = ConcurrentHashMap<Int, Mutex>()
 private val SMART_MILESTONE_REMIND_VALUES = listOf(
     1L, 3L, 7L, 14L, 30L, 60L, 90L, 100L, 180L, 365L, 520L, 730L, 1000L
@@ -184,7 +185,8 @@ internal suspend fun syncMilestoneReminderForEvent(
     application: Application,
     event: Event,
     calendarCleanupHandledExternally: Boolean = false,
-    origin: MilestoneSyncOrigin = MilestoneSyncOrigin.CALLER
+    origin: MilestoneSyncOrigin = MilestoneSyncOrigin.CALLER,
+    persistScheduleStatus: Boolean = true
 ): ScheduleSyncManager.MilestoneScheduleSyncResult? {
     val app = application as? TimeApplication ?: return null
     val context = application
@@ -208,8 +210,11 @@ internal suspend fun syncMilestoneReminderForEvent(
                 lastSyncAt = System.currentTimeMillis(),
                 error = cleanupResult.message ?: "Calendar cleanup failed"
             )
-            persistMilestoneScheduleStatus(app, event, failure)
-            failure
+            if (persistScheduleStatus) {
+                persistMilestoneScheduleStatus(app, event, failure)
+            } else {
+                failure
+            }
         },
         replacement = {
             val enabled = app.userPrefs.milestoneRemindEnabledFlow.first()
@@ -231,9 +236,14 @@ internal suspend fun syncMilestoneReminderForEvent(
                 targetCalendarId = preferredCalendarId
             )
             if (scheduleResult != null) {
-                persistMilestoneScheduleStatus(app, event, scheduleResult)
+                if (persistScheduleStatus) {
+                    persistMilestoneScheduleStatus(app, event, scheduleResult)
+                } else {
+                    scheduleResult
+                }
+            } else {
+                null
             }
-            scheduleResult
         }
         )
     }
@@ -243,20 +253,35 @@ private suspend fun persistMilestoneScheduleStatus(
     app: TimeApplication,
     event: Event,
     scheduleResult: ScheduleSyncManager.MilestoneScheduleSyncResult
-) {
-    if (!event.syncToScheduleEnabled && scheduleResult.error.isNullOrBlank()) return
+): ScheduleSyncManager.MilestoneScheduleSyncResult {
+    if (!event.syncToScheduleEnabled && scheduleResult.error.isNullOrBlank()) return scheduleResult
 
     val updatedEvent = eventAfterMilestoneScheduleSyncAttempt(event, scheduleResult)
     if (updatedEvent != event) {
         try {
-            app.repository.updateEvent(updatedEvent)
+            if (!app.repository.updateScheduleSyncState(event, updatedEvent)) {
+                Log.w(TAG, "$EVENT_CHANGED_DURING_SCHEDULE_SYNC for eventId=${event.id}; retrying")
+                return scheduleResult.copy(
+                    error = mergeScheduleSyncErrors(
+                        scheduleResult.error,
+                        EVENT_CHANGED_DURING_SCHEDULE_SYNC
+                    )
+                )
+            }
         } catch (t: Throwable) {
             Log.w(TAG, "Failed to persist milestone schedule status for eventId=${event.id}", t)
+            return scheduleResult.copy(
+                error = mergeScheduleSyncErrors(
+                    scheduleResult.error,
+                    t.message ?: "Schedule state persistence failed"
+                )
+            )
         }
     }
     if (!scheduleResult.error.isNullOrBlank()) {
         Log.w(TAG, "Milestone schedule sync warning for eventId=${event.id}: ${scheduleResult.error}")
     }
+    return scheduleResult
 }
 
 internal suspend fun rescheduleMilestoneReminders(application: Application): MilestoneRescheduleResult {

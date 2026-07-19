@@ -111,6 +111,20 @@ internal fun resolveHomeSortSelectionUpdate(selectedSortType: Int): HomeSortSele
     )
 }
 
+internal fun parsePinnedEventIds(raw: String): List<Int> {
+    if (raw.isBlank()) return emptyList()
+    return try {
+        val arr = JSONArray(raw)
+        List(arr.length()) { index -> arr.optInt(index) }
+            .filter { it != 0 }
+            .distinct()
+    } catch (_: Exception) {
+        emptyList()
+    }
+}
+
+internal fun encodePinnedEventIds(ids: List<Int>): String = JSONArray(ids.distinct()).toString()
+
 class UserPreferencesRepository(private val context: Context) {
     val themeModeFlow: Flow<Int> = context.dataStore.data.map { it[THEME_MODE] ?: THEME_FOLLOW_SYSTEM }
     val filterTypeFlow: Flow<Int> = context.dataStore.data.map { it[FILTER_TYPE] ?: 0 }
@@ -148,7 +162,7 @@ class UserPreferencesRepository(private val context: Context) {
         parseCustomEventOrder(prefs[CUSTOM_EVENT_ORDER_JSON] ?: "")
     }
     val pinnedEventIdsFlow: Flow<List<Int>> = context.dataStore.data.map { prefs ->
-        parseCustomEventOrder(prefs[PINNED_EVENT_IDS_JSON] ?: "")
+        parsePinnedEventIds(prefs[PINNED_EVENT_IDS_JSON] ?: "")
     }
     val customMilestonesFlow: Flow<List<Long>> = context.dataStore.data.map { prefs ->
         parseMilestonesJson(prefs[CUSTOM_MILESTONES_JSON])
@@ -318,9 +332,9 @@ class UserPreferencesRepository(private val context: Context) {
 
     suspend fun togglePinnedEventId(eventId: Int) {
         context.dataStore.edit { prefs ->
-            val current = parseCustomEventOrder(prefs[PINNED_EVENT_IDS_JSON] ?: "")
+            val current = parsePinnedEventIds(prefs[PINNED_EVENT_IDS_JSON] ?: "")
             val next = if (eventId in current) current.filter { it != eventId } else listOf(eventId) + current
-            prefs[PINNED_EVENT_IDS_JSON] = JSONArray(next).toString()
+            prefs[PINNED_EVENT_IDS_JSON] = encodePinnedEventIds(next)
         }
     }
 

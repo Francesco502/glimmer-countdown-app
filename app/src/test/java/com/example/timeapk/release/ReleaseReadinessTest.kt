@@ -25,6 +25,7 @@ class ReleaseReadinessTest {
         assertTrue(workflow.contains("testDirectDebugUnitTest"))
         assertTrue(workflow.contains("testPlayDebugUnitTest"))
         assertTrue(workflow.contains("compileDirectDebugAndroidTestKotlin"))
+        assertTrue(workflow.contains("compilePlayDebugAndroidTestKotlin"))
         assertTrue(workflow.contains("lintDirectRelease"))
         assertTrue(workflow.contains("lintPlayRelease"))
         assertTrue(workflow.contains("assembleDirectDebug"))

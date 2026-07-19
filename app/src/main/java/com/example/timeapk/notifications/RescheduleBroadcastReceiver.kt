@@ -3,8 +3,8 @@ package com.example.timeapk.notifications
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import com.example.timeapk.widget.CountdownAppWidgetProvider
 import com.example.timeapk.widget.WidgetDateBoundaryScheduler
+import com.example.timeapk.widget.WidgetRefreshReceiver
 
 class RescheduleBroadcastReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
@@ -17,8 +17,8 @@ class RescheduleBroadcastReceiver : BroadcastReceiver() {
                 WidgetDateBoundaryScheduler.scheduleOrCancel(context)
                 if (action == Intent.ACTION_TIME_CHANGED || action == Intent.ACTION_TIMEZONE_CHANGED) {
                     context.sendBroadcast(
-                        Intent(context, CountdownAppWidgetProvider::class.java)
-                            .setAction(CountdownAppWidgetProvider.ACTION_REFRESH_CLOCK_CHANGED)
+                        Intent(context, WidgetRefreshReceiver::class.java)
+                            .setAction(WidgetRefreshReceiver.ACTION_REFRESH_CLOCK_CHANGED)
                     )
                 }
                 RescheduleAllWorker.enqueue(context, action)

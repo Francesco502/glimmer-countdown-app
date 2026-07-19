@@ -30,6 +30,24 @@ class HomeSortBehaviorTest {
     }
 
     @Test
+    fun applyHomeSort_duplicatePinnedIdsNeverDuplicateHomeCards() {
+        val items = listOf(
+            eventState(id = 1, daysRemaining = 10, createdAt = 100L),
+            eventState(id = 2, daysRemaining = 5, createdAt = 300L),
+            eventState(id = 3, daysRemaining = 1, createdAt = 200L)
+        )
+
+        val sorted = applyHomeSort(
+            list = items,
+            sortType = SortType.Custom,
+            customEventOrderIds = listOf(3, 1, 2),
+            pinnedEventIds = listOf(2, 2, 1, 2, 1)
+        )
+
+        assertEquals(listOf(2, 1, 3), sorted.map { it.event.id })
+    }
+
+    @Test
     fun settlePersistedHomeReorder_pinnedDragUsesAuthoritativeVisibleOrderEvenWithoutFlowEmission() {
         val items = listOf(
             eventState(id = 1, daysRemaining = 10, createdAt = 100L),

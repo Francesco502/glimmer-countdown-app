@@ -59,8 +59,7 @@ class ReminderWorker(
             nm.notify(NOTIFICATION_ID_BASE + eventId, notification)
         }
 
-        rescheduleNextReminder(eventId)
-        return Result.success()
+        return if (rescheduleNextReminder(eventId)) Result.success() else Result.retry()
     }
 
     private fun canPostNotifications(): Boolean {
@@ -80,10 +79,10 @@ class ReminderWorker(
         }
     }
 
-    private suspend fun rescheduleNextReminder(eventId: Int) {
-        val app = applicationContext as? TimeApplication ?: return
+    private suspend fun rescheduleNextReminder(eventId: Int): Boolean {
+        val app = applicationContext as? TimeApplication ?: return true
         val repository = app.repository
-        val event = repository.getEvent(eventId) ?: return
+        val event = repository.getEvent(eventId) ?: return true
         val preferredCalendarId = app.userPrefs.scheduleTargetCalendarIdFlow.first()
         val useRRuleSync = app.userPrefs.scheduleUseRRuleSyncFlow.first()
 
@@ -119,9 +118,7 @@ class ReminderWorker(
             )
         }
 
-        if (updatedEvent != event) {
-            repository.updateEvent(updatedEvent)
-        }
+        return updatedEvent == event || repository.updateScheduleSyncState(event, updatedEvent)
     }
 
     companion object {

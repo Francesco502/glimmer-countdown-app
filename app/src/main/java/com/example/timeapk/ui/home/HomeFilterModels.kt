@@ -88,8 +88,9 @@ internal fun applyHomeSort(
 
     if (pinnedEventIds.isEmpty()) return sorted
 
-    val pinnedSet = pinnedEventIds.toSet()
-    val pinned = pinnedEventIds.mapNotNull { id -> sorted.find { it.event.id == id } }
+    val normalizedPinnedEventIds = pinnedEventIds.distinct()
+    val pinnedSet = normalizedPinnedEventIds.toSet()
+    val pinned = normalizedPinnedEventIds.mapNotNull { id -> sorted.find { it.event.id == id } }
     val unpinned = sorted.filter { it.event.id !in pinnedSet }
     return pinned + unpinned
 }

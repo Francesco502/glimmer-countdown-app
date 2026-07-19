@@ -23,6 +23,99 @@ internal fun isManagedReminderMetadataKind(kind: String?): Boolean {
     return kind == null || kind == "reminder_v2" || kind == "reminder_rrule_v2"
 }
 
+internal data class ExistingReminderEntry(
+    val calendarEventId: Long,
+    val key: String?
+)
+
+internal data class ReminderDiscoveryDescriptionCandidate(
+    val calendarEventId: Long,
+    val description: String
+)
+
+internal data class ReminderDiscoveryMetadataCandidate(
+    val calendarEventId: Long,
+    val kind: String?,
+    val occurrenceEpochDay: Long?,
+    val daysLeft: Int?
+)
+
+internal sealed interface ReminderDiscoveryResult {
+    data class Success(val entries: List<ExistingReminderEntry>) : ReminderDiscoveryResult
+    data class Failure(val error: String) : ReminderDiscoveryResult
+}
+
+internal fun discoverExistingReminderEntries(
+    readGranted: Boolean,
+    queryDescriptionCandidates: () -> List<ReminderDiscoveryDescriptionCandidate>?,
+    queryMetadataCandidates: () -> List<ReminderDiscoveryMetadataCandidate>?,
+    eventId: Int
+): ReminderDiscoveryResult {
+    if (!readGranted) {
+        return ReminderDiscoveryResult.Failure("Calendar read permission required")
+    }
+    return try {
+        val descriptions = queryDescriptionCandidates()
+            ?: return ReminderDiscoveryResult.Failure("Calendar events query returned no cursor")
+        val metadata = queryMetadataCandidates()
+            ?: return ReminderDiscoveryResult.Failure(
+                "Calendar extended-properties query returned no cursor"
+            )
+        val entries = mutableListOf<ExistingReminderEntry>()
+        descriptions.forEach { candidate ->
+            if (
+                ScheduleSyncManager.isManagedCalendarDescriptionForEvent(
+                    description = candidate.description,
+                    eventId = eventId,
+                    includeReminders = true,
+                    includeMilestones = false
+                )
+            ) {
+                entries += ExistingReminderEntry(
+                    calendarEventId = candidate.calendarEventId,
+                    key = ScheduleSyncManager.reminderKeyFromDescription(candidate.description)
+                )
+            }
+        }
+        metadata.forEach { candidate ->
+            if (entries.any { it.calendarEventId == candidate.calendarEventId }) return@forEach
+            if (!isManagedReminderMetadataKind(candidate.kind)) return@forEach
+            val key = if (candidate.occurrenceEpochDay != null && candidate.daysLeft != null) {
+                ScheduleSyncManager.buildReminderEntryKey(
+                    occurrenceEpochDay = candidate.occurrenceEpochDay,
+                    daysLeft = candidate.daysLeft,
+                    useRRule = candidate.kind == "reminder_rrule_v2"
+                )
+            } else {
+                null
+            }
+            entries += ExistingReminderEntry(candidate.calendarEventId, key)
+        }
+        ReminderDiscoveryResult.Success(entries)
+    } catch (_: SecurityException) {
+        ReminderDiscoveryResult.Failure("Calendar permission denied")
+    } catch (t: Throwable) {
+        ReminderDiscoveryResult.Failure(
+            (t.message ?: "Calendar provider discovery failed").take(180)
+        )
+    }
+}
+
+internal fun syncAfterReminderDiscovery(
+    event: Event,
+    lastSyncAt: Long,
+    discovery: ReminderDiscoveryResult,
+    sync: (List<ExistingReminderEntry>) -> ScheduleSyncManager.ScheduleSyncResult
+): ScheduleSyncManager.ScheduleSyncResult = when (discovery) {
+    is ReminderDiscoveryResult.Success -> sync(discovery.entries)
+    is ReminderDiscoveryResult.Failure -> ScheduleSyncManager.ScheduleSyncResult(
+        primaryScheduleEventId = event.scheduleEventId,
+        targetCalendarId = event.targetCalendarId,
+        lastSyncAt = lastSyncAt,
+        error = discovery.error
+    )
+}
+
 object ScheduleSyncManager {
 
     internal const val ERROR_NO_WRITABLE_CALENDAR = "No writable calendar"
@@ -68,11 +161,6 @@ object ScheduleSyncManager {
     private const val META_KIND_MILESTONE = "milestone_v2"
     private const val META_SCHEMA_VERSION = "2"
     private const val TAG = "ScheduleSyncManager"
-
-    private data class ExistingReminderEntry(
-        val calendarEventId: Long,
-        val key: String?
-    )
 
     private data class ExpectedReminderEntry(
         val key: String,
@@ -204,6 +292,15 @@ object ScheduleSyncManager {
         event: Event,
         preferredCalendarId: Long?,
         useRRuleSync: Boolean
+    ): ScheduleSyncResult = withScheduleEventProviderLock(event.id) {
+        syncReminderSeriesLocked(context, event, preferredCalendarId, useRRuleSync)
+    }
+
+    private fun syncReminderSeriesLocked(
+        context: Context,
+        event: Event,
+        preferredCalendarId: Long?,
+        useRRuleSync: Boolean
     ): ScheduleSyncResult {
         val lastSyncAt = System.currentTimeMillis()
         val sanitizedEvent = event.sanitizedReminderConfig()
@@ -258,114 +355,126 @@ object ScheduleSyncManager {
                         event = sanitizedEvent,
                         useRRuleSync = useRRuleSync
                     )
-                    var metadataWarnings = 0
-                    val existing = loadExistingReminderEntries(context, sanitizedEvent.id)
-                    val existingByKey = existing.mapNotNull { entry ->
-                        entry.key?.let { key -> key to entry.calendarEventId }
-                    }.toMap()
-                    val allExistingIds = existing.map { it.calendarEventId }.toMutableSet()
-                    val usedIds = mutableSetOf<Long>()
-                    var primaryId: Long? = null
+                    val discovery = loadExistingReminderEntries(context, sanitizedEvent.id)
+                    syncAfterReminderDiscovery(
+                        event = sanitizedEvent,
+                        lastSyncAt = lastSyncAt,
+                        discovery = discovery
+                    ) { existing ->
+                        var metadataWarnings = 0
+                        val existingByKey = existing.mapNotNull { entry ->
+                            entry.key?.let { key -> key to entry.calendarEventId }
+                        }.toMap()
+                        val allExistingIds = existing.map { it.calendarEventId }.toMutableSet()
+                        val usedIds = mutableSetOf<Long>()
+                        var primaryId: Long? = null
 
-                    expectedEntries.sortedBy { it.triggerAtMillis }.forEach { entry ->
-                        val values = ContentValues().apply {
-                            put(CalendarContract.Events.DTSTART, entry.triggerAtMillis)
-                            put(CalendarContract.Events.DTEND, entry.triggerAtMillis + 60 * 60 * 1000L)
-                            put(CalendarContract.Events.TITLE, entry.title)
-                            put(CalendarContract.Events.DESCRIPTION, buildMarkedDescription(entry.marker, entry.note))
-                            put(CalendarContract.Events.CALENDAR_ID, targetCalendarId)
-                            put(CalendarContract.Events.EVENT_TIMEZONE, TimeZone.getDefault().id)
-                            if (entry.useRRule) {
-                                put(CalendarContract.Events.RRULE, buildRRuleForEvent(sanitizedEvent))
+                        expectedEntries.sortedBy { it.triggerAtMillis }.forEach { entry ->
+                            val values = ContentValues().apply {
+                                put(CalendarContract.Events.DTSTART, entry.triggerAtMillis)
+                                put(CalendarContract.Events.DTEND, entry.triggerAtMillis + 60 * 60 * 1000L)
+                                put(CalendarContract.Events.TITLE, entry.title)
+                                put(CalendarContract.Events.DESCRIPTION, buildMarkedDescription(entry.marker, entry.note))
+                                put(CalendarContract.Events.CALENDAR_ID, targetCalendarId)
+                                put(CalendarContract.Events.EVENT_TIMEZONE, TimeZone.getDefault().id)
+                                if (entry.useRRule) {
+                                    put(CalendarContract.Events.RRULE, buildRRuleForEvent(sanitizedEvent))
+                                } else {
+                                    putNull(CalendarContract.Events.RRULE)
+                                }
+                            }
+
+                            val existingId = existingByKey[entry.key]
+                            val eventId = if (
+                                existingId != null &&
+                                updateEventAndReminder(context, existingId, values)
+                            ) {
+                                existingId
                             } else {
-                                putNull(CalendarContract.Events.RRULE)
+                                insertEventAndReminder(context, values)
                             }
-                        }
 
-                        val existingId = existingByKey[entry.key]
-                        val eventId = if (existingId != null && updateEventAndReminder(context, existingId, values)) {
-                            existingId
-                        } else {
-                            insertEventAndReminder(context, values)
-                        }
-
-                        if (eventId != null) {
-                            val metadataSaved = upsertExtendedProperties(
-                                context = context,
-                                eventId = eventId,
-                                properties = mapOf(
-                                    META_NAME_KIND to if (entry.useRRule) META_KIND_REMINDER_RRULE else META_KIND_REMINDER,
-                                    META_NAME_EVENT_ID to sanitizedEvent.id.toString(),
-                                    META_NAME_OCC_EPOCH_DAY to entry.occurrenceEpochDay.toString(),
-                                    META_NAME_DAYS_LEFT to entry.daysLeft.toString(),
-                                    META_NAME_SCHEMA_VERSION to META_SCHEMA_VERSION
+                            if (eventId != null) {
+                                val metadataSaved = upsertExtendedProperties(
+                                    context = context,
+                                    eventId = eventId,
+                                    properties = mapOf(
+                                        META_NAME_KIND to if (entry.useRRule) META_KIND_REMINDER_RRULE else META_KIND_REMINDER,
+                                        META_NAME_EVENT_ID to sanitizedEvent.id.toString(),
+                                        META_NAME_OCC_EPOCH_DAY to entry.occurrenceEpochDay.toString(),
+                                        META_NAME_DAYS_LEFT to entry.daysLeft.toString(),
+                                        META_NAME_SCHEMA_VERSION to META_SCHEMA_VERSION
+                                    )
                                 )
-                            )
-                            if (!metadataSaved) {
-                                metadataWarnings += 1
-                            }
-                            usedIds += eventId
-                            if (primaryId == null) {
-                                primaryId = eventId
+                                if (!metadataSaved) {
+                                    metadataWarnings += 1
+                                }
+                                usedIds += eventId
+                                if (primaryId == null) {
+                                    primaryId = eventId
+                                }
                             }
                         }
-                    }
 
-                    val cleanupResult = cleanupReminderSeriesEntries(
-                        expectedEntriesPresent = expectedEntries.isNotEmpty(),
-                        staleIds = allExistingIds - usedIds,
-                        cleanupWholeSeries = {
-                            removeReminderSeriesEntries(
-                                context = context,
-                                eventId = sanitizedEvent.id,
-                                calendarEventId = sanitizedEvent.scheduleEventId
+                        val cleanupResult = cleanupReminderSeriesEntries(
+                            expectedEntriesPresent = expectedEntries.isNotEmpty(),
+                            staleIds = allExistingIds - usedIds,
+                            cleanupWholeSeries = {
+                                removeReminderSeriesEntries(
+                                    context = context,
+                                    eventId = sanitizedEvent.id,
+                                    calendarEventId = sanitizedEvent.scheduleEventId
+                                )
+                            },
+                            cleanupSingleEntry = { staleId -> removeScheduleReminder(context, staleId) }
+                        )
+                        if (!cleanupResult.isSuccess) {
+                            return@syncAfterReminderDiscovery scheduleSyncResultAfterCleanup(
+                                event = sanitizedEvent,
+                                primaryScheduleEventId = primaryId,
+                                targetCalendarId = targetCalendarId,
+                                lastSyncAt = lastSyncAt,
+                                cleanupResult = cleanupResult
                             )
-                        },
-                        cleanupSingleEntry = { staleId -> removeScheduleReminder(context, staleId) }
-                    )
-                    if (!cleanupResult.isSuccess) {
-                        return scheduleSyncResultAfterCleanup(
+                        }
+                        if (metadataWarnings > 0) {
+                            Log.w(
+                                TAG,
+                                "Synced calendar event(s) for eventId=${sanitizedEvent.id} with $metadataWarnings extended-property warning(s); falling back to description markers"
+                            )
+                        }
+                        if (expectedEntries.isNotEmpty() && primaryId == null) {
+                            val legacyResult = tryLegacyReminderInsert(
+                                context = context,
+                                event = sanitizedEvent,
+                                preferredCalendarId = preferredCalendarId,
+                                useRRuleSync = useRRuleSync,
+                                lastSyncAt = lastSyncAt,
+                                reason = "Series sync produced no calendar event"
+                            )
+                            if (legacyResult != null) {
+                                return@syncAfterReminderDiscovery legacyResult
+                            }
+                            Log.w(
+                                TAG,
+                                "All calendar inserts failed for eventId=${sanitizedEvent.id} on calendarId=$targetCalendarId; treating as no writable calendar"
+                            )
+                            return@syncAfterReminderDiscovery ScheduleSyncResult(
+                                primaryScheduleEventId = null,
+                                targetCalendarId = targetCalendarId,
+                                lastSyncAt = lastSyncAt,
+                                error = ERROR_NO_WRITABLE_CALENDAR
+                            )
+                        }
+
+                        scheduleSyncResultAfterCleanup(
                             event = sanitizedEvent,
                             primaryScheduleEventId = primaryId,
-                            targetCalendarId = targetCalendarId,
+                            targetCalendarId = targetCalendarId.takeIf { expectedEntries.isNotEmpty() },
                             lastSyncAt = lastSyncAt,
                             cleanupResult = cleanupResult
                         )
                     }
-                    if (metadataWarnings > 0) {
-                        Log.w(
-                            TAG,
-                            "Synced calendar event(s) for eventId=${sanitizedEvent.id} with $metadataWarnings extended-property warning(s); falling back to description markers"
-                        )
-                    }
-                    if (expectedEntries.isNotEmpty() && primaryId == null) {
-                        tryLegacyReminderInsert(
-                            context = context,
-                            event = sanitizedEvent,
-                            preferredCalendarId = preferredCalendarId,
-                            useRRuleSync = useRRuleSync,
-                            lastSyncAt = lastSyncAt,
-                            reason = "Series sync produced no calendar event"
-                        )?.let { return it }
-                        Log.w(
-                            TAG,
-                            "All calendar inserts failed for eventId=${sanitizedEvent.id} on calendarId=$targetCalendarId; treating as no writable calendar"
-                        )
-                        return ScheduleSyncResult(
-                            primaryScheduleEventId = null,
-                            targetCalendarId = targetCalendarId,
-                            lastSyncAt = lastSyncAt,
-                            error = ERROR_NO_WRITABLE_CALENDAR
-                        )
-                    }
-
-                    scheduleSyncResultAfterCleanup(
-                        event = sanitizedEvent,
-                        primaryScheduleEventId = primaryId,
-                        targetCalendarId = targetCalendarId.takeIf { expectedEntries.isNotEmpty() },
-                        lastSyncAt = lastSyncAt,
-                        cleanupResult = cleanupResult
-                    )
                 }
             }
         } catch (_: SecurityException) {
@@ -452,6 +561,24 @@ object ScheduleSyncManager {
     ).result
 
     internal fun insertMilestoneScheduleReminderAttempt(
+        context: Context,
+        eventId: Int,
+        title: String,
+        description: String,
+        triggerAtMillis: Long,
+        targetCalendarId: Long? = null
+    ): MilestoneCalendarInsertionAttempt = withScheduleEventProviderLock(eventId) {
+        insertMilestoneScheduleReminderAttemptLocked(
+            context = context,
+            eventId = eventId,
+            title = title,
+            description = description,
+            triggerAtMillis = triggerAtMillis,
+            targetCalendarId = targetCalendarId
+        )
+    }
+
+    private fun insertMilestoneScheduleReminderAttemptLocked(
         context: Context,
         eventId: Int,
         title: String,
@@ -582,20 +709,24 @@ object ScheduleSyncManager {
     }
 
     fun clearMilestoneScheduleRemindersByEventId(context: Context, eventId: Int): CalendarCleanupResult {
-        return cleanupManagedCalendarEntries(
-            gateway = ContextCalendarCleanupGateway(context),
-            eventId = eventId,
-            calendarEventId = null,
-            includeReminders = false,
-            includeMilestones = true
-        )
+        return withScheduleEventProviderLock(eventId) {
+            cleanupManagedCalendarEntries(
+                gateway = ContextCalendarCleanupGateway(context),
+                eventId = eventId,
+                calendarEventId = null,
+                includeReminders = false,
+                includeMilestones = true
+            )
+        }
     }
 
     fun removeScheduleReminderByEventId(context: Context, eventId: Int): CalendarCleanupResult {
-        return removeScheduleReminderByEventId(
-            gateway = ContextCalendarCleanupGateway(context),
-            eventId = eventId
-        )
+        return withScheduleEventProviderLock(eventId) {
+            removeScheduleReminderByEventId(
+                gateway = ContextCalendarCleanupGateway(context),
+                eventId = eventId
+            )
+        }
     }
 
     private fun removeReminderSeriesEntries(
@@ -644,11 +775,13 @@ object ScheduleSyncManager {
         eventId: Int,
         calendarEventId: Long?
     ): CalendarCleanupResult {
-        return removeManagedCalendarEntries(
-            gateway = ContextCalendarCleanupGateway(context),
-            eventId = eventId,
-            calendarEventId = calendarEventId
-        )
+        return withScheduleEventProviderLock(eventId) {
+            removeManagedCalendarEntries(
+                gateway = ContextCalendarCleanupGateway(context),
+                eventId = eventId,
+                calendarEventId = calendarEventId
+            )
+        }
     }
 
     internal fun removeManagedCalendarEntries(
@@ -964,11 +1097,16 @@ object ScheduleSyncManager {
         }
     }
 
-    private fun buildReminderEntryKey(
+    internal fun buildReminderEntryKey(
         occurrenceEpochDay: Long,
         daysLeft: Int,
         useRRule: Boolean
     ): String = "$occurrenceEpochDay:$daysLeft:${if (useRRule) 1 else 0}"
+
+    internal fun reminderKeyFromDescription(description: String): String? {
+        val marker = description.lineSequence().firstOrNull().orEmpty().removeSuffix("\r")
+        return parseReminderKeyFromMarker(marker)
+    }
 
     private fun parseReminderKeyFromMarker(marker: String): String? {
         val occ = Regex("""occ=(-?\d+)""").find(marker)?.groupValues?.getOrNull(1)?.toLongOrNull() ?: return null
@@ -981,58 +1119,96 @@ object ScheduleSyncManager {
         )
     }
 
-    private fun loadExistingReminderEntries(context: Context, eventId: Int): List<ExistingReminderEntry> {
-        if (!hasCalendarReadAccess(context)) return emptyList()
-        return try {
-            val entries = mutableListOf<ExistingReminderEntry>()
+    private fun loadExistingReminderEntries(context: Context, eventId: Int): ReminderDiscoveryResult {
+        return discoverExistingReminderEntries(
+            readGranted = hasCalendarReadAccess(context),
+            queryDescriptionCandidates = { queryReminderDescriptionCandidates(context, eventId) },
+            queryMetadataCandidates = { queryReminderMetadataCandidates(context, eventId) },
+            eventId = eventId
+        ).also { result ->
+            if (result is ReminderDiscoveryResult.Failure) {
+                Log.w(
+                    TAG,
+                    "Failed to load existing reminder entries for eventId=$eventId: ${result.error}"
+                )
+            }
+        }
+    }
 
-            context.contentResolver.query(
-                CalendarContract.Events.CONTENT_URI,
-                arrayOf(CalendarContract.Events._ID, CalendarContract.Events.DESCRIPTION),
-                "${CalendarContract.Events.DESCRIPTION} LIKE ?",
-                arrayOf("$REMINDER_MARKER_PREFIX:$eventId%"),
-                null
-            )?.use { cursor ->
-                val idIndex = cursor.getColumnIndex(CalendarContract.Events._ID)
-                val descIndex = cursor.getColumnIndex(CalendarContract.Events.DESCRIPTION)
-                while (cursor.moveToNext()) {
-                    val id = cursor.getLong(idIndex)
-                    val description = if (descIndex >= 0) cursor.getString(descIndex).orEmpty() else ""
-                    val markerLine = description.lineSequence().firstOrNull().orEmpty()
-                    entries += ExistingReminderEntry(
-                        calendarEventId = id,
-                        key = parseReminderKeyFromMarker(markerLine)
+    private fun queryReminderDescriptionCandidates(
+        context: Context,
+        eventId: Int
+    ): List<ReminderDiscoveryDescriptionCandidate>? {
+        val cursor = context.contentResolver.query(
+            CalendarContract.Events.CONTENT_URI,
+            arrayOf(CalendarContract.Events._ID, CalendarContract.Events.DESCRIPTION),
+            "${CalendarContract.Events.DESCRIPTION} LIKE ?",
+            arrayOf("$REMINDER_MARKER_PREFIX:$eventId%"),
+            null
+        ) ?: return null
+        return cursor.use {
+            val idIndex = it.getColumnIndexOrThrow(CalendarContract.Events._ID)
+            val descriptionIndex = it.getColumnIndexOrThrow(CalendarContract.Events.DESCRIPTION)
+            buildList {
+                while (it.moveToNext()) {
+                    add(
+                        ReminderDiscoveryDescriptionCandidate(
+                            calendarEventId = it.getLong(idIndex),
+                            description = it.getString(descriptionIndex).orEmpty()
+                        )
                     )
                 }
             }
+        }
+    }
 
-            val idsByMeta = findEventIdsByExtendedProperty(context, META_NAME_EVENT_ID, eventId.toString())
-            idsByMeta.forEach { id ->
-                if (entries.any { it.calendarEventId == id }) return@forEach
-                val props = readExtendedProperties(context, id)
-                val kind = props[META_NAME_KIND]
-                if (!isManagedReminderMetadataKind(kind)) return@forEach
-                val occ = props[META_NAME_OCC_EPOCH_DAY]?.toLongOrNull()
-                val days = props[META_NAME_DAYS_LEFT]?.toIntOrNull()
-                val key = if (occ != null && days != null) {
-                    buildReminderEntryKey(
-                        occurrenceEpochDay = occ,
-                        daysLeft = days,
-                        useRRule = kind == META_KIND_REMINDER_RRULE
-                    )
-                } else {
+    private fun queryReminderMetadataCandidates(
+        context: Context,
+        eventId: Int
+    ): List<ReminderDiscoveryMetadataCandidate>? {
+        val candidateIdsCursor = context.contentResolver.query(
+            CalendarContract.ExtendedProperties.CONTENT_URI,
+            arrayOf(CalendarContract.ExtendedProperties.EVENT_ID),
+            "${CalendarContract.ExtendedProperties.NAME} = ? AND ${CalendarContract.ExtendedProperties.VALUE} = ?",
+            arrayOf(META_NAME_EVENT_ID, eventId.toString()),
+            null
+        ) ?: return null
+        val candidateIds = candidateIdsCursor.use {
+            val idIndex = it.getColumnIndexOrThrow(CalendarContract.ExtendedProperties.EVENT_ID)
+            buildList {
+                while (it.moveToNext()) add(it.getLong(idIndex))
+            }
+        }
+        return buildList {
+            for (candidateId in candidateIds) {
+                val propertiesCursor = context.contentResolver.query(
+                    CalendarContract.ExtendedProperties.CONTENT_URI,
+                    arrayOf(
+                        CalendarContract.ExtendedProperties.NAME,
+                        CalendarContract.ExtendedProperties.VALUE
+                    ),
+                    "${CalendarContract.ExtendedProperties.EVENT_ID} = ?",
+                    arrayOf(candidateId.toString()),
                     null
+                ) ?: return null
+                val properties = propertiesCursor.use {
+                    val nameIndex = it.getColumnIndexOrThrow(CalendarContract.ExtendedProperties.NAME)
+                    val valueIndex = it.getColumnIndexOrThrow(CalendarContract.ExtendedProperties.VALUE)
+                    buildMap {
+                        while (it.moveToNext()) {
+                            put(it.getString(nameIndex), it.getString(valueIndex))
+                        }
+                    }
                 }
-                entries += ExistingReminderEntry(calendarEventId = id, key = key)
+                add(
+                    ReminderDiscoveryMetadataCandidate(
+                        calendarEventId = candidateId,
+                        kind = properties[META_NAME_KIND],
+                        occurrenceEpochDay = properties[META_NAME_OCC_EPOCH_DAY]?.toLongOrNull(),
+                        daysLeft = properties[META_NAME_DAYS_LEFT]?.toIntOrNull()
+                    )
+                )
             }
-
-            entries
-        } catch (t: SecurityException) {
-            Log.w(TAG, "No calendar permission when loading existing reminder entries for eventId=$eventId", t)
-            emptyList()
-        } catch (t: Throwable) {
-            Log.w(TAG, "Failed to load existing reminder entries for eventId=$eventId", t)
-            emptyList()
         }
     }
 

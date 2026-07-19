@@ -43,6 +43,7 @@ jobs:
           testDirectDebugUnitTest
           testPlayDebugUnitTest
           compileDirectDebugAndroidTestKotlin
+          compilePlayDebugAndroidTestKotlin
           lintDirectDebug
           lintDirectRelease
           lintPlayRelease

@@ -36,6 +36,46 @@ interface EventDao {
     @Update
     suspend fun updateEvent(event: Event)
 
+    @Query(
+        """
+        UPDATE events SET
+            scheduleEventId = :scheduleEventId,
+            targetCalendarId = :targetCalendarId,
+            lastScheduleSyncAt = :lastScheduleSyncAt,
+            lastScheduleSyncError = :lastScheduleSyncError
+        WHERE id = :id
+          AND title = :expectedTitle
+          AND date = :expectedDate
+          AND note = :expectedNote
+          AND repeatType = :expectedRepeatType
+          AND remindDaysBefore = :expectedRemindDaysBefore
+          AND reminderTimeMinutesOfDay = :expectedReminderTimeMinutesOfDay
+          AND remindEnabled = :expectedRemindEnabled
+          AND syncToScheduleEnabled = :expectedSyncToScheduleEnabled
+          AND isLunar = :expectedIsLunar
+          AND scheduleEventId IS :expectedScheduleEventId
+          AND targetCalendarId IS :expectedTargetCalendarId
+        """
+    )
+    suspend fun updateScheduleSyncStateIfInputsUnchanged(
+        id: Int,
+        scheduleEventId: Long?,
+        targetCalendarId: Long?,
+        lastScheduleSyncAt: Long?,
+        lastScheduleSyncError: String?,
+        expectedTitle: String,
+        expectedDate: Long,
+        expectedNote: String,
+        expectedRepeatType: String,
+        expectedRemindDaysBefore: Int,
+        expectedReminderTimeMinutesOfDay: Int,
+        expectedRemindEnabled: Boolean,
+        expectedSyncToScheduleEnabled: Boolean,
+        expectedIsLunar: Boolean,
+        expectedScheduleEventId: Long?,
+        expectedTargetCalendarId: Long?
+    ): Int
+
     @Delete
     suspend fun deleteEvent(event: Event)
 }

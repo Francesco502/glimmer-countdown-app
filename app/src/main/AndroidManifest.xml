@@ -59,6 +59,11 @@
                 android:resource="@xml/countdown_widget_info" />
         </receiver>
         <receiver
+            android:name=".widget.WidgetRefreshReceiver"
+            android:enabled="true"
+            android:exported="false">
+        </receiver>
+        <receiver
             android:name=".notifications.RescheduleBroadcastReceiver"
             android:enabled="true"
             android:exported="false">
