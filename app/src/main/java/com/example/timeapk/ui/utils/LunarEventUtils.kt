@@ -6,6 +6,33 @@ import com.nlf.calendar.Lunar
 import com.nlf.calendar.Solar
 import java.time.LocalDate
 import java.time.Period
+import java.util.Locale
+import kotlin.math.absoluteValue
+
+private val GanZhiTransliterations = mapOf(
+    '甲' to "Jia",
+    '乙' to "Yi",
+    '丙' to "Bing",
+    '丁' to "Ding",
+    '戊' to "Wu",
+    '己' to "Ji",
+    '庚' to "Geng",
+    '辛' to "Xin",
+    '壬' to "Ren",
+    '癸' to "Gui",
+    '子' to "Zi",
+    '丑' to "Chou",
+    '寅' to "Yin",
+    '卯' to "Mao",
+    '辰' to "Chen",
+    '巳' to "Si",
+    '午' to "Wu",
+    '未' to "Wei",
+    '申' to "Shen",
+    '酉' to "You",
+    '戌' to "Xu",
+    '亥' to "Hai"
+)
 
 /**
  * 农历事件相关的核心计算工具。
@@ -149,16 +176,37 @@ fun formatLunarDateString(solarDate: LocalDate, context: Context? = null): Strin
             solarDate.dayOfMonth
         )
         val lunar = solar.lunar
+        val locale = context?.resources?.configuration?.locales?.get(0) ?: Locale.getDefault()
+        val useEnglishText = locale.language == Locale.ENGLISH.language
+        val ganZhiText = if (useEnglishText) {
+            transliterateGanZhi(lunar.yearInGanZhi)
+        } else {
+            lunar.yearInGanZhi
+        }
+        val monthText = if (useEnglishText) {
+            if (lunar.month < 0) {
+                context?.getString(R.string.lunar_leap_month_number_format, lunar.month.absoluteValue)
+                    ?: "${lunar.month.absoluteValue} (leap)"
+            } else {
+                lunar.month.toString()
+            }
+        } else {
+            lunar.monthInChinese
+        }
+        val monthSuffix = if (useEnglishText) "" else context?.getString(R.string.lunar_month_suffix).orEmpty()
+        val dayText = if (useEnglishText) lunar.day.toString() else lunar.dayInChinese
         if (context != null) {
             context.getString(
                 R.string.lunar_date_full_format,
-                lunar.yearInGanZhi,
-                lunar.monthInChinese,
-                context.getString(R.string.lunar_month_suffix),
-                lunar.dayInChinese
+                ganZhiText,
+                monthText,
+                monthSuffix,
+                dayText
             )
+        } else if (useEnglishText) {
+            "Ganzhi $ganZhiText · Lunar month $monthText, day $dayText"
         } else {
-            "${lunar.yearInGanZhi} ${lunar.monthInChinese} ${lunar.dayInChinese}"
+            "$ganZhiText $monthText $dayText"
         }
     } catch (_: Throwable) {
         if (context != null) {
@@ -172,6 +220,11 @@ fun formatLunarDateString(solarDate: LocalDate, context: Context? = null): Strin
             "${solarDate.year}-${solarDate.monthValue}-${solarDate.dayOfMonth}"
         }
     }
+}
+
+private fun transliterateGanZhi(value: String): String {
+    val parts = value.map { character -> GanZhiTransliterations[character] ?: return value }
+    return parts.joinToString("-")
 }
 
 /**

@@ -1,8 +1,10 @@
 package com.example.timeapk.ui.utils
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Test
 import java.time.LocalDate
+import java.util.Locale
 
 class LunarEventUtilsTest {
 
@@ -38,5 +40,20 @@ class LunarEventUtilsTest {
         val pivot = LocalDate.of(2026, 1, 25)
 
         assertEquals(LocalDate.of(2027, 1, 13), getNextLunarOccurrence(origin, pivot))
+    }
+
+    @Test
+    fun englishLunarDate_usesLocalizedGanzhiAndNumericMonthDay() {
+        val originalLocale = Locale.getDefault()
+        try {
+            Locale.setDefault(Locale.ENGLISH)
+
+            val actual = formatLunarDateString(LocalDate.of(2026, 7, 20))
+
+            assertEquals("Ganzhi Bing-Wu · Lunar month 6, day 7", actual)
+            assertFalse("English lunar text must not contain Han characters", Regex("\\p{IsHan}").containsMatchIn(actual))
+        } finally {
+            Locale.setDefault(originalLocale)
+        }
     }
 }

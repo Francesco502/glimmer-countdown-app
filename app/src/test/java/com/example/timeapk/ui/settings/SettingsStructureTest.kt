@@ -188,7 +188,7 @@ class SettingsStructureTest {
         )
         val labelRowBlock = source.substringAfter("private fun DetailLabelRow(")
 
-        assertTrue(source.contains("private val DetailSupplementContentMaxWidth = 300.dp"))
+        assertTrue(source.contains("private val DetailSupplementContentMaxWidth = 340.dp"))
         assertTrue(source.contains("private val DetailSupplementLabelWidth ="))
         assertTrue(supplementBlock.contains("horizontalAlignment = Alignment.CenterHorizontally"))
         assertTrue(supplementBlock.countOccurrences("DetailSupplementTable {") == 1)

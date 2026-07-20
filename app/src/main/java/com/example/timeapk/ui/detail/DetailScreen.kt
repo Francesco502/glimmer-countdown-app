@@ -90,7 +90,7 @@ import java.time.temporal.ChronoUnit
 import java.util.Locale
 
 private val DetailContentMaxWidth = 760.dp
-private val DetailSupplementContentMaxWidth = 300.dp
+private val DetailSupplementContentMaxWidth = 340.dp
 private val DetailSupplementLabelWidth = 64.dp
 private val DetailSupplementValueMaxWidth = 228.dp
 

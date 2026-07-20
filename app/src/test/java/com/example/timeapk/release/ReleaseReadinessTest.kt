@@ -55,17 +55,13 @@ class ReleaseReadinessTest {
     }
 
     @Test
-    fun buildDocumentsRequiredKspCompatibilityUntilToolchainAllowsRemoval() {
+    fun buildUsesKspThatSupportsAgpBuiltInKotlinWithoutCompatibilityFlag() {
         val propertiesFile = rootGradlePropertiesFile()
         val properties = Properties().apply { propertiesFile.inputStream().use(::load) }
-        val propertiesText = propertiesFile.readText(Charsets.UTF_8)
+        val rootBuild = rootBuildGradleFile().readText(Charsets.UTF_8)
 
-        assertEquals("false", properties.getProperty("android.disallowKotlinSourceSets"))
-        assertTrue(
-            "The temporary Android/KSP compatibility flag must explain its removal condition",
-            propertiesText.contains("Required by KSP 2.3.2 with AGP 9.1 built-in Kotlin") &&
-                propertiesText.contains("Remove after KSP stops registering generated sources through kotlin.sourceSets")
-        )
+        assertFalse(properties.containsKey("android.disallowKotlinSourceSets"))
+        assertTrue(rootBuild.contains("id(\"com.google.devtools.ksp\") version \"2.3.9\""))
     }
 
     @Test
@@ -501,6 +497,10 @@ class ReleaseReadinessTest {
 
     private fun rootGradlePropertiesFile(): File {
         return existingFile("gradle.properties", "../gradle.properties")
+    }
+
+    private fun rootBuildGradleFile(): File {
+        return existingFile("../build.gradle.kts", "build.gradle.kts")
     }
 
     private fun appBuildGradleFile(): File {

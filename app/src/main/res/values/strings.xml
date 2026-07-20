@@ -360,6 +360,7 @@
     <string name="calendar_month_title_pattern">yyyy年MM月</string>
     <string name="calendar_selected_date_pattern">yyyy年M月d日</string>
     <string name="lunar_date_full_format">岁次 %1$s %2$s%3$s %4$s</string>
+    <string name="lunar_leap_month_number_format">闰%1$d</string>
     <string name="lunar_date_fallback_format">农历 %1$d-%2$d-%3$d</string>
     <string name="widget_until_days_semantic">还有%1$s天</string>
     <string name="widget_past_days_semantic">已经%1$s天</string>

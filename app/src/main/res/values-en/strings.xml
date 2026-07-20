@@ -395,7 +395,7 @@
     <string name="calendar_prev_month">Previous month</string>
     <string name="calendar_next_month">Next month</string>
     <string name="calendar_selected_date_events">Events on %1$s</string>
-    <string name="calendar_selected_date_lunar">Lunar %1$s</string>
+    <string name="calendar_selected_date_lunar">%1$s</string>
     <string name="calendar_no_events">No events on this day</string>
     <string name="settings_app_font_scale_title">App base font size</string>
     <string name="settings_widget_font_scale_title">Text size</string>
@@ -413,7 +413,8 @@
     <string name="ganzhi_year_format">Ganzhi %1$s</string>
     <string name="calendar_month_title_pattern">MMM yyyy</string>
     <string name="calendar_selected_date_pattern">MMM d, yyyy</string>
-    <string name="lunar_date_full_format">Ganzhi %1$s · Lunar %2$s%3$s %4$s</string>
+    <string name="lunar_date_full_format">Ganzhi %1$s · Lunar&#160;month %2$s%3$s, day %4$s</string>
+    <string name="lunar_leap_month_number_format">%1$d (leap)</string>
     <string name="lunar_date_fallback_format">Lunar %1$d-%2$d-%3$d</string>
     <string name="widget_until_days_semantic">%1$s days left</string>
     <string name="widget_past_days_semantic">%1$s days ago</string>

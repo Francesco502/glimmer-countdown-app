@@ -39,7 +39,22 @@ class StringResourceSanityTest {
 
         assertTrue("English lunar format must exist", lunarFormat.isNotBlank())
         assertTrue("English lunar format must use a visible separator", lunarFormat.contains(" · "))
+        assertTrue("Lunar month must wrap as one phrase", lunarFormat.contains("Lunar&#160;month"))
         assertFalse("English lunar format must not show a literal question mark", lunarFormat.contains('?'))
+    }
+
+    @Test
+    fun englishCalendarLunarWrapper_doesNotRepeatThePrefixFromTheFormattedValue() {
+        val en = readResourceText("values-en/strings.xml")
+        val calendarWrapper = Regex(
+            "<string name=\\\"calendar_selected_date_lunar\\\">(.*?)</string>"
+        ).find(en)?.groupValues?.get(1).orEmpty()
+
+        assertEquals(
+            "The full English lunar value already names the calendar system",
+            "%1\$s",
+            calendarWrapper
+        )
     }
 
     @Test

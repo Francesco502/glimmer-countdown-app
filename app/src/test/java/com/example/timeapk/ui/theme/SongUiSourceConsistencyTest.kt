@@ -412,12 +412,16 @@ class SongUiSourceConsistencyTest {
     fun calendarSelectedEventsRenderDetailedDayNotes() {
         val source = readSource("ui/home/HomeScreen.kt")
         val rowBlock = source.substringAfter("private fun CalendarOccurrenceRow(")
+        val timeLineBlock = rowBlock
+            .substringAfter("text = calendarTimeLine")
+            .substringBefore("text = calendarMetaLine")
 
         assertTrue(rowBlock.contains("val calendarMetaLine = buildList"))
         assertTrue(rowBlock.contains("val calendarTimeLine"))
         assertTrue(rowBlock.contains("occurrence.eventState.event.repeatType"))
         assertTrue(rowBlock.contains("occurrence.eventState.event.remindEnabled"))
         assertTrue(rowBlock.contains("formatLunarDateString(occurrence.date"))
+        assertTrue("Calendar event details must remain readable at large text", timeLineBlock.contains("maxLines = 2"))
     }
 
     @Test
