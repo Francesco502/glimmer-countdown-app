@@ -1,6 +1,6 @@
 # TimeAPK 发布与更新指引
 
-本文档说明 `4.0` 成熟版候选如何完成签名、构建、验证与 GitHub Release。4.0 检查清单完成前保持未发布状态，最新公开版本仍为 3.17。
+本文档记录 `4.0` 成熟版如何完成签名、构建、验证与 GitHub Release。4.0 于 2026-07-20 正式发布，唯一公开下载来源为对应 GitHub Release。
 
 **唯一正式发布渠道：GitHub Release。** 唯一官方资产为 Direct APK `glimmer-countdown-4-0.apk`。Play flavor 仅保留用于兼容性与开发回归，不是 4.0 正式发布工件或阻断项。
 

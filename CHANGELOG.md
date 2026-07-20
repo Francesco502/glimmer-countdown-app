@@ -2,11 +2,11 @@
 
 本文档记录拾光（Glimmer）各版本的主要变更。
 
-## [4.0] - 待发布
+## [4.0] - 2026-07-20
 
-### 发布目标
+### 发布摘要
 
-4.0 将作为拾光面向长期使用与公开分发的成熟产品版本。发布前必须重新完成核心功能、数据可靠性、提醒与日历同步、桌面小组件、无障碍、性能、渠道构建和真实设备体验验证；未完成的项目保留在 4.0 发布检查清单中，不提前标记为已验证。
+4.0 是拾光面向长期使用与公开分发的成熟产品版本，集中收口数据可靠性、提醒与日历同步、桌面小组件、无障碍、视觉一致性和 GitHub 单渠道发布。所有未执行项目与发布负责人豁免均保留在 4.0 发布检查清单中，不伪装为已验证。
 
 唯一正式发布渠道：GitHub Release；唯一官方资产为 Direct APK `glimmer-countdown-4-0.apk`。Play flavor 仅保留用于兼容性与开发回归，不是 4.0 正式发布工件或阻断项。
 
@@ -45,6 +45,10 @@
 
 ### 测试
 
+- 最终发布前 Direct JVM 548/548 通过，0 failures / 0 errors / 0 skipped；Direct AndroidTest 编译通过，API 37 connected 完整套件 26/26 通过。
+- Direct Debug / Release lint 报告均为 `No issues found.`，正式 Release 构建实际执行并通过 vital lint、R8、资源压缩、签名与 exact APK 重命名。
+- GitHub publisher 隔离状态机 10/10 通过；物理真机安装、升级、Launcher 与性能验收由发布负责人于 2026-07-20 明确豁免，该项未执行且不解释为通过。
+
 #### 历史记录（非发布门）
 
 以下候选期 Play flavor、Play AAB 与相关设备验证记录保留为可追溯证据；它们不是 4.0 的正式资产、发布条件或发布后验收。
@@ -78,7 +82,8 @@
 - `versionName`: `4.0`
 - `versionCode`: `23`
 - Direct APK 目标文件名：`glimmer-countdown-4-0.apk`
-- 发布状态：未发布；最新公开版本仍为 3.17
+- 发布状态：已通过 GitHub Release 正式发布
+- 发布地址：`https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v4.0`
 
 ## [3.17] - 2026-07-08
 

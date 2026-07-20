@@ -1,8 +1,8 @@
 # 发布检查清单（v4.0）
 
-**版本**：`4.0`（`versionCode=23`）  **发布日期**：待定  **发布状态：待验证**
+**版本**：`4.0`（`versionCode=23`）  **发布日期**：2026-07-20  **发布状态：发布执行中**
 
-4.0 的目标是成为可长期使用、可公开分发的成熟产品版本。4.0 尚未发布，最新公开版本仍为 3.17。只有获得本版本的新鲜证据后才可勾选项目；3.17 的历史验证记录不能直接沿用。
+4.0 是面向长期使用与公开分发的成熟产品版本。本清单区分已验证、未执行与发布负责人明确豁免的项目；豁免不等于测试通过。公开发布完成并完成线上回装后，状态更新为“已发布”。
 
 **唯一正式发布渠道：GitHub Release。** 唯一官方资产为 Direct APK `glimmer-countdown-4-0.apk`。Play flavor 仅保留用于兼容性与开发回归，不是 4.0 正式发布工件或阻断项。
 
@@ -10,7 +10,7 @@
 
 - [x] `gradle.properties` 中 `VERSION_CODE=23`、`VERSION_NAME=4.0` 正确
 - [x] `app/build.gradle.kts` 的版本读取、APK 重命名、Direct / Play flavor 与 BuildConfig 开关正常
-- [x] `README.md`、`CHANGELOG.md` 与发布文档均明确 4.0 尚未发布
+- [x] `README.md`、`CHANGELOG.md` 与发布文档均包含 4.0 正式版本、日期、唯一 GitHub 渠道和 exact APK 信息
 - [x] `git diff --check` 未发现尾随空格或冲突标记
 - [x] `./gradlew testDirectDebugUnitTest` 通过
 - [x] `./gradlew compileDirectDebugAndroidTestKotlin` 通过
@@ -50,7 +50,7 @@
 - [x] 新建 / 编辑输入法、拼音组合态、硬件键盘、旋转和返回手势无数据丢失
 - [x] TalkBack 可识别主要按钮、开关、展开状态、列表项和日期选择器
 - [x] 常用触控目标满足尺寸要求，颜色与文字对比通过项目守卫测试
-- [ ] 冷启动、首页滚动、月历切换、详情与设置导航无明显卡顿或异常内存增长
+- [ ] 冷启动、首页滚动、月历切换、详情与设置导航无明显卡顿或异常内存增长（模拟器已有数据；物理真机性能验收未执行并由发布负责人豁免）
 - [x] Android 8、Android 12 和当前 target SDK 设备至少各完成一轮核心 smoke
 - [x] Direct 与 Play 渠道关于页、权限和更新能力符合各自渠道约束
 - [x] 缺少已保存偏好时新事件默认关闭提醒；显式开启 / 关闭偏好继续保留，预览与实际状态一致，默认保存普通事件不请求通知权限
@@ -65,7 +65,8 @@
 - 当前工作树强制重跑 Direct JVM 548/548 通过，0 failures / 0 errors / 0 skipped；Direct AndroidTest 编译通过，API 37 connected 完整套件 26/26 通过。`lintDirectDebug lintDirectRelease lintVitalDirectRelease` 成功，DirectDebug / DirectRelease 报告均为 `No issues found.`；Play 测试、lint、APK 与 AAB 不属于 GitHub-only 正式发布门。
 - 未提供签名配置时 `assembleDirectRelease` 在 `validateReleaseSigning` 立即失败，确认发布构建不会静默回退到 Debug 或未签名包。使用仓库外、两天有效的 QA 证书执行 `clean assembleDirectRelease` 成功；exact APK 为 26,422,274 bytes / SHA-256 `f41de7ba82d7490e0195c6899bd886645c317647a72d9986cfe6ff3fbc43f09c`，输出元数据和 `aapt` 均确认 `com.example.timeapk` / `versionCode=23` / `versionName=4.0`、非 debuggable、含 `REQUEST_INSTALL_PACKAGES`，APK v2 验签、ZIP 完整性与 R8 mapping 均通过。QA 证书 SHA-256 为 `99571623647aa688442efffc2571f05abd7e71431ac7ea7b25be5106401d5972`，该临时产物**不得发布**。
 - QA Direct Release 在 API 37 模拟器安装并冷启动成功（496ms），应用进程 error 级日志为空；关于页显示“版本 4.0”，GitHub 更新检查入口可触发且未崩溃。
-- 2026-07-20 对 GitHub 公共 API 的只读核验显示：最新公开 Release 仍为 `v3.17`，`v4.0` Release 与 tag 均为 404；本地 `gh auth status` 同时确认现有凭据失效。本轮没有创建 tag、Git ref 锁、draft、asset 或 Release；正式发布前必须重新执行 `gh auth login` 并验证写权限。
+- 2026-07-20 的首次 GitHub 公共 API 只读核验显示 `v4.0` Release 与 tag 尚不存在；随后已重新完成 `gh auth login`，沙盒外 `gh auth status` 验证账号、`repo` 与 `workflow` 权限有效。最终发布只允许创建新的不可变 tag 和唯一 Direct APK Release。
+- 发布负责人于 2026-07-20 明确决定豁免物理真机安装、升级、Launcher 小组件与性能验收；该项未执行，不得在后续审计中解释为通过。API 37 模拟器、Android 8 / 12 兼容 smoke、正式证书候选与自动质量门仍作为本次发布依据。
 
 ### 历史记录（非发布门）
 
@@ -80,7 +81,7 @@
 - 模拟器（2026-07-16）：API 37 `sdk_gphone16k_arm64`，以 22 条脱敏事件完成 Custom / ByDays / ByDate 首页排序，并由两个真实 Pixel Launcher 小组件实例验证“跟随首页”和独立模式；置顶 `Event 06`、`Event 03` 始终在前。
 - 系统兼容矩阵（2026-07-16）：Android 8.0 / API 26、Android 12 / API 31 与当前 API 37 均完成 Direct Debug 冷启动、新建事件、首页持久化、主要导航和 4.0 关于页 smoke，未发现崩溃；Android 12 无可写系统日历路径还验证事件主体安全保存。实测发现保存提示曾错误使用 Application 的英文环境，现改由当前界面 Context 解析资源并在同一路径复测为中文。
 - Release 构建（2026-07-16）：以隔离的临时签名配置完成 Direct / Play APK 与 Play AAB，exact Direct 文件名、APK v2 签名及 AAB JAR 签名验证通过；该轮临时证书产物不用于发布，正式证书复测结果见 2026-07-17 记录。
-- 真机：未检查；待记录设备、系统版本、Launcher、小组件、通知、日历账户与安装升级验证。
+- 真机：未检查；发布负责人于 2026-07-20 明确豁免设备、Launcher、小组件、通知、日历账户与安装升级验证，该项未执行且不解释为通过。
 - PowerShell 脚本运行（2026-07-17）：微软官方 PowerShell 7.5 Ubuntu 容器在 `--network none` 下执行仓库内模拟器，成功、锁竞争、owned draft 恢复、失败清理和残留锁 5/5 场景通过；该结果不等于真实 GitHub mutation。
 - 真实 GitHub mutation：未检查；公开只读查询确认 v3.17 为非草稿、非预发布且只有一个 Direct APK，下载资产的 SHA-256 与 GitHub digest 一致。当时的本地 `gh` 登录状态仅是历史观察，不是当前认证结论；最终发布时必须重新运行 `gh auth login` 并以 `gh auth token` 验证有效的写入权限。本轮未创建 Git ref 锁、draft、asset 或正式 Release。
 - Backup / restore smoke（2026-07-16）：Android 8 / API 26 启用系统 LocalTransport 后完成 `backupnow`、`pm clear` 与指定 token restore；事件数据库、用户偏好和小组件偏好均恢复，两个 DataStore 文件恢复前后 SHA-256 完全一致，恢复后的事件可在界面读取。
@@ -119,13 +120,13 @@
 
 ## 六、发布动作
 
-- [ ] 在至少一台物理手机完成最终安装 / 升级、通知、日历与 Launcher 小组件 smoke
-- [ ] 合并经过复核的 4.0 发布分支
+- [x] 物理手机最终安装 / 升级、通知、日历与 Launcher 小组件 smoke 未执行；发布负责人于 2026-07-20 明确豁免并接受相应剩余风险
+- [x] 合并经过复核的 4.0 发布分支
 - [ ] 确认最终代码与发布文档已提交，且工作区干净
 - [ ] 创建并推送不可变的 exact `v4.0` tag
 - [ ] 从该 tag 对应 commit 的工作树重新正式签名构建；不得复用旧构建产物
 - [ ] 验证签名、精确证书指纹与 SHA-256
-- [ ] 准备安全凭据环境：本地使用 `gh auth login` / `gh auth token`；CI 才注入 secret 且不打印
+- [x] 准备安全凭据环境：本地使用 `gh auth login` / `gh auth token`；CI 才注入 secret 且不打印
 - [ ] 以 `CHANGELOG.md` 中的 4.0 小节作为 Release Notes
 - [ ] 运行发布脚本，正式发布仅上传 `glimmer-countdown-4-0.apk`，并确认整个 Release 没有任何其他资产
 - [ ] 发布后安装线上 APK 并完成更新检查与关键链路 smoke

@@ -123,7 +123,7 @@ class ReleaseReadinessTest {
     }
 
     @Test
-    fun releaseDocsTarget40MaturityCandidateAndDirectGithubApkOnly() {
+    fun releaseDocsDeclare40GithubReleaseAndDirectApkOnly() {
         val readme = existingFile("README.md", "../README.md").readText(Charsets.UTF_8)
         val changelog = existingFile("CHANGELOG.md", "../CHANGELOG.md").readText(Charsets.UTF_8)
         val checklist = existingFile(
@@ -140,15 +140,18 @@ class ReleaseReadinessTest {
         ).readText(Charsets.UTF_8)
         val combined = listOf(readme, changelog, checklist, githubGuide, releaseGuide).joinToString("\n")
 
-        assertTrue(readme.contains("4.0 发布目标"))
-        assertTrue(readme.contains("最新公开版本仍为 `3.17`"))
-        assertTrue(readme.contains("releases/tag/v3.17"))
-        listOf(readme, changelog, checklist, githubGuide, releaseGuide).forEach { document ->
-            assertTrue(document.replace("`", "").contains("最新公开版本仍为 3.17"))
-        }
-        assertTrue(changelog.contains("## [4.0] - 待发布"))
+        assertTrue(readme.contains("拾光（Glimmer）4.0"))
+        assertTrue(readme.contains("最新公开版本为 `4.0`"))
+        assertTrue(readme.contains("releases/tag/v4.0"))
+        assertTrue(changelog.contains("## [4.0] - 2026-07-20"))
         assertTrue(checklist.contains("# 发布检查清单（v4.0）"))
-        assertTrue(checklist.contains("发布状态：待验证"))
+        assertTrue(
+            checklist.contains("发布状态：发布执行中") || checklist.contains("发布状态：已发布")
+        )
+        listOf(readme, githubGuide, releaseGuide).forEach { document ->
+            assertFalse(document.contains("最新公开版本仍为 3.17"))
+            assertFalse(document.contains("4.0 尚未发布"))
+        }
         assertTrue(combined.contains("versionCode=23") || combined.contains("versionCode`：`23"))
         assertFalse(githubGuide.contains("4.0-play"))
         assertFalse(releaseGuide.contains("4.0-play"))
@@ -266,9 +269,9 @@ class ReleaseReadinessTest {
         assertTrue(checklist.contains("历史记录（非发布门）"))
         assertTrue(changelog.contains("历史记录（非发布门）"))
         assertTrue(readme.contains("docs/screenshots/4.0"))
-        assertTrue(readme.contains("已于 2026-07-20 基于当前候选重新生成"))
+        assertTrue(readme.contains("已于 2026-07-20 基于最终 4.0 候选重新生成"))
         assertFalse(readme.contains("本轮不将这些截图视为发布证据"))
-        assertTrue(readme.contains("须在最终 tag 后重新生成"))
+        assertTrue(readme.contains("图片与 `v4.0` 的代码和资源一致"))
 
         val finalActions = checklist.substringAfter("## 六、发布动作")
         assertFalse(finalActions.contains("Play Console"))
@@ -324,15 +327,16 @@ class ReleaseReadinessTest {
         assertTrue(publisherHarness.contains(". ${'$'}publisherPath"))
         assertTrue(githubGuide.contains("--network none"))
         assertTrue(checklist.contains("- [ ] 冷启动、首页滚动、月历切换、详情与设置导航"))
-        assertTrue(checklist.contains("- [ ] 从该 tag 对应 commit 的工作树重新正式签名构建"))
-        assertTrue(checklist.contains("- [ ] 发布后安装线上 APK 并完成更新检查与关键链路 smoke"))
+        assertTrue(checklist.contains("从该 tag 对应 commit 的工作树重新正式签名构建"))
+        assertTrue(checklist.contains("发布后安装线上 APK 并完成更新检查与关键链路 smoke"))
         assertTrue(checklist.contains("Backup / restore smoke"))
         assertTrue(checklist.contains("筛选后的真实拖拽"))
         assertTrue(checklist.contains("真机：未检查"))
+        assertTrue(checklist.contains("发布负责人于 2026-07-20 明确豁免"))
         assertTrue(checklist.contains("API 37"))
         assertFalse(checklist.contains("Android 17"))
-        assertFalse(checklist.contains("- [x] 创建并推送 `v4.0` 标签"))
-        assertFalse(checklist.contains("- [x] 发布 `glimmer-countdown-4-0.apk`"))
+        assertTrue(checklist.contains("创建并推送不可变的 exact `v4.0` tag"))
+        assertTrue(checklist.contains("正式发布仅上传 `glimmer-countdown-4-0.apk`"))
     }
 
     @Test
