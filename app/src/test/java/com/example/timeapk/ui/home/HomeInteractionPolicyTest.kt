@@ -132,6 +132,18 @@ class HomeInteractionPolicyTest {
     }
 
     @Test
+    fun homeCardUsesSingleLineTitleOnlyForLargeTextLayouts() {
+        val source = readSource("ui/home/HomeScreen.kt")
+        val cardSource = source
+            .substringAfter("fun EventCard(")
+            .substringBefore("private fun EventListItem(")
+
+        assertTrue(cardSource.contains("val titleMaxLines = homeCardTitleMaxLines(LocalDensity.current.fontScale)"))
+        assertTrue(cardSource.contains("maxLines = titleMaxLines"))
+        assertTrue(cardSource.contains("overflow = TextOverflow.Ellipsis"))
+    }
+
+    @Test
     fun eventColorTextUsesSharedDarkThemeContrastPolicyInCardAndListModes() {
         val source = readSource("ui/home/HomeScreen.kt")
         val cardSource = source.substringAfter("fun EventCard(")

@@ -31,6 +31,18 @@ class StringResourceSanityTest {
     }
 
     @Test
+    fun englishLunarDate_usesAVisibleSeparatorWithoutPlaceholderPunctuation() {
+        val en = readResourceText("values-en/strings.xml")
+        val lunarFormat = Regex(
+            "<string name=\\\"lunar_date_full_format\\\">(.*?)</string>"
+        ).find(en)?.groupValues?.get(1).orEmpty()
+
+        assertTrue("English lunar format must exist", lunarFormat.isNotBlank())
+        assertTrue("English lunar format must use a visible separator", lunarFormat.contains(" · "))
+        assertFalse("English lunar format must not show a literal question mark", lunarFormat.contains('?'))
+    }
+
+    @Test
     fun zhPacks_doNotContainCommonMojibakeMarkers() {
         val suspicious = listOf(
             "\u951b",

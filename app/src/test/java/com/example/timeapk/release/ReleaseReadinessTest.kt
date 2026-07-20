@@ -50,6 +50,32 @@ class ReleaseReadinessTest {
         assertTrue(buildFile.contains("versionCode = versionCodeOverride ?: 23"))
         assertTrue(buildFile.contains("versionName = versionNameOverride ?: \"4.0\""))
         assertTrue(buildFile.contains("val versionNameForApk = versionNameOverride ?: \"4.0\""))
+        assertTrue(buildFile.contains("applicationIdSuffix = \".play\""))
+        assertFalse("Play must keep the shared 4.0 versionName", buildFile.contains("versionNameSuffix"))
+    }
+
+    @Test
+    fun buildDocumentsRequiredKspCompatibilityUntilToolchainAllowsRemoval() {
+        val propertiesFile = rootGradlePropertiesFile()
+        val properties = Properties().apply { propertiesFile.inputStream().use(::load) }
+        val propertiesText = propertiesFile.readText(Charsets.UTF_8)
+
+        assertEquals("false", properties.getProperty("android.disallowKotlinSourceSets"))
+        assertTrue(
+            "The temporary Android/KSP compatibility flag must explain its removal condition",
+            propertiesText.contains("Required by KSP 2.3.2 with AGP 9.1 built-in Kotlin") &&
+                propertiesText.contains("Remove after KSP stops registering generated sources through kotlin.sourceSets")
+        )
+    }
+
+    @Test
+    fun fullReleaseGateHasStableDaemonMetaspaceBudget() {
+        val propertiesText = rootGradlePropertiesFile().readText(Charsets.UTF_8)
+
+        assertTrue(
+            "The complete release gate must not exhaust the Gradle daemon metaspace budget",
+            propertiesText.contains("-XX:MaxMetaspaceSize=2g")
+        )
     }
 
     @Test
@@ -108,6 +134,8 @@ class ReleaseReadinessTest {
         assertTrue(checklist.contains("# 发布检查清单（v4.0）"))
         assertTrue(checklist.contains("发布状态：待验证"))
         assertTrue(combined.contains("versionCode=23") || combined.contains("versionCode`：`23"))
+        assertFalse(githubGuide.contains("4.0-play"))
+        assertFalse(releaseGuide.contains("4.0-play"))
         assertTrue(combined.contains("glimmer-countdown-4-0.apk"))
         assertTrue(combined.contains("预览宽度 / 预览高度"))
         assertTrue(combined.contains("无可写系统日历"))

@@ -107,6 +107,6 @@ docker run --rm --network none --platform linux/amd64 \
 - 整个 Release 只保留唯一的 exact Direct APK，没有 `app-play-release.apk`、`app-play-release.aab` 或其他资产
 - GitHub API 最终 GET 返回公开、非 prerelease 的 `v4.0` Release，且唯一资产的 id、size、digest、下载 URL 与本地产物一致
 - Direct APK `versionName` 是否为 `4.0`
-- Play APK / AAB `versionName` 是否为 `4.0-play`
+- Play APK / AAB `versionName` 是否为 `4.0`
 - Play APK 是否不包含 `REQUEST_INSTALL_PACKAGES`
 - 抽检首页右上近期入口、月历选中日期内容与年月选择、详情轻量主卡与分享卡、新建 / 编辑标题输入与提醒滚轮、设置页样张、小组件配置、启动页、系统日历无可写提示和 Direct 渠道检查更新

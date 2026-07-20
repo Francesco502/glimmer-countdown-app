@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.ui.text.style.TextAlign
@@ -47,6 +48,7 @@ import com.example.timeapk.permissions.openAppNotificationSettings
 import com.example.timeapk.ui.common.SongBottomAction
 import com.example.timeapk.ui.common.SongBottomActionBar
 import com.example.timeapk.ui.common.SongReminderStatusStrip
+import com.example.timeapk.ui.common.useLargeTextLayout
 import com.example.timeapk.ui.components.SongConfirmDialog
 import com.example.timeapk.ui.components.SongDialogButton
 import com.example.timeapk.ui.components.SongFormDialog
@@ -887,26 +889,50 @@ private fun DetailLabelRow(
     contentColor: androidx.compose.ui.graphics.Color,
     modifier: Modifier = Modifier
 ) {
-    Row(
+    val largeTextLayout = useLargeTextLayout(LocalDensity.current.fontScale)
+    val labelText = "$label:"
+
+    Column(
         modifier = modifier
             .widthIn(max = DetailSupplementContentMaxWidth)
-            .padding(vertical = 8.dp),
-        horizontalArrangement = Arrangement.Start,
-        verticalAlignment = Alignment.Top
+            .padding(vertical = 8.dp)
     ) {
-        Text(
-            text = "$label:",
-            style = MaterialTheme.typography.bodyLarge,
-            color = contentColor.copy(alpha = 0.75f),
-            modifier = Modifier.width(DetailSupplementLabelWidth)
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyLarge,
-            color = contentColor.copy(alpha = 0.95f),
-            textAlign = TextAlign.Start,
-            modifier = Modifier.widthIn(max = DetailSupplementValueMaxWidth)
-        )
+        if (largeTextLayout) {
+            Text(
+                text = labelText,
+                style = MaterialTheme.typography.bodyLarge,
+                color = contentColor.copy(alpha = 0.75f),
+                maxLines = 1
+            )
+            Spacer(modifier = Modifier.height(3.dp))
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyLarge,
+                color = contentColor.copy(alpha = 0.95f),
+                textAlign = TextAlign.Start,
+                modifier = Modifier.fillMaxWidth()
+            )
+        } else {
+            Row(
+                horizontalArrangement = Arrangement.Start,
+                verticalAlignment = Alignment.Top
+            ) {
+                Text(
+                    text = labelText,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = contentColor.copy(alpha = 0.75f),
+                    maxLines = 1,
+                    modifier = Modifier.width(DetailSupplementLabelWidth)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = contentColor.copy(alpha = 0.95f),
+                    textAlign = TextAlign.Start,
+                    modifier = Modifier.widthIn(max = DetailSupplementValueMaxWidth)
+                )
+            }
+        }
     }
 }

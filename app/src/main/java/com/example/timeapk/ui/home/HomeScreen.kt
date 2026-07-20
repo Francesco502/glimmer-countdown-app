@@ -67,6 +67,7 @@ import com.example.timeapk.data.REPEAT_MONTHLY
 import com.example.timeapk.data.REPEAT_WEEKLY
 import com.example.timeapk.data.REPEAT_YEARLY
 import com.example.timeapk.ui.components.SongDateWheelPickerDialog
+import com.example.timeapk.ui.common.homeCardTitleMaxLines
 import com.example.timeapk.ui.utils.formatBetweenAsYMD
 import com.example.timeapk.ui.utils.formatDaysSmart
 import com.example.timeapk.ui.utils.getDisplayDateFormatter
@@ -1382,6 +1383,7 @@ fun EventCard(
     }
 
     val locale = androidx.compose.ui.platform.LocalContext.current.resources.configuration.locales[0]
+    val titleMaxLines = homeCardTitleMaxLines(LocalDensity.current.fontScale)
 
     val targetLocalDate = remember(eventState.event.date) {
         eventDateToLocalDate(eventState.event.date)
@@ -1551,7 +1553,7 @@ fun EventCard(
                         text = eventState.event.title,
                         style = MaterialTheme.typography.titleMedium,
                         color = cardContentColor.copy(alpha = if (isPast) 0.8f else 1.0f),
-                        maxLines = 2,
+                        maxLines = titleMaxLines,
                         overflow = TextOverflow.Ellipsis
                     )
 

@@ -6,7 +6,7 @@
 
 | 项目 | 状态 |
 |------|------|
-| `applicationId` / 版本号 | Direct：`com.example.timeapk` / `4.0`；Play：`com.example.timeapk.play` / `4.0-play` |
+| `applicationId` / 版本号 | Direct：`com.example.timeapk` / `4.0`；Play：`com.example.timeapk.play` / `4.0` |
 | 最低 / 目标 SDK | `minSdk 26` / `targetSdk 36` |
 | Release 构建 | 已启用 `release` buildType，并开启 `minify` 与 `shrinkResources` |
 | Release 签名 | 从 `keystore.properties` 读取 |

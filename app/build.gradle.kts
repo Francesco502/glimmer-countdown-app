@@ -154,7 +154,6 @@ android {
         create("play") {
             dimension = "channel"
             applicationIdSuffix = ".play"
-            versionNameSuffix = "-play"
             buildConfigField("boolean", "DIRECT_APK_UPDATES_ENABLED", "false")
         }
     }

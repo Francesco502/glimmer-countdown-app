@@ -189,30 +189,39 @@ class WidgetContentResolverTest {
     }
 
     @Test
-    fun filterAndSortStates_followHomeByDays_matchesHomeForExportedEvents_andKeepsPinsFirst() {
+    fun filterAndSortStates_followHomeAllSortModes_matchHomeForExportedEvents_andKeepPinsFirst() {
         val states = exportedEvents().map { it.toEventUiState() }
         val pinnedIds = listOf(4, 6)
         val customOrder = states.map { it.event.id }.reversed()
-        val expected = applyHomeSort(
-            list = states,
-            sortType = SortType.ByDays,
-            customEventOrderIds = customOrder,
-            pinnedEventIds = pinnedIds
-        )
 
-        val actual = WidgetContentResolver.filterAndSortStates(
-            states = states,
-            config = WidgetConfig.default().copy(sortMode = SORT_HOME),
-            pinnedEventIds = pinnedIds,
-            customEventOrder = customOrder,
-            homeSortType = SortType.ByDays
-        )
+        listOf(SortType.Custom, SortType.ByDays, SortType.ByDate).forEach { sortType ->
+            val expected = applyHomeSort(
+                list = states,
+                sortType = sortType,
+                customEventOrderIds = customOrder,
+                pinnedEventIds = pinnedIds
+            )
 
-        assertEquals(22, actual.size)
-        assertEquals(expected.map { it.event.id }, actual.map { it.event.id })
-        assertEquals(pinnedIds, actual.take(pinnedIds.size).map { it.event.id })
-        val unpinnedDays = actual.drop(pinnedIds.size).map { it.daysRemaining }
-        assertEquals(unpinnedDays.sorted(), unpinnedDays)
+            val actual = WidgetContentResolver.filterAndSortStates(
+                states = states,
+                config = WidgetConfig.default().copy(sortMode = SORT_HOME),
+                pinnedEventIds = pinnedIds,
+                customEventOrder = customOrder,
+                homeSortType = sortType
+            )
+
+            assertEquals("sortType=$sortType fixture size", 22, actual.size)
+            assertEquals(
+                "sortType=$sortType must match the home order",
+                expected.map { it.event.id },
+                actual.map { it.event.id }
+            )
+            assertEquals(
+                "sortType=$sortType must keep pins first",
+                pinnedIds,
+                actual.take(pinnedIds.size).map { it.event.id }
+            )
+        }
     }
 
     @Test
