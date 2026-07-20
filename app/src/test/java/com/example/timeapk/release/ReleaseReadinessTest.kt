@@ -145,9 +145,7 @@ class ReleaseReadinessTest {
         assertTrue(readme.contains("releases/tag/v4.0"))
         assertTrue(changelog.contains("## [4.0] - 2026-07-20"))
         assertTrue(checklist.contains("# 发布检查清单（v4.0）"))
-        assertTrue(
-            checklist.contains("发布状态：发布执行中") || checklist.contains("发布状态：已发布")
-        )
+        assertTrue(checklist.contains("发布状态：已发布"))
         listOf(readme, githubGuide, releaseGuide).forEach { document ->
             assertFalse(document.contains("最新公开版本仍为 3.17"))
             assertFalse(document.contains("4.0 尚未发布"))
@@ -277,7 +275,7 @@ class ReleaseReadinessTest {
         assertFalse(finalActions.contains("Play Console"))
         assertFalse(finalActions.contains("Play AAB"))
         assertFalse(finalActions.contains("Play 渠道"))
-        assertTrue(finalActions.contains("正式发布仅上传 `glimmer-countdown-4-0.apk`"))
+        assertTrue(finalActions.contains("Release 仅含 `glimmer-countdown-4-0.apk`"))
 
         listOf(readme, githubGuide, releaseGuide).forEach { officialGuide ->
             assertFalse(officialGuide.contains("Play Console"))
@@ -293,7 +291,7 @@ class ReleaseReadinessTest {
     }
 
     @Test
-    fun releaseChecklistDistinguishesVerifiedCandidateArtifactsFromFinalPublication() {
+    fun releaseChecklistRecordsFinalPublicationAndWaivedPhysicalDeviceGate() {
         val checklist = existingFile(
             "docs/RELEASE_CHECKLIST.md",
             "../docs/RELEASE_CHECKLIST.md"
@@ -309,7 +307,7 @@ class ReleaseReadinessTest {
 
         assertTrue(checklist.contains("临时签名配置"))
         assertTrue(checklist.contains("候选提交使用与线上 v3.17 相同的正式发布证书"))
-        assertTrue(checklist.contains("最终仍须从不可变 `v4.0` tag 再次新鲜构建"))
+        assertTrue(checklist.contains("最终 APK 已从不可变 `v4.0` tag 对应 commit 新鲜构建"))
         assertTrue(checklist.contains("Direct / Play 各 410 项通过"))
         assertTrue(checklist.contains("- [x] Direct Debug APK 包含 `REQUEST_INSTALL_PACKAGES`"))
         assertTrue(checklist.contains("- [x] 使用正式发布证书重复完整构建、签名、权限"))
@@ -318,8 +316,12 @@ class ReleaseReadinessTest {
         assertTrue(checklist.contains("AAB 已通过 bundletool 生成与安装测试"))
         assertTrue(checklist.contains("PowerShell 脚本运行（2026-07-17）"))
         assertTrue(checklist.contains("5/5 场景通过"))
-        assertTrue(checklist.contains("真实 GitHub mutation：未检查"))
+        assertTrue(checklist.contains("GitHub Release `v4.0` 于 2026-07-20 正式公开"))
+        assertTrue(checklist.contains("5e9c544ffa15d8485a0ed272ba91805f7080feb9"))
+        assertTrue(checklist.contains("f45afe96cbc6602e539e9300c424a56f4e9488bcab3ec69e0a91ce56069c7543"))
         assertTrue(checklist.contains("- [x] publisher 隔离 PowerShell 状态机 10/10 通过"))
+        assertTrue(publisherHarness.contains("V2 Signer: certificate SHA-256 digest:"))
+        assertTrue(publisherHarness.contains("releases/download/untagged-mock/"))
         assertTrue(publisherHarness.contains("'lock-contention'"))
         assertTrue(publisherHarness.contains("'owned-draft'"))
         assertTrue(publisherHarness.contains("'failure-cleanup'"))
@@ -328,7 +330,7 @@ class ReleaseReadinessTest {
         assertTrue(githubGuide.contains("--network none"))
         assertTrue(checklist.contains("- [ ] 冷启动、首页滚动、月历切换、详情与设置导航"))
         assertTrue(checklist.contains("从该 tag 对应 commit 的工作树重新正式签名构建"))
-        assertTrue(checklist.contains("发布后安装线上 APK 并完成更新检查与关键链路 smoke"))
+        assertTrue(checklist.contains("发布后重新下载并安装线上 APK"))
         assertTrue(checklist.contains("Backup / restore smoke"))
         assertTrue(checklist.contains("筛选后的真实拖拽"))
         assertTrue(checklist.contains("真机：未检查"))
@@ -336,7 +338,7 @@ class ReleaseReadinessTest {
         assertTrue(checklist.contains("API 37"))
         assertFalse(checklist.contains("Android 17"))
         assertTrue(checklist.contains("创建并推送不可变的 exact `v4.0` tag"))
-        assertTrue(checklist.contains("正式发布仅上传 `glimmer-countdown-4-0.apk`"))
+        assertTrue(checklist.contains("Release 仅含 `glimmer-countdown-4-0.apk`"))
     }
 
     @Test

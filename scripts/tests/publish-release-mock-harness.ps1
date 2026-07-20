@@ -147,13 +147,13 @@ try {
     $apksignerScript = if ($isWindowsHost) {
         @"
 @echo off
-echo Signer #1 certificate SHA-256 digest: $certificateSha256
+echo V2 Signer: certificate SHA-256 digest: $certificateSha256
 exit /b 0
 "@
     } else {
         @"
 #!/bin/sh
-echo 'Signer #1 certificate SHA-256 digest: $certificateSha256'
+echo 'V2 Signer: certificate SHA-256 digest: $certificateSha256'
 exit 0
 "@
     }
@@ -358,7 +358,7 @@ exit 0
                 content_type         = $apkContentType
                 size                 = [long]$apkSize
                 digest               = $expectedDigest
-                browser_download_url = 'https://github.com/Francesco502/glimmer-countdown-app/releases/download/v4.0/glimmer-countdown-4-0.apk'
+                browser_download_url = 'https://github.com/Francesco502/glimmer-countdown-app/releases/download/untagged-mock/glimmer-countdown-4-0.apk'
             }
             $script:Mock.Release.assets = @($asset)
             return $asset
@@ -382,6 +382,9 @@ exit 0
                     $script:Mock.ResumePatches++
                 } else {
                     $script:Mock.PublishPatches++
+                    foreach ($asset in @($script:Mock.Release.assets)) {
+                        $asset.browser_download_url = 'https://github.com/Francesco502/glimmer-countdown-app/releases/download/v4.0/glimmer-countdown-4-0.apk'
+                    }
                 }
                 return $script:Mock.Release
             }

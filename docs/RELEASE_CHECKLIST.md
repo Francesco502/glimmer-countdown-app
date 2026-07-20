@@ -1,8 +1,8 @@
 # 发布检查清单（v4.0）
 
-**版本**：`4.0`（`versionCode=23`）  **发布日期**：2026-07-20  **发布状态：发布执行中**
+**版本**：`4.0`（`versionCode=23`）  **发布日期**：2026-07-20  **发布状态：已发布**
 
-4.0 是面向长期使用与公开分发的成熟产品版本。本清单区分已验证、未执行与发布负责人明确豁免的项目；豁免不等于测试通过。公开发布完成并完成线上回装后，状态更新为“已发布”。
+4.0 是面向长期使用与公开分发的成熟产品版本。本清单区分已验证、未执行与发布负责人明确豁免的项目；豁免不等于测试通过。正式版本已发布至 [GitHub Release v4.0](https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v4.0)。
 
 **唯一正式发布渠道：GitHub Release。** 唯一官方资产为 Direct APK `glimmer-countdown-4-0.apk`。Play flavor 仅保留用于兼容性与开发回归，不是 4.0 正式发布工件或阻断项。
 
@@ -17,10 +17,10 @@
 - [x] `./gradlew lintDirectDebug lintDirectRelease lintVitalDirectRelease` 通过且无未解释 warning
 - [x] 使用隔离的临时签名配置执行 `assembleDirectRelease` 通过，证明 Direct 构建与签名门可工作
 - [x] 临时签名构建生成 exact Direct APK `app/build/outputs/apk/direct/release/glimmer-countdown-4-0.apk`
-- [x] 候选提交使用与线上 v3.17 相同的正式发布证书重建并验证 Direct APK 的签名、权限、大小与 SHA-256；最终仍须从不可变 `v4.0` tag 再次新鲜构建
+- [x] 候选提交使用与线上 v3.17 相同的正式发布证书重建；最终 APK 已从不可变 `v4.0` tag 对应 commit 新鲜构建，并复验签名、权限、大小与 SHA-256
 - [x] `testPlayDebugUnitTest`、Play 编译与设备测试保留为兼容性 / 开发回归记录，不是正式发布门
 - [x] Direct Debug APK 包含 `REQUEST_INSTALL_PACKAGES`，Play Debug APK 不包含该权限
-- [x] publisher 隔离 PowerShell 状态机 10/10 通过：本地来源 / APK 身份预检失败时零 GitHub 请求；正常流程删除 owned draft 旧资产且整个 Release 只保留唯一 exact Direct APK
+- [x] publisher 隔离 PowerShell 状态机 10/10 通过：本地来源 / APK 身份预检失败时零 GitHub 请求；正常流程删除 owned draft 旧资产且整个 Release 只保留唯一 exact Direct APK；发布后回归同时覆盖 Build Tools 37 证书输出与 draft `untagged` 临时下载 URL
 
 ## 二、数据与核心功能成熟度
 
@@ -65,7 +65,11 @@
 - 当前工作树强制重跑 Direct JVM 548/548 通过，0 failures / 0 errors / 0 skipped；Direct AndroidTest 编译通过，API 37 connected 完整套件 26/26 通过。`lintDirectDebug lintDirectRelease lintVitalDirectRelease` 成功，DirectDebug / DirectRelease 报告均为 `No issues found.`；Play 测试、lint、APK 与 AAB 不属于 GitHub-only 正式发布门。
 - 未提供签名配置时 `assembleDirectRelease` 在 `validateReleaseSigning` 立即失败，确认发布构建不会静默回退到 Debug 或未签名包。使用仓库外、两天有效的 QA 证书执行 `clean assembleDirectRelease` 成功；exact APK 为 26,422,274 bytes / SHA-256 `f41de7ba82d7490e0195c6899bd886645c317647a72d9986cfe6ff3fbc43f09c`，输出元数据和 `aapt` 均确认 `com.example.timeapk` / `versionCode=23` / `versionName=4.0`、非 debuggable、含 `REQUEST_INSTALL_PACKAGES`，APK v2 验签、ZIP 完整性与 R8 mapping 均通过。QA 证书 SHA-256 为 `99571623647aa688442efffc2571f05abd7e71431ac7ea7b25be5106401d5972`，该临时产物**不得发布**。
 - QA Direct Release 在 API 37 模拟器安装并冷启动成功（496ms），应用进程 error 级日志为空；关于页显示“版本 4.0”，GitHub 更新检查入口可触发且未崩溃。
-- 2026-07-20 的首次 GitHub 公共 API 只读核验显示 `v4.0` Release 与 tag 尚不存在；随后已重新完成 `gh auth login`，沙盒外 `gh auth status` 验证账号、`repo` 与 `workflow` 权限有效。最终发布只允许创建新的不可变 tag 和唯一 Direct APK Release。
+- 2026-07-20 的首次 GitHub 公共 API 只读核验显示 `v4.0` Release 与 tag 尚不存在；随后重新完成 `gh auth login`，验证账号、`repo` 与 `workflow` 权限有效，并创建新标签与唯一 Direct APK Release。
+- 最终不可变 tag `v4.0` 精确指向 commit `5e9c544ffa15d8485a0ed272ba91805f7080feb9`。从该 tag 执行 `clean assembleDirectRelease`，实际完成 vital lint、R8、资源压缩与正式签名；发布 APK 为 26,422,346 bytes，SHA-256 `f45afe96cbc6602e539e9300c424a56f4e9488bcab3ec69e0a91ce56069c7543`，正式证书 SHA-256 `3b7cb426a82664f891c69511cc2505b67128c8503664639f297291da4ea903ca`。
+- GitHub Release `v4.0` 于 2026-07-20 正式公开，非 draft、非 prerelease，目标 commit 与标签一致，只包含 `glimmer-countdown-4-0.apk` 一个资产；GitHub 返回的 size、digest、MIME 与正式下载 URL 均与本地最终产物一致，发布锁已清理。
+- 首次正式发布器运行在任何远端 mutation 前因 Build Tools 37 使用 `V2 Signer:` 证书前缀而安全终止；改用 36.1.0 兼容视图后创建并上传 owned draft，又因 GitHub draft 使用 `untagged-...` 临时资产 URL 而安全停止。人工通过 API 复核 release id、ownership marker、tag、commit、唯一资产 id、size、digest 与 MIME 后，仅将同一 owned draft 的 `draft` 改为 `false`，没有替换标签、资产或发布说明。发布工具已新增上述两类回归。
+- 从公开 Release 重新下载 APK 后，复验 size、SHA-256、ZIP、`aapt` 身份、APK v2 签名与正式证书全部一致；API 37 模拟器全新安装成功，冷启动 1041ms，关于页显示“版本 4.0”，更新检查完成且未发现应用崩溃或 ANR。
 - 发布负责人于 2026-07-20 明确决定豁免物理真机安装、升级、Launcher 小组件与性能验收；该项未执行，不得在后续审计中解释为通过。API 37 模拟器、Android 8 / 12 兼容 smoke、正式证书候选与自动质量门仍作为本次发布依据。
 
 ### 历史记录（非发布门）
@@ -122,14 +126,14 @@
 
 - [x] 物理手机最终安装 / 升级、通知、日历与 Launcher 小组件 smoke 未执行；发布负责人于 2026-07-20 明确豁免并接受相应剩余风险
 - [x] 合并经过复核的 4.0 发布分支
-- [ ] 确认最终代码与发布文档已提交，且工作区干净
-- [ ] 创建并推送不可变的 exact `v4.0` tag
-- [ ] 从该 tag 对应 commit 的工作树重新正式签名构建；不得复用旧构建产物
-- [ ] 验证签名、精确证书指纹与 SHA-256
+- [x] 确认最终代码与发布文档已提交，且发布前工作区干净
+- [x] 创建并推送不可变的 exact `v4.0` tag
+- [x] 从该 tag 对应 commit 的工作树重新正式签名构建；未复用旧构建产物
+- [x] 验证签名、精确证书指纹与 SHA-256
 - [x] 准备安全凭据环境：本地使用 `gh auth login` / `gh auth token`；CI 才注入 secret 且不打印
-- [ ] 以 `CHANGELOG.md` 中的 4.0 小节作为 Release Notes
-- [ ] 运行发布脚本，正式发布仅上传 `glimmer-countdown-4-0.apk`，并确认整个 Release 没有任何其他资产
-- [ ] 发布后安装线上 APK 并完成更新检查与关键链路 smoke
+- [x] 以 `CHANGELOG.md` 中的 4.0 小节作为 Release Notes
+- [x] 发布器创建并上传 owned draft；在严格验证其身份与唯一资产后完成公开发布，Release 仅含 `glimmer-countdown-4-0.apk`
+- [x] 发布后重新下载并安装线上 APK，完成版本、更新检查、冷启动与崩溃日志 smoke
 
 ## Release / Update Task 4 验证（2026-07-16）
 

@@ -392,7 +392,7 @@ if ($LASTEXITCODE -ne 0) {
     throw 'apksigner verification failed for the Direct APK.'
 }
 $certMatch = $verifyOutput |
-    Select-String -Pattern '^Signer #1 certificate SHA-256 digest:\s*(.+)$' |
+    Select-String -Pattern '^(?:Signer #1|V2 Signer): certificate SHA-256 digest:\s*(.+)$' |
     Select-Object -First 1
 if (-not $certMatch) {
     throw 'Unable to read the APK signer SHA-256 certificate digest.'
@@ -662,7 +662,11 @@ function Assert-UploadedAsset {
 }
 
 function Assert-RefetchedAsset {
-    param([object]$Release, [long]$ExpectedAssetId)
+    param(
+        [object]$Release,
+        [long]$ExpectedAssetId,
+        [switch]$RequireFinalUrl
+    )
 
     $allAssets = @($Release.assets)
     if ($allAssets.Count -ne 1) {
@@ -687,7 +691,11 @@ function Assert-RefetchedAsset {
     if (-not [string]::Equals([string]$asset.digest, $expectedDigest, [System.StringComparison]::OrdinalIgnoreCase)) {
         throw 'Refetched asset digest does not match the local APK.'
     }
-    if (-not [string]::Equals([string]$asset.browser_download_url, $expectedAssetUrl, [System.StringComparison]::Ordinal)) {
+    if ($RequireFinalUrl -and -not [string]::Equals(
+            [string]$asset.browser_download_url,
+            $expectedAssetUrl,
+            [System.StringComparison]::Ordinal
+        )) {
         throw 'Refetched asset URL does not match the expected repository release URL.'
     }
     return $asset
@@ -714,7 +722,10 @@ function Assert-FinalPublishedSnapshot {
     if (-not ([string]$Release.body).Contains($ownershipMarker)) {
         throw 'Final release ownership marker does not match.'
     }
-    $null = Assert-RefetchedAsset -Release $Release -ExpectedAssetId $ExpectedAssetId
+    $null = Assert-RefetchedAsset `
+        -Release $Release `
+        -ExpectedAssetId $ExpectedAssetId `
+        -RequireFinalUrl
 }
 
 function Get-FinalPublishedRelease {
