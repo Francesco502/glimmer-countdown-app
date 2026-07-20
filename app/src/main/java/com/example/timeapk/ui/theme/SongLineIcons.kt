@@ -21,6 +21,8 @@ import androidx.compose.ui.unit.dp
 enum class SongLineIconKind {
     Search,
     More,
+    Filter,
+    Settings,
     Add,
     Check,
     Back,
@@ -150,6 +152,29 @@ private fun DrawScope.drawSongLineIcon(
             line(9.2f, 10f, 14.8f, 10f)
             line(9.2f, 13.2f, 14.8f, 13.2f)
             line(11f, 7.8f, 11f, 16.2f)
+        }
+        SongLineIconKind.Filter -> {
+            line(5.5f, 7f, 8.2f, 7f)
+            circle(9.7f, 7f, 1.35f)
+            line(11.1f, 7f, 18.5f, 7f)
+            line(5.5f, 12f, 13.2f, 12f)
+            circle(14.7f, 12f, 1.35f)
+            line(16.1f, 12f, 18.5f, 12f)
+            line(5.5f, 17f, 10.2f, 17f)
+            circle(11.7f, 17f, 1.35f)
+            line(13.1f, 17f, 18.5f, 17f)
+        }
+        SongLineIconKind.Settings -> {
+            circle(12f, 12f, 5.5f)
+            circle(12f, 12f, 2.2f)
+            line(12f, 3.8f, 12f, 6.5f)
+            line(12f, 17.5f, 12f, 20.2f)
+            line(3.8f, 12f, 6.5f, 12f)
+            line(17.5f, 12f, 20.2f, 12f)
+            line(6.2f, 6.2f, 8.1f, 8.1f)
+            line(15.9f, 15.9f, 17.8f, 17.8f)
+            line(17.8f, 6.2f, 15.9f, 8.1f)
+            line(8.1f, 15.9f, 6.2f, 17.8f)
         }
         SongLineIconKind.Add -> {
             line(12f, 5.4f, 12f, 18.6f)

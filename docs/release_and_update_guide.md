@@ -2,18 +2,19 @@
 
 本文档说明 `4.0` 成熟版候选如何完成签名、构建、验证与 GitHub Release。4.0 检查清单完成前保持未发布状态，最新公开版本仍为 3.17。
 
+**唯一正式发布渠道：GitHub Release。** 唯一官方资产为 Direct APK `glimmer-countdown-4-0.apk`。Play flavor 仅保留用于兼容性与开发回归，不是 4.0 正式发布工件或阻断项。
+
 ## 一、当前状态
 
 | 项目 | 状态 |
 |------|------|
-| `applicationId` / 版本号 | Direct：`com.example.timeapk` / `4.0`；Play：`com.example.timeapk.play` / `4.0` |
+| `applicationId` / 版本号 | Direct：`com.example.timeapk` / `4.0`；Play：`com.example.timeapk.play` / `4.0`（仅开发回归） |
 | 最低 / 目标 SDK | `minSdk 26` / `targetSdk 36` |
 | Release 构建 | 已启用 `release` buildType，并开启 `minify` 与 `shrinkResources` |
 | Release 签名 | 从 `keystore.properties` 读取 |
 | Direct APK 命名 | 输出为 `glimmer-countdown-4-0.apk` |
-| 渠道 | 支持 `direct` / `play` flavor |
-| 应用内更新入口 | Direct 使用 GitHub Release；Play 使用占位更新器，不提供直接 APK 安装 |
-| GitHub Release 资产 | 只上传 Direct APK |
+| 正式渠道 | GitHub Release，只上传 Direct APK |
+| Play flavor | 保留用于兼容性与开发回归；不产生正式资产或发布门 |
 
 ## 二、发布前准备
 
@@ -52,21 +53,20 @@ GLIMMER_RELEASE_CERT_SHA256=<64位SHA-256证书指纹>
 
 ```bash
 ./gradlew testDirectDebugUnitTest
-./gradlew testPlayDebugUnitTest
 ./gradlew compileDirectDebugAndroidTestKotlin
-./gradlew lintDirectDebug lintDirectRelease lintPlayRelease lintVitalDirectRelease lintVitalPlayRelease
-./gradlew assembleDirectRelease assemblePlayRelease bundlePlayRelease
+./gradlew lintDirectDebug lintDirectRelease lintVitalDirectRelease
+./gradlew assembleDirectRelease
 ```
 
 产物路径：
 
 - `app/build/outputs/apk/direct/release/glimmer-countdown-4-0.apk`
-- `app/build/outputs/apk/play/release/app-play-release.apk`
-- `app/build/outputs/bundle/playRelease/app-play-release.aab`
+
+Play flavor 的 Debug 测试、编译或安装仅用于开发回归，必须单独记录，且不是本页正式发布的前置条件。
 
 ## 四、GitHub 发布
 
-固定发布顺序：最终代码与发布文档已提交，且工作区干净 → 创建并推送不可变的 exact tag → 从该 tag 对应 commit 的工作树重新正式签名构建 → 验证签名、渠道权限与 SHA-256 → 准备安全凭据环境 → 运行发布脚本。
+固定发布顺序：最终代码与发布文档已提交，且工作区干净 → 创建并推送不可变的 exact tag → 从该 tag 对应 commit 的工作树重新正式签名构建 → 验证签名、精确证书指纹与 SHA-256 → 准备安全凭据环境 → 运行发布脚本。
 
 ### 1. 提交与推送
 
@@ -87,11 +87,11 @@ git push origin v4.0
 
 脚本会分别解引用 annotated/lightweight tag，并要求本地与远端 tag 解引用后的 commit 精确一致。禁止 force-push、移动或复用已推送 tag，禁止覆盖已发布 Release；已发布后出现问题必须递增版本号。
 
-标签推送后先核对 `git rev-parse HEAD` 与 `git rev-parse v4.0^{commit}` 一致，然后在该工作树执行 `./gradlew clean` 和本页“构建命令”。不得复用旧构建产物，也不要使用可能删除未跟踪文件的 `git clean`。用正式密钥完成 Direct APK / Play AAB 后，记录 SHA-256，并验证签名及 Direct/Play 渠道权限差异。
+标签推送后先核对 `git rev-parse HEAD` 与 `git rev-parse v4.0^{commit}` 一致，然后在该工作树执行 `./gradlew clean` 和本页“构建命令”。不得复用旧构建产物，也不要使用可能删除未跟踪文件的 `git clean`。用正式密钥完成 Direct APK 后，记录 SHA-256，并验证签名、精确证书指纹与安装权限。
 
 ### 3. Release
 
-前置条件：正式签名 exact Direct APK 已从 tag commit 新鲜生成；`ANDROID_HOME` 可定位稳定版 `apksigner`；`GLIMMER_RELEASE_CERT_SHA256` 已安全注入；本地运行 `gh auth login` 后脚本可通过 `gh auth token` 取得具备 `GitHub Contents: write` 的凭据；本地和远端 `v4.0` tag 已指向最终发布 commit。CI 才通过仓库 secret 注入 `GITHUB_TOKEN`，且不得打印其值。
+前置条件：正式签名 exact Direct APK 已从 tag commit 新鲜生成；`ANDROID_HOME` 可定位稳定版 `apksigner` 与 `aapt`；`GLIMMER_RELEASE_CERT_SHA256` 已安全注入；本地运行 `gh auth login` 后脚本可通过 `gh auth token` 取得具备 `GitHub Contents: write` 的凭据；本地和远端 `v4.0` tag 已指向最终发布 commit。CI 才通过仓库 secret 注入 `GITHUB_TOKEN`，且不得打印其值。
 
 ```powershell
 $env:GLIMMER_RELEASE_CERT_SHA256 = "your_release_certificate_sha256"
@@ -104,14 +104,15 @@ gh auth login
 
 脚本会：
 
-- 读取当前版本号
+- 读取当前版本号；工作区存在 tracked / untracked 改动时拒绝发布
 - 提取 `CHANGELOG.md` 中 `4.0` 小节作为 Release Notes
+- 要求当前 `HEAD` 等于 exact 本地 tag commit，并在首次远端写入前再次复核
+- 校验 `output-metadata.json` 的唯一 Direct artifact，再用 `aapt` 验证 APK 的真实包名、版本、非调试状态和安装包权限
 - 校验正式证书指纹及本地/远端 tag commit 后创建 `refs/heads/release-locks/v4.0` Git ref 锁
 - 创建带 `ownership marker` 的 draft；仅恢复带脚本自身 marker 的 draft，拒绝 published Release 和人工 draft
 - 删除 owned draft 中的所有旧资产，再上传 exact Direct APK，并将响应及重新读取结果绑定到 asset id、size、digest、content type 和下载 URL
-- 要求整个 Release 只保留唯一的 exact Direct APK，发现 AAB、Play APK 或任何其他资产即拒绝发布
+- 要求整个 Release 只保留唯一的 exact Direct APK，发现任何其他资产即拒绝发布
 - 在发布前重新核对 ownership marker，并以最终 GET 验证公开 Release 与唯一 APK
-- Play AAB 不上传 GitHub Release；Play AAB 只交付 Play Console
 
 发布进程并发或发现残留锁时脚本会拒绝继续。先调查是否仍有活跃发布进程、owned draft 或已发生的远端 mutation；不要随意删除活跃锁。只有确认是崩溃遗留且没有活跃发布者后，维护者才可记录原因并人工清理。
 
@@ -125,4 +126,5 @@ gh auth login
 - 小组件内容筛选、排序、密度、边框、圆角、文字对比和农历前缀是否生效
 - 新建 / 编辑 / 删除事件、提醒、系统日历同步和小组件刷新链路是否正常
 - Direct 渠道检查更新是否能读取 GitHub Release
-- Play 渠道不包含 `REQUEST_INSTALL_PACKAGES`，且不展示直接 APK 安装入口
+- 在至少一台物理手机完成 Direct APK 安装 / 升级、通知、日历、Launcher 小组件与性能 smoke
+- 从公开 GitHub Release 在线重新安装唯一 APK，并完成更新检查与关键链路 smoke

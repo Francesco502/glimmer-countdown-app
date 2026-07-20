@@ -237,7 +237,7 @@ fun HomeScreen(
                     )
                     val soundscape = rememberSongSoundscape()
                     InlineActionIconButton(
-                        icon = SongLineIconKind.Ruyi,
+                        icon = SongLineIconKind.Settings,
                         contentDescription = stringResource(R.string.settings_title),
                         active = false,
                         onClick = {
@@ -652,8 +652,8 @@ private fun HomeOverflowActionMenu(
     val soundscape = rememberSongSoundscape()
     Box {
         InlineActionIconButton(
-            icon = SongLineIconKind.More,
-            contentDescription = stringResource(R.string.home_timeline_action_menu),
+            icon = SongLineIconKind.Filter,
+            contentDescription = stringResource(R.string.home_tools_action),
             active = hasActiveTool || expanded,
             onClick = {
                 soundscape.play(SongSoundEffect.Action)
@@ -1113,7 +1113,7 @@ private fun SongActionOptionTile(
         if (spec.selected) {
             Spacer(modifier = Modifier.width(8.dp))
             SongLineIcon(
-                kind = SongLineIconKind.Seal,
+                kind = SongLineIconKind.Check,
                 tint = MaterialTheme.colorScheme.primary,
                 size = 14.dp
             )
@@ -1180,7 +1180,7 @@ private fun SongActionSlipItem(
         } else if (selected) {
             Spacer(modifier = Modifier.width(12.dp))
             SongLineIcon(
-                kind = SongLineIconKind.Seal,
+                kind = SongLineIconKind.Check,
                 tint = MaterialTheme.colorScheme.primary,
                 size = 16.dp
             )
@@ -1189,7 +1189,7 @@ private fun SongActionSlipItem(
 }
 
 @Composable
-private fun InlineActionIconButton(
+internal fun InlineActionIconButton(
     icon: SongLineIconKind,
     contentDescription: String,
     onClick: () -> Unit,
@@ -1197,11 +1197,13 @@ private fun InlineActionIconButton(
 ) {
     IconButton(
         onClick = onClick,
-        modifier = Modifier.size(40.dp)
+        modifier = Modifier
+            .size(48.dp)
+            .semantics { this.contentDescription = contentDescription }
     ) {
         SongLineIcon(
             kind = icon,
-            contentDescription = contentDescription,
+            contentDescription = null,
             tint = if (active) {
                 MaterialTheme.colorScheme.primary
             } else {
@@ -2078,8 +2080,23 @@ private fun MonthCalendarView(
 	                                .weight(1f)
 	                                .heightIn(min = 48.dp, max = 72.dp)
 	                        )
-	                    } else {
+                    } else {
                         val cellContent = calendarDayCellContent(date, dayEvents)
+                        val eventCountLabel = pluralStringResource(
+                            R.plurals.calendar_day_event_count,
+                            dayEvents.size,
+                            dayEvents.size
+                        )
+                        val dayStateLabel = buildList {
+                            if (isToday) add(stringResource(R.string.calendar_day_today))
+                            if (isSelected) add(stringResource(R.string.calendar_day_selected))
+                            add(eventCountLabel)
+                        }.joinToString(stringResource(R.string.calendar_day_state_separator))
+                        val dayAccessibilityLabel = stringResource(
+                            R.string.calendar_day_accessibility,
+                            date.format(selectedDateFormatter),
+                            dayStateLabel
+                        )
                         SongCalendarCell(
                             dayText = cellContent.dayText,
                             eventIndicatorText = cellContent.eventIndicatorText,
@@ -2088,7 +2105,10 @@ private fun MonthCalendarView(
                             hasEvents = hasEvents,
 	                            modifier = Modifier
 	                                .weight(1f)
-	                                .heightIn(min = 48.dp, max = 72.dp),
+	                                .heightIn(min = 48.dp, max = 72.dp)
+                                    .semantics {
+                                        contentDescription = dayAccessibilityLabel
+                                    },
                             onClick = { pickedDate = date }
                         )
                     }

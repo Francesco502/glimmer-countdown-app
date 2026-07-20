@@ -107,6 +107,31 @@ class SettingsStructureTest {
     }
 
     @Test
+    fun milestoneSettingsRoutesReminderStatusActionsToMatchingScheduleDestinations() {
+        val source = readSource("ui/settings/SettingsSubScreens.kt")
+        val milestone = source.substringBetween(
+            "fun MilestoneSettingsContent(",
+            "@Composable\nfun DataSettingsContent"
+        )
+
+        assertTrue(milestone.contains("settingsReminderStatusActionLabel("))
+        assertTrue(milestone.contains("settingsReminderStatusAction("))
+        assertTrue(source.contains("ReminderStatusAction.OpenNotificationSettings ->"))
+        assertTrue(source.contains("{ context.openAppNotificationSettings() }"))
+        assertTrue(source.contains("ReminderStatusAction.OpenCalendarSettings ->"))
+        assertTrue(source.contains("requestCalendarPermissionAccess"))
+        assertTrue(source.contains("ReminderStatusAction.RebuildScheduleSync ->"))
+        assertTrue(source.contains("RescheduleAllWorker.enqueue(context, \"manual_settings_reschedule_all\")"))
+        assertTrue(
+            Regex(
+                """ReminderStatusAction\.None,\s*""" +
+                    """ReminderStatusAction\.EnableReminder,\s*""" +
+                    """ReminderStatusAction\.DisableScheduleSync\s*->\s*null"""
+            ).containsMatchIn(source)
+        )
+    }
+
+    @Test
     fun detailScreenSeparatesCoreHeroCardFromSupplementalSections() {
         val source = readSource("ui/detail/DetailScreen.kt")
         val heroBlock = source.substringBetween(

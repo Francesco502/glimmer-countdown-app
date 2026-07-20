@@ -21,6 +21,12 @@
     </plurals>
     <string name="days_today_label">正当此时</string>
     <string name="days_past_label">已经</string>
+    <string name="detail_time_display_accessibility">%1$s，%2$s</string>
+    <string name="detail_time_mode_past_days">已过天数</string>
+    <string name="detail_time_mode_past_ymd">已过年月日</string>
+    <string name="detail_time_mode_until_days">剩余天数</string>
+    <string name="detail_time_mode_until_ymd">剩余年月日</string>
+    <string name="detail_time_mode_milestone">下一节点</string>
     <plurals name="days_elapsed_format">
         <item quantity="other">已经 %d 天</item>
     </plurals>
@@ -40,6 +46,13 @@
     <string name="sort_menu">排序</string>
     <string name="display_mode_card">卡片</string>
     <string name="display_mode_list">列表</string>
+    <string name="calendar_day_accessibility">%1$s，%2$s</string>
+    <string name="calendar_day_today">今天</string>
+    <string name="calendar_day_selected">已选择</string>
+    <string name="calendar_day_state_separator">，</string>
+    <plurals name="calendar_day_event_count">
+        <item quantity="other">%1$d 个事件</item>
+    </plurals>
     <string name="home_density_title">首页信息</string>
     <string name="home_density_compact">简洁</string>
     <string name="home_density_detailed">详细</string>
@@ -473,6 +486,7 @@
     <string name="home_timeline_month">本月</string>
     <string name="home_timeline_milestone">节点</string>
     <string name="home_timeline_action_menu">近期入口</string>
+    <string name="home_tools_action">筛选与排序</string>
     <plurals name="home_timeline_count_format">
         <item quantity="other">%1$d 项</item>
     </plurals>

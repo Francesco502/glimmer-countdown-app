@@ -6,8 +6,8 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
     
-    <!-- 宋代工笔墨迹沙漏 (整体按约 0.7 倍等比缩放) -->
-    <path android:pathData="M 40, 30.2 Q 54, 29.5 68, 30.2 C 68, 44.2 59.6, 48.4 59.6, 54 C 59.6, 59.6 68, 63.8 68, 77.8 Q 54, 78.5 40, 77.8 C 40, 63.8 48.4, 59.6 48.4, 54 C 48.4, 48.4 40, 44.2 40, 30.2 Z">
+    <!-- 宋代工笔墨迹沙漏：在自适应图标安全区内放大约 14%，提升小尺寸辨识度。 -->
+    <path android:pathData="M 38, 27 Q 54, 26 70, 27 C 70, 43 60.4, 47.6 60.4, 54 C 60.4, 60.4 70, 65.2 70, 81 Q 54, 82 38, 81 C 38, 65.2 47.6, 60.4 47.6, 54 C 47.6, 47.6 38, 43 38, 27 Z">
         <aapt:attr name="android:fillColor">
             <gradient
                 android:startY="12" android:endY="96"
@@ -16,9 +16,9 @@
                 <!-- 顶部浓墨 -->
                 <item android:offset="0.0" android:color="#AA1A1E24" />
                 <!-- 渐至淡墨 -->
-                <item android:offset="0.3" android:color="#221A1E24" />
-                <!-- 中心极淡，几近留白 -->
-                <item android:offset="0.5" android:color="#051A1E24" />
+                <item android:offset="0.3" android:color="#331A1E24" />
+                <!-- 中心保留呼吸感，同时确保桌面小图标下仍可辨认。 -->
+                <item android:offset="0.5" android:color="#221A1E24" />
                 <!-- 底部墨迹沉淀，下端最浓 -->
                 <item android:offset="0.7" android:color="#331A1E24" />
                 <item android:offset="1.0" android:color="#E61A1E24" />
@@ -26,8 +26,8 @@
         </aapt:attr>
     </path>
         
-    <!-- 核心原点：汝窑天青（按 0.7 倍缩放半径） -->
+    <!-- 核心原点：汝窑天青，与放大后的沙漏保持比例。 -->
     <path
         android:fillColor="#83ACA2"
-        android:pathData="M54,54 m-4.9,0 a4.9,4.9 0 1,1 9.8,0 a4.9,4.9 0 1,1 -9.8,0" />
+        android:pathData="M54,54 m-5.5,0 a5.5,5.5 0 1,1 11,0 a5.5,5.5 0 1,1 -11,0" />
 </vector>

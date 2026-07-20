@@ -56,12 +56,8 @@ private val LightColorScheme = lightColorScheme(
 )
 
 private fun parseHexOrNull(hex: String?): Color? {
-    if (hex.isNullOrBlank()) return null
-    return try {
-        Color(hex.toColorInt())
-    } catch (_: Exception) {
-        null
-    }
+    val normalized = normalizeOpaqueThemeHex(hex) ?: return null
+    return Color(normalized.toColorInt())
 }
 
 @Suppress("DEPRECATION")

@@ -24,7 +24,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -284,9 +286,13 @@ fun SongBottomActionBar(
                     modifier = Modifier
                         .weight(1f)
                         .clickable(onClick = action.onClick)
-                        .semantics {
+                        .clearAndSetSemantics {
                             role = Role.Button
                             contentDescription = action.contentDescription
+                            onClick(label = null) {
+                                action.onClick()
+                                true
+                            }
                         }
                         .padding(vertical = 6.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
@@ -294,7 +300,7 @@ fun SongBottomActionBar(
                     val tint = action.tint ?: MaterialTheme.colorScheme.onSurfaceVariant
                     SongLineIcon(
                         kind = action.icon,
-                        contentDescription = action.contentDescription,
+                        contentDescription = null,
                         tint = tint,
                         modifier = Modifier.size(20.dp)
                     )

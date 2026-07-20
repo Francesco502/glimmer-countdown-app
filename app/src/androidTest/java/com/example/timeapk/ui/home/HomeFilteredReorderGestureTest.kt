@@ -11,6 +11,7 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.timeapk.MainActivity
+import com.example.timeapk.R
 import com.example.timeapk.TimeApplication
 import com.example.timeapk.data.CATEGORY_OTHER
 import com.example.timeapk.data.Event
@@ -72,21 +73,23 @@ class HomeFilteredReorderGestureTest {
 
     @Test
     fun draggingWithinSearchSubsetPreservesHiddenGlobalSlot() {
+        val homeToolsDescription = composeRule.activity.getString(R.string.home_tools_action)
+        val customSortLabel = composeRule.activity.getString(R.string.sort_by_created)
         composeRule.onNodeWithText("E2EDrag-A").assertExists()
-        composeRule.onNodeWithContentDescription("近期入口").performClick()
-        composeRule.onNodeWithText("自定义排序").performScrollTo().performClick()
+        composeRule.onNodeWithContentDescription(homeToolsDescription).performClick()
+        composeRule.onNodeWithText(customSortLabel).performScrollTo().performClick()
         composeRule.waitUntil(timeoutMillis = 5_000) {
             runBlocking { app.userPrefs.sortTypeFlow.first() } == SortType.Custom.ordinal
         }
         composeRule.waitUntil(timeoutMillis = 5_000) {
             composeRule.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isEmpty()
         }
-        composeRule.onNodeWithContentDescription("近期入口").performClick()
+        composeRule.onNodeWithContentDescription(homeToolsDescription).performClick()
         composeRule.waitUntil(timeoutMillis = 5_000) {
             composeRule.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().size == 1
         }
         composeRule.onNode(hasSetTextAction()).performTextReplacement("E2EDrag")
-        composeRule.onNodeWithContentDescription("近期入口").performClick()
+        composeRule.onNodeWithContentDescription(homeToolsDescription).performClick()
 
         composeRule.onNodeWithText("E2EHidden").assertDoesNotExist()
         val secondCenterY = composeRule.onNodeWithText("E2EDrag-B")

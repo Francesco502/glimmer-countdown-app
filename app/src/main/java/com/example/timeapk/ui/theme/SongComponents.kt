@@ -39,7 +39,9 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -479,6 +481,10 @@ fun SongCalendarCell(
     val cellModifier = modifier
         .clip(RoundedCornerShape(SongDesignTokens.StandardRadius.dp))
         .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+        .semantics(mergeDescendants = true) {
+            if (onClick != null) role = Role.Button
+            this.selected = selected
+        }
 
     Box(
         modifier = cellModifier

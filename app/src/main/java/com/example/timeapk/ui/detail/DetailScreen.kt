@@ -30,6 +30,12 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -431,6 +437,15 @@ private data class DetailTimeDisplay(
     val label: String
 )
 
+private fun detailTimeDisplayModeLabelRes(mode: Int): Int = when (mode) {
+    DisplayModes.PAST_DAYS -> R.string.detail_time_mode_past_days
+    DisplayModes.PAST_YMD -> R.string.detail_time_mode_past_ymd
+    DisplayModes.UNTIL_DAYS -> R.string.detail_time_mode_until_days
+    DisplayModes.UNTIL_YMD -> R.string.detail_time_mode_until_ymd
+    DisplayModes.MILESTONE -> R.string.detail_time_mode_milestone
+    else -> R.string.detail_time_mode_until_days
+}
+
 @Composable
 private fun detailTimeDisplay(
     eventState: EventUiState,
@@ -558,6 +573,33 @@ private fun DetailHeroCard(
                 else -> MaterialTheme.typography.displayLarge
             }.copy(letterSpacing = 0.sp)
             val canCycleMode = availableModes.size > 1 && availableModes.contains(mode)
+            val timeDisplayDescription = if (timeDisplay.label.isBlank()) {
+                timeDisplay.value
+            } else {
+                stringResource(
+                    R.string.detail_time_display_accessibility,
+                    timeDisplay.value,
+                    timeDisplay.label
+                )
+            }
+            val timeDisplayModeDescription = stringResource(detailTimeDisplayModeLabelRes(mode))
+            val cycleTimeDisplayDescription = stringResource(R.string.cd_toggle_date_delta_display)
+            val timeDisplaySemantics = if (canCycleMode) {
+                Modifier.clearAndSetSemantics {
+                    role = Role.Button
+                    contentDescription = timeDisplayDescription
+                    stateDescription = timeDisplayModeDescription
+                    onClick(label = cycleTimeDisplayDescription) {
+                        onTimeDisplayClick()
+                        true
+                    }
+                }
+            } else {
+                Modifier.clearAndSetSemantics {
+                    contentDescription = timeDisplayDescription
+                    stateDescription = timeDisplayModeDescription
+                }
+            }
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -566,7 +608,8 @@ private fun DetailHeroCard(
                         indication = LocalIndication.current,
                         enabled = canCycleMode,
                         onClick = onTimeDisplayClick
-                    ),
+                    )
+                    .then(timeDisplaySemantics),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {

@@ -4,20 +4,23 @@
 
 4.0 的目标是成为可长期使用、可公开分发的成熟产品版本。4.0 尚未发布，最新公开版本仍为 3.17。只有获得本版本的新鲜证据后才可勾选项目；3.17 的历史验证记录不能直接沿用。
 
+**唯一正式发布渠道：GitHub Release。** 唯一官方资产为 Direct APK `glimmer-countdown-4-0.apk`。Play flavor 仅保留用于兼容性与开发回归，不是 4.0 正式发布工件或阻断项。
+
 ## 一、自动质量门
 
 - [x] `gradle.properties` 中 `VERSION_CODE=23`、`VERSION_NAME=4.0` 正确
 - [x] `app/build.gradle.kts` 的版本读取、APK 重命名、Direct / Play flavor 与 BuildConfig 开关正常
 - [x] `README.md`、`CHANGELOG.md` 与发布文档均明确 4.0 尚未发布
 - [x] `git diff --check` 未发现尾随空格或冲突标记
-- [x] `./gradlew testDirectDebugUnitTest testPlayDebugUnitTest` 通过
-- [x] `./gradlew compileDirectDebugAndroidTestKotlin compilePlayDebugAndroidTestKotlin` 通过
-- [x] `./gradlew lintDirectDebug lintDirectRelease lintPlayRelease lintVitalDirectRelease lintVitalPlayRelease` 通过且无未解释 warning
-- [x] 使用隔离的临时签名配置执行 `assembleDirectRelease assemblePlayRelease bundlePlayRelease` 通过，证明构建与签名门可工作
-- [x] 临时签名构建生成 exact Direct APK `app/build/outputs/apk/direct/release/glimmer-countdown-4-0.apk` 与 Play AAB `app/build/outputs/bundle/playRelease/app-play-release.aab`
-- [x] 候选提交使用与线上 v3.17 相同的正式发布证书重建并验证 Direct APK / Play APK / Play AAB 的签名、权限、大小与 SHA-256；最终仍须从不可变 `v4.0` tag 再次新鲜构建
+- [x] `./gradlew testDirectDebugUnitTest` 通过
+- [x] `./gradlew compileDirectDebugAndroidTestKotlin` 通过
+- [x] `./gradlew lintDirectDebug lintDirectRelease lintVitalDirectRelease` 通过且无未解释 warning
+- [x] 使用隔离的临时签名配置执行 `assembleDirectRelease` 通过，证明 Direct 构建与签名门可工作
+- [x] 临时签名构建生成 exact Direct APK `app/build/outputs/apk/direct/release/glimmer-countdown-4-0.apk`
+- [x] 候选提交使用与线上 v3.17 相同的正式发布证书重建并验证 Direct APK 的签名、权限、大小与 SHA-256；最终仍须从不可变 `v4.0` tag 再次新鲜构建
+- [x] `testPlayDebugUnitTest`、Play 编译与设备测试保留为兼容性 / 开发回归记录，不是正式发布门
 - [x] Direct Debug APK 包含 `REQUEST_INSTALL_PACKAGES`，Play Debug APK 不包含该权限
-- [x] publisher 隔离 PowerShell 状态机验证会删除 owned draft 中的所有旧资产，且整个 Release 只保留唯一的 exact Direct APK；Play AAB 只交付 Play Console
+- [x] publisher 隔离 PowerShell 状态机 10/10 通过：本地来源 / APK 身份预检失败时零 GitHub 请求；正常流程删除 owned draft 旧资产且整个 Release 只保留唯一 exact Direct APK
 
 ## 二、数据与核心功能成熟度
 
@@ -54,6 +57,20 @@
 
 ## 五、4.0 实测记录
 
+### 当前 GitHub 单渠道收口（2026-07-20）
+
+- 发布器语法解析通过，隔离 PowerShell 状态机 10/10 通过；新增 tracked / untracked 脏工作区、`HEAD` / tag 不一致、输出元数据错误与 APK 身份错误五类本地拒绝，均确认在零 GitHub 请求、零远端 mutation 时终止。
+- Direct 模拟器聚焦回归通过：月历日格、详情时间切换与小组件开关无障碍语义 3/3；应用明确切换为英文后，筛选子集拖拽回归 1/1 通过，不再依赖中文标签。
+- `docs/screenshots/4.0` 已基于当前 Direct 候选重新生成：首页与月历使用项目内 22 条脱敏事件，设置与展开的小组件页使用应用内置预览数据；首页卡片左右等距满宽且无尾部假图标，小组件截图在系统状态栏稳定后重拍。最终 tag 若有代码或资源变化须再次生成。
+- 当前工作树强制重跑 Direct JVM 548/548 通过，0 failures / 0 errors / 0 skipped；Direct AndroidTest 编译通过，API 37 connected 完整套件 26/26 通过。`lintDirectDebug lintDirectRelease lintVitalDirectRelease` 成功，DirectDebug / DirectRelease 报告均为 `No issues found.`；Play 测试、lint、APK 与 AAB 不属于 GitHub-only 正式发布门。
+- 未提供签名配置时 `assembleDirectRelease` 在 `validateReleaseSigning` 立即失败，确认发布构建不会静默回退到 Debug 或未签名包。使用仓库外、两天有效的 QA 证书执行 `clean assembleDirectRelease` 成功；exact APK 为 26,422,274 bytes / SHA-256 `f41de7ba82d7490e0195c6899bd886645c317647a72d9986cfe6ff3fbc43f09c`，输出元数据和 `aapt` 均确认 `com.example.timeapk` / `versionCode=23` / `versionName=4.0`、非 debuggable、含 `REQUEST_INSTALL_PACKAGES`，APK v2 验签、ZIP 完整性与 R8 mapping 均通过。QA 证书 SHA-256 为 `99571623647aa688442efffc2571f05abd7e71431ac7ea7b25be5106401d5972`，该临时产物**不得发布**。
+- QA Direct Release 在 API 37 模拟器安装并冷启动成功（496ms），应用进程 error 级日志为空；关于页显示“版本 4.0”，GitHub 更新检查入口可触发且未崩溃。
+- 2026-07-20 对 GitHub 公共 API 的只读核验显示：最新公开 Release 仍为 `v3.17`，`v4.0` Release 与 tag 均为 404；本地 `gh auth status` 同时确认现有凭据失效。本轮没有创建 tag、Git ref 锁、draft、asset 或 Release；正式发布前必须重新执行 `gh auth login` 并验证写权限。
+
+### 历史记录（非发布门）
+
+以下候选期 Play flavor、Play AAB、模拟器和旧渠道记录保留原始证据以便追溯；它们不构成 4.0 的正式资产、发布条件或发布后验收。后续历史条目即使沿用当时的“Play Console”或“双渠道发布门”措辞，也仅描述当时范围，不能解释为当前阻断项。最终发布仅使用 GitHub Release 的唯一 Direct APK。
+
 - JVM 回归（2026-07-16）：Direct / Play 各 410 项通过，0 failures / 0 errors / 0 skipped；覆盖农历重复、导入校验、数据库恢复、首页排序、小组件解析、无障碍架构、当前界面语言解析及渠道更新契约等确定性行为。`compileDirectDebugAndroidTestKotlin`、`assembleDirectDebug`、`assemblePlayDebug` 同轮通过。
 - 数据库迁移（2026-07-16）：从已发布 v3.4 的真实 Room v6 schema 启动，依次执行生产迁移 6→7→8→9→10；API 37 上 2 项 connected migration 测试通过，验证删除字段、新增字段、核心数据保留与 v10 schema 严格校验。
 - UI / 无障碍（2026-07-16）：API 37 验证首页列表与卡片深色模式、月历 150% 系统字体、日期滚轮与设置单选组。修复事件文字和选中日期对比、48dp 触控目标、滚轮可调语义、装饰性空状态按钮重复朗读及设置单选行合并语义；镜像内置 TalkBack 已以触摸探索模式绑定，首页视图标签取得真实读屏焦点，UI 语义树能识别月历入口、月份切换、事件和添加按钮的中文标签。首轮自动注入手势未能可靠完成开关、展开区与日期选择器的顺序遍历，后续以真实 TalkBack 操作结合确定性语义回归补齐，详见本节 2026-07-17 复测记录。
@@ -65,7 +82,7 @@
 - Release 构建（2026-07-16）：以隔离的临时签名配置完成 Direct / Play APK 与 Play AAB，exact Direct 文件名、APK v2 签名及 AAB JAR 签名验证通过；该轮临时证书产物不用于发布，正式证书复测结果见 2026-07-17 记录。
 - 真机：未检查；待记录设备、系统版本、Launcher、小组件、通知、日历账户与安装升级验证。
 - PowerShell 脚本运行（2026-07-17）：微软官方 PowerShell 7.5 Ubuntu 容器在 `--network none` 下执行仓库内模拟器，成功、锁竞争、owned draft 恢复、失败清理和残留锁 5/5 场景通过；该结果不等于真实 GitHub mutation。
-- 真实 GitHub mutation：未检查；公开只读查询确认 v3.17 为非草稿、非预发布且只有一个 Direct APK，下载资产的 SHA-256 与 GitHub digest 一致。当前 `gh` 本地令牌已失效，最终发布前必须重新执行 `gh auth login`；本轮未创建 Git ref 锁、draft、asset 或正式 Release。
+- 真实 GitHub mutation：未检查；公开只读查询确认 v3.17 为非草稿、非预发布且只有一个 Direct APK，下载资产的 SHA-256 与 GitHub digest 一致。当时的本地 `gh` 登录状态仅是历史观察，不是当前认证结论；最终发布时必须重新运行 `gh auth login` 并以 `gh auth token` 验证有效的写入权限。本轮未创建 Git ref 锁、draft、asset 或正式 Release。
 - Backup / restore smoke（2026-07-16）：Android 8 / API 26 启用系统 LocalTransport 后完成 `backupnow`、`pm clear` 与指定 token restore；事件数据库、用户偏好和小组件偏好均恢复，两个 DataStore 文件恢复前后 SHA-256 完全一致，恢复后的事件可在界面读取。
 - 输入 / 旋转（2026-07-17）：API 37 新建事件输入标题后旋转到横屏，标题与未保存状态保留，返回仍出现放弃修改确认；编辑链 connected 回归继续验证编辑标题跨 Activity recreate 保留、返回“留在此页”不丢内容、保存落库并返回首页。新增 `EventEntryImeInputTest` 直接经过 Android `InputConnection`：`setComposingText("pin")` 后提交“拼”，再注入硬件数字键得到“拼1”，Activity recreate 与返回确认后内容仍完整；另一条用例确认 IME 已交付的 composing 文本在重建后仍作为草稿保留。运行态将 Gboard 切换到已启用的简体中文拼音子类型，通过系统硬件按键输入 `pin`，真实显示“品 / 拼 / 频”等候选并用空格提交“品”；标题框和顶部摘要均只出现“品”，竖屏→横屏、系统返回、选择“留在此页”及恢复竖屏后内容均未丢失。测试结束恢复英文 Gboard、自动旋转并清除应用数据；完整 connected 套件 17/17 通过。
 - 小组件多实例（2026-07-16）：在两个真实 Pixel Launcher 小组件实例运行验证基础上，新增 API 37 DataStore connected 回归；两个实例分别保存不同外观、内容范围和排序，更新默认配置不会覆盖已有实例，删除单个实例配置后仅该实例回退最新默认，另一个实例保持不变。
@@ -87,17 +104,17 @@
 - PowerShell publisher 隔离补充（2026-07-17）：新增 `scripts/tests/publish-release-mock-harness.ps1`，每个场景将发布脚本、版本、变更日志和匿名假 APK 复制到独立临时仓库，用假 `git` / `apksigner` 与内存 GitHub REST 状态机执行真实 `publish-release.ps1`；测试容器使用微软官方 PowerShell 7.5.0、只读输入和 `--network none`。5/5 场景通过：新发布最终只含 exact Direct APK 并清理锁；并发锁 422 在创建 Release 前失败；带旧 ownership marker 的 draft 删除两个旧资产后恢复发布；上传失败保留 draft 但清理锁；上传与清理同时失败时保留残留锁阻止重试。未读取真实凭据、未访问网络、未创建远端 ref / draft / asset / Release。
 - 首页空状态与提醒默认值补充（2026-07-17）：候选提交 `1b2ec22`、`2ed017e`、`732b8a9` 以测试先行完成唯一中央空状态 CTA、无匹配清除条件、月历筛选结果保持、缺省提醒关闭、显式偏好保留和语言镜像 KTX 写入。API 37 运行态确认完全空首页仅有一个可点击“记录第一个日期”入口且隐藏底部添加按钮；搜索 `NOMATCH999` 后显示“清除搜索与筛选”并保留底部“添加事件”；新建页默认显示“未设置提醒”，保存普通事件未出现通知权限对话框。最新完整 connected 套件 20/20 通过，0 skipped / 0 failed。
 - 语言冷启动补充（2026-07-17）：API 37 通过应用界面完成中文→英文→中文切换；英文与中文各强制停止冷启动一次，日志均只有一次 MainActivity START / Displayed 且无额外重建，界面语言正确、crash buffer 为空。该 Debug 启动计时不作为 Release 性能结论。
-- 4.0 截图补充（2026-07-17）：重新导入 3.17 导出的 22 条脱敏事件并制作首页纸笺、月历、设置与小组件设置四张当前候选截图；逐张确认仅含 `Event 01`–`Event 22` 脱敏标题，README 已切换至 `docs/screenshots/4.0`。
+- 4.0 截图补充（2026-07-17，历史候选）：当时使用 22 条脱敏事件制作首页纸笺、月历、设置与小组件设置截图；该轮图片后来因首页卡片与图标调整而过时，已由 2026-07-20 当前候选截图取代。
 - 日历清理可靠性补充（2026-07-17）：提交 `f2617c6`–`a9c0db6` 修复此前被忽略的 `CalendarCleanupResult`，清理失败不再继续重建或持久化成功指纹；活动 / 写入中 ownership 登记、v3.17 旧数据首次扫描、事件级互斥、插入中断恢复与同步 `SharedPreferences.commit()` 失败回滚均有 JVM 回归。提醒保存触发的修复会强制全量重排，通知 Worker 不再通过自取消重试制造重复通知。独立代码复核结论为通过，未增加外部 API、未修改 Room schema，也未迁移既有事件字段。
 - 最新自动质量门补充（2026-07-17）：在最终生产代码 `a9c0db6` 上新鲜运行 Direct / Play JVM 各 487 项，均为 0 failures / 0 errors / 0 skipped；完整 API 37 connected 套件 20/20、`compileDirectDebugAndroidTestKotlin` 及五项 lint / vital lint 均通过，DirectDebug、DirectRelease、PlayRelease 三份报告均为 `No issues found.`。`LocalePreferenceMirror` 的 KTX 写入不再产生 `UseKtx` issue；日历 ownership 登记因必须检查同步 `commit()` 返回值，仅在最小作用域保留有理由的 suppression。仓库外临时 QA 证书构建只用于验证打包路径，不得发布，也不替代最终 `v4.0` tag 的正式证书新鲜构建。
 - 4.0 审计修复最终复验（2026-07-19，候选 `4f08149`）：强制新鲜运行 Direct / Play JVM 各 493 项，均为 0 failures / 0 errors / 0 skipped；`compileDirectDebugAndroidTestKotlin compilePlayDebugAndroidTestKotlin` 与 `lintDirectDebug lintDirectRelease lintPlayRelease lintVitalDirectRelease lintVitalPlayRelease` 均成功，三份完整 lint 报告均为 `No issues found.`。API 37 `emulator-5554`（API 37 模拟设备系统镜像，`google/sdk_gphone16k_arm64/emu64a16k:17/CP21.260330.005/15181570:userdebug/dev-keys`）清除历史异签名测试包后完整 connected 套件 20/20 通过；首次安装因旧 QA 证书不兼容在 0 tests 前被拒绝，清理包状态后的整套重跑为最终证据。
 - 4.0 审计修复临时打包复验（2026-07-19，历史候选）：只使用 `/tmp/timeapk-v4-remediation-20260719-115312/signing/` 下两天有效的自签 QA 证书运行 `assembleDirectRelease assemblePlayRelease bundlePlayRelease`，三项均成功。exact Direct APK `glimmer-countdown-4-0.apk` 为 26,404,914 bytes / SHA-256 `b81da03ef3f938d657011540f54c1353dc35116ed5f1114b2f948d41364fa3cc`；Play APK 为 26,400,954 bytes / `2fcdf71be93e17f2c8d966656385977327d1f93618112917fd8b43aed8d866a1`；Play AAB 为 38,780,385 bytes / `35729d79d73541962fda9cbfb1b7e0017d3b82e2d1fe9dc639804020333c5ca0`。两个 APK 均通过 v2 验签且证书 SHA-256 同为 `eb5f3e74185c6ac72bf40d97cfe1c816c8b97ba6563d8560e34d933010c966dc`；Direct 为 `com.example.timeapk` / `4.0` 并含 `REQUEST_INSTALL_PACKAGES`，Play 在该旧候选为 `com.example.timeapk.play` / `4.0-play` 且 APK / AAB manifest 均不含该权限；该历史版本名已由 2026-07-20 修复记录取代。AAB ZIP 完整性与 JAR 签名验证成功。临时证书、自签链及 JDK 对 AAB 的 JarInputStream 一致性 warning 均已记录，该产物不得发布。
 - 4.0 审计修复运行态复验（2026-07-19）：以 QA 签名 Direct Release 在 Asia/Hong_Kong 的 API 37 设备从清空数据启动，UI 树显示新事件日期为本地当天 `2026.07.19`，提醒与“同步到系统日程”均默认“关”；普通事件落笔直接返回首页且未出现权限对话框，最终 `READ_CALENDAR` / `WRITE_CALENDAR` 均为 `granted=false`、app-op `ignore`。首页切换“按剩余天数”后卡片直接显示排序指标“正当此时”；溢出面板截图确认表面不透出底层卡片；折叠的小组件默认配置摘要为 `2x2 / 75% / 自动文字 / 标准 / 跟随首页`，明确包含排序模式。深色及深色 + 150% 系统字体下，首页、溢出面板与折叠小组件摘要无结构性溢出，长文本只在既定边界内换行或省略。所有点击与滚动区域均来自对应步骤 UI 树；crash buffer 为空，logcat 无应用 FATAL / ANR。证据保存在 `/tmp/timeapk-v4-remediation-20260719-115312/`；测试后已恢复浅色、100% 字体并卸载 QA 包。
-- 4.0 全部已发现问题修复后复验（2026-07-19，历史候选 `d9ddfce`，后续只更新本清单）：在同一次 `--rerun-tasks` 发布门中强制重跑 Direct / Play JVM 各 521 项，均为 0 failures / 0 errors / 0 skipped；Direct connected 完整套件 21/21 通过；Direct / Play AndroidTest 均编译通过；五项 lint / vital lint 均成功，DirectDebug、DirectRelease、PlayRelease 三份报告均为 `No issues found.`。同轮使用临时 QA 证书构建 Direct / Play Release APK 与 Play AAB；两个 APK 均通过 v2 验签，QA 证书 SHA-256 为 `eb5f3e74185c6ac72bf40d97cfe1c816c8b97ba6563d8560e34d933010c966dc`；Direct 为 `com.example.timeapk` / `versionCode=23` / `versionName=4.0` 并包含 `REQUEST_INSTALL_PACKAGES`，Play 在该旧候选为 `com.example.timeapk.play` / `versionCode=23` / `versionName=4.0-play` 且 APK / AAB 均不包含该权限；该历史版本名已由 2026-07-20 修复记录取代。AAB ZIP 完整性与 JAR 签名验证成功。临时包含 VCS 元数据的 QA 产物哈希不作为可发布证据；只在不可变 `v4.0` tag 上完成正式签名构建后记录最终大小与 SHA-256。该临时 QA 证书产物只用于验证发布管线，**不得发布**；物理真机、最终 `v4.0` tag 正式签名构建、GitHub Release、Play Console 与线上回装仍是未完成的外部发布门。
+- 4.0 全部已发现问题修复后复验（2026-07-19，历史候选 `d9ddfce`，后续只更新本清单）：在同一次 `--rerun-tasks` 发布门中强制重跑 Direct / Play JVM 各 521 项，均为 0 failures / 0 errors / 0 skipped；Direct connected 完整套件 21/21 通过；Direct / Play AndroidTest 均编译通过；五项 lint / vital lint 均成功，DirectDebug、DirectRelease、PlayRelease 三份报告均为 `No issues found.`。同轮使用临时 QA 证书构建 Direct / Play Release APK 与 Play AAB；两个 APK 均通过 v2 验签，QA 证书 SHA-256 为 `eb5f3e74185c6ac72bf40d97cfe1c816c8b97ba6563d8560e34d933010c966dc`；Direct 为 `com.example.timeapk` / `versionCode=23` / `versionName=4.0` 并包含 `REQUEST_INSTALL_PACKAGES`，Play 在该旧候选为 `com.example.timeapk.play` / `versionCode=23` / `versionName=4.0-play` 且 APK / AAB 均不包含该权限；该历史版本名已由 2026-07-20 修复记录取代。AAB ZIP 完整性与 JAR 签名验证成功。临时包含 VCS 元数据的 QA 产物哈希不作为可发布证据；只在不可变 `v4.0` tag 上完成正式签名构建后记录最终大小与 SHA-256。该临时 QA 证书产物只用于验证发布管线，**不得发布**；物理真机、最终 `v4.0` tag 正式签名构建、GitHub Release 与线上回装仍是未完成的外部发布门，Play Console 不适用于当前 GitHub-only 发布范围。
 - 4.0 新发现发布问题修复复验（2026-07-20，生产代码 `11d6749`，后续只更新本清单）：Play flavor 已移除 `versionNameSuffix`，新鲜 Debug / Release APK 与 Play AAB 均确认 `versionCode=23`、`versionName=4.0`；Direct / Play 包名仍分别为 `com.example.timeapk` / `com.example.timeapk.play`，只有 Direct APK 含 `REQUEST_INSTALL_PACKAGES`。英文农历格式改为 `Ganzhi … · Lunar …`；API 37 英文 150% 字体运行态确认 `AuditEvent` 卡片标题完整单行、`Lunar:` 标签不拆字、提醒正文与 `Adjust` 分层显示且操作区域不小于 48dp，UI 树无字面量 `?`，crash buffer 为空。22 条 v3.17 脱敏 fixture 现逐一比较 Custom / ByDays / ByDate 的首页与“跟随首页”小组件顺序，三个模式均保持置顶项在前。
 - 4.0 新发现问题最终质量门（2026-07-20，历史候选）：Direct / Play JVM 各 527 项，均为 0 failures / 0 errors / 0 skipped；Direct / Play AndroidTest 编译通过；API 37 connected 完整套件最终 21/21 通过。一次把 R8 与 connected 并发的压力运行曾使 ddmlib 在测试开始前无法读取 API level；改为分批执行后稳定。重启 AVD 后 `show_ime_with_hard_keyboard=1` 又使 Gboard 吞掉返回键与硬件数字键；临时设为 `0` 后受影响测试类 4/4、完整套件 21/21 通过，并在验收结束恢复原值。三份完整 lint 报告均为 `No Issues Found`；隔离运行两项 vital lint 的 33 个任务全部实际执行成功。当时 KSP 2.3.2 仍需 `android.disallowKotlinSourceSets=false`；该兼容结论已由后续 KSP 2.3.9 新鲜验证取代。全量门发现的 1GiB metaspace 退出警告已以失败测试锁定并调为 2GiB，分批强制重跑未再出现该警告。
-- 4.0 新发现问题临时打包复验（2026-07-20）：使用仓库外临时 QA 证书新鲜构建 Direct / Play Release APK 与 Play AAB，构建 102/102 actionable tasks 成功；两个 APK 均通过 v2 验签，证书 SHA-256 为 `eb5f3e74185c6ac72bf40d97cfe1c816c8b97ba6563d8560e34d933010c966dc`。Direct exact APK 为 26,418,262 bytes / SHA-256 `cd2e4e2957b9d57b7b3c2abfbb64a14171fd30f863841141a6c84031d9294b08`；Play APK 为 26,412,134 bytes / `f78012cff38a48b02446a38322839c1a78d28f9ad97f8c9343dc78793c675ab4`；Play AAB 为 38,811,562 bytes / `fef0e4932f8f9301f1453a75c15843332328d4a612d835d18710ffd9bf8fa4af`。AAB 通过 bundletool 1.18.3 `validate`、ZIP 完整性与 `jarsigner`（exit 0）验证；临时自签链、短期证书和 JDK JarInputStream 一致性 warning 与此前记录相同。该 QA 证书产物只用于验证管线，**不得发布**；物理真机、最终 `v4.0` tag 正式证书新鲜构建、GitHub Release、Play Console 与线上回装仍是未完成的外部发布门。
-- 4.0 本轮代码问题最终修复与新鲜复验（2026-07-20，基于候选 `53e593b` 的当前工作树）：英文农历改为干支拼音与数字月日，月历包装不再重复 `Lunar`；API 37 英文浅色 / 深色 150% 字体运行态确认月历标题与事件摘要完整、详情页 `Lunar:` 不拆成孤字、`Lunar\u00a0month` 整体换行、提醒正文与 `Adjust` 均不截断，证据保存在 `/tmp/timeapk-v4-fix-20260720/`。KSP 升至 2.3.9 并删除 `android.disallowKotlinSourceSets=false` 后，配置与全量构建不再输出实验选项 warning。强制重跑 Direct / Play JVM 各 529 项，均为 0 failures / 0 errors / 0 skipped；Direct / Play AndroidTest 编译通过；DirectDebug、DirectRelease、PlayRelease 三份 lint 均为 `No issues found.`，两项 vital lint 独立执行 33/33 任务成功。完整 connected 套件在原始 `show_ime_with_hard_keyboard=1` 下 21/21 通过，未修改全局输入法设置，先前的环境依赖不可复现。新鲜 QA 构建的 Direct / Play APK 与 Play AAB 均为 `versionCode=23` / `versionName=4.0`；只有 Direct 含 `REQUEST_INSTALL_PACKAGES`。两个 APK 均通过 v2 验签，QA 证书 SHA-256 为 `eb5f3e74185c6ac72bf40d97cfe1c816c8b97ba6563d8560e34d933010c966dc`；Direct exact APK 为 26,418,082 bytes / `f0fee241b5805ea4c2e13ed3604ccfc311b7411a4d75caa8d949eb84cb7ed435`，Play APK 为 26,412,786 bytes / `a0d3bd0ebdaa6c29c0ea2dde4378bb63bcc2ffbcc1683e5b3c44f1e9aff783b0`，Play AAB 为 38,810,220 bytes / `cac81e365081dfe74a58f2895094dadc0525cacea4b18d356bd19cf0b92fa44f`。AAB 通过 bundletool 1.18.3 `validate`、`build-apks`、模拟器 `install-apks`、冷启动、ZIP 完整性与 `jarsigner`（exit 0），crash buffer 为空。该 QA 证书产物仍然**不得发布**；物理真机、不可变 `v4.0` tag 的正式证书新鲜构建、GitHub Release、Play Console 与线上回装继续作为外部发布阻断项。
+- 4.0 新发现问题临时打包复验（2026-07-20）：使用仓库外临时 QA 证书新鲜构建 Direct / Play Release APK 与 Play AAB，构建 102/102 actionable tasks 成功；两个 APK 均通过 v2 验签，证书 SHA-256 为 `eb5f3e74185c6ac72bf40d97cfe1c816c8b97ba6563d8560e34d933010c966dc`。Direct exact APK 为 26,418,262 bytes / SHA-256 `cd2e4e2957b9d57b7b3c2abfbb64a14171fd30f863841141a6c84031d9294b08`；Play APK 为 26,412,134 bytes / `f78012cff38a48b02446a38322839c1a78d28f9ad97f8c9343dc78793c675ab4`；Play AAB 为 38,811,562 bytes / `fef0e4932f8f9301f1453a75c15843332328d4a612d835d18710ffd9bf8fa4af`。AAB 通过 bundletool 1.18.3 `validate`、ZIP 完整性与 `jarsigner`（exit 0）验证；临时自签链、短期证书和 JDK JarInputStream 一致性 warning 与此前记录相同。该 QA 证书产物只用于验证管线，**不得发布**；物理真机、最终 `v4.0` tag 正式证书新鲜构建、GitHub Release 与线上回装仍是未完成的外部发布门，Play Console 不适用于当前 GitHub-only 发布范围。
+- 4.0 本轮代码问题最终修复与新鲜复验（2026-07-20，基于候选 `53e593b` 的当前工作树）：英文农历改为干支拼音与数字月日，月历包装不再重复 `Lunar`；API 37 英文浅色 / 深色 150% 字体运行态确认月历标题与事件摘要完整、详情页 `Lunar:` 不拆成孤字、`Lunar\u00a0month` 整体换行、提醒正文与 `Adjust` 均不截断，证据保存在 `/tmp/timeapk-v4-fix-20260720/`。KSP 升至 2.3.9 并删除 `android.disallowKotlinSourceSets=false` 后，配置与全量构建不再输出实验选项 warning。强制重跑 Direct / Play JVM 各 529 项，均为 0 failures / 0 errors / 0 skipped；Direct / Play AndroidTest 编译通过；DirectDebug、DirectRelease、PlayRelease 三份 lint 均为 `No issues found.`，两项 vital lint 独立执行 33/33 任务成功。完整 connected 套件在原始 `show_ime_with_hard_keyboard=1` 下 21/21 通过，未修改全局输入法设置，先前的环境依赖不可复现。新鲜 QA 构建的 Direct / Play APK 与 Play AAB 均为 `versionCode=23` / `versionName=4.0`；只有 Direct 含 `REQUEST_INSTALL_PACKAGES`。两个 APK 均通过 v2 验签，QA 证书 SHA-256 为 `eb5f3e74185c6ac72bf40d97cfe1c816c8b97ba6563d8560e34d933010c966dc`；Direct exact APK 为 26,418,082 bytes / `f0fee241b5805ea4c2e13ed3604ccfc311b7411a4d75caa8d949eb84cb7ed435`，Play APK 为 26,412,786 bytes / `a0d3bd0ebdaa6c29c0ea2dde4378bb63bcc2ffbcc1683e5b3c44f1e9aff783b0`，Play AAB 为 38,810,220 bytes / `cac81e365081dfe74a58f2895094dadc0525cacea4b18d356bd19cf0b92fa44f`。AAB 通过 bundletool 1.18.3 `validate`、`build-apks`、模拟器 `install-apks`、冷启动、ZIP 完整性与 `jarsigner`（exit 0），crash buffer 为空。该 QA 证书产物仍然**不得发布**；物理真机、不可变 `v4.0` tag 的正式证书新鲜构建、GitHub Release 与线上回装继续作为外部发布阻断项，Play Console 不适用于当前 GitHub-only 发布范围。
 - 首页卡片满宽补充（2026-07-20）：移除自定义排序时卡片 / 列表行右侧独立图标、语义节点和 48dp 空白轨道，运行态卡片边界由 `[48,468][980,816]` 扩展为 `[48,468][1124,816]`，1172px 视口下左右外边距均为 48px；最终 UI 树不存在“拖动排序”尾部节点。自定义排序改为整卡长按拖动，过滤子集中的顺序交换与隐藏全局槽位保留 connected 回归 1/1 通过。新鲜强制重跑 Direct / Play JVM 各 530 项，均为 0 failures / 0 errors / 0 skipped；两渠道 AndroidTest 编译、DirectDebug / PlayDebug lint 与 Play Debug 构建通过，两份 lint 均为 `No issues found.`。参考截图与最终运行态的设计比较记录见 `design-qa.md`，结果为 `passed`。
 
 ## 六、发布动作
@@ -107,11 +124,10 @@
 - [ ] 确认最终代码与发布文档已提交，且工作区干净
 - [ ] 创建并推送不可变的 exact `v4.0` tag
 - [ ] 从该 tag 对应 commit 的工作树重新正式签名构建；不得复用旧构建产物
-- [ ] 验证签名、渠道权限与 SHA-256
+- [ ] 验证签名、精确证书指纹与 SHA-256
 - [ ] 准备安全凭据环境：本地使用 `gh auth login` / `gh auth token`；CI 才注入 secret 且不打印
 - [ ] 以 `CHANGELOG.md` 中的 4.0 小节作为 Release Notes
-- [ ] 运行发布脚本，发布 `glimmer-countdown-4-0.apk`，确认不存在 Play APK / AAB 或任何其他资产
-- [ ] 在 Play Console 上传并验证最终 tag 新鲜构建的 Play AAB
+- [ ] 运行发布脚本，正式发布仅上传 `glimmer-countdown-4-0.apk`，并确认整个 Release 没有任何其他资产
 - [ ] 发布后安装线上 APK 并完成更新检查与关键链路 smoke
 
 ## Release / Update Task 4 验证（2026-07-16）

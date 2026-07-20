@@ -10,6 +10,7 @@ local.properties
 build/
 app/build/
 .gradle/
+.kotlin/
 
 # IDE and editor files
 .idea/
@@ -25,6 +26,10 @@ Thumbs.db
 
 # Crash dumps and heap dumps
 *.hprof
+
+# PowerShell runtime caches
+ModuleAnalysisCache-*
+StartupProfileData-*
 
 # Internal and temporary workspace data
 .superpowers/

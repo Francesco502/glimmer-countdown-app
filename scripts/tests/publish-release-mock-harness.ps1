@@ -6,7 +6,12 @@ param(
         'lock-contention',
         'owned-draft',
         'failure-cleanup',
-        'residual-lock'
+        'residual-lock',
+        'dirty-worktree',
+        'untracked-worktree',
+        'head-tag-mismatch',
+        'metadata-invalid',
+        'apk-identity-invalid'
     )]
     [string]$Scenario = 'all'
 )
@@ -19,7 +24,12 @@ $scenarioNames = @(
     'lock-contention',
     'owned-draft',
     'failure-cleanup',
-    'residual-lock'
+    'residual-lock',
+    'dirty-worktree',
+    'untracked-worktree',
+    'head-tag-mismatch',
+    'metadata-invalid',
+    'apk-identity-invalid'
 )
 
 if ($Scenario -eq 'all') {
@@ -65,18 +75,29 @@ function Throw-MockHttpError {
     throw [MockHttpException]::new($Message, $StatusCode)
 }
 
+function Assert-NoRemoteCalls {
+    Assert-Condition ($script:Mock.Calls.Count -eq 0) 'local preflight failure made a GitHub request'
+    Assert-Condition ($script:Mock.LockPostAttempts -eq 0) 'local preflight failure attempted a lock mutation'
+    Assert-Condition ($script:Mock.ReleaseCreates -eq 0) 'local preflight failure created a release'
+    Assert-Condition ($script:Mock.UploadAttempts -eq 0) 'local preflight failure attempted an upload'
+    Assert-Condition ($script:Mock.PublishPatches -eq 0) 'local preflight failure attempted publication'
+}
+
 $sourceRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 $fixtureRoot = Join-Path (
     [System.IO.Path]::GetTempPath()
 ) "glimmer-publisher-$Scenario-$([guid]::NewGuid().ToString('N'))"
 $fixtureScripts = Join-Path $fixtureRoot 'scripts'
 $fixtureApkDirectory = Join-Path $fixtureRoot 'app/build/outputs/apk/direct/release'
+$fixtureMetadataPath = Join-Path $fixtureApkDirectory 'output-metadata.json'
 $fixtureSdk = Join-Path $fixtureRoot 'android-sdk'
 $fixtureBuildTools = Join-Path $fixtureSdk 'build-tools/37.0.0'
 $publisherPath = Join-Path $fixtureScripts 'publish-release.ps1'
 $apkPath = Join-Path $fixtureApkDirectory 'glimmer-countdown-4-0.apk'
 $apksignerName = if ($isWindowsHost) { 'apksigner.bat' } else { 'apksigner' }
 $apksignerPath = Join-Path $fixtureBuildTools $apksignerName
+$aaptName = if ($isWindowsHost) { 'aapt.exe' } else { 'aapt' }
+$aaptPath = Join-Path $fixtureBuildTools $aaptName
 $certificateSha256 = '3b7cb426a82664f891c69511cc2505b67128c8503664639f297291da4ea903ca'
 $mockCommit = '1111111111111111111111111111111111111111'
 $previousOwnershipMarker = '<!-- glimmer-release-owner:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa -->'
@@ -96,6 +117,32 @@ try {
         $apkPath,
         [System.Text.Encoding]::UTF8.GetBytes('mock signed Direct APK')
     )
+    $metadataOutputFile = if ($Scenario -eq 'metadata-invalid') {
+        'wrong-release-name.apk'
+    } else {
+        'glimmer-countdown-4-0.apk'
+    }
+    $metadata = [ordered]@{
+        version      = 3
+        artifactType = [ordered]@{ type = 'APK'; kind = 'Directory' }
+        applicationId = 'com.example.timeapk'
+        variantName  = 'directRelease'
+        elements     = @(
+            [ordered]@{
+                type        = 'SINGLE'
+                filters     = @()
+                attributes  = @()
+                versionCode = 23
+                versionName = '4.0'
+                outputFile  = $metadataOutputFile
+            }
+        )
+        elementType = 'File'
+    }
+    Set-Content `
+        -LiteralPath $fixtureMetadataPath `
+        -Value ($metadata | ConvertTo-Json -Depth 6) `
+        -Encoding utf8NoBOM
 
     $apksignerScript = if ($isWindowsHost) {
         @"
@@ -111,10 +158,36 @@ exit 0
 "@
     }
     Set-Content -LiteralPath $apksignerPath -Value $apksignerScript -Encoding utf8NoBOM
+
+    $aaptPackage = if ($Scenario -eq 'apk-identity-invalid') {
+        'com.example.timeapk.play'
+    } else {
+        'com.example.timeapk'
+    }
+    $aaptScript = if ($isWindowsHost) {
+        @"
+@echo off
+echo package: name='$aaptPackage' versionCode='23' versionName='4.0' platformBuildVersionName='16'
+echo uses-permission: name='android.permission.REQUEST_INSTALL_PACKAGES'
+exit /b 0
+"@
+    } else {
+        @"
+#!/bin/sh
+echo "package: name='$aaptPackage' versionCode='23' versionName='4.0' platformBuildVersionName='16'"
+echo "uses-permission: name='android.permission.REQUEST_INSTALL_PACKAGES'"
+exit 0
+"@
+    }
+    Set-Content -LiteralPath $aaptPath -Value $aaptScript -Encoding utf8NoBOM
     if (-not $isWindowsHost) {
         & /bin/chmod +x $apksignerPath
         if ($LASTEXITCODE -ne 0) {
             throw 'Unable to make the mock apksigner executable.'
+        }
+        & /bin/chmod +x $aaptPath
+        if ($LASTEXITCODE -ne 0) {
+            throw 'Unable to make the mock aapt executable.'
         }
     }
 
@@ -169,12 +242,25 @@ exit 0
 
     function git {
         $argumentsText = (@($args) | ForEach-Object { [string]$_ }) -join ' '
+        if ($argumentsText -match '\bstatus\b') {
+            $global:LASTEXITCODE = 0
+            if ($Scenario -eq 'dirty-worktree') {
+                return ' M app/src/main/AndroidManifest.xml'
+            }
+            if ($Scenario -eq 'untracked-worktree') {
+                return '?? untracked-release-note.txt'
+            }
+            return
+        }
         if ($argumentsText -match '\bshow-ref\b') {
             $global:LASTEXITCODE = 0
             return
         }
         if ($argumentsText -match '\brev-parse\b') {
             $global:LASTEXITCODE = 0
+            if ($Scenario -eq 'head-tag-mismatch' -and $argumentsText -match 'HEAD\^\{commit\}') {
+                return '2222222222222222222222222222222222222222'
+            }
             return $script:Mock.Commit
         }
         $global:LASTEXITCODE = 1
@@ -354,6 +440,41 @@ exit 0
             Assert-Condition ($script:Mock.CleanupReads -eq 1) 'lock cleanup was not attempted'
             Assert-Condition $script:Mock.LockHeld 'residual lock was not retained after cleanup failure'
             Assert-Condition (-not $script:Mock.LockDeleted) 'residual lock was incorrectly deleted'
+        }
+        'dirty-worktree' {
+            Assert-Condition ($null -ne $publisherFailure) 'dirty release worktree unexpectedly succeeded'
+            Assert-Condition (
+                $publisherFailure.Exception.Message.Contains('Release worktree must be clean')
+            ) 'dirty release worktree did not fail with the expected message'
+            Assert-NoRemoteCalls
+        }
+        'untracked-worktree' {
+            Assert-Condition ($null -ne $publisherFailure) 'untracked release worktree unexpectedly succeeded'
+            Assert-Condition (
+                $publisherFailure.Exception.Message.Contains('Release worktree must be clean')
+            ) 'untracked release worktree did not fail with the expected message'
+            Assert-NoRemoteCalls
+        }
+        'head-tag-mismatch' {
+            Assert-Condition ($null -ne $publisherFailure) 'untagged HEAD unexpectedly succeeded'
+            Assert-Condition (
+                $publisherFailure.Exception.Message.Contains('HEAD commit does not match the exact local tag commit')
+            ) 'untagged HEAD did not fail with the expected message'
+            Assert-NoRemoteCalls
+        }
+        'metadata-invalid' {
+            Assert-Condition ($null -ne $publisherFailure) 'invalid output metadata unexpectedly succeeded'
+            Assert-Condition (
+                $publisherFailure.Exception.Message.Contains('outputFile does not match the exact GitHub APK name')
+            ) 'invalid output metadata did not fail with the expected message'
+            Assert-NoRemoteCalls
+        }
+        'apk-identity-invalid' {
+            Assert-Condition ($null -ne $publisherFailure) 'invalid APK identity unexpectedly succeeded'
+            Assert-Condition (
+                $publisherFailure.Exception.Message.Contains('APK package name does not match com.example.timeapk')
+            ) 'invalid APK identity did not fail with the expected message'
+            Assert-NoRemoteCalls
         }
     }
 

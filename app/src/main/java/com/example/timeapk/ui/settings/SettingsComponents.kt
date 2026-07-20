@@ -53,6 +53,7 @@ import com.example.timeapk.ui.theme.SongLineIcon
 import com.example.timeapk.ui.theme.SongLineIconKind
 import com.example.timeapk.ui.theme.SongSettingMark
 import com.example.timeapk.ui.theme.SongSettingMarkKind
+import com.example.timeapk.ui.theme.normalizeOpaqueThemeHex
 
 enum class SettingsCategory(
     val titleRes: Int,
@@ -162,13 +163,12 @@ fun SettingsPressableRow(
 @Composable
 fun SongToggle(
     checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
+    onCheckedChange: ((Boolean) -> Unit)?,
     modifier: Modifier = Modifier
 ) {
     val stateDescriptionText = stringResource(if (checked) R.string.toggle_on else R.string.toggle_off)
-    Box(
-        modifier = modifier
-            .heightIn(min = 44.dp)
+    val semanticsModifier = if (onCheckedChange != null) {
+        Modifier
             .toggleable(
                 value = checked,
                 role = Role.Switch,
@@ -178,6 +178,13 @@ fun SongToggle(
                 role = Role.Switch
                 stateDescription = stateDescriptionText
             }
+    } else {
+        Modifier.clearAndSetSemantics { }
+    }
+    Box(
+        modifier = modifier
+            .heightIn(min = 44.dp)
+            .then(semanticsModifier)
             .border(
                 width = SongDesignTokens.BorderWidth.dp,
                 color = if (checked) {
@@ -360,7 +367,7 @@ fun CustomColorRow(
     modifier: Modifier = Modifier
 ) {
     val currentColor = remember(currentHex) {
-        currentHex?.let { try { Color(it.toColorInt()) } catch (_: Exception) { null } }
+        normalizeOpaqueThemeHex(currentHex)?.let { Color(it.toColorInt()) }
             ?: defaultColor
     }
     Row(

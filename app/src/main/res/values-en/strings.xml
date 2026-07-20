@@ -26,6 +26,12 @@
     </plurals>
     <string name="days_today_label">Today</string>
     <string name="days_past_label">elapsed</string>
+    <string name="detail_time_display_accessibility">%1$s, %2$s</string>
+    <string name="detail_time_mode_past_days">Elapsed days</string>
+    <string name="detail_time_mode_past_ymd">Elapsed years, months, and days</string>
+    <string name="detail_time_mode_until_days">Days remaining</string>
+    <string name="detail_time_mode_until_ymd">Years, months, and days remaining</string>
+    <string name="detail_time_mode_milestone">Next milestone</string>
     <plurals name="days_elapsed_format">
         <item quantity="one">has been %d day</item>
         <item quantity="other">has been %d days</item>
@@ -48,6 +54,14 @@
     <string name="sort_menu">Sort</string>
     <string name="display_mode_card">Cards</string>
     <string name="display_mode_list">List</string>
+    <string name="calendar_day_accessibility">%1$s, %2$s</string>
+    <string name="calendar_day_today">Today</string>
+    <string name="calendar_day_selected">Selected</string>
+    <string name="calendar_day_state_separator">, </string>
+    <plurals name="calendar_day_event_count">
+        <item quantity="one">%1$d event</item>
+        <item quantity="other">%1$d events</item>
+    </plurals>
     <string name="home_density_title">Home info</string>
     <string name="home_density_compact">Compact</string>
     <string name="home_density_detailed">Detailed</string>
@@ -524,6 +538,7 @@
     <string name="home_timeline_month">This month</string>
     <string name="home_timeline_milestone">Milestone</string>
     <string name="home_timeline_action_menu">Quick time ranges</string>
+    <string name="home_tools_action">Filters and sorting</string>
     <plurals name="home_timeline_count_format">
         <item quantity="one">%1$d item</item>
         <item quantity="other">%1$d items</item>

@@ -447,6 +447,58 @@ class SongUiSourceConsistencyTest {
     }
 
     @Test
+    fun homeToolbarUsesRecognizableToolsWithAccessibleTargets() {
+        val homeSource = readSource("ui/home/HomeScreen.kt")
+        val iconSource = readSource("ui/theme/SongLineIcons.kt")
+        val actionsBlock = homeSource.substringAfter("actions = {")
+            .substringBefore("colors = TopAppBarDefaults")
+        val overflowBlock = homeSource.substringAfter("private fun HomeOverflowActionMenu(")
+            .substringBefore("@Composable\nprivate fun HomeOverflowPanel")
+        val inlineButtonBlock = homeSource.substringAfter("fun InlineActionIconButton(")
+            .substringBefore("@Composable\nprivate fun EmptyState")
+
+        assertTrue(iconSource.contains("Filter,"))
+        assertTrue(iconSource.contains("Settings,"))
+        assertTrue(overflowBlock.contains("icon = SongLineIconKind.Filter"))
+        assertFalse(overflowBlock.contains("icon = SongLineIconKind.More"))
+        assertTrue(actionsBlock.contains("icon = SongLineIconKind.Settings"))
+        assertFalse(actionsBlock.contains("icon = SongLineIconKind.Ruyi"))
+        assertTrue(overflowBlock.contains("contentDescription = stringResource(R.string.home_tools_action)"))
+        assertTrue(inlineButtonBlock.contains(".size(48.dp)"))
+        assertFalse(inlineButtonBlock.contains(".size(40.dp)"))
+        assertTrue(inlineButtonBlock.contains("this.contentDescription = contentDescription"))
+        assertTrue(inlineButtonBlock.contains("contentDescription = null"))
+        assertFalse(inlineButtonBlock.contains("contentDescription = contentDescription,"))
+    }
+
+    @Test
+    fun homeSelectionStatesUseCheckMarksInsteadOfBrandSeals() {
+        val source = readSource("ui/home/HomeScreen.kt")
+        val optionBlock = source.substringAfter("private fun SongActionOptionTile(")
+            .substringBefore("@Composable\nprivate fun SongActionSlipItem")
+        val slipItemBlock = source.substringAfter("private fun SongActionSlipItem(")
+            .substringBefore("@Composable\nprivate fun InlineActionIconButton")
+
+        listOf(optionBlock, slipItemBlock).forEach { block ->
+            assertTrue(block.contains("kind = SongLineIconKind.Check"))
+            assertFalse(block.contains("kind = SongLineIconKind.Seal"))
+        }
+    }
+
+    @Test
+    fun bottomActionsExposeOneSemanticButtonPerAction() {
+        val source = readSource("ui/common/SongUiComponents.kt")
+        val actionBarBlock = source.substringAfter("fun SongBottomActionBar(")
+            .substringBefore("@Composable\nfun SongMiniPreviewSurface")
+
+        assertTrue(actionBarBlock.contains(".clearAndSetSemantics"))
+        assertTrue(actionBarBlock.contains("contentDescription = action.contentDescription"))
+        assertTrue(actionBarBlock.contains("onClick(label = null)"))
+        assertTrue(actionBarBlock.contains("contentDescription = null"))
+        assertFalse(actionBarBlock.contains("contentDescription = action.contentDescription,\n                        tint"))
+    }
+
+    @Test
     fun widgetConfigUsesPreviewFirstSectionsAndSongSaveBar() {
         val settingsSource = readSource("ui/settings/WidgetSettingsContent.kt")
         val routeSource = readSource("widget/WidgetConfigActivity.kt")

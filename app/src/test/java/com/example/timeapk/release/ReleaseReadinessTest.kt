@@ -55,6 +55,26 @@ class ReleaseReadinessTest {
     }
 
     @Test
+    fun launcherForegroundHasReleaseScaleAndReadableInkWeight() {
+        val foreground = existingFile(
+            "src/main/res/drawable/ic_launcher_foreground.xml",
+            "app/src/main/res/drawable/ic_launcher_foreground.xml"
+        ).readText(Charsets.UTF_8)
+        val monochrome = existingFile(
+            "src/main/res/drawable/ic_launcher_monochrome.xml",
+            "app/src/main/res/drawable/ic_launcher_monochrome.xml"
+        ).readText(Charsets.UTF_8)
+
+        assertTrue("Launcher artwork should fill more of the adaptive-icon safe zone", foreground.contains("M 38, 27"))
+        assertTrue("Launcher core should scale with the enlarged hourglass", foreground.contains("m-5.5,0"))
+        assertTrue("Hourglass waist must remain visible at launcher size", foreground.contains("android:color=\"#221A1E24\""))
+        assertFalse("The former nearly-transparent waist was too faint", foreground.contains("android:color=\"#051A1E24\""))
+        assertTrue("The themed icon must use the same enlarged silhouette", monochrome.contains("M 38, 27"))
+        assertTrue("The themed icon core must match the enlarged foreground", monochrome.contains("A 5.5,5.5"))
+        assertFalse("The themed icon must not retain the former smaller silhouette", monochrome.contains("M 40, 30.2"))
+    }
+
+    @Test
     fun buildUsesKspThatSupportsAgpBuiltInKotlinWithoutCompatibilityFlag() {
         val propertiesFile = rootGradlePropertiesFile()
         val properties = Properties().apply { propertiesFile.inputStream().use(::load) }
@@ -174,7 +194,8 @@ class ReleaseReadinessTest {
         assertTrue(combined.contains("GITHUB_TOKEN"))
         assertTrue(combined.contains("size、digest、下载 URL"))
         assertTrue(combined.contains("最终 GET"))
-        assertTrue(combined.contains("Play AAB 不上传 GitHub Release"))
+        assertTrue(combined.contains("唯一官方资产为"))
+        assertTrue(combined.contains("任何其他附件夹带"))
         assertFalse(combined.contains("git tag -fa"))
         assertFalse(combined.contains("git push origin v4.0 --force"))
         assertFalse(combined.contains("自动更新已存在的 GitHub Release"))
@@ -198,7 +219,7 @@ class ReleaseReadinessTest {
             val cleanCommit = guide.indexOf("最终代码与发布文档已提交，且工作区干净")
             val immutableTag = guide.indexOf("创建并推送不可变的 exact tag")
             val freshBuild = guide.indexOf("从该 tag 对应 commit 的工作树重新正式签名构建")
-            val verify = guide.indexOf("验证签名、渠道权限与 SHA-256")
+            val verify = guide.indexOf("验证签名、精确证书指纹与 SHA-256")
             val credentials = guide.indexOf("准备安全凭据环境")
             val publish = guide.indexOf("运行发布脚本")
             assertTrue(cleanCommit >= 0)
@@ -215,9 +236,57 @@ class ReleaseReadinessTest {
 
         assertTrue(combined.contains("删除 owned draft 中的所有旧资产"))
         assertTrue(combined.contains("整个 Release 只保留唯一的 exact Direct APK"))
-        assertTrue(combined.contains("Play AAB 只交付 Play Console"))
+        assertTrue(combined.contains("唯一官方资产为 Direct APK"))
         assertFalse(Regex("(?m)\\${'$'}env:GITHUB_TOKEN\\s*=").containsMatchIn(combined))
         assertFalse(combined.contains("不写入命令历史"))
+    }
+
+    @Test
+    fun v40OfficialReleaseContractIsGithubOnlyWithDirectApk() {
+        val readme = existingFile("README.md", "../README.md").readText(Charsets.UTF_8)
+        val changelog = existingFile("CHANGELOG.md", "../CHANGELOG.md").readText(Charsets.UTF_8)
+        val checklist = existingFile(
+            "docs/RELEASE_CHECKLIST.md",
+            "../docs/RELEASE_CHECKLIST.md"
+        ).readText(Charsets.UTF_8)
+        val githubGuide = existingFile(
+            "docs/GITHUB_AND_RELEASE.md",
+            "../docs/GITHUB_AND_RELEASE.md"
+        ).readText(Charsets.UTF_8)
+        val releaseGuide = existingFile(
+            "docs/release_and_update_guide.md",
+            "../docs/release_and_update_guide.md"
+        ).readText(Charsets.UTF_8)
+
+        listOf(readme, checklist, githubGuide, releaseGuide).forEach { document ->
+            assertTrue(document.contains("唯一正式发布渠道：GitHub Release"))
+            assertTrue(document.contains("glimmer-countdown-4-0.apk"))
+            assertTrue(document.contains("Play flavor 仅保留用于兼容性与开发回归"))
+        }
+        assertTrue(checklist.contains("历史记录（非发布门）"))
+        assertTrue(changelog.contains("历史记录（非发布门）"))
+        assertTrue(readme.contains("docs/screenshots/4.0"))
+        assertTrue(readme.contains("已于 2026-07-20 基于当前候选重新生成"))
+        assertFalse(readme.contains("本轮不将这些截图视为发布证据"))
+        assertTrue(readme.contains("须在最终 tag 后重新生成"))
+
+        val finalActions = checklist.substringAfter("## 六、发布动作")
+        assertFalse(finalActions.contains("Play Console"))
+        assertFalse(finalActions.contains("Play AAB"))
+        assertFalse(finalActions.contains("Play 渠道"))
+        assertTrue(finalActions.contains("正式发布仅上传 `glimmer-countdown-4-0.apk`"))
+
+        listOf(readme, githubGuide, releaseGuide).forEach { officialGuide ->
+            assertFalse(officialGuide.contains("Play Console"))
+            assertFalse(officialGuide.contains("app-play-release.aab"))
+            assertFalse(officialGuide.contains("bundlePlayRelease"))
+            assertFalse(officialGuide.contains("assemblePlayRelease"))
+        }
+        assertTrue(githubGuide.contains("10/10"))
+        assertFalse(githubGuide.contains("必须看到 5/5"))
+        assertTrue(githubGuide.contains("output-metadata.json"))
+        assertTrue(githubGuide.contains("`aapt`"))
+        assertTrue(releaseGuide.contains("工作区存在 tracked / untracked 改动时拒绝发布"))
     }
 
     @Test
@@ -247,7 +316,7 @@ class ReleaseReadinessTest {
         assertTrue(checklist.contains("PowerShell 脚本运行（2026-07-17）"))
         assertTrue(checklist.contains("5/5 场景通过"))
         assertTrue(checklist.contains("真实 GitHub mutation：未检查"))
-        assertTrue(checklist.contains("- [x] publisher 隔离 PowerShell 状态机验证"))
+        assertTrue(checklist.contains("- [x] publisher 隔离 PowerShell 状态机 10/10 通过"))
         assertTrue(publisherHarness.contains("'lock-contention'"))
         assertTrue(publisherHarness.contains("'owned-draft'"))
         assertTrue(publisherHarness.contains("'failure-cleanup'"))

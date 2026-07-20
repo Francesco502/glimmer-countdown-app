@@ -43,6 +43,7 @@ import com.example.timeapk.permissions.areAppNotificationsEnabledCompat
 import com.example.timeapk.permissions.hasCalendarReadWritePermission
 import com.example.timeapk.permissions.markCalendarPermissionRequested
 import com.example.timeapk.permissions.openAppDetailsSettings
+import com.example.timeapk.permissions.openAppNotificationSettings
 import com.example.timeapk.permissions.shouldShowCalendarPermissionRationaleCompat
 import com.example.timeapk.permissions.wasCalendarPermissionRequestedBefore
 import com.example.timeapk.R
@@ -87,6 +88,7 @@ import com.example.timeapk.ui.theme.SongFilterChip
 import com.example.timeapk.ui.theme.SongHexColorField
 import com.example.timeapk.ui.theme.SongLineIcon
 import com.example.timeapk.ui.theme.SongLineIconKind
+import com.example.timeapk.ui.theme.normalizeOpaqueThemeHex
 import com.example.timeapk.ui.theme.typographyForFontPreset
 import com.example.timeapk.ui.utils.eventDateToLocalDate
 import com.example.timeapk.ui.utils.findActivity
@@ -284,21 +286,9 @@ fun AppearanceSettingsContent(
             var contrastErrorRatio by remember(key) { mutableStateOf<Double?>(null) }
             val currentColorScheme = MaterialTheme.colorScheme
             val normalizedCustomHex = remember(customHexInput) {
-                val trimmed = customHexInput.trim().removePrefix("#")
-                if (trimmed.isBlank()) "" else "#${trimmed.uppercase()}"
+                normalizeOpaqueThemeHex(customHexInput).orEmpty()
             }
-            val isValidHex = remember(customHexInput) {
-                try {
-                    if (normalizedCustomHex.length == 7 || normalizedCustomHex.length == 9) {
-                        normalizedCustomHex.toColorInt()
-                        true
-                    } else {
-                        false
-                    }
-                } catch (_: Exception) {
-                    false
-                }
-            }
+            val isValidHex = normalizedCustomHex.isNotEmpty()
             val candidateAudit = remember(key, customHexInput, currentColorScheme) {
                 parseHexColor(normalizedCustomHex)?.let {
                     evaluateContrastAuditForKey(currentColorScheme, key, it)
@@ -344,7 +334,7 @@ fun AppearanceSettingsContent(
                         SongHexColorField(
                             value = customHexInput,
                             onValueChange = {
-                                customHexInput = it.removePrefix("#").take(8).uppercase()
+                                customHexInput = it.removePrefix("#").take(6).uppercase()
                                 contrastErrorRatio = null
                             },
                             label = stringResource(R.string.custom_color_hex_hint),
@@ -1694,16 +1684,18 @@ fun MilestoneSettingsContent(
         SongReminderStatusStrip(
             status = scheduleHealthStatus,
             title = settingsReminderStatusTitle(context, scheduleHealthStatus),
-            actionLabel = if (scheduleHealthStatus.primaryAction != ReminderStatusAction.None) {
-                stringResource(R.string.reminder_status_action_open_settings)
-            } else {
-                null
-            },
-            onActionClick = if (scheduleHealthStatus.primaryAction != ReminderStatusAction.None) {
-                { requestCalendarPermissionAccess() }
-            } else {
-                null
-            },
+            actionLabel = settingsReminderStatusActionLabel(
+                context = context,
+                action = scheduleHealthStatus.primaryAction
+            ),
+            onActionClick = settingsReminderStatusAction(
+                context = context,
+                action = scheduleHealthStatus.primaryAction,
+                onRequestCalendarPermissionAccess = { requestCalendarPermissionAccess() },
+                onRebuildScheduleSync = {
+                    RescheduleAllWorker.enqueue(context, "manual_settings_reschedule_all")
+                }
+            ),
             modifier = Modifier.padding(top = 8.dp, bottom = 6.dp)
         )
 
@@ -2611,6 +2603,39 @@ private fun settingsReminderStatusTitle(
     return context.getString(resId)
 }
 
+private fun settingsReminderStatusActionLabel(
+    context: Context,
+    action: ReminderStatusAction
+): String? {
+    val resId = when (action) {
+        ReminderStatusAction.OpenNotificationSettings,
+        ReminderStatusAction.OpenCalendarSettings -> R.string.reminder_status_action_open_settings
+        ReminderStatusAction.RebuildScheduleSync -> R.string.settings_schedule_rebuild_now
+        ReminderStatusAction.None,
+        ReminderStatusAction.EnableReminder,
+        ReminderStatusAction.DisableScheduleSync -> return null
+    }
+    return context.getString(resId)
+}
+
+private fun settingsReminderStatusAction(
+    context: Context,
+    action: ReminderStatusAction,
+    onRequestCalendarPermissionAccess: () -> Unit,
+    onRebuildScheduleSync: () -> Unit
+): (() -> Unit)? {
+    return when (action) {
+        ReminderStatusAction.OpenNotificationSettings -> {
+            { context.openAppNotificationSettings() }
+        }
+        ReminderStatusAction.OpenCalendarSettings -> onRequestCalendarPermissionAccess
+        ReminderStatusAction.RebuildScheduleSync -> onRebuildScheduleSync
+        ReminderStatusAction.None,
+        ReminderStatusAction.EnableReminder,
+        ReminderStatusAction.DisableScheduleSync -> null
+    }
+}
+
 private fun formatImportPreviewDate(event: Event): String {
     return eventDateToLocalDate(event.date).format(DateTimeFormatter.ISO_LOCAL_DATE)
 }
@@ -2649,11 +2674,8 @@ private fun parseReminderTimeInput(input: String): Int? {
 }
 
 private fun parseHexColor(hex: String): Color? {
-    return try {
-        Color(hex.toColorInt())
-    } catch (_: Exception) {
-        null
-    }
+    val normalized = normalizeOpaqueThemeHex(hex) ?: return null
+    return Color(normalized.toColorInt())
 }
 
 private fun evaluateContrastAuditForKey(

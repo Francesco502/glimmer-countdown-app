@@ -35,6 +35,25 @@ function Get-VersionName {
     throw "Unable to resolve VERSION_NAME from $Path"
 }
 
+function Get-VersionCode {
+    param([string]$Path)
+
+    if (-not (Test-Path $Path -PathType Leaf)) {
+        throw "Unable to resolve VERSION_CODE: missing $Path"
+    }
+    $line = Get-Content $Path | Where-Object {
+        $_ -match '^\s*VERSION_CODE\s*=\s*(.+)$'
+    } | Select-Object -First 1
+    if ($line -match 'VERSION_CODE\s*=\s*(.+)') {
+        $value = $Matches[1].Trim()
+        [int]$parsed = 0
+        if ([int]::TryParse($value, [ref]$parsed) -and $parsed -gt 0) {
+            return $parsed
+        }
+    }
+    throw "Unable to resolve a positive VERSION_CODE from $Path"
+}
+
 function Get-ReleaseNotes {
     param([string]$Path, [string]$VersionName)
 
@@ -165,6 +184,37 @@ function Find-ApkSigner {
     return $selected.Path
 }
 
+function Find-Aapt {
+    param([string]$AndroidHome)
+
+    if ([string]::IsNullOrWhiteSpace($AndroidHome)) {
+        throw 'ANDROID_HOME is required to locate aapt.'
+    }
+    $buildTools = Join-Path $AndroidHome 'build-tools'
+    if (-not (Test-Path $buildTools -PathType Container)) {
+        throw 'Unable to locate aapt under ANDROID_HOME/build-tools.'
+    }
+    $executableName = if ($IsWindows -or $env:OS -eq 'Windows_NT') {
+        'aapt.exe'
+    } else {
+        'aapt'
+    }
+    $stableCandidates = foreach ($directory in Get-ChildItem $buildTools -Directory) {
+        [version]$parsedVersion = $null
+        if ([version]::TryParse($directory.Name, [ref]$parsedVersion)) {
+            $candidate = Join-Path $directory.FullName $executableName
+            if (Test-Path $candidate -PathType Leaf) {
+                [pscustomobject]@{ Version = $parsedVersion; Path = $candidate }
+            }
+        }
+    }
+    $selected = $stableCandidates | Sort-Object Version -Descending | Select-Object -First 1
+    if ($null -eq $selected) {
+        throw 'Unable to locate a stable aapt under ANDROID_HOME/build-tools.'
+    }
+    return $selected.Path
+}
+
 function Get-ReleaseByTag {
     param([string]$ReleaseTag, [hashtable]$Headers)
 
@@ -196,8 +246,52 @@ function Get-ScriptOwnershipMarker {
     return $match.Value
 }
 
+function Assert-ReleaseSourceProvenance {
+    param(
+        [string]$rootDir,
+        [string]$localTagRef,
+        [string]$ExpectedTagCommit
+    )
+
+    $worktreeStatus = @(& git -C $rootDir status --porcelain=v1 --untracked-files=all 2>$null)
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Unable to inspect the release worktree status.'
+    }
+    if (@($worktreeStatus | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) }).Count -ne 0) {
+        throw 'Release worktree must be clean; tracked or untracked changes were found.'
+    }
+
+    & git -C $rootDir show-ref --verify --quiet $localTagRef 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        throw "Local git tag $Tag does not exist."
+    }
+    $tagCommit = [string](& git -C $rootDir rev-parse --verify "$localTagRef^{commit}" 2>$null)
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($tagCommit)) {
+        throw "Local git tag $Tag does not peel to a commit."
+    }
+    $tagCommit = $tagCommit.Trim().ToLowerInvariant()
+    $headCommit = [string](& git -C $rootDir rev-parse --verify 'HEAD^{commit}' 2>$null)
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($headCommit)) {
+        throw 'Unable to resolve the current HEAD commit.'
+    }
+    $headCommit = $headCommit.Trim().ToLowerInvariant()
+    if (-not [string]::Equals($headCommit, $tagCommit, [System.StringComparison]::Ordinal)) {
+        throw 'HEAD commit does not match the exact local tag commit.'
+    }
+    if (-not [string]::IsNullOrWhiteSpace($ExpectedTagCommit) -and
+        -not [string]::Equals(
+            $tagCommit,
+            $ExpectedTagCommit,
+            [System.StringComparison]::Ordinal
+        )) {
+        throw 'Local tag commit changed during release preflight.'
+    }
+    return $tagCommit
+}
+
 # Complete all local validation and authenticated remote tag validation before
 # the first network mutation (the lock ref creation).
+$versionCode = Get-VersionCode -Path $gradleProps
 $versionName = Get-VersionName -Path $gradleProps
 $expectedTag = "v$versionName"
 if ($Tag -and $Tag -ne $expectedTag) {
@@ -211,9 +305,75 @@ if (-not $ReleaseName) {
 }
 $releaseNotes = Get-ReleaseNotes -Path $changelogPath -VersionName $versionName
 $apkName = 'glimmer-countdown-' + ($versionName -replace '\.', '-') + '.apk'
-$apkPath = Join-Path $rootDir "app/build/outputs/apk/direct/release/$apkName"
+$outputDirectory = Join-Path $rootDir 'app/build/outputs/apk/direct/release'
+$apkPath = Join-Path $outputDirectory $apkName
+$metadataPath = Join-Path $outputDirectory 'output-metadata.json'
+
+$localTagRef = "refs/tags/$Tag"
+$localTagCommit = Assert-ReleaseSourceProvenance `
+    -RootDir $rootDir `
+    -LocalTagRef $localTagRef
+
 if (-not (Test-Path $apkPath -PathType Leaf) -or (Get-Item $apkPath).Length -le 0) {
     throw "APK not found or empty: $apkPath"
+}
+if (-not (Test-Path $metadataPath -PathType Leaf)) {
+    throw "Direct release output metadata is missing: $metadataPath"
+}
+try {
+    $metadata = Get-Content $metadataPath -Raw -Encoding UTF8 | ConvertFrom-Json
+} catch {
+    throw 'Direct release output metadata is not valid JSON.'
+}
+if (-not [string]::Equals(
+        [string]$metadata.applicationId,
+        'com.example.timeapk',
+        [System.StringComparison]::Ordinal
+    )) {
+    throw 'Direct release metadata must declare applicationId com.example.timeapk.'
+}
+if (-not [string]::Equals(
+        [string]$metadata.variantName,
+        'directRelease',
+        [System.StringComparison]::Ordinal
+    )) {
+    throw 'Direct release metadata must declare variantName directRelease.'
+}
+if (-not [string]::Equals(
+        [string]$metadata.artifactType.type,
+        'APK',
+        [System.StringComparison]::Ordinal
+    )) {
+    throw 'Direct release metadata must describe an APK artifact.'
+}
+$metadataElements = @($metadata.elements)
+if ($metadataElements.Count -ne 1) {
+    throw 'Direct release metadata must contain exactly one artifact.'
+}
+$metadataArtifact = $metadataElements[0]
+if (-not [string]::Equals(
+        [string]$metadataArtifact.type,
+        'SINGLE',
+        [System.StringComparison]::Ordinal
+    ) -or @($metadataArtifact.filters).Count -ne 0) {
+    throw 'Direct release metadata artifact must be one unfiltered APK.'
+}
+if ([int]$metadataArtifact.versionCode -ne $versionCode) {
+    throw 'Direct release metadata versionCode does not match VERSION_CODE.'
+}
+if (-not [string]::Equals(
+        [string]$metadataArtifact.versionName,
+        $versionName,
+        [System.StringComparison]::Ordinal
+    )) {
+    throw 'Direct release metadata versionName does not match VERSION_NAME.'
+}
+if (-not [string]::Equals(
+        [string]$metadataArtifact.outputFile,
+        $apkName,
+        [System.StringComparison]::Ordinal
+    )) {
+    throw 'Direct release metadata outputFile does not match the exact GitHub APK name.'
 }
 $apkSize = [long](Get-Item $apkPath).Length
 $apkSha256 = (Get-FileHash -Path $apkPath -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -244,6 +404,44 @@ if ($actualCert -ne $expectedCert) {
     throw 'APK signer certificate does not match GLIMMER_RELEASE_CERT_SHA256.'
 }
 
+$aapt = Find-Aapt -AndroidHome $env:ANDROID_HOME
+$badgingOutput = @(& $aapt dump badging $apkPath 2>&1)
+if ($LASTEXITCODE -ne 0) {
+    throw 'aapt failed to inspect the Direct APK.'
+}
+$packageMatches = @($badgingOutput | Select-String -Pattern "^package:\s+name='([^']+)'\s+versionCode='([^']+)'\s+versionName='([^']+)'(?:\s|$)")
+if ($packageMatches.Count -ne 1) {
+    throw 'aapt returned an invalid or ambiguous APK package identity.'
+}
+$packageIdentity = $packageMatches[0].Matches[0]
+if (-not [string]::Equals(
+        $packageIdentity.Groups[1].Value,
+        'com.example.timeapk',
+        [System.StringComparison]::Ordinal
+    )) {
+    throw 'APK package name does not match com.example.timeapk.'
+}
+if (-not [string]::Equals(
+        $packageIdentity.Groups[2].Value,
+        [string]$versionCode,
+        [System.StringComparison]::Ordinal
+    )) {
+    throw 'APK versionCode does not match VERSION_CODE.'
+}
+if (-not [string]::Equals(
+        $packageIdentity.Groups[3].Value,
+        $versionName,
+        [System.StringComparison]::Ordinal
+    )) {
+    throw 'APK versionName does not match VERSION_NAME.'
+}
+if ($badgingOutput | Select-String -Quiet -Pattern '^application-debuggable(?:\s|$)') {
+    throw 'Direct APK must not be debuggable.'
+}
+if (-not ($badgingOutput | Select-String -Quiet -Pattern "^uses-permission:\s+name='android\.permission\.REQUEST_INSTALL_PACKAGES'(?:\s|$)")) {
+    throw 'Direct APK must declare android.permission.REQUEST_INSTALL_PACKAGES.'
+}
+
 $token = Get-AuthToken
 if ([string]::IsNullOrWhiteSpace($token)) {
     throw 'Unable to resolve GitHub authentication token.'
@@ -255,16 +453,6 @@ $headers = @{
     'User-Agent'           = 'glimmer-countdown-release-script'
 }
 
-$localTagRef = "refs/tags/$Tag"
-& git -C $rootDir show-ref --verify --quiet $localTagRef 2>$null
-if ($LASTEXITCODE -ne 0) {
-    throw "Local git tag $Tag does not exist."
-}
-$localTagCommit = [string](& git -C $rootDir rev-parse --verify "$localTagRef^{commit}" 2>$null)
-if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($localTagCommit)) {
-    throw "Local git tag $Tag does not peel to a commit."
-}
-$localTagCommit = $localTagCommit.Trim().ToLowerInvariant()
 $encodedTag = [uri]::EscapeDataString($Tag)
 try {
     $remoteTagRef = Invoke-RestMethod `
@@ -559,6 +747,10 @@ $publishConfirmed = $false
 $releaseId = [long]0
 $uploadedAssetId = [long]0
 $finalRelease = $null
+$null = Assert-ReleaseSourceProvenance `
+    -RootDir $rootDir `
+    -LocalTagRef $localTagRef `
+    -ExpectedTagCommit $localTagCommit
 $releaseLockObjectSha = New-ReleaseLock
 $lockAcquired = $true
 try {
