@@ -85,10 +85,23 @@ class HomeInteractionPolicyTest {
     }
 
     @Test
-    fun homeUsesListLevelReorderDetection_isDisabledBecauseCardsUseDedicatedHandles() {
+    fun homeUsesListLevelReorderDetection_isDisabledBecauseRowsOwnLongPressDrag() {
         assertFalse(homeUsesListLevelReorderDetection(SortType.Custom))
         assertFalse(homeUsesListLevelReorderDetection(SortType.ByDays))
         assertFalse(homeUsesListLevelReorderDetection(SortType.ByDate))
+    }
+
+    @Test
+    fun homeCardsFillTheRowWithoutADedicatedReorderRail() {
+        val source = readSource("ui/home/HomeScreen.kt")
+        val itemBlock = source
+            .substringAfter("items(orderedList")
+            .substringBefore("AnimatedVisibility(")
+
+        assertFalse(itemBlock.contains("Modifier.padding(end = 48.dp)"))
+        assertFalse(itemBlock.contains("R.string.cd_reorder_event"))
+        assertFalse(itemBlock.contains("kind = SongLineIconKind.More"))
+        assertTrue(itemBlock.contains("detectDragGesturesAfterLongPress"))
     }
 
     @Test

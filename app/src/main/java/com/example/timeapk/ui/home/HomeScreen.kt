@@ -16,7 +16,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
@@ -453,82 +453,10 @@ fun HomeScreen(
                                                         if (listInitialized) Modifier.animateItemPlacement(animationSpec = AnimationSpecs.springItemPlacement)
                                                         else Modifier
                                                     )
-                                            ) {
-                                                val showDetail = homeDensityMode == 1
-                                                if (homeDisplayMode == 0) {
-                                                    val persistedMode = perEventDateDeltaModes[eventState.event.id] ?: dateDeltaDisplayMode
-                                                    var cardDisplayMode by remember(eventState.event.id, persistedMode) {
-                                                        mutableStateOf(persistedMode)
-                                                    }
-                                                    EventCard(
-                                                        eventState = eventState,
-                                                        today = today,
-                                                        dateFormatter = dateFormatter,
-                                                        sortType = sortType,
-                                                        dateDeltaDisplayMode = cardDisplayMode,
-                                                        onToggleDateDeltaDisplayMode = {
-                                                            val availableModes = getAvailableDisplayModes(eventState, showMilestone = true)
-                                                            val currentModeIndex = availableModes.indexOf(cardDisplayMode)
-                                                            val nextModeIndex = (if (currentModeIndex != -1) currentModeIndex + 1 else 1) % availableModes.size
-                                                            val nextMode = availableModes[nextModeIndex]
-                                                            cardDisplayMode = nextMode
-                                                            scope.launch {
-                                                                prefs.setDateDeltaDisplayModeForEvent(eventState.event.id, nextMode)
-                                                            }
-                                                        },
-                                                        onClick = { navigateToDetail(eventState.event.id) },
-                                                        onLongClick = if (longPressEditEnabled) {
-                                                            { navigateToEdit(eventState.event.id) }
-                                                        } else {
-                                                            null
-                                                        },
-                                                        tapOnlyInteraction = tapOnlyInteraction,
-                                                        tapNavigationEnabled = tapNavigationEnabled,
-                                                        showHours = showHours,
-                                                        showMilestone = showMilestone,
-                                                        showDetail = showDetail,
-                                                        isDragging = itemDragging,
-                                                        modifier = if (dragEnabled) Modifier.padding(end = 48.dp) else Modifier
-                                                    )
-                                                } else {
-                                                    val persistedMode = perEventDateDeltaModes[eventState.event.id] ?: dateDeltaDisplayMode
-                                                    var itemDisplayMode by remember(eventState.event.id, persistedMode) {
-                                                        mutableStateOf(persistedMode)
-                                                    }
-                                                    EventListItem(
-                                                        eventState = eventState,
-                                                        today = today,
-                                                        sortType = sortType,
-                                                        dateDeltaDisplayMode = itemDisplayMode,
-                                                        onToggleDateDeltaDisplayMode = {
-                                                            val availableModes = getAvailableDisplayModes(eventState, showMilestone = true)
-                                                            val currentModeIndex = availableModes.indexOf(itemDisplayMode)
-                                                            val nextModeIndex = (if (currentModeIndex != -1) currentModeIndex + 1 else 1) % availableModes.size
-                                                            val nextMode = availableModes[nextModeIndex]
-                                                            itemDisplayMode = nextMode
-                                                            scope.launch {
-                                                                prefs.setDateDeltaDisplayModeForEvent(eventState.event.id, nextMode)
-                                                            }
-                                                        },
-                                                        onClick = { navigateToDetail(eventState.event.id) },
-                                                        onLongClick = if (longPressEditEnabled) {
-                                                            { navigateToEdit(eventState.event.id) }
-                                                        } else {
-                                                            null
-                                                        },
-                                                        tapOnlyInteraction = tapOnlyInteraction,
-                                                        tapNavigationEnabled = tapNavigationEnabled,
-                                                        isDragging = itemDragging,
-                                                        modifier = if (dragEnabled) Modifier.padding(end = 48.dp) else Modifier
-                                                    )
-                                                }
-                                                if (dragEnabled) {
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .align(Alignment.CenterEnd)
-                                                            .size(48.dp)
-                                                            .pointerInput(eventId, dragEnabled) {
-                                                                detectDragGestures(
+                                                    .then(
+                                                        if (dragEnabled) {
+                                                            Modifier.pointerInput(eventId, dragEnabled) {
+                                                                detectDragGesturesAfterLongPress(
                                                                     onDragStart = {
                                                                         if (latestDragEnabled && pendingLocalReorder == null) {
                                                                             visibleIdsAtDragStart = latestDisplayedIds
@@ -572,18 +500,76 @@ fun HomeScreen(
                                                                     }
                                                                 }
                                                             }
-                                                            .semantics {
-                                                                contentDescription = context.getString(R.string.cd_reorder_event)
-                                                            },
-                                                        contentAlignment = Alignment.Center
-                                                    ) {
-                                                        SongLineIcon(
-                                                            kind = SongLineIconKind.More,
-                                                            contentDescription = null,
-                                                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.72f),
-                                                            size = 20.dp
-                                                        )
+                                                        } else {
+                                                            Modifier
+                                                        }
+                                                    )
+                                            ) {
+                                                val showDetail = homeDensityMode == 1
+                                                if (homeDisplayMode == 0) {
+                                                    val persistedMode = perEventDateDeltaModes[eventState.event.id] ?: dateDeltaDisplayMode
+                                                    var cardDisplayMode by remember(eventState.event.id, persistedMode) {
+                                                        mutableStateOf(persistedMode)
                                                     }
+                                                    EventCard(
+                                                        eventState = eventState,
+                                                        today = today,
+                                                        dateFormatter = dateFormatter,
+                                                        sortType = sortType,
+                                                        dateDeltaDisplayMode = cardDisplayMode,
+                                                        onToggleDateDeltaDisplayMode = {
+                                                            val availableModes = getAvailableDisplayModes(eventState, showMilestone = true)
+                                                            val currentModeIndex = availableModes.indexOf(cardDisplayMode)
+                                                            val nextModeIndex = (if (currentModeIndex != -1) currentModeIndex + 1 else 1) % availableModes.size
+                                                            val nextMode = availableModes[nextModeIndex]
+                                                            cardDisplayMode = nextMode
+                                                            scope.launch {
+                                                                prefs.setDateDeltaDisplayModeForEvent(eventState.event.id, nextMode)
+                                                            }
+                                                        },
+                                                        onClick = { navigateToDetail(eventState.event.id) },
+                                                        onLongClick = if (longPressEditEnabled) {
+                                                            { navigateToEdit(eventState.event.id) }
+                                                        } else {
+                                                            null
+                                                        },
+                                                        tapOnlyInteraction = tapOnlyInteraction,
+                                                        tapNavigationEnabled = tapNavigationEnabled,
+                                                        showHours = showHours,
+                                                        showMilestone = showMilestone,
+                                                        showDetail = showDetail,
+                                                        isDragging = itemDragging
+                                                    )
+                                                } else {
+                                                    val persistedMode = perEventDateDeltaModes[eventState.event.id] ?: dateDeltaDisplayMode
+                                                    var itemDisplayMode by remember(eventState.event.id, persistedMode) {
+                                                        mutableStateOf(persistedMode)
+                                                    }
+                                                    EventListItem(
+                                                        eventState = eventState,
+                                                        today = today,
+                                                        sortType = sortType,
+                                                        dateDeltaDisplayMode = itemDisplayMode,
+                                                        onToggleDateDeltaDisplayMode = {
+                                                            val availableModes = getAvailableDisplayModes(eventState, showMilestone = true)
+                                                            val currentModeIndex = availableModes.indexOf(itemDisplayMode)
+                                                            val nextModeIndex = (if (currentModeIndex != -1) currentModeIndex + 1 else 1) % availableModes.size
+                                                            val nextMode = availableModes[nextModeIndex]
+                                                            itemDisplayMode = nextMode
+                                                            scope.launch {
+                                                                prefs.setDateDeltaDisplayModeForEvent(eventState.event.id, nextMode)
+                                                            }
+                                                        },
+                                                        onClick = { navigateToDetail(eventState.event.id) },
+                                                        onLongClick = if (longPressEditEnabled) {
+                                                            { navigateToEdit(eventState.event.id) }
+                                                        } else {
+                                                            null
+                                                        },
+                                                        tapOnlyInteraction = tapOnlyInteraction,
+                                                        tapNavigationEnabled = tapNavigationEnabled,
+                                                        isDragging = itemDragging
+                                                    )
                                                 }
                                             }
                                         }

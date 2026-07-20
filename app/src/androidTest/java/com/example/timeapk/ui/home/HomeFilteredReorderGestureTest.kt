@@ -4,7 +4,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
-import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -96,8 +95,9 @@ class HomeFilteredReorderGestureTest {
             .fetchSemanticsNode().boundsInRoot.center.y
         val downwardDistance = thirdCenterY - secondCenterY
 
-        composeRule.onAllNodesWithContentDescription("拖动排序")[1].performTouchInput {
+        composeRule.onNodeWithText("E2EDrag-B").performTouchInput {
             down(center)
+            advanceEventTime(750)
             moveBy(Offset(0f, downwardDistance / 2f), 250)
             moveBy(Offset(0f, downwardDistance / 2f + 120f), 250)
             up()

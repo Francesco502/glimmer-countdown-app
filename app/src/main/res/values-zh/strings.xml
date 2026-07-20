@@ -38,7 +38,6 @@
     <string name="sort_by_date">按目标日期</string>
     <string name="sort_by_created">自定义排序</string>
     <string name="sort_menu">排序</string>
-    <string name="cd_reorder_event">拖动排序</string>
     <string name="display_mode_card">卡片</string>
     <string name="display_mode_list">列表</string>
     <string name="home_density_title">首页信息</string>
