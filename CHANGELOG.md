@@ -24,9 +24,10 @@
 
 ### 验证与发布要求
 
-- 新增或调整日历所有权、删除保护、草稿恢复、显示状态、导入、更新文件完整性及 UI 回归；当前没有已确认的本版完整通过结果。
-- 4.1 真机验收未执行且未获豁免；正式签名配置与 keystore 尚未提供。
-- 发布必须从不可变 exact `v4.1` tag 的 commit 新鲜正式签名构建，核对正式证书指纹、APK 身份与 SHA-256；禁止复用旧产物或覆盖既有 Release。
+- [CI3（2026-10-09）](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/37899670865)：head `544a6a7`，实际 PR merge `1ffc458552067ac431e7095432f09e639f1ff4bd`；Direct/Play JVM 各 575 项且失败/错误/跳过均为 0，publisher 10/10。三份完整 lint 报告各 0 error、2 warning（`OldTargetApi` / `UnusedQuantity`）；两个 vital 汇总任务 Skipped，对应 analyze 已执行。
+- API36 connected 46 项、4 失败、0 错误、0 跳过；修复后待 CI4，当前不构成完整通过结果。
+- 用户已授权发布并说明无实体手机；物理手机验收未执行，按现有授权记录剩余限制，不继承 v4.0 豁免。正式签名配置与 keystore 已取得并核验与线上 v4.0 同证；最终正式签名 APK 与独立验签尚未完成。
+- 发布必须从不可变 exact `v4.1` tag 的 commit 新鲜构建并正式签名，允许 CI 生成未签名 R8 工件后在本机用原生 `apksigner` 签名；核对正式证书指纹、APK 身份与 SHA-256。未签名工件不能发布，禁止复用旧产物或覆盖既有 Release。
 - `versionName`: `4.1`；`versionCode`: `24`；Direct APK 目标文件名：`glimmer-countdown-4-1.apk`。
 
 ## [4.0] - 2026-07-20

@@ -13,6 +13,7 @@ import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.example.timeapk.ui.captureComponentUiEvidence
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -38,6 +39,11 @@ class EventShareRendererTest {
         val preview = composeRule.onNode(imageMatcher).captureToImage().toPixelMap()
         val exported = EventShareImageRenderer().render(data)
         try {
+            captureComponentUiEvidence(
+                composeRule, "share-dark-theme-preview",
+                "Synthetic EventShareCard in dark MaterialTheme; component width 280dp; matching native renderer PNG attached",
+                exportedImage = exported
+            )
             val samples = listOf(5 to 5, 540 to 1120)
             samples.forEach { (x, y) ->
                 val actual = preview[(x * preview.width / SHARE_IMAGE_WIDTH_PX).coerceAtMost(preview.width - 1),

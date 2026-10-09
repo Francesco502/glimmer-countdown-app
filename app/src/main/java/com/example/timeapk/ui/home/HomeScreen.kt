@@ -1,5 +1,10 @@
 package com.example.timeapk.ui.home
 
+import android.os.Build
+import android.view.View
+import android.window.OnBackInvokedCallback
+import android.window.OnBackInvokedDispatcher
+import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
@@ -44,6 +49,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
@@ -58,6 +64,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import com.example.timeapk.data.CATEGORY_ANNIVERSARY
 import com.example.timeapk.data.CATEGORY_BIRTHDAY
 import com.example.timeapk.data.REPEAT_NONE
@@ -491,6 +498,7 @@ fun HomeScreen(
                                             val rowDragEnabled = dragEnabled && eventId !in pinnedEventIds
                                             val moveUpLabel = stringResource(R.string.home_move_up)
                                             val moveDownLabel = stringResource(R.string.home_move_down)
+                                            val reorderingLabel = stringResource(R.string.home_reordering)
                                             fun moveAccessible(direction: Int): Boolean {
                                                 if (!latestDragEnabled || dragInProgress || pendingLocalReorder != null) return false
                                                 val fromIndex = orderedList.indexOfFirst { it.event.id == eventId }
@@ -504,6 +512,7 @@ fun HomeScreen(
                                                 return true
                                             }
                                             val reorderAccessibility = if (rowDragEnabled) Modifier.semantics {
+                                                if (itemDragging) stateDescription = reorderingLabel
                                                 customActions = buildList {
                                                     val index = orderedList.indexOfFirst { it.event.id == eventId }
                                                     if (index > 0 && homeReorderAllowed(eventId, orderedList[index - 1].event.id, pinnedEventIds)) {
@@ -622,6 +631,9 @@ fun HomeScreen(
                     onDismissRequest = { showOverflowMenu = false },
                     properties = PopupProperties(focusable = true)
                 ) {
+                    if (Build.VERSION.SDK_INT >= 33) {
+                        HomeToolsPopupBackHandler { showOverflowMenu = false }
+                    }
                     HomeOverflowPanel(
                     digest = timelineDigest,
                     selectedBucket = timelineFocus,
@@ -645,6 +657,44 @@ fun HomeScreen(
                     )
                 }
             }
+        }
+    }
+}
+
+// Compose 1.6's Popup handles legacy Back key events. Register on the popup's
+// own native window as well, so Android 13+ predictive Back dismisses it.
+@RequiresApi(33)
+@Composable
+private fun HomeToolsPopupBackHandler(onDismiss: () -> Unit) {
+    val popupView = LocalView.current
+    val currentDismiss by rememberUpdatedState(onDismiss)
+    DisposableEffect(popupView) {
+        var registeredDispatcher: OnBackInvokedDispatcher? = null
+        val callback = OnBackInvokedCallback { currentDismiss() }
+        fun unregister() {
+            registeredDispatcher?.unregisterOnBackInvokedCallback(callback)
+            registeredDispatcher = null
+        }
+        fun register() {
+            if (registeredDispatcher == null) {
+                popupView.findOnBackInvokedDispatcher()?.let { dispatcher ->
+                    dispatcher.registerOnBackInvokedCallback(
+                        OnBackInvokedDispatcher.PRIORITY_OVERLAY,
+                        callback
+                    )
+                    registeredDispatcher = dispatcher
+                }
+            }
+        }
+        val listener = object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(view: View) = register()
+            override fun onViewDetachedFromWindow(view: View) = unregister()
+        }
+        popupView.addOnAttachStateChangeListener(listener)
+        if (popupView.isAttachedToWindow) register()
+        onDispose {
+            popupView.removeOnAttachStateChangeListener(listener)
+            unregister()
         }
     }
 }

@@ -10,7 +10,7 @@
 
 ## 历史界面预览（v4.0）
 
-以下 `docs/screenshots/4.0` 图片是 v4.0 历史截图，本轮不将这些截图视为发布证据。4.1 的新截图尚未生成，后续须使用同一最终候选与新鲜构建重新验证首页、月历、详情、设置和小组件；不能把这些历史图片标为 4.1 界面。
+以下 `docs/screenshots/4.0` 图片是 v4.0 历史截图，本轮不将这些截图视为发布证据。4.1 各页面新鲜截图尚未完成审阅，CI3 模拟器启动截图不能替代完整 UI 验收；后续须使用同一最终候选与新鲜构建验证首页、月历、详情、设置和小组件，不能把历史图片标为 4.1 界面。
 
 | 首页纸笺 | 月历视图 |
 |---|---|
@@ -28,7 +28,7 @@
 - 改善筛选条件反馈、返回关闭工具面板、排序无障碍、短窗口月历和分享图片的一致性。
 - 保留桌面小组件独立配置与 1-5 格“预览宽度 / 预览高度”，复核配置恢复、保存反馈和 Launcher 实际表现。
 
-以上为开发候选范围，不能据此视为验证通过。目前无实体手机，4.1 真机门未执行且未获豁免；既有正式签名配置与 keystore 已取得，配置路径、私钥可用性和证书已核验，证书与线上 v4.0 APK 一致。4.1 正式 APK 尚未构建，产物验签、上传和公开下载复验均待完成。
+以上为开发候选范围，不能据此视为验证通过。用户已明确授权发布并说明无实体手机；物理手机验收未执行，按现有授权记录剩余限制，不继承 v4.0 豁免。既有正式签名配置与 keystore 已取得，配置路径、私钥可用性和证书已核验，证书与线上 v4.0 APK 一致。本机中间候选已验签，但未包含后续源码更改且不是最终 tag 工件；最终 APK、上传和公开下载复验仍待完成。
 
 ## 核心能力
 
@@ -77,12 +77,14 @@
 - `testDirectDebugUnitTest`
 - `compileDirectDebugAndroidTestKotlin`
 - `lintDirectDebug lintDirectRelease lintVitalDirectRelease`
-- `assembleDirectRelease`
+- `assembleDirectRelease`，或按[发布指引](docs/release_and_update_guide.md#三构建命令)从最终 tag 的 CI 未签名 Release 工件在本机完成正式签名
 - Direct release APK 正式证书、精确证书指纹与 SHA-256 验证
-- Direct release APK 的模拟器安装 / 升级、性能与更新 smoke，以及物理真机安装、提醒、日历与 Launcher 验收
+- Direct release APK 的模拟器安装 / 升级、性能与更新 smoke；物理手机安装、提醒、日历与 Launcher 验收当前未执行，按现有发布授权记录剩余限制
 - GitHub Release 只保留 `glimmer-countdown-4-1.apk`，并完成公开下载复验、线上重装、更新检查与关键链路 smoke
 
-4.1 的自动测试、设备验收、正式签名和 publisher 回归结果尚待填写。publisher 会拒绝脏工作区或未指向 exact tag 的 `HEAD`，并核对输出元数据与 APK 的真实包名、版本、权限和非调试状态。发布流程禁止移动已推送的 tag 或覆盖已发布 Release，GitHub Release 仅上传 exact Direct APK。
+2026-10-09 [CI3](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/37899670865) 在 head `544a6a7` 的 PR merge `1ffc458552067ac431e7095432f09e639f1ff4bd` 上执行：Direct/Play JVM 各 575 项，失败/错误/跳过均为 0；publisher 10/10；三份完整 lint 报告各 0 error、2 warning（`OldTargetApi` / `UnusedQuantity`），两个 vital 汇总任务 Skipped，但对应 analyze 已执行。API36 connected 为 46 项、4 失败、0 错误、0 跳过；修复后待 CI4 复验，不能视为整体验收通过。正式 APK、上传和公开下载证据仍待完成，详见[清单](docs/RELEASE_CHECKLIST.md)。
+
+publisher 会拒绝脏工作区或未指向 exact tag 的 `HEAD`，并核对输出元数据与 APK 的真实包名、版本、权限和非调试状态。发布流程禁止移动已推送的 tag 或覆盖已发布 Release，GitHub Release 仅上传 exact Direct APK。
 
 正式发布必须在代码与文档提交且工作区干净后推送不可变 tag，再从该 tag commit 新鲜构建和验证签名、证书指纹、SHA-256；不得复用旧产物。publisher 会删除 owned draft 中的所有旧资产，并要求整个 Release 只保留唯一的 exact Direct APK。本地认证使用 `gh auth login` / 脚本内部 `gh auth token`，CI 才从 secret 注入 `GITHUB_TOKEN`，且不得打印凭据。现有本地认证状态不作为结论；最终发布时按此流程重新取得并验证有效的写入权限。
 

@@ -1,6 +1,6 @@
 # GitHub 提交与发布流程（v4.1）
 
-本文档是 4.1 开发候选的发布流程草稿（2026-10-09）。4.1 尚未发布，测试、设备、正式签名与上传门均以 RELEASE_CHECKLIST.md 的实际记录为准。既有正式签名配置与 keystore 已取得，配置路径、私钥可用性和证书已核验，证书与线上 v4.0 APK 一致；4.1 正式 APK 尚未构建。真机门未执行且未获本版豁免；以下提交、标签和发布命令只有相应前置条件满足后才能执行。
+本文档是 4.1 开发候选的发布流程（2026-10-09）。4.1 尚未发布，实际结果以 RELEASE_CHECKLIST.md 为准：CI3 JVM/publisher 已通过，API36 connected 46 项中 4 项失败，修复后待 CI4。既有正式签名配置与 keystore 已取得并核验与线上 v4.0 同证；最终正式签名 APK 与独立验签尚未完成。用户已授权发布并说明无实体手机；物理验收未执行，按现有授权记录剩余限制，不继承 v4.0 豁免。最终 APK、标签与发布校验仍须实际完成。
 
 **唯一正式发布渠道：GitHub Release。** 唯一官方资产为 `glimmer-countdown-4-1.apk`。Play flavor 仅保留用于兼容性与开发回归，不是 4.1 正式发布工件或阻断项。
 
@@ -29,7 +29,7 @@ git push origin main
 
 ## 3. 在最终发布 commit 上创建 `v4.1` 标签
 
-发布动作的固定顺序是：最终代码与发布文档已提交，且工作区干净 → 创建并推送不可变的 exact tag → 从该 tag 对应 commit 的工作树重新正式签名构建 → 验证签名、精确证书指纹与 SHA-256 → 准备安全凭据环境 → 运行发布脚本。
+发布动作的固定顺序是：最终代码与发布文档已提交，且工作区干净 → 创建并推送不可变的 exact tag → 从该 tag 对应 commit 的工作树重新正式签名构建（可按下述等价路径分离 CI 打包与本机签名） → 验证签名、精确证书指纹与 SHA-256 → 准备安全凭据环境 → 运行发布脚本。
 
 先确认待发布分支已经合并、`git status --short` 无输出，且 `HEAD` 就是最终发布 commit，再首次创建并推送标签：
 
@@ -42,13 +42,15 @@ git push origin v4.1
 
 ## 4. 构建 Release 产物
 
-推送标签后，核对 `git rev-parse HEAD` 与 `git rev-parse v4.1^{commit}` 完全一致，再在这个工作树中执行新构建。不得复用旧构建产物；可先执行 `./gradlew clean` 清理 Gradle 输出，但不要使用会删除未跟踪文件的 `git clean`。正式构建完成后记录 Direct APK 的 SHA-256，并验证正式签名、精确证书指纹和 Direct 安装权限。
+推送标签后，核对 `git rev-parse HEAD` 与 `git rev-parse v4.1^{commit}` 完全一致，再从该提交执行新构建。不得复用旧构建产物；可先执行 `./gradlew clean` 清理 Gradle 输出，但不要使用会删除未跟踪文件的 `git clean`。正式签名完成后记录 Direct APK 的 SHA-256，并验证正式签名、精确证书指纹和 Direct 安装权限。
 
 ```bash
 ./gradlew testDirectDebugUnitTest compileDirectDebugAndroidTestKotlin
 ./gradlew lintDirectDebug lintDirectRelease lintVitalDirectRelease
 ./gradlew assembleDirectRelease
 ```
+
+也可按[签名指引](release_and_update_guide.md#三构建命令)从最终 tag commit 在 CI 执行 `packageDirectRelease -x validateReleaseSigning`，保留未签名 R8 工件的源码 revision、原始 SHA-256 和 metadata；本机先 zipalign，再以环境密码输入调用原生 apksigner 正式签名，密钥不出本机。未签名工件不能称正式签名完成或发布；Gradle 默认签名门不修改。发布用 metadata 仅将唯一 artifact 的 `outputFile` 改为 exact APK 名称，版本、包名、variant 等保持原值，最终由 publisher 独立核验。
 
 产物路径：
 
@@ -116,4 +118,4 @@ docker run --rm --network none --platform linux/amd64 \
 - GitHub API 最终 GET 返回公开、非 prerelease 的 `v4.1` Release，且唯一资产的 id、size、digest、下载 URL 与本地产物一致
 - Direct APK `versionName` 是否为 `4.1`
 - 抽检首页右上近期入口、月历选中日期内容与年月选择、详情轻量主卡与分享卡、新建 / 编辑标题输入与提醒滚轮、设置页样张、小组件配置、启动页、系统日历无可写提示和 Direct 渠道检查更新
-- 在至少一台物理手机完成 Direct APK 安装 / 升级、关键链路与性能 smoke；再从公开 GitHub Release 在线重装并复测更新检查
+- 物理手机安装 / 升级、关键链路与性能 smoke：未执行（当前无手机），按用户现有发布授权记录剩余限制；公开 APK 仍需在可用模拟器在线重装并复测更新检查，不能写成物理验收通过

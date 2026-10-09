@@ -1,6 +1,7 @@
 name: Android CI
 
 on:
+  workflow_dispatch:
   pull_request:
   push:
     branches:
@@ -53,6 +54,23 @@ jobs:
           assemblePlayDebug
           assembleDirectDebugAndroidTest
 
+      - name: Build unsigned optimized Direct APK for signing
+        timeout-minutes: 20
+        shell: bash
+        run: |
+          set -euo pipefail
+          report_dir="$PWD/app/build/reports/unsigned-direct-release"
+          mkdir -p "$report_dir"
+          git rev-parse HEAD > "$report_dir/source-revision.txt"
+          timeout --signal=TERM --kill-after=30s 19m ./gradlew --no-daemon --no-parallel \
+            packageDirectRelease -x validateReleaseSigning --console=plain 2>&1 \
+            | tee "$report_dir/gradle.txt"
+          apk_dir="$PWD/app/build/outputs/apk/direct/release"
+          apk_file="$apk_dir/app-direct-release-unsigned.apk"
+          test -s "$apk_file"
+          sha256sum "$apk_file" > "$report_dir/apk-sha256.txt"
+          cp "$apk_dir/output-metadata.json" "$report_dir/original-output-metadata.json"
+
       - name: Run Android regression tests on API 36
         timeout-minutes: 35
         shell: bash
@@ -78,6 +96,11 @@ jobs:
             timeout 15 "$adb" -s "$serial" shell getprop > "$report_dir/device-properties.txt" 2>&1
             timeout 20 "$adb" -s "$serial" logcat -d -v threadtime > "$report_dir/logcat.txt" 2>&1
             timeout 10 "$adb" -s "$serial" exec-out screencap -p > "$report_dir/final-state.png" 2> "$report_dir/screenshot-error.txt"
+            if timeout 30 "$adb" -s "$serial" exec-out run-as com.example.timeapk \
+              tar -C cache -cf - qa-evidence > "$report_dir/component-evidence.tar" \
+              2> "$report_dir/component-evidence-error.txt"; then
+              tar -xf "$report_dir/component-evidence.tar" -C "$report_dir"
+            fi
             if [[ -n "$emulator_pid" ]]; then
               timeout 10 "$adb" -s "$serial" emu kill > "$report_dir/emulator-stop.txt" 2>&1
               kill "$emulator_pid" 2>/dev/null || true
@@ -129,6 +152,9 @@ jobs:
           "$adb" -s "$serial" exec-out screencap -p > "$report_dir/cold-start.png"
           timeout --signal=TERM --kill-after=30s 20m ./gradlew --no-daemon --no-parallel \
             connectedDirectDebugAndroidTest --console=plain 2>&1 | tee "$report_dir/gradle-android-tests.txt"
+          timeout --signal=TERM --kill-after=15s 8m python3 scripts/android-runtime-smoke.py \
+            --adb "$adb" --serial "$serial" \
+            --output "$report_dir/runtime-smoke"
 
       - name: Preserve verification reports and debug APKs
         if: always()

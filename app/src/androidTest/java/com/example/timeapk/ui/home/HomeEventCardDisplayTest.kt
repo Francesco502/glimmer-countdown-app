@@ -21,6 +21,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.example.timeapk.R
 import com.example.timeapk.data.CATEGORY_OTHER
 import com.example.timeapk.data.Event
+import com.example.timeapk.ui.captureComponentUiEvidence
 import com.example.timeapk.ui.utils.DisplayModes
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -79,6 +80,10 @@ class HomeEventCardDisplayTest {
         composeRule.onNodeWithText(context.resources.getQuantityString(R.plurals.hours_unit, 13), useUnmergedTree = true)
             .assertIsDisplayed()
         composeRule.onNodeWithText(event.event.title, useUnmergedTree = true).assertIsDisplayed()
+        captureComponentUiEvidence(
+            composeRule, "home-card-narrow-large-text",
+            "Synthetic future event; card width 320dp; Compose font scale 1.6; hours enabled and 13 hours visible"
+        )
         composeRule.onNodeWithContentDescription(context.getString(R.string.cd_toggle_date_delta_display))
             .assertIsDisplayed().performClick()
         composeRule.runOnIdle { assertEquals(1, timeClicks); showHours = false }

@@ -64,11 +64,15 @@ private fun parseHexOrNull(hex: String?): Color? {
 private fun applyStatusBarStyle(
     view: android.view.View,
     backgroundColorArgb: Int,
-    darkTheme: Boolean
+    darkIcons: Boolean
 ) {
     val window = view.context.findActivity()?.window ?: return
     window.statusBarColor = backgroundColorArgb
-    WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+    window.navigationBarColor = backgroundColorArgb
+    WindowCompat.getInsetsController(window, view).apply {
+        isAppearanceLightStatusBars = darkIcons
+        isAppearanceLightNavigationBars = darkIcons
+    }
 }
 
 private object SongRippleTheme : RippleTheme {
@@ -129,11 +133,16 @@ fun TimeAPKTheme(
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
-            applyStatusBarStyle(
-                view = view,
-                backgroundColorArgb = colorScheme.background.toArgb(),
-                darkTheme = resolvedDark
-            )
+            // onCreate can compose before the window attaches; apply after attachment.
+            view.post {
+                applyStatusBarStyle(
+                    view = view,
+                    backgroundColorArgb = colorScheme.background.toArgb(),
+                    darkIcons = ColorContrastGuardrail.ensureReadableText(
+                        Color.Black, colorScheme.background
+                    ) == Color.Black
+                )
+            }
         }
     }
 

@@ -561,6 +561,7 @@
     <string name="home_clear_filters">Clear filters</string>
     <string name="home_move_up">Move up</string>
     <string name="home_move_down">Move down</string>
+    <string name="home_reordering">Reordering</string>
     <string name="home_reorder_hint">Hold and drag to reorder, or use Move up and Move down</string>
     <string name="widget_save_failed">Could not save widget. Try again.</string>
     <string name="widget_load_failed">Could not load widget settings. Try again.</string>

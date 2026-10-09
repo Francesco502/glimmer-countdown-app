@@ -508,6 +508,7 @@
     <string name="home_clear_filters">清除筛选</string>
     <string name="home_move_up">上移</string>
     <string name="home_move_down">下移</string>
+    <string name="home_reordering">正在调整位置</string>
     <string name="home_reorder_hint">长按拖动排序，或使用上移、下移操作</string>
     <string name="widget_save_failed">小组件保存失败，请重试</string>
     <string name="widget_load_failed">小组件配置读取失败，请重试</string>

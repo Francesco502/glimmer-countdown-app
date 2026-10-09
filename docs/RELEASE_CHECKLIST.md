@@ -6,16 +6,16 @@
 
 **唯一正式发布渠道：GitHub Release。** 唯一官方资产为 Direct APK `glimmer-countdown-4-1.apk`。Play flavor 仅保留用于兼容性与开发回归，不是正式发布工件或阻断项。最新公开版本仍为 [v4.0](https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v4.0)。
 
-## 当前阻断与证据身份
+## 当前阶段与证据身份
 
 | 项目 | 当前状态 | 完成所需证据 |
 |---|---|---|
 | 源码 revision | 开发中，最终 commit 未冻结 | 最终 commit、干净工作区和本地/远端 exact tag 解引用结果 |
-| 自动测试与 lint | 本版结果尚未记录 | 实际命令、退出码、测试数量、失败/跳过数量、报告路径与对应 revision |
-| 模拟器运行与截图 | 本版未验证 | APK 哈希、系统镜像、操作路径、新鲜截图、UI 树和崩溃日志 |
-| 物理真机 | 当前无实体手机；未执行、未获本版豁免 | 至少一台物理手机的安装/升级、提醒、日历、Launcher 与性能记录；若负责人明确豁免，单独记录其原话、日期和剩余风险，仍不得写成通过 |
+| 自动测试与 lint | CI3 JVM 与 publisher 通过；lint 有两类 warning；修复后待 CI4 | 本节后续记录实际命令、测试数量、报告路径与对应 revision |
+| 模拟器运行与截图 | CI3 API36 已运行，46 项中 4 项失败；修复后待 CI4 | APK 哈希、系统镜像、操作路径、新鲜截图、UI 树和崩溃日志 |
+| 物理真机 | 当前无实体手机；未执行，按现有授权记录剩余限制 | 用户已明确授权发布并说明无手机；安装/升级、提醒、日历、Launcher 与性能缺少物理设备证据，不能写成通过，也不继承 v4.0 豁免 |
 | 正式签名 | 既有配置与 keystore 已取得；配置路径一致、私钥可用，证书与线上 v4.0 APK 一致 | 已完成 Java Properties / JCA 加载及证书 SHA-256 核验；最终 4.1 APK 仍须独立验签，不记录密码、密钥内容或 token |
-| 正式 APK | 尚未形成可发布证据 | 从最终不可变 tag 新鲜构建的 exact Direct APK、大小、SHA-256、签名与真实包身份 |
+| 正式 APK | 本机中间候选已验签，非最终 tag 工件不得发布；最终 APK 尚待完成 | 从最终不可变 tag 新鲜构建的 exact Direct APK、大小、SHA-256、签名与真实包身份 |
 | GitHub 上传与公开复验 | 尚未执行 | publisher 日志、Release/asset 身份、唯一资产、公开下载哈希与安装复验 |
 
 已取得密钥的证书 SHA-256 为 `3b7cb426a82664f891c69511cc2505b67128c8503664639f297291da4ea903ca`，与下载核验的线上 v4.0 APK 一致。密钥与配置核验完成不代表 4.1 正式 APK 已构建或验签通过；不能用新建 QA 证书代替正式升级证书。
@@ -30,7 +30,7 @@
 - [ ] `./gradlew lintDirectDebug lintDirectRelease lintVitalDirectRelease` 通过，无未解释 warning
 - [ ] publisher 隔离 PowerShell 状态机 10/10 通过，包括本地预检零 GitHub 请求、锁竞争、owned draft 恢复与全资产清理、失败清理、证书输出和临时资产 URL 场景
 - [ ] Debug APK 渠道身份与权限正确：Direct 包含 `REQUEST_INSTALL_PACKAGES`，Play 不包含；Play 开发回归单独记录
-- [ ] Direct Release 打包门在缺正式签名时安全拒绝，正式配置就绪后实际完成构建、R8、资源压缩和 exact APK 重命名
+- [ ] Direct Release 默认签名门保持；从最终 tag 完成 R8、资源压缩和正式签名，或按发布指引在 CI 生成未签名工件后在本机正式签名，未签名工件不得发布
 
 ## 二、4.1 修复要求对照表
 
@@ -38,7 +38,7 @@
 |---|---|---|---|
 | 普通事件日历清理 | 共享事件入口判断所有权 | 无日历权限的普通事件：导入、撤销删除、提醒送达后无虚假同步错误且可删除 | 待验证 |
 | 真实日历记录保护 | 精确/写入中所有权、历史错误保留；删除统一检查 | 仅注册表有所有权也不能跳过；撤权、部分失败、恢复权限、重试及无关日历不误删 | 待验证 |
-| 草稿与保存可靠性 | SavedStateHandle 与 ViewModel 保存任务 | 系统回收进程后的新建/编辑草稿恢复；保存中旋转/返回不重复落库；强制停止不冒充系统回收验证 | 待验证 |
+| 草稿与保存可靠性 | SavedStateHandle 与 ViewModel 保存任务 | 系统回收进程后的新建/编辑草稿恢复；保存中旋转/返回不重复落库；强制停止不冒充系统回收验证 | CI3 六项 SavedState 测试通过；编辑返回 UI 测试失败已修，实际进程恢复与修复复验待 CI4 |
 | 导入可靠性 | 进行中保护、输入边界、后台解析和重复识别 | 连续点击、页面重建、超限/畸形文件、重复数据、取消及失败后的再次导入 | 待验证 |
 | 小时显示 | 24 小时内显示已有小时数据 | 开关生效、当天/过去/超过 24 小时、卡片/列表及日期模式一致 | 待验证 |
 | 纪念节点含义 | 固定天数使用天数文案 | 跨闰年 365 天明确显示天数，不误称日历一周年；节点显示和提醒一致 | 待验证 |
@@ -74,31 +74,35 @@
 - [ ] 真实 Launcher 的背景、边框、圆角、密度、农历前缀和文字对比验证完成
 - [ ] 冷启动、首页滚动、月历切换、详情与设置导航的帧和内存记录无未解释退化
 - [ ] Android 8 / API 26、Android 12 及当前 target SDK 环境完成核心 smoke
-- [ ] 物理手机安装/升级、通知、日历、Launcher 与性能验收完成；当前无手机且无本版豁免
+- [ ] 物理手机安装/升级、通知、日历、Launcher 与性能验收：未执行（当前无手机），按现有发布授权记录剩余限制
 
 ## 五、本版证据记录
 
+2026-10-09 [CI3 run 37899670865](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/37899670865) 的分支 head 为 `544a6a7`，实际执行源码为 PR merge `1ffc458552067ac431e7095432f09e639f1ff4bd`。以下结果仅绑定该提交；后续修复待 CI4，不能迁移为最终 tag 已通过的结论。报告位于该 run 的 `android-verification-1ffc458552067ac431e7095432f09e639f1ff4bd` artifact。
+
 | 证据 | revision / 工件 | 环境 / 命令 | 结果与原始报告 |
 |---|---|---|---|
-| JVM 测试 | 待填写 | 待填写 | 未验证 |
-| AndroidTest 编译与 connected | 待填写 | 待填写 | 未验证 |
-| lint / vital lint | 待填写 | 待填写 | 未验证 |
-| publisher 隔离回归 | 待填写 | 待填写 | 未验证 |
-| 模拟器 UI、恢复、日历与更新 | 待填写 | 待填写 | 未验证 |
-| 物理手机与 Launcher | 待填写 | 待填写 | 未执行、未豁免 |
-| 最终正式签名构建 | 待填写 | 待填写 | 正式密钥与配置已核验；4.1 正式 APK 尚未构建 |
+| JVM 测试 | CI3 PR merge（见上） | `testDirectDebugUnitTest testPlayDebugUnitTest` | 各 575 项，failures/errors/skipped 均为 0；`test-results/testDirectDebugUnitTest/` 与 `test-results/testPlayDebugUnitTest/` XML |
+| AndroidTest 编译与 connected | CI3 Direct debug APK | API36 Google APIs x86_64 / KVM；`compileDirectDebugAndroidTestKotlin connectedDirectDebugAndroidTest` | 编译通过；46 tests / 4 failures / 0 errors / 0 skipped（42 通过）；`outputs/androidTest-results/connected/debug/flavors/direct/TEST-emulator-5554 - 16-_app-direct.xml`，修复后待 CI4 |
+| lint / vital lint | CI3 PR merge（见上） | `lintDirectDebug lintDirectRelease lintPlayRelease lintVitalDirectRelease lintVitalPlayRelease` | 三份完整报告各 0 error、2 warning：`OldTargetApi` / `UnusedQuantity`；两个 vital 汇总任务 Skipped，对应 `lintVitalAnalyzeDirectRelease` / `lintVitalAnalyzePlayRelease` 已执行；`reports/lint-results-{directDebug,directRelease,playRelease}.xml` 与 run 任务日志 |
+| publisher 隔离回归 | CI3 PR merge（见上） | `pwsh -NoProfile -File scripts/tests/publish-release-mock-harness.ps1 -Scenario all` | 10/10；见 run 的 publisher 步骤日志，属于受控状态机证据 |
+| 模拟器 UI、恢复、日历与更新 | CI3 Direct debug APK | API36 connected 与 `reports/native-emulator/` | SavedState 六项通过；整个 connected 套件未通过，UI 截图审阅、实际后台进程恢复和修复后结果待 CI4 |
+| 物理手机与 Launcher | 本版无实体手机 | 未执行 | 按现有发布授权记录剩余限制，不写成通过，不继承 v4.0 豁免 |
+| 最终正式签名构建 | 最终 tag / APK 待记录 | 正式密钥与配置已核验 | 与线上 v4.0 同证；最终 4.1 正式签名 APK 构建与独立验签尚未完成 |
 | GitHub 发布与公开下载 | 待填写 | 待填写 | 未执行 |
+
+本机中间候选（不可发布）：`assembleDirectRelease` 用时 30m13s，R8、资源压缩、vital、package、rename 实际执行；v2 验签通过，证书与线上 v4.0 一致。真实包为 `com.example.timeapk` / `4.1` / `24`、非 debug，含 `REQUEST_INSTALL_PACKAGES`；26,449,922 bytes，SHA-256 `c9aa55acd32d84777c4b67ae24683f6540a182c1fd481c7bd36f9071b1157bbd`。主要生产源码为 `544a6a7` 时的状态，未包含后续 Theme/Home 更改，也未绑定最终 tag；仅证明本机签名打包路径可用，不替代最终新鲜构建。本地私有日志为 `.tmp/v41-signed-candidate-build.log`，不提交日志内容。
 
 不得将临时 QA 签名产物、旧 dist、旧截图或旧测试写入本版正式产物栏。最终 tag、APK 文件和设备安装包须互相对应；发生源码变化后重新执行受影响的验证。
 
 ## 六、发布动作
 
-以下项目只有各自事实成立后才能勾选。用户已允许修复、验证、提交、推送和发布 4.1，但该授权不替代签名、设备与发布证据。
+以下项目只有各自事实成立后才能勾选。用户已允许修复、验证、提交、推送和发布 4.1，并说明当前无手机；按现有授权继续发布工作，如实保留物理验收未执行的限制，不另设二次审批门。授权不替代最终 APK、签名及公开下载的实际证据。
 
-- [ ] 本版功能、UI、数据、恢复、无障碍和性能问题已验收，真机门已完成或获得针对本版的明确处置
+- [ ] 本版可执行的功能、UI、数据、恢复、无障碍和性能检查已完成，失败已修复并复验；物理设备缺项保持未执行并记录剩余限制
 - [ ] 最终代码与发布文档已提交，且发布前工作区干净
 - [ ] 创建并推送不可变的 exact `v4.1` tag；本地与远端解引用后 commit 一致
-- [ ] 从该 tag 对应 commit 的工作树重新正式签名构建，未复用旧构建产物
+- [ ] 从该 tag commit 新鲜构建并正式签名，未复用旧产物；CI 未签名工件的 revision、原始哈希与 metadata 在本机签名前保留
 - [ ] 验证签名、精确证书指纹与 SHA-256，并记录 exact APK 大小、包名 `com.example.timeapk`、`4.1` / `24`、非调试状态和安装权限
 - [ ] 准备安全凭据环境：本地用 `gh auth login` / `gh auth token`；CI 才注入 secret，不打印凭据
 - [ ] 从 CHANGELOG 的 4.1 小节准备可公开 Release Notes，候选状态与剩余限制按实际结果修订

@@ -2,16 +2,21 @@ package com.example.timeapk.ui.home
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.test.espresso.Espresso
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.timeapk.MainActivity
@@ -88,12 +93,14 @@ class HomeFilteredReorderGestureTest {
             .fetchSemanticsNode().boundsInRoot.center.y
         val downwardDistance = thirdCenterY - secondCenterY
 
-        composeRule.onNodeWithText("E2EDrag-B").performTouchInput {
-            down(center)
-            advanceEventTime(750)
-            moveBy(Offset(0f, downwardDistance / 2f), 250)
-            moveBy(Offset(0f, downwardDistance / 2f + 120f), 250)
-            up()
+        beginLongPressDrag("E2EDrag-B")
+        try {
+            composeRule.onRoot().performTouchInput {
+                moveBy(Offset(0f, downwardDistance / 2f), 250)
+                moveBy(Offset(0f, downwardDistance / 2f + 120f), 250)
+            }
+        } finally {
+            composeRule.onRoot().performTouchInput { up() }
         }
         composeRule.waitForIdle()
 
@@ -134,18 +141,33 @@ class HomeFilteredReorderGestureTest {
             app.userPrefs.setCustomEventOrder(listOf(dragAId, hiddenId, dragBId, dragCId) + additionalDragIds + originalOrder)
         }
         selectCustomSortAndSearchDragEvents()
-        val item = composeRule.onNodeWithText("E2EDrag-A")
-        val itemBounds = item.fetchSemanticsNode().boundsInRoot
+        val itemBounds = composeRule.onNodeWithText("E2EDrag-A").fetchSemanticsNode().boundsInRoot
         val listBounds = composeRule.onNode(hasScrollAction()).fetchSemanticsNode().boundsInRoot
-        val targetY = listBounds.bottom - 8f * composeRule.activity.resources.displayMetrics.density - itemBounds.top
-        item.performTouchInput {
-            down(center)
-            advanceEventTime(750)
-            moveTo(Offset(center.x, targetY), 300)
+        val targetY = listBounds.bottom - 8f * composeRule.activity.resources.displayMetrics.density
+        assertTrue(composeRule.onAllNodesWithText("E2EDrag-M6").fetchSemanticsNodes().none {
+            val bounds = it.boundsInRoot
+            bounds.top < listBounds.bottom && bounds.bottom > listBounds.top
+        })
+        beginLongPressDrag("E2EDrag-A")
+        composeRule.mainClock.autoAdvance = false
+        try {
+            composeRule.onRoot().performTouchInput {
+                moveTo(Offset(itemBounds.center.x, targetY), 300)
+            }
+            // Pump actual scroll frames until a card beyond the initial viewport is visible.
+            // Keeping the clock manual prevents synchronization from running this active
+            // edge-scroll animation indefinitely before the pointer can be released.
+            composeRule.waitUntil(timeoutMillis = 5_000) {
+                composeRule.mainClock.advanceTimeByFrame()
+                composeRule.onAllNodesWithText("E2EDrag-M6").fetchSemanticsNodes().any {
+                    val bounds = it.boundsInRoot
+                    bounds.top < listBounds.bottom && bounds.bottom > listBounds.top
+                }
+            }
+        } finally {
+            composeRule.onRoot().performTouchInput { up() }
+            composeRule.mainClock.autoAdvance = true
         }
-        composeRule.mainClock.advanceTimeBy(3_000)
-        // The input dispatcher keeps the active pointer between these two blocks.
-        composeRule.onRoot().performTouchInput { up() }
         composeRule.waitUntil(timeoutMillis = 5_000) {
             runBlocking { app.userPrefs.customEventOrderFlow.first().indexOf(dragAId) } > 4
         }
@@ -181,7 +203,30 @@ class HomeFilteredReorderGestureTest {
         }
         composeRule.onNode(hasSetTextAction()).performTextReplacement("E2EDrag")
         composeRule.onNodeWithContentDescription(homeToolsDescription).performClick()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isEmpty()
+        }
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            ViewCompat.getRootWindowInsets(composeRule.activity.window.decorView)
+                ?.isVisible(WindowInsetsCompat.Type.ime()) != true
+        }
+    }
 
+    private fun beginLongPressDrag(title: String) {
+        composeRule.onNodeWithText(title).performTouchInput { down(center) }
+        // The pinned reorder library uses a coroutine timeout for long press. A batch
+        // of synthetic event timestamps must not release the pointer before it fires.
+        val reorderingLabel = composeRule.activity.getString(R.string.home_reordering)
+        try {
+            composeRule.waitUntil(timeoutMillis = 5_000) {
+                composeRule.onNodeWithContentDescription(title, substring = true)
+                    .fetchSemanticsNode().config.getOrNull(SemanticsProperties.StateDescription) ==
+                    reorderingLabel
+            }
+        } catch (failure: Throwable) {
+            composeRule.onRoot().performTouchInput { up() }
+            throw failure
+        }
     }
 
     private fun testEvent(title: String, date: Long, createdAt: Long) = Event(

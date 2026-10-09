@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.timeapk.data.Event
 import com.example.timeapk.data.CATEGORY_OTHER
+import com.example.timeapk.ui.captureComponentUiEvidence
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -54,7 +55,16 @@ class HomeMonthCompactHeightTest {
                 }
             }
         }
+        captureComponentUiEvidence(
+            composeRule, "home-six-week-grid-short-window",
+            "Synthetic March 2026 six-week month; component viewport 360 x 240dp; initial grid position"
+        )
         composeRule.onNode(hasScrollAction()).performScrollToNode(hasText(event.event.title))
+        composeRule.onNodeWithText(event.event.title).assertIsDisplayed()
+        captureComponentUiEvidence(
+            composeRule, "home-six-week-event-reachable",
+            "Same 360 x 240dp component viewport after scrolling to the synthetic selected event"
+        )
         composeRule.onNodeWithText(event.event.title).assertIsDisplayed().performClick()
         composeRule.runOnIdle { assertEquals(event.event.id, clickedId) }
     }

@@ -12,6 +12,7 @@ import com.example.timeapk.R
 import com.example.timeapk.data.Event
 import com.example.timeapk.data.CATEGORY_OTHER
 import com.example.timeapk.ui.home.EventUiState
+import com.example.timeapk.ui.captureComponentUiEvidence
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -47,7 +48,13 @@ class DetailPersistentActionsTest {
                 DetailScreen(eventState = event, onNavigateBack = {}, onEditClick = { editClicks += 1 }, onDeleteClick = { true })
             }
         }
-        composeRule.onNodeWithContentDescription(context.getString(R.string.cd_edit)).assertIsDisplayed().performClick()
+        composeRule.onNodeWithContentDescription(context.getString(R.string.cd_edit)).assertIsDisplayed()
+        composeRule.onNodeWithContentDescription(context.getString(R.string.button_share)).assertIsDisplayed()
+        captureComponentUiEvidence(
+            composeRule, "detail-long-note-persistent-actions",
+            "Synthetic 150-line note; edit and share actions visible before scrolling; directly composed DetailScreen"
+        )
+        composeRule.onNodeWithContentDescription(context.getString(R.string.cd_edit)).performClick()
         composeRule.runOnIdle { assertEquals(1, editClicks) }
         composeRule.onNodeWithContentDescription(context.getString(R.string.button_share)).assertIsDisplayed().performClick()
         composeRule.onNodeWithText(context.getString(R.string.share_card_title)).assertIsDisplayed()
