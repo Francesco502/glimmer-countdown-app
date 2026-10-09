@@ -55,6 +55,7 @@ jobs:
           assembleDirectDebugAndroidTest
 
       - name: Build unsigned optimized Direct APK for signing
+        if: ${{ !cancelled() }}
         timeout-minutes: 20
         shell: bash
         run: |
@@ -72,6 +73,7 @@ jobs:
           cp "$apk_dir/output-metadata.json" "$report_dir/original-output-metadata.json"
 
       - name: Run Android regression tests on API 36
+        if: ${{ !cancelled() }}
         timeout-minutes: 35
         shell: bash
         run: |
@@ -109,6 +111,10 @@ jobs:
             exit "$result"
           }
           trap cleanup EXIT
+
+          timeout --signal=TERM --kill-after=30s 10m ./gradlew --no-daemon --no-parallel --no-build-cache \
+            assembleDirectDebug assembleDirectDebugAndroidTest --console=plain \
+            > "$report_dir/gradle-debug-apks.txt" 2>&1
 
           test -x "$sdkmanager" || { echo 'Runner Android SDK command-line tools are unavailable.' >&2; exit 1; }
           test -c /dev/kvm || { echo 'KVM device /dev/kvm is unavailable.' >&2; exit 1; }
