@@ -16,7 +16,7 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - name: Check out source
         uses: actions/checkout@v6
@@ -53,6 +53,83 @@ jobs:
           assemblePlayDebug
           assembleDirectDebugAndroidTest
 
+      - name: Run Android regression tests on API 36
+        timeout-minutes: 35
+        shell: bash
+        run: |
+          set -euo pipefail
+          report_dir="$PWD/app/build/reports/native-emulator"
+          mkdir -p "$report_dir"
+          sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+          sdkmanager="$sdk_root/cmdline-tools/latest/bin/sdkmanager"
+          avdmanager="$sdk_root/cmdline-tools/latest/bin/avdmanager"
+          emulator="$sdk_root/emulator/emulator"
+          adb="$sdk_root/platform-tools/adb"
+          serial=emulator-5554
+          emulator_pid=''
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/glimmer-ci-avd"
+          mkdir -p "$ANDROID_AVD_HOME"
+
+          cleanup() {
+            result=$?
+            trap - EXIT
+            set +e
+            timeout 10 "$adb" devices -l > "$report_dir/adb-devices.txt" 2>&1
+            timeout 15 "$adb" -s "$serial" shell getprop > "$report_dir/device-properties.txt" 2>&1
+            timeout 20 "$adb" -s "$serial" logcat -d -v threadtime > "$report_dir/logcat.txt" 2>&1
+            timeout 10 "$adb" -s "$serial" exec-out screencap -p > "$report_dir/final-state.png" 2> "$report_dir/screenshot-error.txt"
+            if [[ -n "$emulator_pid" ]]; then
+              timeout 10 "$adb" -s "$serial" emu kill > "$report_dir/emulator-stop.txt" 2>&1
+              kill "$emulator_pid" 2>/dev/null || true
+            fi
+            exit "$result"
+          }
+          trap cleanup EXIT
+
+          test -x "$sdkmanager" || { echo 'Runner Android SDK command-line tools are unavailable.' >&2; exit 1; }
+          test -c /dev/kvm || { echo 'KVM device /dev/kvm is unavailable.' >&2; exit 1; }
+          sudo chmod a+rw /dev/kvm
+          free -m > "$report_dir/host-memory.txt"
+          printf 'y\n%.0s' {1..20} | timeout 600 "$sdkmanager" --install \
+            "platform-tools" "emulator" "system-images;android-36;google_apis;x86_64" \
+            > "$report_dir/sdkmanager.txt" 2>&1
+          "$emulator" -accel-check > "$report_dir/acceleration.txt" 2>&1
+          printf 'no\n' | "$avdmanager" create avd --force --name glimmer_ci_api36 \
+            --package "system-images;android-36;google_apis;x86_64" --device pixel \
+            > "$report_dir/avdmanager.txt" 2>&1
+          "$emulator" -avd glimmer_ci_api36 -port 5554 -no-window -no-audio \
+            -no-boot-anim -no-snapshot -gpu swiftshader -accel on -cores 2 -memory 2048 \
+            > "$report_dir/emulator.txt" 2>&1 &
+          emulator_pid=$!
+
+          boot_deadline=$((SECONDS + 240))
+          boot_completed=''
+          while (( SECONDS < boot_deadline )); do
+            if ! kill -0 "$emulator_pid" 2>/dev/null; then
+              cat "$report_dir/emulator.txt"
+              echo 'Emulator exited before completing boot.' >&2
+              exit 1
+            fi
+            boot_completed=$(timeout 5 "$adb" -s "$serial" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)
+            [[ "$boot_completed" == 1 ]] && break
+            sleep 2
+          done
+          if [[ "$boot_completed" != 1 ]]; then
+            echo 'Emulator boot timed out after 240 seconds.' >&2
+            exit 1
+          fi
+          "$adb" -s "$serial" shell input keyevent 82
+          "$adb" -s "$serial" shell settings put global window_animation_scale 0
+          "$adb" -s "$serial" shell settings put global transition_animation_scale 0
+          "$adb" -s "$serial" shell settings put global animator_duration_scale 0
+          "$adb" -s "$serial" install -r app/build/outputs/apk/direct/debug/app-direct-debug.apk
+          timeout 30 "$adb" -s "$serial" shell am start -W -S \
+            -n com.example.timeapk/.MainActivity > "$report_dir/cold-start.txt" 2>&1
+          sleep 3
+          "$adb" -s "$serial" exec-out screencap -p > "$report_dir/cold-start.png"
+          timeout --signal=TERM --kill-after=30s 20m ./gradlew --no-daemon --no-parallel \
+            connectedDirectDebugAndroidTest --console=plain 2>&1 | tee "$report_dir/gradle-android-tests.txt"
+
       - name: Preserve verification reports and debug APKs
         if: always()
         uses: actions/upload-artifact@v7
@@ -62,4 +139,5 @@ jobs:
           path: |
             app/build/reports/
             app/build/test-results/
+            app/build/outputs/androidTest-results/
             app/build/outputs/apk/

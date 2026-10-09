@@ -11,7 +11,6 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
-import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.espresso.Espresso
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -115,10 +114,10 @@ class HomeFilteredReorderGestureTest {
     fun accessibleMovePreservesHiddenGlobalSlot() {
         selectCustomSortAndSearchDragEvents()
         val moveDownLabel = composeRule.activity.getString(R.string.home_move_down)
-        composeRule.onNodeWithContentDescription("E2EDrag-B", substring = true)
-            .performSemanticsAction(SemanticsActions.CustomActions) { actions ->
-                assertTrue(actions.first { it.label == moveDownLabel }.action())
-            }
+        val actions = composeRule.onNodeWithContentDescription("E2EDrag-B", substring = true)
+            .fetchSemanticsNode().config[SemanticsActions.CustomActions]
+        val moveDown = actions.single { it.label == moveDownLabel }
+        composeRule.runOnIdle { assertTrue(moveDown.action()) }
         composeRule.waitUntil(timeoutMillis = 5_000) {
             runBlocking { app.userPrefs.customEventOrderFlow.first().take(4) } ==
                 listOf(dragAId, hiddenId, dragCId, dragBId)
