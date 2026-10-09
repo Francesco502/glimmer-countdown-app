@@ -512,10 +512,67 @@ class Smoke:
             self.tap(tree.action(defaults))
         capture(self.stage, lambda tree: tree.contains(widget) and tree.contains(defaults) and tree.contains(preview))
 
+    def check_update(self):
+        self.stage = "update-01-open-about"
+        package_file = self.output / "update-installed-package.txt"
+        identity = package_identity(self.text("shell", "dumpsys", "package", PACKAGE, destination=package_file))
+        if (identity["versionName"], identity["versionCode"]) != ("4.1", "24"):
+            raise SmokeFailure("Published-update check requires installed 4.1/24: " + repr(identity))
+        tree = self.tree()
+        if tree.contains(("Widget settings", "小组件设置")) and tree.contains(("Default configuration", "默认配置")):
+            self.tap_action("back")
+            tree = self.tree()
+        settings = tree.action(("Settings", "设置"))
+        if settings is not None:
+            self.tap(settings)
+        about = ("About & updates", "关于与更新")
+        self.tap(self.seek("About & updates entry", lambda tree: tree.action(about), scroll=True))
+        update = ("Check for updates", "探寻新章")
+        latest = ("Already up to date", "已是最新版本")
+        self.seek("About update controls", lambda tree: tree.root if
+                  tree.contains(about) and tree.action(update) is not None else None)
+        tree = self.checkpoint("update-02-about-ready")
+        if tree.contains(latest):
+            raise SmokeFailure("Latest-version confirmation was already visible before this check")
+        control = tree.action(update)
+        if control is None:
+            raise SmokeFailure("Manual update control disappeared before this check")
+        self.tap(control)
+        self.stage = "update-03-already-current"
+
+        def read_result():
+            tree = self.tree()
+            if tree.contains(("Update search did not settle.", "探寻未成，稍候再试")):
+                raise SmokeFailure("Actual UI update check reported failure")
+            if any(node.get(key, "").startswith(("New version ", "发现新版本 "))
+                   for node in tree.nodes for key in ("text", "content-desc")):
+                raise SmokeFailure("Actual UI found a different latest version")
+            return tree if tree.contains(about) and tree.contains(latest) else None
+
+        self.wait("Already up to date UI confirmation", read_result, timeout=35)
+        # The success snackbar is transient: its matched XML is already recorded.
+        # Capture PNG immediately instead of spending another UI dump on it.
+        result_xml = str(Path(self.last_xml).relative_to(self.output))
+        self.screenshot(self.stage)
+        activity_file = self.output / (self.stage + "-activity.txt")
+        activity = self.text("shell", "dumpsys", "activity", "activities", destination=activity_file)
+        if not re.search(r"(?:mResumedActivity|topResumedActivity|ResumedActivity)[^\n]*" +
+                         re.escape(COMPONENT) + r"\b", activity):
+            raise SmokeFailure("Update success was not observed in resumed MainActivity")
+        self.evidence["update_check"] = {
+            "passed": True, "result": "update_latest", "package": identity,
+            "package_dump": package_file.name, "xml": result_xml,
+            "png": self.stage + ".png", "activity": activity_file.name,
+            "scope": "Actual Direct-app manual update UI returned Already up to date; caller independently verifies the public GitHub latest release and exact APK asset.",
+        }
+
     def diagnostics(self):
+        self.evidence["diagnostic_scope"] = "Native frame and memory snapshots only; no full performance benchmark or physical-device claim."
         self.stage = "diagnostics"
         for arguments in (("shell", "dumpsys", "activity", "activities"),
                           ("shell", "dumpsys", "package", PACKAGE),
+                          ("shell", "dumpsys", "gfxinfo", PACKAGE, "framestats"),
+                          ("shell", "dumpsys", "meminfo", PACKAGE),
                           ("logcat", "-d", "-t", "300", "-v", "threadtime")):
             try:
                 self.run(*arguments, check=False)
@@ -535,6 +592,7 @@ def main():
     parser.add_argument("--output", required=True)
     parser.add_argument("--upgrade-apk", help="Upgrade installed 4.0/23 to this caller-verified signed 4.1/24 APK")
     parser.add_argument("--capture-pages", action="store_true", help="After success, capture five MainActivity pages for manual review")
+    parser.add_argument("--check-update", action="store_true", help="After success, require the published Direct-app update UI to confirm Already up to date")
     args = parser.parse_args()
     smoke = Smoke(args)
     try:
@@ -544,6 +602,8 @@ def main():
             smoke.execute()
         if args.capture_pages and smoke.evidence.get("passed"):
             smoke.capture_pages(smoke.evidence["title"])
+        if args.check_update and smoke.evidence.get("passed"):
+            smoke.check_update()
     except Exception as error:
         smoke.evidence.update(passed=False, failed_stage=smoke.stage, error=str(error), last_xml=smoke.last_xml)
         (smoke.output / "failure.txt").write_text(traceback.format_exc(), encoding="utf-8")

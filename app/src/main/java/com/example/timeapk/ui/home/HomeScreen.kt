@@ -474,6 +474,9 @@ fun HomeScreen(
                             CompositionLocalProvider(LocalOverscrollConfiguration provides null) {
                                 LazyColumn(
                                     state = reorderState.listState,
+                                    // Once long press starts reordering, its pointer must not be
+                                    // consumed by normal list scrolling. Programmatic edge scroll remains enabled.
+                                    userScrollEnabled = reorderState.draggingItemIndex == null,
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .then(

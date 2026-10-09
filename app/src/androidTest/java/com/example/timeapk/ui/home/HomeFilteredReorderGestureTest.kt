@@ -97,8 +97,12 @@ class HomeFilteredReorderGestureTest {
         try {
             composeRule.onRoot().performTouchInput {
                 moveBy(Offset(0f, downwardDistance / 2f), 250)
+            }
+            assertDragIsActive("E2EDrag-B")
+            composeRule.onRoot().performTouchInput {
                 moveBy(Offset(0f, downwardDistance / 2f + 120f), 250)
             }
+            assertDragIsActive("E2EDrag-B")
         } finally {
             composeRule.onRoot().performTouchInput { up() }
         }
@@ -154,11 +158,14 @@ class HomeFilteredReorderGestureTest {
             composeRule.onRoot().performTouchInput {
                 moveTo(Offset(itemBounds.center.x, targetY), 300)
             }
+            composeRule.mainClock.advanceTimeByFrame()
+            assertDragIsActive("E2EDrag-A")
             // Pump actual scroll frames until a card beyond the initial viewport is visible.
             // Keeping the clock manual prevents synchronization from running this active
             // edge-scroll animation indefinitely before the pointer can be released.
             composeRule.waitUntil(timeoutMillis = 5_000) {
                 composeRule.mainClock.advanceTimeByFrame()
+                assertDragIsActive("E2EDrag-A")
                 composeRule.onAllNodesWithText("E2EDrag-M6").fetchSemanticsNodes().any {
                     val bounds = it.boundsInRoot
                     bounds.top < listBounds.bottom && bounds.bottom > listBounds.top
@@ -227,6 +234,15 @@ class HomeFilteredReorderGestureTest {
             composeRule.onRoot().performTouchInput { up() }
             throw failure
         }
+    }
+
+    private fun assertDragIsActive(title: String) {
+        assertEquals(
+            "Long-press drag must remain active after movement: $title",
+            composeRule.activity.getString(R.string.home_reordering),
+            composeRule.onNodeWithContentDescription(title, substring = true)
+                .fetchSemanticsNode().config.getOrNull(SemanticsProperties.StateDescription)
+        )
     }
 
     private fun testEvent(title: String, date: Long, createdAt: Long) = Event(

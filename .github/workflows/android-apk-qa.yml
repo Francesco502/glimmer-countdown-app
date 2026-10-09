@@ -4,13 +4,17 @@ on:
   workflow_dispatch:
     inputs:
       asset_id:
-        description: Owned draft Release APK asset ID
+        description: Owned Release APK asset ID
         required: true
         type: string
       apk_sha256:
         description: Expected candidate APK SHA-256
         required: true
         type: string
+      verify_public_release:
+        description: Verify latest published v4.1 and in-app update status
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -26,6 +30,7 @@ jobs:
         api: [26, 31, 36]
     env:
       API_LEVEL: ${{ matrix.api }}
+      VERIFY_PUBLIC_RELEASE: ${{ inputs.verify_public_release }}
     steps:
       - name: Check out dispatched source revision
         uses: actions/checkout@v6
@@ -50,9 +55,20 @@ jobs:
           apk_dir="$RUNNER_TEMP/glimmer-apk-qa"
           mkdir -p "$report_dir" "$apk_dir"
           git rev-parse HEAD > "$report_dir/source-revision.txt"
-          printf 'scope=Formal signed APK on Android emulator; not physical-device evidence\napi=%s\nsource=%s\nrunner_os=%s\nasset_id=%s\nexpected_candidate_sha256=%s\n' \
-            "$API_LEVEL" "$GITHUB_SHA" "$RUNNER_OS" "$ASSET_ID" "$APK_SHA256" > "$report_dir/environment.txt"
+          printf 'scope=Formal signed APK on Android emulator; not physical-device evidence\napi=%s\nsource=%s\nrunner_os=%s\nasset_id=%s\nexpected_candidate_sha256=%s\nverify_public_release=%s\n' \
+            "$API_LEVEL" "$GITHUB_SHA" "$RUNNER_OS" "$ASSET_ID" "$APK_SHA256" "$VERIFY_PUBLIC_RELEASE" > "$report_dir/environment.txt"
           [[ "$ASSET_ID" =~ ^[0-9]+$ && "$APK_SHA256" =~ ^[[:xdigit:]]{64}$ ]]
+          if [[ "$VERIFY_PUBLIC_RELEASE" == true ]]; then
+            timeout 60 gh api --method GET 'repos/Francesco502/glimmer-countdown-app/releases/latest' > "$report_dir/public-latest-release.json" 2> "$report_dir/public-release-error.txt"
+            python3 -I - "$report_dir/public-latest-release.json" <<'PY'
+          import json, os, sys
+          release = json.load(open(sys.argv[1], encoding="utf-8"))
+          assert release.get("draft") is False and release.get("prerelease") is False and release.get("tag_name") == "v4.1"
+          assert len(release["assets"]) == 1
+          asset = release["assets"][0]
+          assert asset["id"] == int(os.environ["ASSET_ID"]) and asset["name"] == "glimmer-countdown-4-1.apk" and asset["digest"] == "sha256:" + os.environ["APK_SHA256"].lower()
+          PY
+          fi
           timeout 90 gh api --method GET -H 'Accept: application/octet-stream' \
             "repos/Francesco502/glimmer-countdown-app/releases/assets/$ASSET_ID" \
             > "$apk_dir/candidate.apk" 2> "$report_dir/candidate-download-error.txt"
@@ -164,10 +180,12 @@ jobs:
             --adb "$adb" --serial "$serial" --output "$report_dir/upgrade" \
             --upgrade-apk "$apk_dir/candidate.apk" 2>&1 | tee "$report_dir/upgrade-stdout.txt"
           restore_args=()
+          restore_timeout=6m
           if [[ "$API_LEVEL" == 36 ]]; then
             restore_args+=(--capture-pages)
+            if [[ "$VERIFY_PUBLIC_RELEASE" == true ]]; then restore_args+=(--check-update); restore_timeout=7m; fi
           fi
-          timeout --signal=TERM --kill-after=10s 6m python3 scripts/android-runtime-smoke.py \
+          timeout --signal=TERM --kill-after=10s "$restore_timeout" python3 scripts/android-runtime-smoke.py \
             --adb "$adb" --serial "$serial" --output "$report_dir/runtime-restore" \
             "${restore_args[@]}" \
             2>&1 | tee "$report_dir/runtime-restore-stdout.txt"

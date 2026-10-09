@@ -98,7 +98,8 @@ jobs:
             timeout 10 "$adb" -s "$serial" exec-out screencap -p > "$report_dir/final-state.png" 2> "$report_dir/screenshot-error.txt"
             if timeout 30 "$adb" -s "$serial" exec-out run-as com.example.timeapk \
               tar -C cache -cf - qa-evidence > "$report_dir/component-evidence.tar" \
-              2> "$report_dir/component-evidence-error.txt"; then
+              2> "$report_dir/component-evidence-error.txt" \
+              && tar -tf "$report_dir/component-evidence.tar" >/dev/null 2>&1; then
               tar -xf "$report_dir/component-evidence.tar" -C "$report_dir"
             fi
             if [[ -n "$emulator_pid" ]]; then
@@ -151,7 +152,16 @@ jobs:
           sleep 3
           "$adb" -s "$serial" exec-out screencap -p > "$report_dir/cold-start.png"
           timeout --signal=TERM --kill-after=30s 20m ./gradlew --no-daemon --no-parallel \
-            connectedDirectDebugAndroidTest --console=plain 2>&1 | tee "$report_dir/gradle-android-tests.txt"
+            connectedDirectDebugAndroidTest \
+            -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true \
+            --console=plain 2>&1 | tee "$report_dir/gradle-android-tests.txt"
+          timeout 30 "$adb" -s "$serial" exec-out run-as com.example.timeapk \
+            tar -C cache -cf - qa-evidence > "$report_dir/component-evidence.tar"
+          tar -xf "$report_dir/component-evidence.tar" -C "$report_dir"
+          [[ "$(find "$report_dir/qa-evidence" -name '*-device.png' -type f | wc -l)" == 5 ]]
+          [[ "$(find "$report_dir/qa-evidence" -name '*-export.png' -type f | wc -l)" == 1 ]]
+          [[ "$(find "$report_dir/qa-evidence" -name '*-compose-tree.txt' -type f | wc -l)" == 5 ]]
+          [[ "$(find "$report_dir/qa-evidence" -name '*-context.txt' -type f | wc -l)" == 5 ]]
           timeout --signal=TERM --kill-after=15s 8m python3 scripts/android-runtime-smoke.py \
             --adb "$adb" --serial "$serial" \
             --output "$report_dir/runtime-smoke" --capture-pages
