@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One host-driven draft recovery smoke; requires an installed Direct APK.
+"""Host-driven draft recovery, or 4.0-to-4.1 upgrade with --upgrade-apk.
 
 This terminates a real background process through ActivityManager while retaining
 its task. It does not claim natural low-memory-killer or physical-device coverage.
@@ -8,6 +8,7 @@ its task. It does not claim natural low-memory-killer or physical-device coverag
 import argparse
 from datetime import datetime, timezone
 import json
+import hashlib
 from pathlib import Path
 import re
 import subprocess
@@ -49,6 +50,21 @@ def bounds(node):
 
 def editable(node):
     return node.get("class") == "android.widget.EditText" or node.get("editable") == "true"
+
+
+def package_identity(state):
+    values = {}
+    for key, pattern in {
+        "versionName": r"^\s*versionName=([^\s]+)",
+        "versionCode": r"^\s*versionCode=(\d+)\b",
+        "firstInstallTime": r"^\s*firstInstallTime=([^\r\n]+)",
+        "userId": r"^\s*(?:userId|appId)=(\d+)\b",
+    }.items():
+        matches = set(re.findall(pattern, state, re.MULTILINE))
+        if len(matches) != 1:
+            raise SmokeFailure("Expected one package " + key + ", found " + repr(matches))
+        values[key] = next(iter(matches)).strip()
+    return values
 
 
 class UiTree:
@@ -346,6 +362,156 @@ class Smoke:
         self.evidence["passed"] = True
         self.evidence["scope"] = "One small new draft; actual AMS background-process termination with retained task; no natural LMK, large-draft OS, save-in-flight, or physical-device claim."
 
+    def date_text(self):
+        labels = ("Date", "日期")
+        row = self.seek("labelled date row", lambda tree: tree.action(labels), scroll=True, upward=True)
+        values = {node.get("text", "").strip() for node in row.iter("node")
+                  if re.search(r"\d", node.get("text", ""))}
+        if len(values) != 1:
+            raise SmokeFailure("Date row did not expose one stable date value: " + repr(values))
+        return next(iter(values))
+
+    def upgrade(self, apk):
+        self.evidence["scenario"] = "saved-event-4.0-to-4.1-in-place-upgrade"
+        apk = Path(apk).resolve()
+        if not apk.is_file():
+            raise SmokeFailure("Upgrade APK does not exist: " + str(apk))
+        digest = hashlib.sha256()
+        with apk.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(chunk)
+        self.evidence.update(upgrade_apk=str(apk), upgrade_apk_sha256=digest.hexdigest(),
+                             upgrade_apk_size=apk.stat().st_size)
+        self.run("get-state")
+        self.run("shell", "getprop", destination=self.output / "device-properties.txt")
+        self.stage = "upgrade-01-baseline-package"
+        before = package_identity(self.text("shell", "dumpsys", "package", PACKAGE,
+                                            destination=self.output / "before-package.txt"))
+        self.evidence["package_before"] = before
+        if (before["versionName"], before["versionCode"]) != ("4.0", "23"):
+            raise SmokeFailure("Upgrade requires installed baseline 4.0/23, got " + repr(before))
+
+        nonce = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S") + "-" + uuid.uuid4().hex[:8]
+        title, note = "UpgradeEvent-" + nonce, "UpgradeNote-" + nonce
+        self.evidence.update(title=title, note=note)
+        self.launch()
+        self.checkpoint("upgrade-02-baseline-home")
+        self.tap_action("add")
+        self.stage = "upgrade-03-create-fixture"
+        self.enter("title", title)
+        self.enter("note", note)
+        self.checkpoint(self.stage)
+        self.tap_action("save")
+        self.stage = "upgrade-04-saved-baseline"
+        self.seek("baseline home", lambda tree: tree.action(LABELS["add"]))
+        self.checkpoint(self.stage)
+        self.tap(self.seek("baseline event", lambda tree: tree.action(title=title), scroll=True))
+        self.tap_action("edit")
+        self.stage = "upgrade-05-baseline-fields"
+        self.seek("baseline editor", lambda tree: tree.root if tree.contains(LABELS["editing"]) else None)
+        self.field_text("title", title)
+        self.field_text("note", note)
+        baseline_date = self.date_text()
+        self.evidence["date_before"] = baseline_date
+        self.checkpoint(self.stage)
+        self.hide_keyboard()
+        self.tap_action("back")
+        self.seek("baseline home before install", lambda tree: tree.action(LABELS["add"]))
+
+        self.stage = "upgrade-06-install"
+        response = self.text("install", "-r", "--user", "0", str(apk), timeout=120)
+        if not re.search(r"^Success\s*$", response, re.MULTILINE):
+            raise SmokeFailure("Upgrade install did not report Success")
+        after = package_identity(self.text("shell", "dumpsys", "package", PACKAGE,
+                                           destination=self.output / "after-package.txt"))
+        self.evidence["package_after"] = after
+        if (after["versionName"], after["versionCode"]) != ("4.1", "24"):
+            raise SmokeFailure("Upgrade did not install 4.1/24: " + repr(after))
+        for key in ("firstInstallTime", "userId"):
+            if after[key] != before[key]:
+                raise SmokeFailure("In-place upgrade changed " + key)
+
+        self.stage = "upgrade-07-launch"
+        self.launch()
+        self.seek("upgraded home", lambda tree: tree.action(LABELS["add"]))
+        self.checkpoint(self.stage)
+        self.tap(self.seek("preserved event", lambda tree: tree.action(title=title), scroll=True))
+        self.tap_action("edit")
+        self.stage = "upgrade-08-preserved-fields"
+        self.seek("upgraded editor", lambda tree: tree.root if tree.contains(LABELS["editing"]) else None)
+        self.field_text("title", title)
+        self.field_text("note", note)
+        upgraded_date = self.date_text()
+        self.evidence["date_after"] = upgraded_date
+        if upgraded_date != baseline_date:
+            raise SmokeFailure("Upgrade changed the saved event date")
+        self.checkpoint(self.stage)
+        self.hide_keyboard()
+        self.tap_action("back")
+        self.evidence["passed"] = True
+        self.evidence["scope"] = "One saved synthetic event upgraded from 4.0/23 to 4.1/24 with unchanged firstInstallTime/userId and title/note/displayed date; caller verifies APK signature separately; no 4.0 process-recovery or physical-device claim."
+
+    def capture_pages(self, title):
+        self.stage = "pages-00-package"
+        identity = package_identity(self.text("shell", "dumpsys", "package", PACKAGE,
+                                               destination=self.output / "pages-installed-package.txt"))
+        if (identity["versionName"], identity["versionCode"]) != ("4.1", "24"):
+            raise SmokeFailure("Page capture requires installed 4.1/24: " + repr(identity))
+        self.evidence.update(pages_package=identity, pages_title=title, captured_pages=[],
+                             pages_scope="Five actual MainActivity pages: home cards, calendar, the unique saved event detail, settings root, and app-internal widget default configuration preview; no Launcher widget binding claim.")
+
+        def selected(tree, labels):
+            node = tree.action(labels)
+            return node is not None and (node.get("selected") == "true" or node.get("checked") == "true")
+
+        def capture(stage, visible):
+            self.stage = stage
+            self.seek(stage + " markers", lambda tree: tree.root if visible(tree) else None)
+            tree = self.checkpoint(stage)
+            if not visible(tree):
+                raise SmokeFailure("Page markers changed before capture: " + stage)
+            activity_file = self.output / (stage + "-activity.txt")
+            activity = self.text("shell", "dumpsys", "activity", "activities", destination=activity_file)
+            if not re.search(r"(?:mResumedActivity|topResumedActivity|ResumedActivity)[^\n]*" +
+                             re.escape(COMPONENT) + r"\b", activity):
+                raise SmokeFailure("Captured page is not resumed MainActivity: " + stage)
+            self.evidence["captured_pages"].append({
+                "page": stage, "png": stage + ".png",
+                "xml": str(Path(self.last_xml).relative_to(self.output)),
+                "activity": activity_file.name,
+            })
+
+        cards = ("Cards", "卡片")
+        calendar = ("Calendar", "月历")
+        settings = ("Settings", "设置")
+        widget = ("Widget settings", "小组件设置")
+        defaults = ("Default configuration", "默认配置")
+        preview = ("Preview", "预览")
+        self.stage = "pages-01-home-cards"
+        self.tap(self.seek("Cards tab", lambda tree: tree.action(cards)))
+        capture(self.stage, lambda tree: selected(tree, cards) and tree.action(title=title) is not None)
+
+        self.stage = "pages-02-calendar"
+        self.tap(self.seek("Calendar tab", lambda tree: tree.action(calendar)))
+        capture(self.stage, lambda tree: selected(tree, calendar) and
+                tree.contains(("Previous month", "上个月")) and tree.contains(("Next month", "下个月")))
+        self.tap(self.seek("unique saved event in calendar", lambda tree: tree.action(title=title), scroll=True))
+        capture("pages-03-event-detail", lambda tree: tree.contains(("Event detail", "事件详情")) and
+                tree.contains((title,)) and tree.action(LABELS["edit"]) is not None)
+
+        self.tap_action("back")
+        self.stage = "pages-04-settings-root"
+        self.tap(self.seek("Settings entry", lambda tree: tree.action(settings)))
+        capture(self.stage, lambda tree: tree.contains(settings) and tree.action(widget) is not None and
+                tree.action(("Theme", "主题")) is not None and tree.action(("Export / Import", "导出 / 导入")) is not None)
+        self.tap(self.seek("Widget settings entry", lambda tree: tree.action(widget)))
+        self.stage = "pages-05-widget-default-preview"
+        tree = self.seek("widget default configuration", lambda tree: tree if
+                         tree.contains(widget) and tree.action(defaults) is not None else None)
+        if not tree.contains(preview):
+            self.tap(tree.action(defaults))
+        capture(self.stage, lambda tree: tree.contains(widget) and tree.contains(defaults) and tree.contains(preview))
+
     def diagnostics(self):
         self.stage = "diagnostics"
         for arguments in (("shell", "dumpsys", "activity", "activities"),
@@ -367,9 +533,17 @@ def main():
     parser.add_argument("--adb", required=True)
     parser.add_argument("--serial", required=True)
     parser.add_argument("--output", required=True)
-    smoke = Smoke(parser.parse_args())
+    parser.add_argument("--upgrade-apk", help="Upgrade installed 4.0/23 to this caller-verified signed 4.1/24 APK")
+    parser.add_argument("--capture-pages", action="store_true", help="After success, capture five MainActivity pages for manual review")
+    args = parser.parse_args()
+    smoke = Smoke(args)
     try:
-        smoke.execute()
+        if args.upgrade_apk:
+            smoke.upgrade(args.upgrade_apk)
+        else:
+            smoke.execute()
+        if args.capture_pages and smoke.evidence.get("passed"):
+            smoke.capture_pages(smoke.evidence["title"])
     except Exception as error:
         smoke.evidence.update(passed=False, failed_stage=smoke.stage, error=str(error), last_xml=smoke.last_xml)
         (smoke.output / "failure.txt").write_text(traceback.format_exc(), encoding="utf-8")

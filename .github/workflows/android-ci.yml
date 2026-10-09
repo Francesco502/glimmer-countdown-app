@@ -154,7 +154,7 @@ jobs:
             connectedDirectDebugAndroidTest --console=plain 2>&1 | tee "$report_dir/gradle-android-tests.txt"
           timeout --signal=TERM --kill-after=15s 8m python3 scripts/android-runtime-smoke.py \
             --adb "$adb" --serial "$serial" \
-            --output "$report_dir/runtime-smoke"
+            --output "$report_dir/runtime-smoke" --capture-pages
 
       - name: Preserve verification reports and debug APKs
         if: always()

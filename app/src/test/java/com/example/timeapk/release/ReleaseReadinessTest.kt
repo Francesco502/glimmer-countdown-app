@@ -123,7 +123,7 @@ class ReleaseReadinessTest {
     }
 
     @Test
-    fun releaseDocsDeclare41CandidateWhile40RemainsPublic() {
+    fun releaseDocsDeclare41IdentityAndRecognizedPublicationStage() {
         val readme = existingFile("README.md", "../README.md").readText(Charsets.UTF_8)
         val changelog = existingFile("CHANGELOG.md", "../CHANGELOG.md").readText(Charsets.UTF_8)
         val checklist = existingFile(
@@ -140,13 +140,17 @@ class ReleaseReadinessTest {
         ).readText(Charsets.UTF_8)
         val combined = listOf(readme, changelog, checklist, githubGuide, releaseGuide).joinToString("\n")
 
+        val publicationState = Regex("发布状态：([^*\\r\\n]+)").find(checklist)
+            ?.groupValues?.get(1)?.trim()
+        assertTrue(publicationState in setOf("候选 / 未发布", "已发布"))
+        val latestPublicVersion = if (publicationState == "已发布") "4.1" else "4.0"
+
         assertTrue(readme.contains("拾光（Glimmer）4.1"))
-        assertTrue(readme.contains("最新公开版本为 `4.0`"))
-        assertTrue(readme.contains("releases/tag/v4.0"))
+        assertTrue(readme.contains("最新公开版本为 `$latestPublicVersion`"))
+        assertTrue(readme.contains("releases/tag/v$latestPublicVersion"))
         assertTrue(changelog.contains("## [4.0] - 2026-07-20"))
-        assertTrue(changelog.contains("## [4.1] - 2026-10-09"))
+        assertTrue(Regex("(?m)^## \\[4\\.1\\] - \\d{4}-\\d{2}-\\d{2}\\r?$").containsMatchIn(changelog))
         assertTrue(checklist.contains("# 发布检查清单（v4.1）"))
-        assertTrue(checklist.contains("发布状态：候选 / 未发布"))
         listOf(readme, githubGuide, releaseGuide).forEach { document ->
             assertFalse(document.contains("最新公开版本仍为 3.17"))
             assertFalse(document.contains("4.0 尚未发布"))
@@ -270,7 +274,8 @@ class ReleaseReadinessTest {
         assertTrue(readme.contains("docs/screenshots/4.0"))
         assertTrue(readme.contains("v4.0 历史截图"))
         assertTrue(readme.contains("本轮不将这些截图视为发布证据"))
-        assertTrue(readme.contains("4.1 的新截图尚未生成"))
+        assertTrue(readme.contains("同一最终候选与新鲜构建"))
+        assertTrue(checklist.contains("所有通过结果必须来自本版新鲜执行，并绑定源码 revision、构建、设备和原始报告"))
 
         val finalActions = checklist.substringAfter("## 六、发布动作")
         assertFalse(finalActions.contains("Play Console"))
@@ -306,7 +311,6 @@ class ReleaseReadinessTest {
         assertTrue(checklist.contains("APK 文件和设备安装包须互相对应"))
         assertTrue(checklist.contains("3b7cb426a82664f891c69511cc2505b67128c8503664639f297291da4ea903ca"))
         assertFalse(checklist.contains("发布负责人于 2026-07-20 明确豁免"))
-        assertFalse(checklist.contains("发布状态：已发布"))
     }
 
     @Test
