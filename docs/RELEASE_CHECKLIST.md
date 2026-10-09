@@ -1,36 +1,36 @@
 # 发布检查清单（v4.1）
 
-**版本**：`4.1`（`versionCode=24`）  **文档日期**：2026-10-10  **发布状态：候选 / 未发布**
+**版本**：`4.1`（`versionCode=24`）  **文档日期**：2026-10-10  **发布状态：已发布**
 
-本清单只记录 4.1 当前候选。所有通过结果必须来自本版新鲜执行，并绑定源码 revision、构建、设备和原始报告；未知、未执行和失败不能勾选。v4.0 的原始记录已完整归档到 [历史清单](releases/v4.0-checklist.md)，旧测试、旧截图和旧真机豁免均不延续到本版。
+本清单记录 4.1 正式发布及其验证边界。所有通过结果必须来自本版新鲜执行，并绑定源码 revision、构建、设备和原始报告；未知、未执行和失败不能勾选。v4.0 的原始记录已完整归档到 [历史清单](releases/v4.0-checklist.md)，旧测试、旧截图和旧真机豁免均不延续到本版。
 
-**唯一正式发布渠道：GitHub Release。** 唯一官方资产为 Direct APK `glimmer-countdown-4-1.apk`。Play flavor 仅保留用于兼容性与开发回归，不是正式发布工件或阻断项。最新公开版本仍为 [v4.0](https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v4.0)。
+**唯一正式发布渠道：GitHub Release。** 唯一官方资产为 Direct APK `glimmer-countdown-4-1.apk`。Play flavor 仅保留用于兼容性与开发回归，不是正式发布工件或阻断项。最新公开版本为 [v4.1](https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v4.1)。
 
 ## 当前阶段与证据身份
 
 | 项目 | 当前状态 | 完成所需证据 |
 |---|---|---|
-| 源码 revision | CI13 应用源码与当前 main 一致；签名预验收 source 为 `c8223320e22044e9fd044fbb92d8e6bb5bff41c4`，三API均通过；最终标签即将冻结 | 最终 commit、干净工作区和本地/远端 exact tag 解引用结果 |
-| 自动测试与 lint | CI13 Direct/Play JVM 各 575/575、publisher 10/10，三份 lint 各 0 error / 1 个 `OldTargetApi` warning；未签名 R8 构建通过 | 本节后续记录实际命令、测试数量、报告路径与对应 revision |
-| 模拟器运行与截图 | CI13 connected 49/49；真实拖动、边缘滚动、恢复、保存重开及菜单触摸完成，五页 5/5 且已人工审阅；仅 API36 Direct debug 候选 | APK 哈希、系统镜像、操作路径、新鲜截图、UI 树和崩溃日志 |
+| 源码 revision | 不可变v4.1 tag commit `6c52a3a0e7f495e015f12c035ea94bd614fc2813`，本地/远端解引用一致；app源码和APK不随后续文档/验证工具修复改变 | 原始tag对象 `e25f58372246d55c2d37fdf4d168adcccdb5e15e` 与最终CI source-revision |
+| 自动测试与 lint | 最终标签CI37990007930：Direct/Play各575/575、native49/49、publisher10/10；三份lint各0 error/1个OldTargetApi，R8新鲜通过。发布工具a608b70真实apksigner格式修复另行10/10通过 | 最终标签原报告与发布工具单独revision/真实证书输出验证 |
+| 模拟器运行与截图 | 最终标签debug回归及正式签名QA37992543286均通过；API26/31/36升级和AMS恢复、API36菜单/五页/分享返回完整，正式包截图已人工审阅 | 最终APK SHA8fbe…；签名QA原报告及本节记录，物理范围不扩大 |
 | 物理真机 | 当前无实体手机；未执行，按现有授权记录剩余限制 | 用户已明确授权发布并说明无手机；安装/升级、提醒、日历、Launcher 与性能缺少物理设备证据，不能写成通过，也不继承 v4.0 豁免 |
-| 正式签名 | 既有配置与 keystore 已取得；配置路径一致、私钥可用，证书与线上 v4.0 APK 一致 | 已完成 Java Properties / JCA 加载及证书 SHA-256 核验；最终 4.1 APK 仍须独立验签，不记录密码、密钥内容或 token |
-| 正式 APK | 本机中间候选已验签，非最终 tag 工件不得发布；最终 APK 尚待完成 | 从最终不可变 tag 新鲜构建的 exact Direct APK、大小、SHA-256、签名与真实包身份 |
-| GitHub 上传与公开复验 | 尚未执行 | publisher 日志、Release/asset 身份、唯一资产、公开下载哈希与安装复验 |
+| 正式签名 | 最终4.1与无认证公开下载均独立验签通过；单一签名者、v2/v3，复用v4.0证书 | SHA-256 `3b7cb426a82664f891c69511cc2505b67128c8503664639f297291da4ea903ca`；不记录密码/密钥/token |
+| 正式 APK | 26,463,543 bytes，SHA-256 `8fbeee7590f89104995ecce98769842dc2a75cf84d8641efd6a0c7b67619e5b4` | `com.example.timeapk` /4.1/24、min26/target36、非debug、安装权限、16KiB zipalign通过 |
+| GitHub 上传与公开复验 | Release408364983公开且非prerelease，唯一asset626232462；无认证下载字节/签名/身份通过，线上安装与更新QA37995185711三平台全成功 | APK源码6c52a3a、测试工具main6a1bdb5；首轮37994317407的API36旧版夹具导航失败原样保留 |
 
-已取得密钥的证书 SHA-256 为 `3b7cb426a82664f891c69511cc2505b67128c8503664639f297291da4ea903ca`，与下载核验的线上 v4.0 APK 一致。密钥与配置核验完成不代表 4.1 正式 APK 已构建或验签通过；不能用新建 QA 证书代替正式升级证书。
+最终APK与无认证公开下载的证书 SHA-256 均为 `3b7cb426a82664f891c69511cc2505b67128c8503664639f297291da4ea903ca`，与线上v4.0一致。没有使用新建QA证书代替正式升级证书。
 
 ## 一、自动质量门
 
-- [ ] `gradle.properties` 的 `VERSION_NAME=4.1` / `VERSION_CODE=24`、Gradle 默认 fallback 和 APK 命名一致
-- [ ] README、CHANGELOG 和发布文档使用本版状态与 exact APK，历史证据可区分
-- [ ] `git diff --check` 无尾随空格或冲突标记
-- [ ] `./gradlew --no-daemon --no-parallel testDirectDebugUnitTest` 新鲜通过，记录完整测试结果
-- [ ] `./gradlew compileDirectDebugAndroidTestKotlin` 通过
-- [ ] `./gradlew lintDirectDebug lintDirectRelease lintVitalDirectRelease` 通过，无未解释 warning
-- [ ] publisher 隔离 PowerShell 状态机 10/10 通过，包括本地预检零 GitHub 请求、锁竞争、owned draft 恢复与全资产清理、失败清理、证书输出和临时资产 URL 场景
-- [ ] Debug APK 渠道身份与权限正确：Direct 包含 `REQUEST_INSTALL_PACKAGES`，Play 不包含；Play 开发回归单独记录
-- [ ] Direct Release 默认签名门保持；从最终 tag 完成 R8、资源压缩和正式签名，或按发布指引在 CI 生成未签名工件后在本机正式签名，未签名工件不得发布
+- [x] `gradle.properties` 的 `VERSION_NAME=4.1` / `VERSION_CODE=24`、Gradle 默认 fallback 和 APK 命名一致
+- [x] README、CHANGELOG 和发布文档使用本版状态与 exact APK，历史证据可区分
+- [x] `git diff --check` 无尾随空格或冲突标记
+- [x] `./gradlew --no-daemon --no-parallel testDirectDebugUnitTest` 新鲜通过，记录完整测试结果
+- [x] `./gradlew compileDirectDebugAndroidTestKotlin` 通过
+- [x] `./gradlew lintDirectDebug lintDirectRelease lintVitalDirectRelease` 通过，无未解释 warning
+- [x] publisher 隔离 PowerShell 状态机 10/10 通过，包括本地预检零 GitHub 请求、锁竞争、owned draft 恢复与全资产清理、失败清理、证书输出和临时资产 URL 场景
+- [x] Debug APK 渠道身份与权限正确：Direct 包含 `REQUEST_INSTALL_PACKAGES`，Play 不包含；Play 开发回归单独记录
+- [x] Direct Release 默认签名门保持；从最终 tag 完成 R8、资源压缩和正式签名，或按发布指引在 CI 生成未签名工件后在本机正式签名，未签名工件不得发布
 
 ## 二、4.1 修复要求对照表
 
@@ -38,7 +38,7 @@
 |---|---|---|---|
 | 普通事件日历清理 | 共享事件入口判断所有权 | 无日历权限的普通事件：导入、撤销删除、提醒送达后无虚假同步错误且可删除 | main CI 无ownership免权限/删除策略与清理调用契约通过（内存策略/源码契约）；原生双回调导入无虚假错误通过。实际撤销、后台提醒送达链路未设备执行 |
 | 真实日历记录保护 | 精确/写入中所有权、历史错误保留；删除统一检查 | 仅注册表有所有权也不能跳过；撤权、部分失败、恢复权限、重试及无关日历不误删 | main CI API36真实 CalendarProvider 临时本地日历的发现/创建/更新/关闭同步/清理与ownership通过；注册表、pending、部分删除失败和重试为 fake provider/内存测试。实际拒权限故障、用户日历及云端同步未证明 |
-| 草稿与保存可靠性 | SavedStateHandle 与 ViewModel 保存任务 | 系统回收进程后的新建/编辑草稿恢复；保存中旋转/返回不重复落库；强制停止不冒充系统回收验证 | main CI 六项 SavedState、三项 IME 及编辑重建/返回确认/保存通过；实际 AMS 小量新建草稿同 task78、PID5645→5980、stopped=false，保存重开两字段精确通过。大草稿/编辑草稿为受控 Parcel 恢复；自然 LMK、保存中旋转/返回尚无独立设备证据 |
+| 草稿与保存可靠性 | SavedStateHandle 与 ViewModel 保存任务 | 系统回收进程后的新建/编辑草稿恢复；保存中旋转/返回不重复落库；强制停止不冒充系统回收验证 | main CI 六项 SavedState、三项 IME 及编辑重建/返回确认/保存通过；实际 AMS 小量新建草稿同 task78、PID5601→5943、stopped=false，保存重开两字段精确通过。大草稿/编辑草稿为受控 Parcel 恢复；自然 LMK、保存中旋转/返回尚无独立设备证据 |
 | 导入可靠性 | 进行中保护、输入边界、后台解析和重复识别 | 连续点击、页面重建、超限/畸形文件、重复数据、取消及失败后的再次导入 | main CI 原生双回调入口与 Room 三个事件各插入一次通过；JVM 上限/超限/畸形、重复识别与功能字段往返通过。系统文件选择器、导入中页面重建/取消/失败后重试未独立运行 |
 | 小时显示 | 24 小时内显示已有小时数据 | 开关生效、当天/过去/超过 24 小时、卡片/列表及日期模式一致 | main CI JVM 未来不足24小时向上取整、当天/过去/远期及 DST 通过；320dp/font1.6 组件卡片13小时→1天切换与操作通过。实际列表与全部日期模式的设备矩阵未执行 |
 | 纪念节点含义 | 固定天数使用天数文案 | 跨闰年 365 天明确显示天数，不误称日历一周年；节点显示和提醒一致 | main CI 公历/农历周年、闰日锚点、366天一周年及提醒计划回归通过；固定天数与周年资源文案分开。实际 WorkManager 周年通知送达未执行 |
@@ -47,7 +47,7 @@
 | 分享一致性 | 预览与导出采用一致样式 | 浅色/深色、自定义字体、长标题、预览与 PNG 对照、保存和系统分享 | CI13 深色组件预览/导出、长文本与四项mock失败测试通过。签名预验收 API36 实际相册PNG、系统chooser打开/原生Back返回同详情已通过；接收方读取/发送及完整字体/主题矩阵未执行 |
 | 首页交互与适配 | 筛选摘要、面板关闭、排序操作、短高度月历 | 系统返回/点外部关闭、清除筛选、长列表排序与无障碍移动、横屏六行月份可访问列表 | CI13 筛选子集真实拖动、边缘自动滚动（1996ms）、隐藏位置与落盘断言、无障碍移动及 Popup 原生返回通过；实际菜单触摸通过。320dp/font1.6 窄卡片、360×240 六周月份为已审阅组件证据，实际旋转/200% 字体/TalkBack 服务未执行 |
 | 小组件配置 | 恢复草稿、保存中保护和错误反馈 | 旋转、保存失败/重试、多实例、实际 Launcher 背景/圆角/密度/文字和独立配置 | CI13 draft saver 受控恢复、多实例仓库/默认值与 RemoteViews 布局测试通过；实际应用内默认预览已审阅。WidgetConfigActivity 真实旋转、保存失败重试及 Launcher 绑定/缩放未执行 |
-| 更新安装 | 对象级互斥、临时文件、长度校验和原子替换 | 重复下载、空/截断/超长响应、失败/取消保留完整 APK、安装权限与系统签名拒绝路径 | main CI 六项 JVM 下载及17项 GitHub版本/唯一资产解析通过，失败/取消保留完整APK；API26/31正式签名候选覆盖升级已通过。公开最新版本检查及实际应用内安装权限/签名拒绝路径待验证 |
+| 更新安装 | 对象级互斥、临时文件、长度校验和原子替换 | 重复下载、空/截断/超长响应、失败/取消保留完整 APK、安装权限与系统签名拒绝路径 | main CI 六项 JVM 下载及17项 GitHub版本/唯一资产解析通过，失败/取消保留完整APK；API26/31正式签名候选覆盖升级已通过。API36线上公开最新版本检查已通过；实际应用内安装权限/签名拒绝路径未执行 |
 
 ## 三、数据与核心功能
 
@@ -78,6 +78,30 @@
 
 ## 五、本版证据记录
 
+### 最终标签、正式签名与公开发布
+
+应用源码固定为 `6c52a3a0e7f495e015f12c035ea94bd614fc2813`，annotated tag 对象为 `e25f58372246d55c2d37fdf4d168adcccdb5e15e`。后续 publisher / QA 工具和文档提交不改变 APK 生产源码，也不移动 `v4.1`。
+
+| 证据 | 实际结果 | 原始来源与范围 |
+|---|---|---|
+| 最终标签完整 CI | [37990007930](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/37990007930)：Direct/Play 各76份 suite /575 tests，failures/errors/skipped 均0；API36 native49/49；publisher10/10；三份完整lint各0 error/1 OldTargetApi | `android-verification-6c52a3a0e7f495e015f12c035ea94bd614fc2813`，artifact11645024228；原报告 `.tmp/final-tag-ci-37990007930/`；vital汇总跳过与Analyze实际执行分别保留 |
+| 新鲜 R8 APK | 未签名26,443,962 bytes，SHA-256 `baf96d2d0aa4b7ac920e4ed131eafa8e467b664e88fff586f1e707496f968770`；R8/资源压缩/package实际成功，source-revision与原metadata均为tag6c /directRelease/4.1/24 | 同一最终CI的 `outputs/apk/direct/release/` 与 `reports/unsigned-direct-release/`；保留原文件后本机正式签名 |
+| Debug 渠道身份 | Direct `com.example.timeapk` /4.1/24、有REQUEST_INSTALL_PACKAGES；Play `com.example.timeapk.play` /4.1/24、无该权限；均为debug | 对上述CI的两个实际APK运行aapt；Direct SHA `f5d273794ecab783882b9f4613dcd25380bae89e93057940b226659f07a376ea`，Play SHA `89410c14271258a4d24fb70775ef1df88a47c82e09bd2acbb087ce72130cfb6f`；Play仅开发回归 |
+| 正式签名与身份 | `glimmer-countdown-4-1.apk` /26,463,543 bytes /SHA-256 `8fbeee7590f89104995ecce98769842dc2a75cf84d8641efd6a0c7b67619e5b4`；单签名者、v2/v3、证书与v4.0相同；16KiB zipalign通过 | `.tmp/candidates/final-tag-37990007930/` 的receipt、独立apksigner与aapt；com.example.timeapk/4.1/24/min26/target36/非debug/安装权限 |
+| 最终正式包三平台 QA | [37992543286](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/37992543286)：API26/31/36全成功，4.0/23覆盖升级到4.1/24；首次安装时间、UID、标题、备注和日期保留，upgrade/runtime passed=true | `.tmp/final-signed-qa-37992543286/`；26：21:19:35/UID10077/AMS6481→7199/task7；31：21:19:25/UID10145/8434→9150/task14；36：21:19:12/UID10216/6458→7171/task8，均2026-10-09、stopped=false。实际后台AMS终止，非自然LMK |
+| 正式包五页与分享 | API36实际MainActivity五页、菜单触摸、相册MediaStore保存、系统chooser与原生Back返回同详情通过；原PNG1080×1350 /59,828 bytes /SHA `a1aef10d1e8f5188298aa2acd7441e8832cb96d9e1ace5f5ca250f1e4790f930` | 上述签名QA的原始JSON/XML/PNG/Activity与share返回核对；这是发布前正式包证据，公开包新截图另行归档。不证明接收方投递或Launcher绑定 |
+| 发布工具修复 | commit `a608b70d843b766e5b352f680e42a2aa1382993c` 正确解析真实 `Signer #1 certificate SHA-256 digest:`；10/10隔离回归与实际最终证书输出匹配通过 | 原tag工具首次在网络请求前拒绝合法格式，未发布任何错误资产；使用已验证同内容的工具副本在tag HEAD发布，不修改tag或APK。`.tmp/publisher-utility-v41-receipt.json` |
+| 正式公开与无认证下载 | [v4.1](https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v4.1) Release408364983，公开且非prerelease，唯一asset626232462，MIME application/vnd.android.package-archive；下载大小/SHA/签名/版本与最终APK完全一致 | `.tmp/public-v41-verified/receipt.json` 与无认证下载APK/验签/包身份；发布锁及两个owned临时QA draft已按ownership清理 |
+| 公开 APK 复验 | [37995185711](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/37995185711) API26/31/36全成功；固定公开asset626232462/hash8fbe…、APK生产源码6c52a3a；upgrade/runtime均passed，API36 update_check=true/result=update_latest（Already up to date）、share_check=true、实际五页5/5 | 原始报告 `.tmp/public-qa-37995185711/`；QA工具revision `6a1bdb5d73a5e6228303d631e29007a5ad32ca91` /main，与APK源码分开。生产源码diff为0；本轮线上包原图与文件哈希见 [截图记录](screenshots/4.1/README.md) |
+
+公开复验的三平台首次安装时间/UID与AMS记录（2026-10-09）：API26 `21:45:53 /10077 /6503→7171 /task7`；API31 `21:45:34 /10145 /8049→8780 /task14`；API36 `21:47:55 /10216 /6447→7187 /task8`。三者均保留标题/备注/日期与身份，`stopped=false`。API36原始 `73-update-03-already-current.xml` 实际观察“已是最新版本”；相册PNG为57,772 bytes /1080×1350，MediaStore row20已发布，系统chooser原生Back后回到精确标题/备注所在详情及MainActivity。原始PNG及其SHA-256在本轮[截图记录](screenshots/4.1/README.md)中保留。
+
+首次公开QA [37994317407](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/37994317407) 整体失败：API26/31完成升级与AMS恢复，API36在旧v4.0基线创建页等待期间失败，未执行4.1运行/更新/五页。原始记录证明单次点击已进入新建页，但runner在过渡期没有滚动容器时立即报错；`6a1bdb5` 将共享查找函数改为在原有有限重试预算内等待，不重点击、不放宽字段/签名/数据断言。同一个公开APK使用新工具复验；失败原报告保留在 `.tmp/public-qa-37994317407/`，不作最终通过证据。
+
+物理设备、自然LMK、完整主题/字体/旋转/TalkBack、实际后台通知送达、用户日历云同步、Launcher绑定与接收方读取/发送仍未执行。meminfo/gfxinfo仅为诊断快照，不代表性能基准通过。发布后文档采用既有 ReleaseReadiness 六项文档方法的153条静态谓词及UTF-8/diff检查，不因文档和原图归档重复构建正式APK。
+
+### 历史候选 CI3（非最终发布证据）
+
 2026-10-09 [CI3 run 37899670865](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/37899670865) 的分支 head 为 `544a6a7`，实际执行源码为 PR merge `1ffc458552067ac431e7095432f09e639f1ff4bd`。以下结果仅绑定该提交；后续修复待 CI4，不能迁移为最终 tag 已通过的结论。报告位于该 run 的 `android-verification-1ffc458552067ac431e7095432f09e639f1ff4bd` artifact。
 
 | 证据 | revision / 工件 | 环境 / 命令 | 结果与原始报告 |
@@ -88,8 +112,8 @@
 | publisher 隔离回归 | CI3 PR merge（见上） | `pwsh -NoProfile -File scripts/tests/publish-release-mock-harness.ps1 -Scenario all` | 10/10；见 run 的 publisher 步骤日志，属于受控状态机证据 |
 | 模拟器 UI、恢复、日历与更新 | CI3 Direct debug APK | API36 connected 与 `reports/native-emulator/` | SavedState 六项通过；整个 connected 套件未通过，UI 截图审阅、实际后台进程恢复和修复后结果待 CI4 |
 | 物理手机与 Launcher | 本版无实体手机 | 未执行 | 按现有发布授权记录剩余限制，不写成通过，不继承 v4.0 豁免 |
-| 最终正式签名构建 | 最终 tag / APK 待记录 | 正式密钥与配置已核验 | 与线上 v4.0 同证；最终 4.1 正式签名 APK 构建与独立验签尚未完成 |
-| GitHub 发布与公开下载 | 待填写 | 待填写 | 未执行 |
+| 候选期正式签名构建 | CI3时尚无最终tag | 正式密钥与配置已核验 | 本行仅保留CI3阶段状态；最终构建与验签见上节 |
+| 候选期GitHub发布与公开下载 | CI3时未执行 | CI3阶段 | 最终公开结果见上节；不将候选结果迁移为最终tag证明 |
 
 本机中间候选（不可发布）：`assembleDirectRelease` 用时 30m13s，R8、资源压缩、vital、package、rename 实际执行；v2 验签通过，证书与线上 v4.0 一致。真实包为 `com.example.timeapk` / `4.1` / `24`、非 debug，含 `REQUEST_INSTALL_PACKAGES`；26,449,922 bytes，SHA-256 `c9aa55acd32d84777c4b67ae24683f6540a182c1fd481c7bd36f9071b1157bbd`。主要生产源码为 `544a6a7` 时的状态，未包含后续 Theme/Home 更改，也未绑定最终 tag；仅证明本机签名打包路径可用，不替代最终新鲜构建。本地私有日志为 `.tmp/v41-signed-candidate-build.log`，不提交日志内容。
 
@@ -147,18 +171,18 @@ CI6 的目标 APK 保留及组件采集已实际成功；CI5 的 `run-as: unknow
 
 以下项目只有各自事实成立后才能勾选。用户已允许修复、验证、提交、推送和发布 4.1，并说明当前无手机；按现有授权继续发布工作，如实保留物理验收未执行的限制，不另设二次审批门。授权不替代最终 APK、签名及公开下载的实际证据。
 
-- [ ] 本版可执行的功能、UI、数据、恢复、无障碍和性能检查已完成，失败已修复并复验；物理设备缺项保持未执行并记录剩余限制
-- [ ] 最终代码与发布文档已提交，且发布前工作区干净
-- [ ] 创建并推送不可变的 exact `v4.1` tag；本地与远端解引用后 commit 一致
-- [ ] 从该 tag commit 新鲜构建并正式签名，未复用旧产物；CI 未签名工件的 revision、原始哈希与 metadata 在本机签名前保留
-- [ ] 验证签名、精确证书指纹与 SHA-256，并记录 exact APK 大小、包名 `com.example.timeapk`、`4.1` / `24`、非调试状态和安装权限
-- [ ] 准备安全凭据环境：本地用 `gh auth login` / `gh auth token`；CI 才注入 secret，不打印凭据
-- [ ] 从 CHANGELOG 的 4.1 小节准备可公开 Release Notes，候选状态与剩余限制按实际结果修订
-- [ ] 运行发布脚本；只创建/恢复带 ownership marker 的 owned draft，不覆盖 published Release 或接管人工 draft
-- [ ] 删除 owned draft 中的所有旧资产，并验证整个 Release 只保留唯一的 exact Direct APK
-- [ ] 最终 GET 核对公开、非 prerelease 的 Release 身份与 asset id、size、digest、MIME、下载 URL；Release 仅含 `glimmer-countdown-4-1.apk`
-- [ ] 发布后重新下载并安装线上 APK，核对大小/SHA-256/签名/版本，复测冷启动、更新检查和关键链路
-- [ ] 发布锁已按 ownership 验证清理，最后根据实际公开结果更新 README 与本版记录
+- [x] 本版发布门覆盖的修复回归、正式包升级/恢复与API36实际页面/分享验证已完成；失败及修复复验分别记录，未执行的广泛矩阵与物理项保留在本清单
+- [x] 最终代码与发布文档已提交，且发布前工作区干净；公开复验结果与原图在发布后单独文档提交，不移动tag
+- [x] 创建并推送不可变的 exact `v4.1` tag；本地与远端解引用后 commit 一致
+- [x] 从该 tag commit 新鲜构建并正式签名，未复用旧产物；CI 未签名工件的 revision、原始哈希与 metadata 在本机签名前保留
+- [x] 验证签名、精确证书指纹与 SHA-256，并记录 exact APK 大小、包名 `com.example.timeapk`、`4.1` / `24`、非调试状态和安装权限
+- [x] 准备安全凭据环境：本地用 `gh auth login` / `gh auth token`；CI 才注入 secret，不打印凭据
+- [x] 从 CHANGELOG 的 4.1 小节准备可公开 Release Notes，候选状态与剩余限制按实际结果修订
+- [x] 运行发布脚本；只创建/恢复带 ownership marker 的 owned draft，不覆盖 published Release 或接管人工 draft
+- [x] 删除 owned draft 中的所有旧资产，并验证整个 Release 只保留唯一的 exact Direct APK
+- [x] 最终 GET 核对公开、非 prerelease 的 Release 身份与 asset id、size、digest、MIME、下载 URL；Release 仅含 `glimmer-countdown-4-1.apk`
+- [x] 发布后重新下载并安装线上 APK，核对大小/SHA-256/签名/版本，复测冷启动、更新检查和关键链路（上述API26/31/36范围；不是实体手机或应用内安装器UI验收）
+- [x] 发布锁已按 ownership 验证清理，最后根据实际公开结果更新 README 与本版记录
 
 固定顺序：最终代码与发布文档已提交，且工作区干净 → 创建并推送不可变的 exact tag → 从该 tag 对应 commit 的工作树重新正式签名构建 → 验证签名、精确证书指纹与 SHA-256 → 准备安全凭据环境 → 运行发布脚本。禁止移动已推送 tag、覆盖已发布 Release 或在缺失验证门时直接公开。
 
