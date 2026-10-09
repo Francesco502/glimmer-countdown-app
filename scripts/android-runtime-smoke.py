@@ -266,6 +266,17 @@ class Smoke:
         if not confirm_each_character or node.get("focused") != "true":
             self.tap(node)
         if confirm_each_character:
+            # PRETAG API36 sent its first U before the cold IME input view
+            # started; the log records a 2500 ms IME event timeout and UU.
+            def input_ready():
+                state = self.text("shell", "dumpsys", "input_method")
+                return all(re.search(r"\b" + flag + r"=true\b", state) for flag in (
+                    "mInputShown", "mInputViewStarted", "mIsInputViewShown"))
+
+            self.wait("4.0 IME input view ready", input_ready, timeout=20)
+            node = self.seek(key, lambda tree: tree.field(LABELS[key]), scroll=False)
+            if node.get("focused") != "true" or node.get("text", ""):
+                raise SmokeFailure("4.0 " + key + " input was not focused and empty before typing")
             # The immutable 4.0 baseline has the old delayed text-echo race. Only
             # its upgrade fixture waits for each exact prefix through the real UI.
             for index, character in enumerate(value, 1):
