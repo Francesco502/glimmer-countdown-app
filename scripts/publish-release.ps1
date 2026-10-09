@@ -392,7 +392,7 @@ if ($LASTEXITCODE -ne 0) {
     throw 'apksigner verification failed for the Direct APK.'
 }
 $certMatch = $verifyOutput |
-    Select-String -Pattern '^(?:Signer #1|V2 Signer): certificate SHA-256 digest:\s*(.+)$' |
+    Select-String -Pattern '^(?:Signer #1|V2 Signer:) certificate SHA-256 digest:\s*(.+)$' |
     Select-Object -First 1
 if (-not $certMatch) {
     throw 'Unable to read the APK signer SHA-256 certificate digest.'

@@ -148,16 +148,17 @@ try {
         -Value ($metadata | ConvertTo-Json -Depth 6) `
         -Encoding utf8NoBOM
 
+    $signerLabel = if ($Scenario -eq 'success') { 'Signer #1' } else { 'V2 Signer:' }
     $apksignerScript = if ($isWindowsHost) {
         @"
 @echo off
-echo V2 Signer: certificate SHA-256 digest: $certificateSha256
+echo $signerLabel certificate SHA-256 digest: $certificateSha256
 exit /b 0
 "@
     } else {
         @"
 #!/bin/sh
-echo 'V2 Signer: certificate SHA-256 digest: $certificateSha256'
+echo '$signerLabel certificate SHA-256 digest: $certificateSha256'
 exit 0
 "@
     }
