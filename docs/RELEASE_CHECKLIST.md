@@ -10,9 +10,9 @@
 
 | 项目 | 当前状态 | 完成所需证据 |
 |---|---|---|
-| 源码 revision | 开发中，最终 commit 未冻结 | 最终 commit、干净工作区和本地/远端 exact tag 解引用结果 |
-| 自动测试与 lint | CI5 JVM 与 publisher 通过；完整 lint 仅剩 `OldTargetApi` warning；未签名 R8 构建通过 | 本节后续记录实际命令、测试数量、报告路径与对应 revision |
-| 模拟器运行与截图 | CI5 API36 48 项中 3 项失败；修复待 CI6，OS smoke 尚未运行 | APK 哈希、系统镜像、操作路径、新鲜截图、UI 树和崩溃日志 |
+| 源码 revision | CI6 候选实际 PR merge 为 `2481068d533cb2ad5307969246d25e59914cb3d8`；最终 commit 未冻结 | 最终 commit、干净工作区和本地/远端 exact tag 解引用结果 |
+| 自动测试与 lint | CI6 Direct/Play JVM 各 575/575、publisher 10/10；三份完整 lint 各 0 error、1 个 `OldTargetApi` warning；未签名 R8 构建通过 | 本节后续记录实际命令、测试数量、报告路径与对应 revision |
+| 模拟器运行与截图 | CI6 API36 47/48，唯一边缘拖动失败；组件 16 项原始文件已收集，仅属 Direct debug / synthetic scope；OS smoke 与实际 MainActivity 五页未执行 | APK 哈希、系统镜像、操作路径、新鲜截图、UI 树和崩溃日志 |
 | 物理真机 | 当前无实体手机；未执行，按现有授权记录剩余限制 | 用户已明确授权发布并说明无手机；安装/升级、提醒、日历、Launcher 与性能缺少物理设备证据，不能写成通过，也不继承 v4.0 豁免 |
 | 正式签名 | 既有配置与 keystore 已取得；配置路径一致、私钥可用，证书与线上 v4.0 APK 一致 | 已完成 Java Properties / JCA 加载及证书 SHA-256 核验；最终 4.1 APK 仍须独立验签，不记录密码、密钥内容或 token |
 | 正式 APK | 本机中间候选已验签，非最终 tag 工件不得发布；最终 APK 尚待完成 | 从最终不可变 tag 新鲜构建的 exact Direct APK、大小、SHA-256、签名与真实包身份 |
@@ -38,14 +38,14 @@
 |---|---|---|---|
 | 普通事件日历清理 | 共享事件入口判断所有权 | 无日历权限的普通事件：导入、撤销删除、提醒送达后无虚假同步错误且可删除 | 待验证 |
 | 真实日历记录保护 | 精确/写入中所有权、历史错误保留；删除统一检查 | 仅注册表有所有权也不能跳过；撤权、部分失败、恢复权限、重试及无关日历不误删 | 待验证 |
-| 草稿与保存可靠性 | SavedStateHandle 与 ViewModel 保存任务 | 系统回收进程后的新建/编辑草稿恢复；保存中旋转/返回不重复落库；强制停止不冒充系统回收验证 | CI5 六项 SavedState 测试通过；编辑标题重建后已恢复，但关闭 IME 操作超时，后续路径待 CI6；实际进程恢复未执行 |
+| 草稿与保存可靠性 | SavedStateHandle 与 ViewModel 保存任务 | 系统回收进程后的新建/编辑草稿恢复；保存中旋转/返回不重复落库；强制停止不冒充系统回收验证 | CI6 SavedState、真实 IME 输入及编辑标题重建/返回确认/保存回归通过；实际 AMS 回收进程后的恢复未执行 |
 | 导入可靠性 | 进行中保护、输入边界、后台解析和重复识别 | 连续点击、页面重建、超限/畸形文件、重复数据、取消及失败后的再次导入 | 待验证 |
 | 小时显示 | 24 小时内显示已有小时数据 | 开关生效、当天/过去/超过 24 小时、卡片/列表及日期模式一致 | 待验证 |
 | 纪念节点含义 | 固定天数使用天数文案 | 跨闰年 365 天明确显示天数，不误称日历一周年；节点显示和提醒一致 | 待验证 |
 | 详情状态 | 复用首页时间与偏好 | 跨午夜、回到前台、智能节点关闭、自定义节点与详情更新 | 待验证 |
 | 日历状态与通知频道 | 本地化资源与普通提醒频道检查 | 中文/英文权限、无可写系统日历、provider 失败；相关频道关闭不能显示普通提醒 ready | 待验证 |
-| 分享一致性 | 预览与导出采用一致样式 | 浅色/深色、自定义字体、长标题、预览与 PNG 对照、保存和系统分享 | 待验证 |
-| 首页交互与适配 | 筛选摘要、面板关闭、排序操作、短高度月历 | 系统返回/点外部关闭、清除筛选、长列表排序与无障碍移动、横屏六行月份可访问列表 | 待验证 |
+| 分享一致性 | 预览与导出采用一致样式 | 浅色/深色、自定义字体、长标题、预览与 PNG 对照、保存和系统分享 | CI6 深色预览与导出 PNG 已收集，属于 synthetic 组件证据；人工截图审阅与实际系统分享路径待验证 |
+| 首页交互与适配 | 筛选摘要、面板关闭、排序操作、短高度月历 | 系统返回/点外部关闭、清除筛选、长列表排序与无障碍移动、横屏六行月份可访问列表 | CI6 Popup 返回、筛选子集真实拖动与无障碍移动通过；边缘拖动自动滚动仍失败；窄卡片/六周月份组件截图已收集，待审阅 |
 | 小组件配置 | 恢复草稿、保存中保护和错误反馈 | 旋转、保存失败/重试、多实例、实际 Launcher 背景/圆角/密度/文字和独立配置 | 待验证 |
 | 更新安装 | 对象级互斥、临时文件、长度校验和原子替换 | 重复下载、空/截断/超长响应、失败/取消保留完整 APK、安装权限与系统签名拒绝路径 | 待验证 |
 
@@ -95,6 +95,24 @@
 
 不得将临时 QA 签名产物、旧 dist、旧截图或旧测试写入本版正式产物栏。最终 tag、APK 文件和设备安装包须互相对应；发生源码变化后重新执行受影响的验证。
 
+### CI6 实际候选记录
+
+2026-10-09 [CI6 run 37908996800](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/37908996800) 的分支 head 为 `d46169761a09213fc28b3518264abe8b55673caa`，实际执行源码及 `reports/unsigned-direct-release/source-revision.txt` 为 PR merge `2481068d533cb2ad5307969246d25e59914cb3d8`。run 整体为 failure，以下局部通过不能写成整个套件或最终 tag 已通过。
+
+artifact 为 `11607262690` / `android-verification-2481068d533cb2ad5307969246d25e59914cb3d8`，GitHub 记录大小 106,569,511 bytes、archive digest `7739ee6801cef350e04dd16693c7653c784a642ec88c75f1c34de43b20cf82c6`。原始报告已下载到被忽略的 `.tmp/ci6-37908996800/`；下表路径均相对此目录。archive digest 来自 GitHub 上传记录，APK 原始哈希已在本机重新计算对照。
+
+| 证据 | CI6 实际结果 | 原始报告 / 范围 |
+|---|---|---|
+| JVM、编译与 debug 构建 | Direct/Play 各 575/575；各 76 个 XML suite，failures/errors/skipped 均为 0；主程序、两渠道 AndroidTest 编译与 debug APK 构建通过 | `test-results/test{Direct,Play}DebugUnitTest/` 与 run 综合步骤日志；仍为 PR merge 候选 |
+| publisher 隔离状态机 | 10/10 | run publisher 步骤日志；未创建或发布正式 Release |
+| lint / vital lint | 三份完整报告各 0 error、1 个 `OldTargetApi` warning（`app/build.gradle.kts:114`）；R8 阶段 Direct vital 实际执行，Play vital 汇总任务跳过 | `reports/lint-results-{directDebug,directRelease,playRelease}.xml` 与 run 任务日志；目标 SDK 保持 36 |
+| API36 connected | 48 tests / 1 failure / 0 errors / 0 skipped（47 通过）；唯一失败为 `holdingADragNearTheListEdgeScrollsBeyondTheInitialViewport` 的 5 秒条件超时，`HomeFilteredReorderGestureTest.kt:166` | `outputs/androidTest-results/connected/debug/flavors/direct/TEST-emulator-5554 - 16-_app-direct.xml`；EventEdit IME/重建、筛选子集拖动、Popup 返回和系统栏两项回归通过，套件整体未通过 |
+| 未签名 Direct R8 APK | 26,442,138 bytes；SHA-256 `7b452efdeb9c3c7fdff3ac28898cea58d34b6852547db077848bc817e3eecdb1`，本机计算值与 CI 记录一致；`minifyDirectReleaseWithR8` / `packageDirectRelease` 实际执行并成功 | `outputs/apk/direct/release/app-direct-release-unsigned.apk`；`reports/unsigned-direct-release/` 的 revision、原始 metadata、哈希与 Gradle 日志；metadata 为 `directRelease` / `com.example.timeapk` / `4.1` / `24` / `SINGLE` |
+| 组件原始证据 | 16 项文件：5 张 device PNG、5 份 Compose tree、5 份 context、1 张分享导出 PNG；tar 内文件与解出文件逐字节一致，device PNG 为 1080×1920，export 为 1080×1350 | `reports/native-emulator/qa-evidence/` 与 `component-evidence.tar`；仅为 Direct debug 的 synthetic 组件场景，截图人工审阅另行记录，不能替代实际 MainActivity 五页或最终正式签名 APK QA |
+| 实际 AMS 恢复与 MainActivity 五页 | 未执行；connected 失败中断后续 native script，没有 `runtime-smoke/result.json` | 仅 `cold-start.png` / `final-state.png` 不能证明 OS 恢复或完整五页；不能将已收集的组件截图计入实际页面证据 |
+
+CI6 的目标 APK 保留及组件采集已实际成功；CI5 的 `run-as: unknown package` / 无效 tar 问题不再出现。后续未提交的综合步骤与 R8 `--no-build-cache --rerun-tasks` 调整不属于 CI6，最终 tag 必须按届时提交的 workflow 新鲜执行并记录原始报告。此处未签名 APK 不可直接发布，也不能替代最终 tag 工件。
+
 ### 后续候选复验
 
 - [CI4 run 37903771924](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/37903771924)，实际 PR merge `76ed7c368fd21e706e2e82689d743040924fc246`：Direct JVM 574/575，唯一失败为文档旧阶段措辞断言；后续 Play、lint、R8 和 native 运行未执行。此断言已改为检查阶段一致性与新鲜证据规则，未放宽正式签名或标签约束。
@@ -102,6 +120,11 @@
 - CI5 API36 connected 为 48 tests / 3 failures / 0 errors / 0 skipped。Popup 系统返回与两项系统栏对比度回归通过；失败为编辑页关闭 IME 回调超时，以及两项真实拖动排序未完成。修复后须 CI6 复验，不把 45 项通过写为整个套件通过。
 - CI5 未签名 Direct R8 APK 为 26,442,154 bytes，SHA-256 `f26251ff3570ba498aaee2685a19b17c7c4744c5ffe3c905d5bebeb30b1c380c`；原始 metadata 为 `directRelease` / `com.example.timeapk` / `4.1` / `24` / `SINGLE`。该工件绑定候选 PR merge，不能替代最终 tag 构建，也不能直接发布。
 - CI5 artifact `11604884376`（`android-verification-8ad78c206f02369e904a9fad3e20a7b059b90f51`）保留 XML、R8、lint 与系统日志。connected 失败后 OS smoke 未执行；Gradle 在测试结束时卸载目标包，组件私有 cache 随包删除，故没有组件 PNG 或五页截图证据。下一轮使用当前 AGP 9.1 的原生 `android.injected.androidTest.leaveApksInstalledAfterRun=true`，显式检查组件文件后再运行真实 AMS 恢复与五页截图。
+
+
+- [CI6 run 37908996800](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/37908996800) 的完整结果见上节：JVM、lint、R8 与组件采集完成，connected 仍为 47/48；修复唯一边缘拖动失败后重新取得受影响的 connected 结果，不沿用旧失败或局部通过作为整套通过。
+- 后续候选必须实际执行 `scripts/android-runtime-smoke.py`，取得 `runtime-smoke/result.json` 的系统后台进程回收、任务恢复、草稿/未提前落库验证及实际 MainActivity 五页原始截图。当前这些结果均未知，不勾选恢复或页面验收门。
+- 组件截图人工审阅、后续候选的实际页面截图，以及最终不可变 tag 正式签名 APK 的五页 QA 分别绑定各自源码与 APK；源码变化后的旧 debug 结果不能移作最终产物证据。
 
 ## 六、发布动作
 

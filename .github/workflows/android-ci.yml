@@ -40,7 +40,7 @@ jobs:
 
       - name: Test, lint, and build debug channels
         run: >-
-          ./gradlew --no-daemon --no-parallel
+          ./gradlew --no-daemon --no-parallel --no-build-cache --rerun-tasks
           testDirectDebugUnitTest
           testPlayDebugUnitTest
           compileDirectDebugAndroidTestKotlin
@@ -62,7 +62,7 @@ jobs:
           report_dir="$PWD/app/build/reports/unsigned-direct-release"
           mkdir -p "$report_dir"
           git rev-parse HEAD > "$report_dir/source-revision.txt"
-          timeout --signal=TERM --kill-after=30s 19m ./gradlew --no-daemon --no-parallel \
+          timeout --signal=TERM --kill-after=30s 19m ./gradlew --no-daemon --no-parallel --no-build-cache --rerun-tasks \
             packageDirectRelease -x validateReleaseSigning --console=plain 2>&1 \
             | tee "$report_dir/gradle.txt"
           apk_dir="$PWD/app/build/outputs/apk/direct/release"

@@ -80,6 +80,9 @@ class HomeEventCardDisplayTest {
         composeRule.onNodeWithText(context.resources.getQuantityString(R.plurals.hours_unit, 13), useUnmergedTree = true)
             .assertIsDisplayed()
         composeRule.onNodeWithText(event.event.title, useUnmergedTree = true).assertIsDisplayed()
+        val hourQuantity = context.getString(R.string.quantity_with_unit, "13",
+            context.resources.getQuantityString(R.plurals.hours_unit, 13))
+        composeRule.onNodeWithContentDescription(hourQuantity, substring = true).assertExists()
         captureComponentUiEvidence(
             composeRule, "home-card-narrow-large-text",
             "Synthetic future event; card width 320dp; Compose font scale 1.6; hours enabled and 13 hours visible"
@@ -88,6 +91,9 @@ class HomeEventCardDisplayTest {
             .assertIsDisplayed().performClick()
         composeRule.runOnIdle { assertEquals(1, timeClicks); showHours = false }
         composeRule.onNodeWithText("13", useUnmergedTree = true).assertDoesNotExist()
-        composeRule.onNodeWithText(context.getString(R.string.days_unit), useUnmergedTree = true).assertIsDisplayed()
+        val dayUnit = context.resources.getQuantityString(R.plurals.days_unit, 1)
+        composeRule.onNodeWithText(dayUnit, useUnmergedTree = true).assertIsDisplayed()
+        val dayQuantity = context.getString(R.string.quantity_with_unit, "1", dayUnit)
+        composeRule.onNodeWithContentDescription(dayQuantity, substring = true).assertExists()
     }
 }

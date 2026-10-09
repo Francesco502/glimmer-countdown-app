@@ -50,6 +50,8 @@ class DetailPersistentActionsTest {
         }
         composeRule.onNodeWithContentDescription(context.getString(R.string.cd_edit)).assertIsDisplayed()
         composeRule.onNodeWithContentDescription(context.getString(R.string.button_share)).assertIsDisplayed()
+        val expectedDaysValue = if (context.resources.configuration.locales[0].language == "en") "1 day" else "1天"
+        composeRule.onNodeWithContentDescription(expectedDaysValue, substring = true).assertIsDisplayed()
         captureComponentUiEvidence(
             composeRule, "detail-long-note-persistent-actions",
             "Synthetic 150-line note; edit and share actions visible before scrolling; directly composed DetailScreen"

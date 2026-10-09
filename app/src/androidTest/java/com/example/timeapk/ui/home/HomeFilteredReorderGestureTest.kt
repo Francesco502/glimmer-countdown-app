@@ -15,6 +15,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.printToString
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.test.espresso.Espresso
@@ -146,7 +147,10 @@ class HomeFilteredReorderGestureTest {
         }
         selectCustomSortAndSearchDragEvents()
         val itemBounds = composeRule.onNodeWithText("E2EDrag-A").fetchSemanticsNode().boundsInRoot
-        val listBounds = composeRule.onNode(hasScrollAction()).fetchSemanticsNode().boundsInRoot
+        val listNode = composeRule.onNode(hasScrollAction()).fetchSemanticsNode()
+        val listBounds = listNode.boundsInRoot
+        val scrollRange = listNode.config[SemanticsProperties.VerticalScrollAxisRange]
+        val initialScroll = scrollRange.value()
         val targetY = listBounds.bottom - 8f * composeRule.activity.resources.displayMetrics.density
         assertTrue(composeRule.onAllNodesWithText("E2EDrag-M6").fetchSemanticsNodes().none {
             val bounds = it.boundsInRoot
@@ -154,23 +158,36 @@ class HomeFilteredReorderGestureTest {
         })
         beginLongPressDrag("E2EDrag-A")
         composeRule.mainClock.autoAdvance = false
+        val scrollClockStart = composeRule.mainClock.currentTime
         try {
             composeRule.onRoot().performTouchInput {
                 moveTo(Offset(itemBounds.center.x, targetY), 300)
             }
             composeRule.mainClock.advanceTimeByFrame()
             assertDragIsActive("E2EDrag-A")
-            // Pump actual scroll frames until a card beyond the initial viewport is visible.
-            // Keeping the clock manual prevents synchronization from running this active
-            // edge-scroll animation indefinitely before the pointer can be released.
+            // Advance a short continuous run of frames between Android layout observations.
+            // One frame per wall-clock poll starves the library's frame-clock acceleration
+            // while synchronized semantics queries wait for Android drawing.
             composeRule.waitUntil(timeoutMillis = 5_000) {
-                composeRule.mainClock.advanceTimeByFrame()
+                val remainingClockMillis = 5_000 - (composeRule.mainClock.currentTime - scrollClockStart)
+                check(remainingClockMillis > 0) { "M6 still outside the viewport after five seconds of drag frames" }
+                composeRule.mainClock.advanceTimeBy(minOf(100L, remainingClockMillis))
                 assertDragIsActive("E2EDrag-A")
                 composeRule.onAllNodesWithText("E2EDrag-M6").fetchSemanticsNodes().any {
                     val bounds = it.boundsInRoot
                     bounds.top < listBounds.bottom && bounds.bottom > listBounds.top
                 }
             }
+            println("Edge drag reached M6: composeElapsedMs=${composeRule.mainClock.currentTime - scrollClockStart}, " +
+                "scrollRange=$initialScroll -> ${scrollRange.value()}")
+        } catch (failure: Throwable) {
+            // Retain the clock budget, scroll range and visible bounds if native CI fails.
+            println("Edge drag: composeElapsedMs=${composeRule.mainClock.currentTime - scrollClockStart}, " +
+                "scrollRange=$initialScroll -> ${scrollRange.value()}, " +
+                "listBounds=$listBounds, pointerTargetY=$targetY")
+            println(runCatching { composeRule.onRoot(useUnmergedTree = true).printToString() }
+                .getOrElse { "Semantics unavailable: $it" })
+            throw failure
         } finally {
             composeRule.onRoot().performTouchInput { up() }
             composeRule.mainClock.autoAdvance = true

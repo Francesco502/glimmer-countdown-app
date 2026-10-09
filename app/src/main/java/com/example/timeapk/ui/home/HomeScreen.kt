@@ -1484,7 +1484,7 @@ fun EventCard(
         DisplayModes.PAST_DAYS -> {
             val days = if (isRepeating) eventState.daysPassed else eventState.daysElapsed
             displayContent = formatDaysSmart(days, false, locale)
-            displayUnit = stringResource(R.string.days_unit)
+            displayUnit = pluralStringResource(R.plurals.days_unit, days.coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt())
             labelText = stringResource(R.string.days_past_label)
         }
         DisplayModes.PAST_YMD -> {
@@ -1506,7 +1506,7 @@ fun EventCard(
             } else {
                 val days = if (isRepeating) eventState.daysLeft else eventState.daysRemaining
                 displayContent = formatDaysSmart(days, false, locale)
-                displayUnit = stringResource(R.string.days_unit)
+                displayUnit = pluralStringResource(R.plurals.days_unit, days.coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt())
                 labelText = com.example.timeapk.ui.utils.getUntilLabel(androidx.compose.ui.platform.LocalContext.current, eventState)
             }
         }
@@ -1526,7 +1526,7 @@ fun EventCard(
         DisplayModes.MILESTONE -> {
             if (eventState.nextMilestoneDays != null && eventState.nextMilestoneValue != null) {
                 displayContent = formatDaysSmart(eventState.nextMilestoneDays, false, locale)
-                displayUnit = stringResource(R.string.days_unit)
+                displayUnit = pluralStringResource(R.plurals.days_unit, eventState.nextMilestoneDays.coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt())
                 val milestoneStr = milestoneLabel(eventState.nextMilestoneValue, eventState.nextMilestoneReason, eventState.nextMilestoneYears)
                 labelText = stringResource(R.string.milestone_label_prefix, milestoneStr)
             } else {
@@ -1546,7 +1546,10 @@ fun EventCard(
         append(eventState.event.title)
         append(", ")
         if (isToday) append(todayLabel)
-        else append(labelText).append(" ").append(displayContent).append(displayUnit)
+        else append(labelText).append(" ").append(
+            if (displayUnit.isEmpty()) displayContent
+            else stringResource(R.string.quantity_with_unit, displayContent, displayUnit)
+        )
     }
     val categoryLabel = when (eventState.event.category) {
         CATEGORY_BIRTHDAY -> stringResource(R.string.category_birthday)
@@ -1686,7 +1689,7 @@ fun EventCard(
                             overflow = TextOverflow.Ellipsis
                         )
                         if (displayUnit.isNotEmpty()) {
-                            Spacer(modifier = Modifier.width(2.dp))
+                            Spacer(modifier = Modifier.width(if (locale.language == "en") 6.dp else 2.dp))
                             Text(
                                 text = displayUnit,
                                 style = MaterialTheme.typography.bodyMedium,
@@ -1777,7 +1780,8 @@ private fun EventListItem(
     when (mode) {
         DisplayModes.PAST_DAYS -> {
             val days = if (isRepeating) eventState.daysPassed else eventState.daysElapsed
-            daysDisplay = formatDaysSmart(days, false, locale) + stringResource(R.string.days_unit)
+            daysDisplay = stringResource(R.string.quantity_with_unit, formatDaysSmart(days, false, locale),
+                pluralStringResource(R.plurals.days_unit, days.coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt()))
             labelText = stringResource(R.string.days_past_label)
         }
         DisplayModes.PAST_YMD -> {
@@ -1796,7 +1800,8 @@ private fun EventListItem(
                 labelText = ""
             } else {
                 val days = if (isRepeating) eventState.daysLeft else eventState.daysRemaining
-                daysDisplay = formatDaysSmart(days, false, locale) + stringResource(R.string.days_unit)
+                daysDisplay = stringResource(R.string.quantity_with_unit, formatDaysSmart(days, false, locale),
+                    pluralStringResource(R.plurals.days_unit, days.coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt()))
                 labelText = com.example.timeapk.ui.utils.getUntilLabel(androidx.compose.ui.platform.LocalContext.current, eventState)
             }
         }
@@ -1813,7 +1818,8 @@ private fun EventListItem(
         }
         DisplayModes.MILESTONE -> {
             if (eventState.nextMilestoneDays != null && eventState.nextMilestoneValue != null) {
-                daysDisplay = formatDaysSmart(eventState.nextMilestoneDays, false, locale) + stringResource(R.string.days_unit)
+                daysDisplay = stringResource(R.string.quantity_with_unit, formatDaysSmart(eventState.nextMilestoneDays, false, locale),
+                    pluralStringResource(R.plurals.days_unit, eventState.nextMilestoneDays.coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt()))
                 val milestoneStr = milestoneLabel(eventState.nextMilestoneValue, eventState.nextMilestoneReason, eventState.nextMilestoneYears)
                 labelText = stringResource(R.string.milestone_label_prefix, milestoneStr)
             } else {
@@ -2287,8 +2293,8 @@ private fun CalendarOccurrenceRow(
         daysFromToday > 0L -> buildString {
             append(stringResource(R.string.days_left_label))
             append(" ")
-            append(formatDaysSmart(daysFromToday, false, locale))
-            append(stringResource(R.string.days_unit))
+            append(stringResource(R.string.quantity_with_unit, formatDaysSmart(daysFromToday, false, locale),
+                pluralStringResource(R.plurals.days_unit, daysFromToday.coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt())))
         }
         else -> context.resources.getQuantityString(
             R.plurals.days_elapsed_format,

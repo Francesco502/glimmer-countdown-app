@@ -298,7 +298,10 @@
     <string name="settings_schedule_rebuild_now">重整提醒与日程</string>
     <string name="settings_schedule_refresh_status">再探状态</string>
     <string name="lunar_calendar">农历</string>
-    <string name="days_unit">天</string>
+    <plurals name="days_unit">
+        <item quantity="other">天</item>
+    </plurals>
+    <string name="quantity_with_unit">%1$s%2$s</string>
     <string name="toggle_on">开</string>
     <string name="toggle_off">关</string>
     <string name="field_title_required">题名未成</string>

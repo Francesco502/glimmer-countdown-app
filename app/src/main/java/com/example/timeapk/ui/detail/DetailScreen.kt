@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -469,6 +470,16 @@ private fun detailTimeDisplayModeLabelRes(mode: Int): Int = when (mode) {
 }
 
 @Composable
+private fun detailDaysValue(days: Long, locale: Locale): String = stringResource(
+    R.string.quantity_with_unit,
+    formatDaysSmart(days, false, locale),
+    pluralStringResource(
+        R.plurals.days_unit,
+        days.coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt()
+    )
+)
+
+@Composable
 private fun detailTimeDisplay(
     eventState: EventUiState,
     mode: Int,
@@ -483,7 +494,7 @@ private fun detailTimeDisplay(
         DisplayModes.PAST_DAYS -> {
             val days = if (isRepeating) eventState.daysPassed else eventState.daysElapsed
             DetailTimeDisplay(
-                value = formatDaysSmart(days, false, locale) + stringResource(R.string.days_unit),
+                value = detailDaysValue(days, locale),
                 label = stringResource(R.string.days_past_label)
             )
         }
@@ -499,7 +510,7 @@ private fun detailTimeDisplay(
             } else {
                 val days = if (isRepeating) eventState.daysLeft else eventState.daysRemaining
                 DetailTimeDisplay(
-                    value = formatDaysSmart(days, false, locale) + stringResource(R.string.days_unit),
+                    value = detailDaysValue(days, locale),
                     label = com.example.timeapk.ui.utils.getUntilLabel(LocalContext.current, eventState)
                 )
             }
@@ -518,7 +529,7 @@ private fun detailTimeDisplay(
         DisplayModes.MILESTONE -> {
             val milestoneVal = eventState.nextMilestoneValue ?: 0L
             DetailTimeDisplay(
-                value = formatDaysSmart(eventState.nextMilestoneDays ?: 0L, false, locale) + stringResource(R.string.days_unit),
+                value = detailDaysValue(eventState.nextMilestoneDays ?: 0L, locale),
                 label = stringResource(R.string.milestone_label_prefix, milestoneLabel(milestoneVal, eventState.nextMilestoneReason, eventState.nextMilestoneYears))
             )
         }

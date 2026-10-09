@@ -342,7 +342,11 @@
     <string name="settings_schedule_refresh_status">Seek status again</string>
 
     <string name="lunar_calendar">Lunar</string>
-    <string name="days_unit">days</string>
+    <plurals name="days_unit">
+        <item quantity="one">day</item>
+        <item quantity="other">days</item>
+    </plurals>
+    <string name="quantity_with_unit">%1$s %2$s</string>
 
     <!-- Splash -->
 
