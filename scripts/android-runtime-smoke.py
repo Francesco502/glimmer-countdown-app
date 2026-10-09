@@ -663,7 +663,7 @@ class Smoke:
 
         def chooser_activity():
             state = self.text("shell", "dumpsys", "activity", "activities")
-            if re.search(r"(?:mResumedActivity|topResumedActivity|ResumedActivity)[^\n]*(?:android|com\.android\.intentresolver)/[^\s}]*ChooserActivity\b", state) and "android.intent.action.CHOOSER" in state:
+            if re.search(r"(?:mResumedActivity|topResumedActivity|ResumedActivity)[^\n]*(?:android|com\.android\.intentresolver)/[^\s}]*ChooserActivity(?:Launcher)?\b", state) and "android.intent.action.CHOOSER" in state:
                 return state
             return None
 
