@@ -241,12 +241,17 @@ class ScheduleSyncConcurrencyTest {
         listOf(
             "suspend fun insertMilestoneScheduleReminderAttempt(",
             "suspend fun clearMilestoneScheduleRemindersByEventId(",
-            "suspend fun removeScheduleReminderByEventId(",
-            "suspend fun removeManagedCalendarEntries("
+            "suspend fun removeScheduleReminderByEventId("
         ).forEach { entrypoint ->
             val body = manager.substringAfter(entrypoint).substringBefore("\n    }")
             assertTrue(entrypoint, body.contains("withScheduleEventProviderLock(eventId)"))
         }
+        val cleanupOverloads = manager.split("suspend fun removeManagedCalendarEntries(").drop(1)
+        assertEquals(2, cleanupOverloads.size)
+        val eventCleanup = cleanupOverloads.first().substringBefore("private fun removeManagedCalendarEntriesLocked(")
+        val idCleanup = cleanupOverloads.last().substringBefore("internal fun removeManagedCalendarEntries(")
+        assertTrue(eventCleanup.contains("withScheduleEventProviderLock(event.id)"))
+        assertTrue(idCleanup.contains("withScheduleEventProviderLock(eventId)"))
     }
 
     private fun event(title: String, note: String) = Event(

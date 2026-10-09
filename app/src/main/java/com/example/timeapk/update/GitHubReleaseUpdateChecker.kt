@@ -1,7 +1,10 @@
 package com.example.timeapk.update
 
 import com.example.timeapk.BuildConfig
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -95,7 +98,10 @@ class GitHubReleaseUpdateChecker(
                 downloadUrl = downloadUrl,
                 releaseNotes = releaseInfo.releaseNotes
             )
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (e: Exception) {
+            currentCoroutineContext().ensureActive()
             CheckUpdateResult(
                 hasUpdate = false,
                 checkFailed = true,

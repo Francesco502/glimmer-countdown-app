@@ -1,16 +1,16 @@
-# 拾光（Glimmer）4.0
+# 拾光（Glimmer）4.1 开发候选
 
 拾光是一款面向 Android 的倒数日、生日与纪念日应用。它把日子整理成安静的纸笺、月历和桌面小组件，让重要时刻能被看见，也能被系统提醒与日历同步照顾到。
 
-拾光 `4.0` 是面向长期使用与公开分发的成熟产品版本，于 2026-07-20 通过 GitHub Release 正式发布。完整验证与明确豁免项记录在 [4.0 发布检查清单](docs/RELEASE_CHECKLIST.md)。
+当前工作区为 `4.1` 开发候选（`versionCode=24`，文档日期 2026-10-09），尚未发布。修复范围与待完成的验证门见 [4.1 发布检查清单](docs/RELEASE_CHECKLIST.md)。v4.0 的发布证据保存在 [历史清单](docs/releases/v4.0-checklist.md)，不作为 4.1 的通过记录或豁免。
 
-**唯一正式发布渠道：GitHub Release。** `4.0` 的唯一官方工件是 Direct APK `glimmer-countdown-4-0.apk`。Play flavor 仅保留用于兼容性与开发回归，不是 4.0 正式发布工件或阻断项。
+**唯一正式发布渠道：GitHub Release。** 4.1 的唯一官方资产为 Direct APK `glimmer-countdown-4-1.apk`，须在正式发布门完成后生成并上传。Play flavor 仅保留用于兼容性与开发回归，不是正式发布工件或阻断项。
 
 最新公开版本为 `4.0`：[下载 v4.0 APK](https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v4.0)
 
-## 界面预览
+## 历史界面预览（v4.0）
 
-`docs/screenshots/4.0` 已于 2026-07-20 基于最终 4.0 候选重新生成：首页与月历使用项目内 22 条脱敏事件，设置与小组件页使用应用内置预览数据，并覆盖首页满宽卡片、月历、设置与小组件预览。图片与 `v4.0` 的代码和资源一致；后续版本若改变界面须重新生成。
+以下 `docs/screenshots/4.0` 图片是 v4.0 历史截图，本轮不将这些截图视为发布证据。4.1 的新截图尚未生成，后续须使用同一最终候选与新鲜构建重新验证首页、月历、详情、设置和小组件；不能把这些历史图片标为 4.1 界面。
 
 | 首页纸笺 | 月历视图 |
 |---|---|
@@ -20,13 +20,15 @@
 |---|---|
 | <img src="docs/screenshots/4.0/settings.png" width="260" alt="拾光 4.0 设置页"> | <img src="docs/screenshots/4.0/widget-settings.png" width="260" alt="拾光 4.0 小组件设置页"> |
 
-## 4.0 成熟版目标
+## 4.1 候选修复范围
 
-- 数据可靠：导入、导出、升级和异常数据处理均有可重复验证，用户事件不会因版本切换静默丢失。
-- 核心链路成熟：新建、编辑、删除、撤销、提醒、日历同步、分享和更新检查形成完整且可解释的状态反馈。
-- 首页与小组件一致：置顶、按天数、按日期和自定义排序共享同一规则；小组件“跟随首页”不再产生独立顺序。
-- 桌面体验可靠：继续支持 1-5 格“预览宽度 / 预览高度”、独立配置、内容范围、外观、密度和文字模式，并完成真实 Launcher 回归。
-- 发布质量可审计：正式 Direct APK 的签名、唯一 GitHub 资产、线上回装、无障碍和模拟器性能均以证据为准；物理真机验收由发布负责人明确豁免并在清单中保留为未执行，Play flavor 回归不构成发布门。
+- 修复普通事件产生虚假日历权限错误的清理路径，同时保留真实受管日历记录的删除保护。
+- 完善编辑草稿恢复、保存任务生命周期、导入防重复执行和更新下载完整性。
+- 接入 24 小时内小时显示，统一详情页的时间与偏好，明确固定天数纪念节点和周年的区别。
+- 改善筛选条件反馈、返回关闭工具面板、排序无障碍、短窗口月历和分享图片的一致性。
+- 保留桌面小组件独立配置与 1-5 格“预览宽度 / 预览高度”，复核配置恢复、保存反馈和 Launcher 实际表现。
+
+以上为开发候选范围，不能据此视为验证通过。目前无实体手机，4.1 真机门未执行且未获豁免；既有正式签名配置与 keystore 已取得，配置路径、私钥可用性和证书已核验，证书与线上 v4.0 APK 一致。4.1 正式 APK 尚未构建，产物验签、上传和公开下载复验均待完成。
 
 ## 核心能力
 
@@ -41,10 +43,10 @@
 
 ## 版本信息
 
-- `versionName`: `4.0`
-- `versionCode`: `23`
-- 发布状态：正式发布（2026-07-20）
-- Direct APK：`glimmer-countdown-4-0.apk`
+- `versionName`: `4.1`
+- `versionCode`: `24`
+- 发布状态：开发候选 / 未发布（2026-10-09）
+- Direct APK 目标文件名：`glimmer-countdown-4-1.apk`
 
 ## 构建与运行
 
@@ -66,21 +68,21 @@
 
 默认产物路径：
 
-- `app/build/outputs/apk/direct/release/glimmer-countdown-4-0.apk`
+- `app/build/outputs/apk/direct/release/glimmer-countdown-4-1.apk`
 
 ## 发布与验证
 
-4.0 正式发布执行包含：
+4.1 正式发布要求包含，实际结果以当前清单为准：
 
 - `testDirectDebugUnitTest`
 - `compileDirectDebugAndroidTestKotlin`
 - `lintDirectDebug lintDirectRelease lintVitalDirectRelease`
 - `assembleDirectRelease`
 - Direct release APK 正式证书、精确证书指纹与 SHA-256 验证
-- Direct release APK 的 API 37 模拟器安装 / 升级、性能与更新 smoke；物理真机验收由发布负责人明确豁免
-- GitHub Release 只保留 `glimmer-countdown-4-0.apk`，并完成线上重装、更新检查与关键链路 smoke
+- Direct release APK 的模拟器安装 / 升级、性能与更新 smoke，以及物理真机安装、提醒、日历与 Launcher 验收
+- GitHub Release 只保留 `glimmer-countdown-4-1.apk`，并完成公开下载复验、线上重装、更新检查与关键链路 smoke
 
-最终候选完成了正式证书 Direct APK 的构建、签名、权限、哈希及模拟器原地升级验证；PowerShell publisher 的十类隔离状态机场景也已通过。publisher 会拒绝脏工作区或未指向 exact tag 的 `HEAD`，并核对输出元数据与 APK 的真实包名、版本、权限和非调试状态。发布流程禁止移动已推送的 `v4.0` tag 或覆盖已发布 Release，GitHub Release 仅上传 exact Direct APK。
+4.1 的自动测试、设备验收、正式签名和 publisher 回归结果尚待填写。publisher 会拒绝脏工作区或未指向 exact tag 的 `HEAD`，并核对输出元数据与 APK 的真实包名、版本、权限和非调试状态。发布流程禁止移动已推送的 tag 或覆盖已发布 Release，GitHub Release 仅上传 exact Direct APK。
 
 正式发布必须在代码与文档提交且工作区干净后推送不可变 tag，再从该 tag commit 新鲜构建和验证签名、证书指纹、SHA-256；不得复用旧产物。publisher 会删除 owned draft 中的所有旧资产，并要求整个 Release 只保留唯一的 exact Direct APK。本地认证使用 `gh auth login` / 脚本内部 `gh auth token`，CI 才从 secret 注入 `GITHUB_TOKEN`，且不得打印凭据。现有本地认证状态不作为结论；最终发布时按此流程重新取得并验证有效的写入权限。
 

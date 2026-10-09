@@ -65,7 +65,10 @@ function Assert-Condition {
     param([bool]$Condition, [string]$Message)
 
     if (-not $Condition) {
-        throw "Harness assertion failed: $Message"
+        $failureDetail = if ($null -ne $publisherFailure) {
+            "`nPublisher error: $($publisherFailure.Exception.Message)`n$($publisherFailure.ScriptStackTrace)"
+        } else { '' }
+        throw "Harness assertion failed: $Message$failureDetail"
     }
 }
 
@@ -111,8 +114,9 @@ try {
     $null = New-Item -ItemType Directory -Path $fixtureApkDirectory -Force
     $null = New-Item -ItemType Directory -Path $fixtureBuildTools -Force
     Copy-Item (Join-Path $sourceRoot 'scripts/publish-release.ps1') $publisherPath
-    Copy-Item (Join-Path $sourceRoot 'gradle.properties') (Join-Path $fixtureRoot 'gradle.properties')
-    Copy-Item (Join-Path $sourceRoot 'CHANGELOG.md') (Join-Path $fixtureRoot 'CHANGELOG.md')
+    # Keep the fixture independent from the app's current release version.
+    Set-Content (Join-Path $fixtureRoot 'gradle.properties') "VERSION_CODE=23`nVERSION_NAME=4.0" -Encoding utf8NoBOM
+    Set-Content (Join-Path $fixtureRoot 'CHANGELOG.md') "## [4.0]`n`nMock release notes." -Encoding utf8NoBOM
     [System.IO.File]::WriteAllBytes(
         $apkPath,
         [System.Text.Encoding]::UTF8.GetBytes('mock signed Direct APK')
@@ -166,10 +170,13 @@ exit 0
     }
     $aaptScript = if ($isWindowsHost) {
         @"
-@echo off
-echo package: name='$aaptPackage' versionCode='23' versionName='4.0' platformBuildVersionName='16'
-echo uses-permission: name='android.permission.REQUEST_INSTALL_PACKAGES'
-exit /b 0
+using System;
+class MockAapt {
+    static void Main() {
+        Console.WriteLine("package: name='$aaptPackage' versionCode='23' versionName='4.0' platformBuildVersionName='16'");
+        Console.WriteLine("uses-permission: name='android.permission.REQUEST_INSTALL_PACKAGES'");
+    }
+}
 "@
     } else {
         @"
@@ -179,8 +186,19 @@ echo "uses-permission: name='android.permission.REQUEST_INSTALL_PACKAGES'"
 exit 0
 "@
     }
-    Set-Content -LiteralPath $aaptPath -Value $aaptScript -Encoding utf8NoBOM
-    if (-not $isWindowsHost) {
+    if ($isWindowsHost) {
+        # Windows cannot execute batch text named .exe. Build a real console mock
+        # using the system compiler, entirely inside this disposable fixture.
+        $compiler = @('Framework64', 'Framework') | ForEach-Object {
+            Join-Path $env:WINDIR "Microsoft.NET/$_/v4.0.30319/csc.exe"
+        } | Where-Object { Test-Path $_ -PathType Leaf } | Select-Object -First 1
+        if ($null -eq $compiler) { throw 'The Windows mock requires the system .NET Framework C# compiler.' }
+        $aaptSourcePath = Join-Path $fixtureBuildTools 'MockAapt.cs'
+        Set-Content -LiteralPath $aaptSourcePath -Value $aaptScript -Encoding utf8NoBOM
+        & $compiler /nologo /target:exe "/out:$aaptPath" $aaptSourcePath
+        if ($LASTEXITCODE -ne 0) { throw 'Unable to compile the mock aapt executable.' }
+    } else {
+        Set-Content -LiteralPath $aaptPath -Value $aaptScript -Encoding utf8NoBOM
         & /bin/chmod +x $apksignerPath
         if ($LASTEXITCODE -ne 0) {
             throw 'Unable to make the mock apksigner executable.'

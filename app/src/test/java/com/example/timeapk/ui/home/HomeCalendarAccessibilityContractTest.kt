@@ -11,7 +11,7 @@ class HomeCalendarAccessibilityContractTest {
         val baseStrings = projectFile("app/src/main/res/values/strings.xml")
         val englishStrings = projectFile("app/src/main/res/values-en/strings.xml")
         val chineseStrings = projectFile("app/src/main/res/values-zh/strings.xml")
-        val calendar = homeSource.substringAfter("private fun MonthCalendarView(")
+        val calendar = homeSource.substringAfter("internal fun MonthCalendarView(")
             .substringBefore("private fun CalendarOccurrenceRow(")
 
         assertTrue(calendar.contains("calendar_day_accessibility"))

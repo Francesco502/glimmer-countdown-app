@@ -1,6 +1,7 @@
 package com.example.timeapk.ui.detail
 
 import android.content.ContentValues
+import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -12,6 +13,8 @@ import android.provider.MediaStore
 import androidx.core.content.FileProvider
 import java.io.File
 import java.io.FileOutputStream
+import java.io.OutputStream
+import kotlinx.coroutines.CancellationException
 
 object ShareImageStore {
     private const val MIME_TYPE_PNG = "image/png"
@@ -23,15 +26,20 @@ object ShareImageStore {
         displayName: String
     ): Uri {
         val shareDir = File(context.cacheDir, SHARE_DIR).apply { mkdirs() }
-        val imageFile = File(shareDir, displayName)
-        FileOutputStream(imageFile).use { output ->
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
+        val imageFile = File.createTempFile(displayName.removeSuffix(".png") + "-", ".png", shareDir)
+        try {
+            FileOutputStream(imageFile).use { output ->
+                check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)) { "PNG encoding failed" }
+            }
+            return FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                imageFile
+            )
+        } catch (error: Exception) {
+            imageFile.delete()
+            throw error
         }
-        return FileProvider.getUriForFile(
-            context,
-            "${context.packageName}.fileprovider",
-            imageFile
-        )
     }
 
     fun saveShareImage(
@@ -73,7 +81,16 @@ object ShareImageStore {
         bitmap: Bitmap,
         displayName: String
     ): Uri? {
-        val resolver = context.contentResolver
+        return saveWithMediaStore(context.contentResolver, displayName) { output ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
+        }
+    }
+
+    internal fun saveWithMediaStore(
+        resolver: ContentResolver,
+        displayName: String,
+        writeImage: (OutputStream) -> Boolean
+    ): Uri? {
         val values = ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, displayName)
             put(MediaStore.Images.Media.MIME_TYPE, MIME_TYPE_PNG)
@@ -81,17 +98,22 @@ object ShareImageStore {
             put(MediaStore.Images.Media.IS_PENDING, 1)
         }
         val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values) ?: return null
+        var published = false
         return try {
             resolver.openOutputStream(uri)?.use { output ->
-                bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
-            } ?: return null
+                check(writeImage(output)) { "PNG encoding failed" }
+            } ?: error("MediaStore output stream unavailable")
             values.clear()
             values.put(MediaStore.Images.Media.IS_PENDING, 0)
-            resolver.update(uri, values, null, null)
+            check(resolver.update(uri, values, null, null) == 1) { "MediaStore image was not published" }
+            published = true
             uri
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (_: Exception) {
-            resolver.delete(uri, null, null)
             null
+        } finally {
+            if (!published) runCatching { resolver.delete(uri, null, null) }
         }
     }
 
@@ -105,10 +127,12 @@ object ShareImageStore {
             "TimeAPK"
         ).apply { mkdirs() }
         val imageFile = File(picturesDir, displayName)
+        val pendingFile = File.createTempFile(displayName.removeSuffix(".png") + "-", ".png", picturesDir)
         return try {
-            FileOutputStream(imageFile).use { output ->
-                bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
+            FileOutputStream(pendingFile).use { output ->
+                check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)) { "PNG encoding failed" }
             }
+            check(pendingFile.renameTo(imageFile)) { "Saved image could not be finalized" }
             MediaScannerConnection.scanFile(
                 context,
                 arrayOf(imageFile.absolutePath),
@@ -116,7 +140,11 @@ object ShareImageStore {
                 null
             )
             Uri.fromFile(imageFile)
+        } catch (cancelled: CancellationException) {
+            pendingFile.delete()
+            throw cancelled
         } catch (_: Exception) {
+            pendingFile.delete()
             null
         }
     }

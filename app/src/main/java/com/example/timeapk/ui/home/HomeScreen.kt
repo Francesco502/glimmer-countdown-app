@@ -1,7 +1,6 @@
 package com.example.timeapk.ui.home
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -16,7 +15,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
@@ -47,17 +45,19 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.zIndex
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.input.pointer.pointerInput
 import com.example.timeapk.data.CATEGORY_ANNIVERSARY
 import com.example.timeapk.data.CATEGORY_BIRTHDAY
 import com.example.timeapk.data.REPEAT_NONE
@@ -134,13 +134,10 @@ fun HomeScreen(
     val perEventDateDeltaModes by prefs.perEventDateDeltaDisplayModesFlow.collectAsState(initial = emptyMap())
     val pinnedEventIds by prefs.pinnedEventIdsFlow.collectAsState(initial = emptyList())
     val savedHomeDisplayMode by prefs.homeDisplayModeFlow.collectAsState(initial = 0)
-    var homeDisplayMode by remember(savedHomeDisplayMode) { mutableStateOf(savedHomeDisplayMode) }
+    val homeDisplayMode = savedHomeDisplayMode
     var showOverflowMenu by remember { mutableStateOf(false) }
     var timelineFocus by remember { mutableStateOf<TimelineBucketType?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
-    LaunchedEffect(homeDisplayMode) {
-        prefs.setHomeDisplayMode(homeDisplayMode)
-    }
     val timelineDigest = remember(calendarUiState, today, pinnedEventIds) {
         buildHomeTimelineDigest(
             events = calendarUiState,
@@ -295,11 +292,57 @@ fun HomeScreen(
             Column(modifier = Modifier.fillMaxSize()) {
                 HomeDisplayModeSegmentedControl(
                     selectedMode = homeDisplayMode,
-                    onModeSelected = { homeDisplayMode = it },
+                    onModeSelected = { mode -> scope.launch { prefs.setHomeDisplayMode(mode) } },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 4.dp)
                 )
+
+                val activeFilters = buildList {
+                    when (filterType) {
+                        FilterType.All -> Unit
+                        FilterType.Birthday -> add(stringResource(R.string.category_birthday))
+                        FilterType.Anniversary -> add(stringResource(R.string.category_anniversary))
+                        FilterType.Other -> add(stringResource(R.string.category_other))
+                    }
+                    timelineFocus?.let {
+                        add(stringResource(when (it) {
+                            TimelineBucketType.Today -> R.string.home_timeline_today
+                            TimelineBucketType.SevenDays -> R.string.home_timeline_seven_days
+                            TimelineBucketType.Month -> R.string.home_timeline_month
+                            TimelineBucketType.Milestone -> R.string.home_timeline_milestone
+                        }))
+                    }
+                    searchQuery.trim().takeIf(String::isNotEmpty)?.let(::add)
+                }
+                if (activeFilters.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = activeFilters.joinToString(" · "),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(onClick = clearEmptyStateConstraints) {
+                            Text(stringResource(R.string.home_clear_filters))
+                        }
+                    }
+                }
+
+                if (sortType == SortType.Custom && homeDisplayMode != 2 &&
+                    displayedList.count { it.event.id !in pinnedEventIds } > 1) {
+                    Text(
+                        text = stringResource(R.string.home_reorder_hint),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                    )
+                }
 
             // Event list / month view
             if (homeDisplayMode == 2) {
@@ -321,7 +364,8 @@ fun HomeScreen(
                 }
             } else {
                 key(homeDisplayMode) {
-                    val dragEnabled = canStartHomeReorder(sortType, pendingLocalReorder)
+                    val dragEnabled = canStartHomeReorder(sortType, pendingLocalReorder) &&
+                        displayedList.count { it.event.id !in pinnedEventIds } > 1
                     val longPressEditEnabled = homeCardLongPressEditEnabled(sortType)
                     val tapOnlyInteraction = homeCardUsesTapOnlyInteraction(sortType)
                     val tapNavigationEnabled = homeCardTapNavigationEnabled(sortType)
@@ -335,7 +379,6 @@ fun HomeScreen(
                     val latestSortType by rememberUpdatedState(sortType)
                     val latestViewModel by rememberUpdatedState(viewModel)
                     var visibleIdsAtDragStart by remember { mutableStateOf<List<Int>?>(null) }
-                    var manuallyDraggingEventId by remember { mutableStateOf<Int?>(null) }
                     val finishReorder: () -> Unit = {
                         val visibleIds = visibleIdsAtDragStart
                         visibleIdsAtDragStart = null
@@ -379,6 +422,12 @@ fun HomeScreen(
                         }
                     }
                     val reorderState = rememberReorderableLazyListState(
+                        canDragOver = { draggedOver, dragging ->
+                            val fromId = dragging.key as? Int
+                            val toId = draggedOver.key as? Int
+                            latestDragEnabled && fromId != null && toId != null &&
+                                homeReorderAllowed(fromId, toId, latestPinnedEventIds)
+                        },
                         onMove = { from, to ->
                             if (latestDragEnabled && pendingLocalReorder == null) {
                                 if (visibleIdsAtDragStart == null) {
@@ -387,7 +436,8 @@ fun HomeScreen(
                                 dragInProgress = true
                                 val fromIdx = from.index
                                 val toIdx = to.index
-                                if (fromIdx in orderedList.indices && toIdx in orderedList.indices && fromIdx != toIdx) {
+                                if (fromIdx in orderedList.indices && toIdx in orderedList.indices &&
+                                    homeReorderAllowed(orderedList[fromIdx].event.id, orderedList[toIdx].event.id, latestPinnedEventIds)) {
                                     val item = orderedList.removeAt(fromIdx)
                                     orderedList.add(toIdx, item)
                                 }
@@ -437,9 +487,34 @@ fun HomeScreen(
                                     items(orderedList, key = { it.event.id }) { eventState ->
                                         ReorderableItem(reorderState, key = eventState.event.id) { isDragging ->
                                             val eventId = eventState.event.id
-                                            val itemDragging = isDragging || manuallyDraggingEventId == eventId
-                                            var accumulatedDragY by remember(eventId) { mutableFloatStateOf(0f) }
-                                            val reorderStepPx = with(LocalDensity.current) { 64.dp.toPx() }
+                                            val itemDragging = isDragging
+                                            val rowDragEnabled = dragEnabled && eventId !in pinnedEventIds
+                                            val moveUpLabel = stringResource(R.string.home_move_up)
+                                            val moveDownLabel = stringResource(R.string.home_move_down)
+                                            fun moveAccessible(direction: Int): Boolean {
+                                                if (!latestDragEnabled || dragInProgress || pendingLocalReorder != null) return false
+                                                val fromIndex = orderedList.indexOfFirst { it.event.id == eventId }
+                                                val toIndex = fromIndex + direction
+                                                if (fromIndex !in orderedList.indices || toIndex !in orderedList.indices) return false
+                                                if (!homeReorderAllowed(eventId, orderedList[toIndex].event.id, latestPinnedEventIds)) return false
+                                                visibleIdsAtDragStart = latestDisplayedIds
+                                                val item = orderedList.removeAt(fromIndex)
+                                                orderedList.add(toIndex, item)
+                                                finishReorder()
+                                                return true
+                                            }
+                                            val reorderAccessibility = if (rowDragEnabled) Modifier.semantics {
+                                                customActions = buildList {
+                                                    val index = orderedList.indexOfFirst { it.event.id == eventId }
+                                                    if (index > 0 && homeReorderAllowed(eventId, orderedList[index - 1].event.id, pinnedEventIds)) {
+                                                        add(CustomAccessibilityAction(moveUpLabel) { moveAccessible(-1) })
+                                                    }
+                                                    if (index in 0 until orderedList.lastIndex &&
+                                                        homeReorderAllowed(eventId, orderedList[index + 1].event.id, pinnedEventIds)) {
+                                                        add(CustomAccessibilityAction(moveDownLabel) { moveAccessible(1) })
+                                                    }
+                                                }
+                                            } else Modifier
                                             val haptic = LocalHapticFeedback.current
                                             LaunchedEffect(itemDragging) {
                                                 if (itemDragging) {
@@ -454,52 +529,8 @@ fun HomeScreen(
                                                         else Modifier
                                                     )
                                                     .then(
-                                                        if (dragEnabled) {
-                                                            Modifier.pointerInput(eventId, dragEnabled) {
-                                                                detectDragGesturesAfterLongPress(
-                                                                    onDragStart = {
-                                                                        if (latestDragEnabled && pendingLocalReorder == null) {
-                                                                            visibleIdsAtDragStart = latestDisplayedIds
-                                                                            manuallyDraggingEventId = eventId
-                                                                            accumulatedDragY = 0f
-                                                                            dragInProgress = true
-                                                                        }
-                                                                    },
-                                                                    onDragEnd = {
-                                                                        if (manuallyDraggingEventId == eventId) {
-                                                                            manuallyDraggingEventId = null
-                                                                            accumulatedDragY = 0f
-                                                                            finishReorder()
-                                                                        }
-                                                                    },
-                                                                    onDragCancel = {
-                                                                        if (manuallyDraggingEventId == eventId) {
-                                                                            manuallyDraggingEventId = null
-                                                                            accumulatedDragY = 0f
-                                                                            finishReorder()
-                                                                        }
-                                                                    }
-                                                                ) { change, dragAmount ->
-                                                                    if (manuallyDraggingEventId == eventId) {
-                                                                        change.consume()
-                                                                        accumulatedDragY += dragAmount.y
-                                                                        val direction = when {
-                                                                            accumulatedDragY >= reorderStepPx -> 1
-                                                                            accumulatedDragY <= -reorderStepPx -> -1
-                                                                            else -> 0
-                                                                        }
-                                                                        if (direction != 0) {
-                                                                            val fromIndex = orderedList.indexOfFirst { it.event.id == eventId }
-                                                                            val toIndex = fromIndex + direction
-                                                                            if (fromIndex in orderedList.indices && toIndex in orderedList.indices) {
-                                                                                val item = orderedList.removeAt(fromIndex)
-                                                                                orderedList.add(toIndex, item)
-                                                                                accumulatedDragY -= direction * reorderStepPx
-                                                                            }
-                                                                        }
-                                                                    }
-                                                                }
-                                                            }
+                                                        if (rowDragEnabled) {
+                                                            Modifier.detectReorderAfterLongPress(reorderState)
                                                         } else {
                                                             Modifier
                                                         }
@@ -518,7 +549,7 @@ fun HomeScreen(
                                                         sortType = sortType,
                                                         dateDeltaDisplayMode = cardDisplayMode,
                                                         onToggleDateDeltaDisplayMode = {
-                                                            val availableModes = getAvailableDisplayModes(eventState, showMilestone = true)
+                                                            val availableModes = getAvailableDisplayModes(eventState, showMilestone = showMilestone)
                                                             val currentModeIndex = availableModes.indexOf(cardDisplayMode)
                                                             val nextModeIndex = (if (currentModeIndex != -1) currentModeIndex + 1 else 1) % availableModes.size
                                                             val nextMode = availableModes[nextModeIndex]
@@ -538,7 +569,8 @@ fun HomeScreen(
                                                         showHours = showHours,
                                                         showMilestone = showMilestone,
                                                         showDetail = showDetail,
-                                                        isDragging = itemDragging
+                                                        isDragging = itemDragging,
+                                                        modifier = reorderAccessibility
                                                     )
                                                 } else {
                                                     val persistedMode = perEventDateDeltaModes[eventState.event.id] ?: dateDeltaDisplayMode
@@ -551,7 +583,7 @@ fun HomeScreen(
                                                         sortType = sortType,
                                                         dateDeltaDisplayMode = itemDisplayMode,
                                                         onToggleDateDeltaDisplayMode = {
-                                                            val availableModes = getAvailableDisplayModes(eventState, showMilestone = true)
+                                                            val availableModes = getAvailableDisplayModes(eventState, showMilestone = showMilestone)
                                                             val currentModeIndex = availableModes.indexOf(itemDisplayMode)
                                                             val nextModeIndex = (if (currentModeIndex != -1) currentModeIndex + 1 else 1) % availableModes.size
                                                             val nextMode = availableModes[nextModeIndex]
@@ -568,7 +600,10 @@ fun HomeScreen(
                                                         },
                                                         tapOnlyInteraction = tapOnlyInteraction,
                                                         tapNavigationEnabled = tapNavigationEnabled,
-                                                        isDragging = itemDragging
+                                                        showHours = showHours,
+                                                        showMilestone = showMilestone,
+                                                        isDragging = itemDragging,
+                                                        modifier = reorderAccessibility
                                                     )
                                                 }
                                             }
@@ -581,18 +616,13 @@ fun HomeScreen(
                 }
             }
             }
-            AnimatedVisibility(
-                visible = showOverflowMenu,
-                enter = fadeIn(animationSpec = AnimationSpecs.mistDissolveTween()) +
-                    slideInVertically(animationSpec = AnimationSpecs.handscrollTweenIntOffset()) { -it / 10 },
-                exit = fadeOut(animationSpec = AnimationSpecs.mistDissolveTween()) +
-                    slideOutVertically(animationSpec = AnimationSpecs.handscrollTweenIntOffset()) { -it / 10 },
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 8.dp, end = 16.dp)
-                    .zIndex(2f)
-            ) {
-                HomeOverflowPanel(
+            if (showOverflowMenu) {
+                Popup(
+                    alignment = Alignment.TopEnd,
+                    onDismissRequest = { showOverflowMenu = false },
+                    properties = PopupProperties(focusable = true)
+                ) {
+                    HomeOverflowPanel(
                     digest = timelineDigest,
                     selectedBucket = timelineFocus,
                     searchQuery = searchQuery,
@@ -610,8 +640,10 @@ fun HomeScreen(
                     onSortClick = { type ->
                         viewModel.updateSortType(type)
                         showOverflowMenu = false
-                    }
-                )
+                    },
+                    modifier = Modifier.padding(top = 8.dp, end = 16.dp)
+                    )
+                }
             }
         }
     }
@@ -1410,7 +1442,11 @@ fun EventCard(
             labelText = stringResource(R.string.days_past_label)
         }
         DisplayModes.UNTIL_DAYS -> {
-            if (isToday) {
+            if (showHours && eventState.hoursRemaining != null) {
+                displayContent = String.format(locale, "%d", eventState.hoursRemaining)
+                displayUnit = pluralStringResource(R.plurals.hours_unit, eventState.hoursRemaining.toInt())
+                labelText = com.example.timeapk.ui.utils.getUntilLabel(androidx.compose.ui.platform.LocalContext.current, eventState)
+            } else if (isToday) {
                 displayContent = todayLabel
                 displayUnit = ""
                 labelText = ""
@@ -1438,7 +1474,7 @@ fun EventCard(
             if (eventState.nextMilestoneDays != null && eventState.nextMilestoneValue != null) {
                 displayContent = formatDaysSmart(eventState.nextMilestoneDays, false, locale)
                 displayUnit = stringResource(R.string.days_unit)
-                val milestoneStr = milestoneLabel(eventState.nextMilestoneValue)
+                val milestoneStr = milestoneLabel(eventState.nextMilestoneValue, eventState.nextMilestoneReason, eventState.nextMilestoneYears)
                 labelText = stringResource(R.string.milestone_label_prefix, milestoneStr)
             } else {
                 displayContent = ""
@@ -1514,34 +1550,15 @@ fun EventCard(
             cardBorderColor
         }
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight()
-                .padding(24.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .width(3.dp)
-                    .height(52.dp)
-                    .background(cardAccentColor, RoundedCornerShape(2.dp))
-            )
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight(),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.Start
-            ) {
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
+            val stacked = maxWidth < 300.dp || LocalDensity.current.fontScale >= 1.3f
+            val titleContent: @Composable () -> Unit = {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
                         text = eventState.event.title,
                         style = MaterialTheme.typography.titleMedium,
                         color = cardContentColor.copy(alpha = if (isPast) 0.8f else 1.0f),
-                        maxLines = titleMaxLines,
+                        maxLines = if (stacked) maxOf(2, titleMaxLines) else titleMaxLines,
                         overflow = TextOverflow.Ellipsis
                     )
 
@@ -1569,14 +1586,11 @@ fun EventCard(
                     }
                 }
             }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
+            val timeContent: @Composable () -> Unit = {
             val timeColor = if (isPast) cardContentColor.copy(alpha = 0.85f) else cardContentColor
             Box(
                 modifier = Modifier
-                    .fillMaxHeight()
-                    .widthIn(min = 72.dp)
+                    .then(if (stacked) Modifier.fillMaxWidth() else Modifier.widthIn(min = 72.dp, max = maxWidth * 0.48f))
                     .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                     .then(
                         if (dateDeltaToggleEnabled) {
@@ -1610,11 +1624,12 @@ fun EventCard(
                         verticalAlignment = Alignment.Bottom,
                         horizontalArrangement = Arrangement.End
                     ) {
-                            Text(
-                                text = displayContent,
-                                style = MaterialTheme.typography.displaySmall,
-                                color = timeColor,
-                            maxLines = 1,
+                        Text(
+                            text = displayContent,
+                            style = MaterialTheme.typography.displaySmall,
+                            color = timeColor,
+                            modifier = Modifier.weight(1f, fill = false),
+                            maxLines = if (stacked && displayUnit.isEmpty()) 2 else 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         if (displayUnit.isNotEmpty()) {
@@ -1636,6 +1651,25 @@ fun EventCard(
                     )
                 }
             }
+            }
+            if (stacked) {
+                Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.width(3.dp).height(44.dp).background(cardAccentColor, RoundedCornerShape(2.dp)))
+                        Spacer(Modifier.width(12.dp))
+                        Box(Modifier.weight(1f)) { titleContent() }
+                    }
+                    timeContent()
+                }
+            } else {
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.width(3.dp).height(52.dp).background(cardAccentColor, RoundedCornerShape(2.dp)))
+                    Spacer(Modifier.width(16.dp))
+                    Box(Modifier.weight(1f)) { titleContent() }
+                    Spacer(Modifier.width(16.dp))
+                    timeContent()
+                }
+            }
         }
     }
 }
@@ -1652,6 +1686,8 @@ private fun EventListItem(
     onLongClick: (() -> Unit)?,
     tapOnlyInteraction: Boolean = false,
     tapNavigationEnabled: Boolean = true,
+    showHours: Boolean = true,
+    showMilestone: Boolean = true,
     isDragging: Boolean = false,
     modifier: Modifier = Modifier
 ) {
@@ -1677,7 +1713,7 @@ private fun EventListItem(
         requestedMode = dateDeltaDisplayMode,
         eventState = eventState
     )
-    val availableModes = getAvailableDisplayModes(eventState, showMilestone = true)
+    val availableModes = getAvailableDisplayModes(eventState, showMilestone = showMilestone)
     val modeIndex = availableModes.indexOf(resolvedDateDeltaDisplayMode)
     val mode = if (modeIndex != -1) resolvedDateDeltaDisplayMode else availableModes.first()
     val dateDeltaToggleEnabled = sortType != SortType.ByDays && tapNavigationEnabled
@@ -1698,7 +1734,11 @@ private fun EventListItem(
             labelText = stringResource(R.string.days_past_label)
         }
         DisplayModes.UNTIL_DAYS -> {
-            if (isToday) {
+            if (showHours && eventState.hoursRemaining != null) {
+                daysDisplay = String.format(locale, "%d %s", eventState.hoursRemaining,
+                    pluralStringResource(R.plurals.hours_unit, eventState.hoursRemaining.toInt()))
+                labelText = com.example.timeapk.ui.utils.getUntilLabel(androidx.compose.ui.platform.LocalContext.current, eventState)
+            } else if (isToday) {
                 daysDisplay = todayLabel
                 labelText = ""
             } else {
@@ -1721,7 +1761,7 @@ private fun EventListItem(
         DisplayModes.MILESTONE -> {
             if (eventState.nextMilestoneDays != null && eventState.nextMilestoneValue != null) {
                 daysDisplay = formatDaysSmart(eventState.nextMilestoneDays, false, locale) + stringResource(R.string.days_unit)
-                val milestoneStr = milestoneLabel(eventState.nextMilestoneValue)
+                val milestoneStr = milestoneLabel(eventState.nextMilestoneValue, eventState.nextMilestoneReason, eventState.nextMilestoneYears)
                 labelText = stringResource(R.string.milestone_label_prefix, milestoneStr)
             } else {
                 daysDisplay = ""
@@ -1940,7 +1980,7 @@ private fun CompactEventTime(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun MonthCalendarView(
+internal fun MonthCalendarView(
     events: List<EventUiState>,
     selectedDate: LocalDate,
     onEventClick: (Int) -> Unit,
@@ -2009,12 +2049,14 @@ private fun MonthCalendarView(
         )
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+    val selectedEvents = eventsByDate[pickedDate].orEmpty()
+    LazyColumn(
+        modifier = modifier.fillMaxSize().padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(top = 8.dp, bottom = 72.dp)
     ) {
+        item {
+            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -2137,28 +2179,23 @@ private fun MonthCalendarView(
             )
         }
 
-        val selectedEvents = eventsByDate[pickedDate].orEmpty()
+            }
+        }
         if (selectedEvents.isEmpty()) {
-            Text(
-                text = stringResource(R.string.calendar_no_events),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            item {
+                Text(
+                    text = stringResource(R.string.calendar_no_events),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f, fill = true),
-                verticalArrangement = Arrangement.spacedBy(0.dp),
-                contentPadding = PaddingValues(bottom = 8.dp)
-            ) {
-                items(selectedEvents, key = { "${it.eventState.event.id}-${it.date}" }) { occurrence ->
-                    CalendarOccurrenceRow(
-                        occurrence = occurrence,
-                        onEventClick = onEventClick,
-                        onEventLongClick = onEventLongClick
-                    )
-                }
+            items(selectedEvents, key = { "${it.eventState.event.id}-${it.date}" }) { occurrence ->
+                CalendarOccurrenceRow(
+                    occurrence = occurrence,
+                    onEventClick = onEventClick,
+                    onEventLongClick = onEventLongClick
+                )
             }
         }
     }

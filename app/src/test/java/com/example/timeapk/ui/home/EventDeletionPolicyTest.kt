@@ -14,7 +14,7 @@ import org.junit.Test
 class EventDeletionPolicyTest {
 
     @Test
-    fun eventWithoutCalendarOwnership_skipsCleanupAndDeletesDirectly() = runBlocking {
+    fun eventWithoutCalendarOwnershipChecksSharedCleanupAndDeletes() = runBlocking {
         val fake = DeletionFake()
 
         val result = deleteEventRecoverably(
@@ -29,8 +29,20 @@ class EventDeletionPolicyTest {
         )
 
         assertEquals(DeleteEventResult.Deleted, result)
-        assertEquals(listOf("cancelReminder", "cancelMilestones", "delete", "refreshWidgets"), fake.calls)
+        assertEquals(listOf("cleanup", "cancelReminder", "cancelMilestones", "delete", "refreshWidgets"), fake.calls)
         assertNull(fake.updatedEvent)
+    }
+
+    @Test
+    fun eventWithoutCalendarFieldsStillChecksRegistryOwnershipBeforeDeleting() = runBlocking {
+        val fake = DeletionFake(cleanupResult = CalendarCleanupResult.PermissionRequired)
+
+        val result = runDeletion(fake, targetEvent = event())
+
+        assertEquals(DeleteEventResult.Blocked("Calendar permission required"), result)
+        assertEquals(listOf("cleanup", "update"), fake.calls)
+        assertEquals("Calendar permission required", fake.updatedEvent?.lastScheduleSyncError)
+        assertFalse(fake.calls.contains("delete"))
     }
 
     @Test
@@ -147,8 +159,11 @@ class EventDeletionPolicyTest {
         assertTrue(fake.calls.indexOf("delete") < fake.calls.indexOf("refreshWidgets"))
     }
 
-    private suspend fun runDeletion(fake: DeletionFake): DeleteEventResult = deleteEventRecoverably(
-        event = event(syncToScheduleEnabled = true, scheduleEventId = 88, targetCalendarId = 9),
+    private suspend fun runDeletion(
+        fake: DeletionFake,
+        targetEvent: Event = event(syncToScheduleEnabled = true, scheduleEventId = 88, targetCalendarId = 9)
+    ): DeleteEventResult = deleteEventRecoverably(
+        event = targetEvent,
         nowMillis = { 123 },
         cleanup = fake::cleanup,
         update = fake::update,

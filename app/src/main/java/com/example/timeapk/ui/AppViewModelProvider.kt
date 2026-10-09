@@ -1,6 +1,7 @@
 package com.example.timeapk.ui
 
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
@@ -21,7 +22,8 @@ object AppViewModelProvider {
             EventEntryViewModel(
                 timeApplication(),
                 timeApplication().repository,
-                timeApplication().userPrefs
+                timeApplication().userPrefs,
+                createSavedStateHandle()
             )
         }
     }

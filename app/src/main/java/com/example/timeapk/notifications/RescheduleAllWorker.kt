@@ -237,14 +237,9 @@ class RescheduleAllWorker(
             }
             eventAfterScheduleSyncAttempt(event, syncResult)
         } else if (calendarCleanupRequired(event)) {
-            val cleanup = recordManagedCalendarCleanupForMilestoneOwnership(
+            val cleanup = ScheduleSyncManager.removeManagedCalendarEntries(
                 context = applicationContext,
-                eventId = event.id,
-                result = ScheduleSyncManager.removeManagedCalendarEntries(
-                    context = applicationContext,
-                    eventId = event.id,
-                    calendarEventId = event.scheduleEventId
-                )
+                event = event
             )
             if (!cleanup.isSuccess) {
                 onFailure(IllegalStateException(cleanup.message ?: "Calendar cleanup failed"))

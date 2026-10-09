@@ -1,14 +1,19 @@
 package com.example.timeapk.ui.home
 
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
+import androidx.test.espresso.Espresso
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.timeapk.MainActivity
 import com.example.timeapk.R
@@ -19,6 +24,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -40,6 +46,7 @@ class HomeFilteredReorderGestureTest {
     private var originalFilter = 0
     private var originalDisplayMode = 0
     private var originalOrder = emptyList<Int>()
+    private val additionalDragIds = mutableListOf<Int>()
 
     @Before
     fun seedFilteredReorderScenario() = runBlocking {
@@ -62,7 +69,7 @@ class HomeFilteredReorderGestureTest {
 
     @After
     fun restoreAppState() = runBlocking {
-        listOf(dragAId, hiddenId, dragBId, dragCId).filter { it != 0 }.forEach { id ->
+        (listOf(dragAId, hiddenId, dragBId, dragCId) + additionalDragIds).filter { it != 0 }.forEach { id ->
             app.repository.getEvent(id)?.let { app.repository.deleteEvent(it) }
         }
         app.userPrefs.setCustomEventOrder(originalOrder)
@@ -73,23 +80,7 @@ class HomeFilteredReorderGestureTest {
 
     @Test
     fun draggingWithinSearchSubsetPreservesHiddenGlobalSlot() {
-        val homeToolsDescription = composeRule.activity.getString(R.string.home_tools_action)
-        val customSortLabel = composeRule.activity.getString(R.string.sort_by_created)
-        composeRule.onNodeWithText("E2EDrag-A").assertExists()
-        composeRule.onNodeWithContentDescription(homeToolsDescription).performClick()
-        composeRule.onNodeWithText(customSortLabel).performScrollTo().performClick()
-        composeRule.waitUntil(timeoutMillis = 5_000) {
-            runBlocking { app.userPrefs.sortTypeFlow.first() } == SortType.Custom.ordinal
-        }
-        composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isEmpty()
-        }
-        composeRule.onNodeWithContentDescription(homeToolsDescription).performClick()
-        composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().size == 1
-        }
-        composeRule.onNode(hasSetTextAction()).performTextReplacement("E2EDrag")
-        composeRule.onNodeWithContentDescription(homeToolsDescription).performClick()
+        selectCustomSortAndSearchDragEvents()
 
         composeRule.onNodeWithText("E2EHidden").assertDoesNotExist()
         val secondCenterY = composeRule.onNodeWithText("E2EDrag-B")
@@ -118,6 +109,80 @@ class HomeFilteredReorderGestureTest {
             listOf(dragAId, hiddenId, dragCId, dragBId),
             runBlocking { app.userPrefs.customEventOrderFlow.first().take(4) }
         )
+    }
+
+    @Test
+    fun accessibleMovePreservesHiddenGlobalSlot() {
+        selectCustomSortAndSearchDragEvents()
+        val moveDownLabel = composeRule.activity.getString(R.string.home_move_down)
+        composeRule.onNodeWithContentDescription("E2EDrag-B", substring = true)
+            .performSemanticsAction(SemanticsActions.CustomActions) { actions ->
+                assertTrue(actions.first { it.label == moveDownLabel }.action())
+            }
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            runBlocking { app.userPrefs.customEventOrderFlow.first().take(4) } ==
+                listOf(dragAId, hiddenId, dragCId, dragBId)
+        }
+    }
+
+    @Test
+    fun holdingADragNearTheListEdgeScrollsBeyondTheInitialViewport() {
+        runBlocking {
+            val today = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            (1..12).forEach { index ->
+                additionalDragIds += app.repository.insertEvent(testEvent("E2EDrag-M$index", today, -index.toLong())).toInt()
+            }
+            app.userPrefs.setCustomEventOrder(listOf(dragAId, hiddenId, dragBId, dragCId) + additionalDragIds + originalOrder)
+        }
+        selectCustomSortAndSearchDragEvents()
+        val item = composeRule.onNodeWithText("E2EDrag-A")
+        val itemBounds = item.fetchSemanticsNode().boundsInRoot
+        val listBounds = composeRule.onNode(hasScrollAction()).fetchSemanticsNode().boundsInRoot
+        val targetY = listBounds.bottom - 8f * composeRule.activity.resources.displayMetrics.density - itemBounds.top
+        item.performTouchInput {
+            down(center)
+            advanceEventTime(750)
+            moveTo(Offset(center.x, targetY), 300)
+        }
+        composeRule.mainClock.advanceTimeBy(3_000)
+        // The input dispatcher keeps the active pointer between these two blocks.
+        composeRule.onRoot().performTouchInput { up() }
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            runBlocking { app.userPrefs.customEventOrderFlow.first().indexOf(dragAId) } > 4
+        }
+        val persisted = runBlocking { app.userPrefs.customEventOrderFlow.first() }
+        assertEquals(1, persisted.indexOf(hiddenId))
+    }
+
+    @Test
+    fun backClosesTheToolsPopupWithoutLeavingHome() {
+        val homeToolsDescription = composeRule.activity.getString(R.string.home_tools_action)
+        composeRule.onNodeWithContentDescription(homeToolsDescription).performClick()
+        composeRule.onNode(hasSetTextAction()).assertExists()
+        Espresso.pressBack()
+        composeRule.onNode(hasSetTextAction()).assertDoesNotExist()
+        composeRule.onNodeWithText("E2EDrag-A").assertExists()
+    }
+
+    private fun selectCustomSortAndSearchDragEvents() {
+        val homeToolsDescription = composeRule.activity.getString(R.string.home_tools_action)
+        val customSortLabel = composeRule.activity.getString(R.string.sort_by_created)
+        composeRule.onNodeWithText("E2EDrag-A").assertExists()
+        composeRule.onNodeWithContentDescription(homeToolsDescription).performClick()
+        composeRule.onNodeWithText(customSortLabel).performScrollTo().performClick()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            runBlocking { app.userPrefs.sortTypeFlow.first() } == SortType.Custom.ordinal
+        }
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isEmpty()
+        }
+        composeRule.onNodeWithContentDescription(homeToolsDescription).performClick()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().size == 1
+        }
+        composeRule.onNode(hasSetTextAction()).performTextReplacement("E2EDrag")
+        composeRule.onNodeWithContentDescription(homeToolsDescription).performClick()
+
     }
 
     private fun testEvent(title: String, date: Long, createdAt: Long) = Event(

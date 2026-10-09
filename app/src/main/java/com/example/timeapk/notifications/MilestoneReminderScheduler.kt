@@ -14,6 +14,9 @@ import com.example.timeapk.data.Event
 import com.example.timeapk.data.REPEAT_NONE
 import com.example.timeapk.data.REPEAT_YEARLY
 import com.example.timeapk.ui.home.getMilestoneLabel
+import com.example.timeapk.ui.home.MilestoneReason
+import com.example.timeapk.ui.home.upcomingAnniversaryMilestones
+import com.example.timeapk.data.CATEGORY_BIRTHDAY
 import com.example.timeapk.ui.utils.eventDateToLocalDate
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.CancellationException
@@ -37,7 +40,9 @@ private val SMART_MILESTONE_REMIND_VALUES = listOf(
 
 internal data class MilestoneReminderPlan(
     val milestoneValue: Long,
-    val remindAtMillis: Long
+    val remindAtMillis: Long,
+    val milestoneReason: MilestoneReason? = null,
+    val milestoneYears: Int? = null
 )
 
 internal enum class MilestoneSyncOrigin {
@@ -346,7 +351,7 @@ private suspend fun scheduleMilestoneReminderForEvent(
     val delayMillis = plan.remindAtMillis - System.currentTimeMillis()
     if (delayMillis <= 0) return null
 
-    val milestoneLabel = getMilestoneLabel(context, plan.milestoneValue)
+    val milestoneLabel = getMilestoneLabel(context, plan.milestoneValue, plan.milestoneReason, plan.milestoneYears)
     val data: Data = workDataOf(
         MilestoneReminderWorker.KEY_TITLE to event.title,
         MilestoneReminderWorker.KEY_EVENT_ID to event.id,
@@ -438,15 +443,16 @@ internal fun computeNextMilestoneReminderPlan(
 ): MilestoneReminderPlan? {
     if (event.repeatType != REPEAT_YEARLY && event.repeatType != REPEAT_NONE) return null
 
-    val list = buildMilestonePool(milestones, smartMilestonesEnabled)
-    if (list.isEmpty()) return null
-
     val targetDate = eventDateToLocalDate(event.date)
     val daysSinceEvent = ChronoUnit.DAYS.between(targetDate, today)
+    val anniversaries = if (smartMilestonesEnabled) event.upcomingAnniversaryMilestones(today) else emptyList()
+    val anniversariesByValue = anniversaries.associateBy { ChronoUnit.DAYS.between(targetDate, it.date) }
+    val list = (buildMilestonePool(milestones, smartMilestonesEnabled) + anniversariesByValue.keys).distinct().sorted()
     for (milestoneValue in list) {
-        if (milestoneValue <= daysSinceEvent) continue
+        if (milestoneValue < daysSinceEvent) continue
 
-        val milestoneDate = targetDate.plusDays(milestoneValue)
+        val anniversary = anniversariesByValue[milestoneValue]
+        val milestoneDate = anniversary?.date ?: targetDate.plusDays(milestoneValue)
         val remindDate = milestoneDate.minusDays(remindDaysAhead.toLong())
         val remindAt = remindDate
             .atStartOfDay(zoneId)
@@ -457,7 +463,11 @@ internal fun computeNextMilestoneReminderPlan(
 
         return MilestoneReminderPlan(
             milestoneValue = milestoneValue,
-            remindAtMillis = remindAt
+            remindAtMillis = remindAt,
+            milestoneReason = anniversary?.let {
+                if (event.category == CATEGORY_BIRTHDAY) MilestoneReason.BIRTHDAY_YEAR else MilestoneReason.ANNIVERSARY_YEAR
+            },
+            milestoneYears = anniversary?.years
         )
     }
     return null

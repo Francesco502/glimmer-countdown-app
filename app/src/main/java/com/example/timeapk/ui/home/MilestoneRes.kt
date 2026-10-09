@@ -17,15 +17,26 @@ fun getMilestoneLabelRes(value: Long): Int? = when (value) {
 }
 
 @Composable
-fun milestoneLabel(value: Long): String {
+fun milestoneLabel(value: Long, reason: MilestoneReason? = null, years: Int? = null): String {
+    anniversaryLabelRes(reason, years)?.let { return stringResource(it, years) }
     val resId = getMilestoneLabelRes(value)
     return if (resId != null) stringResource(resId)
     else stringResource(R.string.milestone_days_format, value)
 }
 
 /** 非 Composable 场景下获取节点描述（如 Worker、后台调度）. */
-fun getMilestoneLabel(context: Context, value: Long): String {
+fun getMilestoneLabel(context: Context, value: Long, reason: MilestoneReason? = null, years: Int? = null): String {
+    anniversaryLabelRes(reason, years)?.let { return context.getString(it, years) }
     val resId = getMilestoneLabelRes(value)
     return if (resId != null) context.getString(resId)
     else context.getString(R.string.milestone_days_format, value)
+}
+
+private fun anniversaryLabelRes(reason: MilestoneReason?, years: Int?): Int? {
+    if (years == null || years <= 0) return null
+    return when (reason) {
+        MilestoneReason.BIRTHDAY_YEAR -> R.string.milestone_birthday_years_format
+        MilestoneReason.ANNIVERSARY_YEAR -> R.string.milestone_anniversary_years_format
+        else -> null
+    }
 }

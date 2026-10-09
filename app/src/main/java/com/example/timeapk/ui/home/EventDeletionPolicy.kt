@@ -43,25 +43,23 @@ internal suspend fun deleteEventRecoverably(
     delete: suspend (Event) -> Unit,
     refreshWidgets: suspend () -> Unit
 ): DeleteEventResult {
-    if (calendarCleanupRequired(event)) {
-        val cleanupResult = try {
-            cleanup(event)
+    val cleanupResult = try {
+        cleanup(event)
+    } catch (error: Exception) {
+        if (error is CancellationException) throw error
+        CalendarCleanupResult.ProviderFailure(
+            error.message?.takeIf { it.isNotBlank() } ?: "Calendar cleanup failed"
+        )
+    }
+    if (!cleanupResult.isSuccess) {
+        val message = cleanupResult.message ?: "Calendar cleanup failed"
+        val retryableEvent = eventAfterCleanupAttempt(event, cleanupResult, nowMillis())
+        return try {
+            update(retryableEvent)
+            DeleteEventResult.Blocked(message)
         } catch (error: Exception) {
             if (error is CancellationException) throw error
-            CalendarCleanupResult.ProviderFailure(
-                error.message?.takeIf { it.isNotBlank() } ?: "Calendar cleanup failed"
-            )
-        }
-        if (!cleanupResult.isSuccess) {
-            val message = cleanupResult.message ?: "Calendar cleanup failed"
-            val retryableEvent = eventAfterCleanupAttempt(event, cleanupResult, nowMillis())
-            return try {
-                update(retryableEvent)
-                DeleteEventResult.Blocked(message)
-            } catch (error: Exception) {
-                if (error is CancellationException) throw error
-                DeleteEventResult.Blocked(message)
-            }
+            DeleteEventResult.Blocked(message)
         }
     }
 

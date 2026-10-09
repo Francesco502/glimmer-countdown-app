@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -73,6 +74,7 @@ fun SongReminderStatusStrip(
     actionLabel: String? = null,
     onActionClick: (() -> Unit)? = null
 ) {
+    val detail = status.detailResId?.let { stringResource(it) }
     val accent = when (status.level) {
         ReminderStatusLevel.Ready -> MaterialTheme.colorScheme.primary
         ReminderStatusLevel.Warning -> MaterialTheme.colorScheme.tertiary
@@ -92,7 +94,7 @@ fun SongReminderStatusStrip(
         Column(modifier = containerModifier) {
             ReminderStatusTextRow(
                 title = title,
-                detail = status.detail,
+                detail = detail,
                 accent = accent,
                 titleMaxLines = 2
             )
@@ -112,7 +114,7 @@ fun SongReminderStatusStrip(
         ) {
             ReminderStatusTextRow(
                 title = title,
-                detail = status.detail,
+                detail = detail,
                 accent = accent,
                 titleMaxLines = 1,
                 modifier = Modifier.weight(1f)

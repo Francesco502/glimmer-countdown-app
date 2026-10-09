@@ -12,6 +12,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Test
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
 
@@ -107,8 +108,8 @@ class EventUiStateTest {
 
     @Test
     fun birthdaySmartMilestones_prefersHalfYearOverSmallDynamicStep() {
-        val today = LocalDate.now()
-        val start = today.minusDays(181)
+        val today = LocalDate.of(2026, 10, 9)
+        val start = LocalDate.of(2026, 4, 11)
         val event = Event(
             title = "birthday",
             date = epochMillisOf(start),
@@ -118,7 +119,9 @@ class EventUiStateTest {
 
         val state = event.toEventUiState(
             milestones = emptyList(),
-            smartMilestonesEnabled = true
+            smartMilestonesEnabled = true,
+            now = today.atTime(12, 0).toInstant(ZoneOffset.UTC),
+            zoneId = ZoneOffset.UTC
         )
 
         assertEquals(183L, state.nextMilestoneValue)
@@ -128,8 +131,8 @@ class EventUiStateTest {
 
     @Test
     fun anniversarySmartMilestones_exposesYearlyReason() {
-        val today = LocalDate.now()
-        val start = today.minusDays(364)
+        val today = LocalDate.of(2024, 10, 8)
+        val start = LocalDate.of(2023, 10, 9)
         val event = Event(
             title = "anniversary",
             date = epochMillisOf(start),
@@ -139,12 +142,15 @@ class EventUiStateTest {
 
         val state = event.toEventUiState(
             milestones = emptyList(),
-            smartMilestonesEnabled = true
+            smartMilestonesEnabled = true,
+            now = today.atTime(12, 0).toInstant(ZoneOffset.UTC),
+            zoneId = ZoneOffset.UTC
         )
 
-        assertEquals(365L, state.nextMilestoneValue)
+        assertEquals(366L, state.nextMilestoneValue)
         assertEquals(1L, state.nextMilestoneDays)
         assertEquals(MilestoneReason.ANNIVERSARY_YEAR, state.nextMilestoneReason)
+        assertEquals(1, state.nextMilestoneYears)
     }
 
     @Test
@@ -166,5 +172,42 @@ class EventUiStateTest {
         assertEquals(90L, state.nextMilestoneValue)
         assertEquals(5L, state.nextMilestoneDays)
         assertEquals(MilestoneReason.COUNTDOWN_THRESHOLD, state.nextMilestoneReason)
+    }
+
+    @Test
+    fun hoursRemaining_onlyShowsFutureDatesWithin24HoursAndRoundsUp() {
+        val target = LocalDate.of(2026, 10, 10)
+        val event = Event(title = "tomorrow", date = epochMillisOf(target), category = CATEGORY_OTHER)
+        fun hoursAt(date: LocalDate, hour: Int, minute: Int) = event.toEventUiState(
+            now = date.atTime(hour, minute).toInstant(ZoneOffset.UTC), zoneId = ZoneOffset.UTC
+        ).hoursRemaining
+
+        assertEquals(1L, hoursAt(target.minusDays(1), 23, 30))
+        assertEquals(24L, hoursAt(target.minusDays(1), 0, 1))
+        assertNull(hoursAt(target.minusDays(1), 0, 0))
+        assertNull(hoursAt(target.minusDays(2), 12, 0))
+        assertNull(hoursAt(target, 12, 0))
+        assertNull(hoursAt(target.plusDays(1), 12, 0))
+    }
+
+    @Test
+    fun hoursRemaining_usesActualDurationAcrossDaylightSavingChange() {
+        val zone = ZoneId.of("America/New_York")
+        val target = LocalDate.of(2026, 3, 9)
+        val event = Event(title = "after DST", date = epochMillisOf(target), category = CATEGORY_OTHER)
+        val state = event.toEventUiState(now = target.minusDays(1).atStartOfDay(zone).toInstant(), zoneId = zone)
+        assertEquals(23L, state.hoursRemaining)
+    }
+
+    @Test
+    fun anniversaryDates_preserveLeapDayAnchorAndLunarYearBoundary() {
+        val leapDay = Event(title = "leap", date = epochMillisOf(LocalDate.of(2024, 2, 29)), category = CATEGORY_ANNIVERSARY)
+        val leapAnniversaries = leapDay.upcomingAnniversaryMilestones(LocalDate.of(2025, 2, 27))
+        assertEquals(AnniversaryMilestone(LocalDate.of(2025, 2, 28), 1), leapAnniversaries.first())
+        assertEquals(LocalDate.of(2028, 2, 29), leapAnniversaries.first { it.years == 4 }.date)
+
+        val lunar = Event(title = "lunar", date = epochMillisOf(LocalDate.of(1996, 1, 25)), category = CATEGORY_BIRTHDAY, isLunar = true)
+        val next = lunar.upcomingAnniversaryMilestones(LocalDate.of(2026, 1, 20)).first()
+        assertEquals(AnniversaryMilestone(LocalDate.of(2026, 1, 24), 30), next)
     }
 }

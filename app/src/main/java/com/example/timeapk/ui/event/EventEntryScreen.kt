@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -93,10 +94,7 @@ import com.example.timeapk.ui.theme.SongPaperTextureOverlay
 import com.example.timeapk.ui.utils.eventDateToLocalDate
 import com.example.timeapk.ui.utils.getDisplayDateFormatter
 import com.example.timeapk.ui.utils.formatLunarDateString
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.time.ZoneId
 import java.util.Locale
 
@@ -118,15 +116,14 @@ fun EventEntryScreen(
     val context = LocalContext.current
     val eventUiState by viewModel.eventUiState.collectAsState()
     val latestEventDetails by rememberUpdatedState(eventUiState.eventDetails)
-    val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val calendarPermissions = remember {
         arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR)
     }
-    var pendingSaveAfterNotificationPermission by remember { mutableStateOf(false) }
-    var pendingSaveAfterCalendarPermission by remember { mutableStateOf(false) }
+    var pendingSaveAfterNotificationPermission by rememberSaveable { mutableStateOf(false) }
+    var pendingSaveAfterCalendarPermission by rememberSaveable { mutableStateOf(false) }
     var pendingSaveDetailsOverride by remember { mutableStateOf<EventDetails?>(null) }
-    var pendingSaveOrigin by remember { mutableStateOf(SaveRequestOrigin.Standard) }
+    var pendingSaveOrigin by rememberSaveable { mutableStateOf(SaveRequestOrigin.Standard) }
     var permissionDialog by remember { mutableStateOf<PermissionDialogSpec?>(null) }
     var showDiscardChangesDialog by remember { mutableStateOf(false) }
     var isEntryInitialized by remember(eventId) { mutableStateOf(false) }
@@ -146,7 +143,40 @@ fun EventEntryScreen(
         }
     }
 
-    var isSaving by remember { mutableStateOf(false) }
+    var isRequestingSave by remember { mutableStateOf(false) }
+    val isPersisting by viewModel.isSaving.collectAsState()
+    val draftRecoveryError by viewModel.draftRecoveryError.collectAsState()
+    val saveResult by viewModel.saveResult.collectAsState()
+    val isSaving = isRequestingSave || isPersisting || saveResult != null ||
+        pendingSaveAfterNotificationPermission || pendingSaveAfterCalendarPermission
+
+    LaunchedEffect(draftRecoveryError) {
+        if (draftRecoveryError) {
+            snackbarHostState.showSnackbar(context.getString(R.string.event_draft_recovery_failed))
+            viewModel.consumeDraftRecoveryError()
+        }
+    }
+
+    LaunchedEffect(saveResult) {
+        val result = saveResult ?: return@LaunchedEffect
+        pendingSaveOrigin = SaveRequestOrigin.Standard
+        isRequestingSave = false
+        when (result) {
+            is SaveEventResult.Success -> {
+                viewModel.consumeSaveResult()
+                navigateBack()
+            }
+            is SaveEventResult.PartialSuccess -> {
+                snackbarHostState.showSnackbar(context.getString(result.messageResId))
+                viewModel.consumeSaveResult()
+                navigateBack()
+            }
+            is SaveEventResult.Failure -> {
+                snackbarHostState.showSnackbar(context.getString(result.messageResId))
+                viewModel.consumeSaveResult()
+            }
+        }
+    }
 
     fun hasCalendarPermission(): Boolean {
         return context.hasCalendarReadWritePermission()
@@ -174,7 +204,7 @@ fun EventEntryScreen(
             onRequestDismiss = {
                 permissionDialog = null
                 pendingSaveOrigin = SaveRequestOrigin.Standard
-                isSaving = false
+                isRequestingSave = false
             }
         )
     }
@@ -188,7 +218,7 @@ fun EventEntryScreen(
             onConfirm = {
                 permissionDialog = null
                 pendingSaveOrigin = SaveRequestOrigin.Standard
-                isSaving = false
+                isRequestingSave = false
                 context.openAppNotificationSettings()
             },
             onDismiss = {
@@ -198,7 +228,7 @@ fun EventEntryScreen(
             onRequestDismiss = {
                 permissionDialog = null
                 pendingSaveOrigin = SaveRequestOrigin.Standard
-                isSaving = false
+                isRequestingSave = false
             }
         )
     }
@@ -220,7 +250,7 @@ fun EventEntryScreen(
             onRequestDismiss = {
                 permissionDialog = null
                 pendingSaveOrigin = SaveRequestOrigin.Standard
-                isSaving = false
+                isRequestingSave = false
             }
         )
     }
@@ -234,7 +264,7 @@ fun EventEntryScreen(
             onConfirm = {
                 permissionDialog = null
                 pendingSaveOrigin = SaveRequestOrigin.Standard
-                isSaving = false
+                isRequestingSave = false
                 context.openAppDetailsSettings()
             },
             onDismiss = {
@@ -244,7 +274,7 @@ fun EventEntryScreen(
             onRequestDismiss = {
                 permissionDialog = null
                 pendingSaveOrigin = SaveRequestOrigin.Standard
-                isSaving = false
+                isRequestingSave = false
             }
         )
     }
@@ -257,29 +287,9 @@ fun EventEntryScreen(
     ) {
         pendingSaveDetailsOverride = null
         viewModel.updateUiState(detailsOverride)
-        coroutineScope.launch {
-            val result = viewModel.saveEvent()
-            withContext(Dispatchers.Main.immediate) {
-                when (result) {
-                    is SaveEventResult.Success -> {
-                        pendingSaveOrigin = SaveRequestOrigin.Standard
-                        isSaving = false
-                        navigateBack()
-                    }
-                    is SaveEventResult.PartialSuccess -> {
-                        snackbarHostState.showSnackbar(context.getString(result.messageResId))
-                        isSaving = false
-                        pendingSaveOrigin = SaveRequestOrigin.Standard
-                        navigateBack()
-                    }
-                    is SaveEventResult.Failure -> {
-                        pendingSaveOrigin = SaveRequestOrigin.Standard
-                        isSaving = false
-                        snackbarHostState.showSnackbar(context.getString(result.messageResId))
-                    }
-                }
-            }
-        }
+        pendingSaveOrigin = saveOrigin
+        viewModel.saveEvent()
+        isRequestingSave = false
     }
 
     fun continueSaveAfterPermissionChecks(
@@ -396,14 +406,14 @@ fun EventEntryScreen(
         val details = eventUiState.eventDetails
         pendingSaveOrigin = SaveRequestOrigin.Standard
         if (details.remindEnabled && !context.hasNotificationRuntimePermission()) {
-            isSaving = true
+            isRequestingSave = true
             requestNotificationAccessForSave?.invoke(details) ?: run {
-                isSaving = false
+                isRequestingSave = false
             }
             return
         }
 
-        isSaving = true
+        isRequestingSave = true
         continueSaveAfterPermissionChecks(details)
     }
 

@@ -78,7 +78,7 @@ class EventEntryInputFocusTest {
 
         assertTrue(viewModelSource.contains("private data class PreparedEventKey(val eventId: Int?)"))
         assertTrue(viewModelSource.contains("if (preparedEventKey == requestedKey) return"))
-        assertTrue(viewModelSource.contains("preparedEventKey = requestedKey"))
+        assertTrue(viewModelSource.contains("markPrepared(requestedKey)"))
     }
 
     private fun readSource(relative: String): String {

@@ -1,12 +1,20 @@
 package com.example.timeapk.permissions
 
 import android.Manifest
+import android.app.NotificationManager
 import android.content.Intent
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PermissionSupportTest {
+
+    @Test
+    fun reminderChannelAvailabilityHandlesBlockedAndNotYetCreatedChannels() {
+        assertFalse(isReminderNotificationChannelEnabled(NotificationManager.IMPORTANCE_NONE))
+        assertTrue(isReminderNotificationChannelEnabled(NotificationManager.IMPORTANCE_DEFAULT))
+        assertTrue(isReminderNotificationChannelEnabled(null))
+    }
 
     @Test
     fun isNotificationPermissionGrantedAfterRequest_acceptsCurrentRuntimeState() {

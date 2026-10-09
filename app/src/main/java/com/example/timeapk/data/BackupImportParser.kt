@@ -1,6 +1,9 @@
 package com.example.timeapk.data
 
 import java.nio.ByteBuffer
+import java.io.ByteArrayOutputStream
+import java.io.IOException
+import java.io.InputStream
 import java.nio.charset.CodingErrorAction
 import java.time.Instant
 import java.time.ZoneId
@@ -13,8 +16,25 @@ enum class BackupSource {
 
 enum class BackupParseFailure {
     EMPTY_FILE,
+    TOO_LARGE,
     UNSUPPORTED_FORMAT,
     NO_EVENTS_FOUND
+}
+
+// ponytail: bound in-memory parsing on phones; use streaming if larger backups are required.
+const val MAX_BACKUP_IMPORT_BYTES = 8 * 1024 * 1024
+
+class BackupInputTooLargeException : IOException("Backup exceeds $MAX_BACKUP_IMPORT_BYTES bytes")
+
+fun readBackupImportBytes(input: InputStream): ByteArray {
+    val output = ByteArrayOutputStream()
+    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+    while (true) {
+        val count = input.read(buffer, 0, minOf(buffer.size, MAX_BACKUP_IMPORT_BYTES - output.size() + 1))
+        if (count < 0) return output.toByteArray()
+        if (output.size() + count > MAX_BACKUP_IMPORT_BYTES) throw BackupInputTooLargeException()
+        output.write(buffer, 0, count)
+    }
 }
 
 data class BackupParseResult(
@@ -33,7 +53,8 @@ data class ExistingDuplicateFilterResult(
 
 fun parseEventsFromBackupBytes(bytes: ByteArray): ParseResult {
     val result = parseEventsFromBackupBytesDetailed(bytes)
-    return if (result.failure == BackupParseFailure.EMPTY_FILE ||
+    return if (result.failure == BackupParseFailure.TOO_LARGE ||
+        result.failure == BackupParseFailure.EMPTY_FILE ||
         result.failure == BackupParseFailure.UNSUPPORTED_FORMAT
     ) {
         ParseResult(emptyList(), -1)
@@ -43,6 +64,9 @@ fun parseEventsFromBackupBytes(bytes: ByteArray): ParseResult {
 }
 
 fun parseEventsFromBackupBytesDetailed(bytes: ByteArray): BackupParseResult {
+    if (bytes.size > MAX_BACKUP_IMPORT_BYTES) {
+        return BackupParseResult(emptyList(), null, 0, 0, 0, BackupParseFailure.TOO_LARGE)
+    }
     if (bytes.isEmpty()) {
         return BackupParseResult(
             events = emptyList(),

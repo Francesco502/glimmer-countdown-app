@@ -13,6 +13,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
 class TimeApplication : Application() {
@@ -23,6 +24,7 @@ class TimeApplication : Application() {
     val database by lazy { AppDatabase.getDatabase(this) }
     val repository by lazy { EventRepository(database.eventDao()) }
     val userPrefs by lazy { UserPreferencesRepository(this) }
+    internal val backupImportInProgress = MutableStateFlow(false)
     val updateChecker: UpdateChecker by lazy { UpdateCheckerFactory.create() }
     var initialCategoryForAdd: String? = null
 

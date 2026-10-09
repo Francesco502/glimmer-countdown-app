@@ -1,6 +1,7 @@
 package com.example.timeapk.update
 
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CancellationException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -9,6 +10,15 @@ import org.junit.Test
 import java.io.File
 
 class GitHubReleaseUpdateCheckerTest {
+
+    @Test(expected = CancellationException::class)
+    fun checkUpdate_propagatesCancellationInsteadOfReportingNetworkFailure() {
+        runBlocking {
+            GitHubReleaseUpdateChecker(
+                fetchRelease = { throw CancellationException("Cancelled update check") }
+            ).checkUpdate()
+        }
+    }
 
     @Test
     fun selectDirectApkAsset_ignoresPlayAndOldApksAndFindsExactVersionedName() {

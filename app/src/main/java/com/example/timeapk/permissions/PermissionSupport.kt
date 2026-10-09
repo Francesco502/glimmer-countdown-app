@@ -3,6 +3,7 @@ package com.example.timeapk.permissions
 import android.annotation.SuppressLint
 import android.Manifest
 import android.app.Activity
+import android.app.NotificationManager
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
@@ -30,6 +31,15 @@ fun Context.canPostAppNotifications(): Boolean {
     return Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
         hasPermission(notificationRuntimePermissionName())
 }
+
+fun Context.canPostEventReminderNotifications(): Boolean {
+    val importance = getSystemService(NotificationManager::class.java)
+        ?.getNotificationChannel("countdown_reminder")?.importance
+    return canPostAppNotifications() && isReminderNotificationChannelEnabled(importance)
+}
+
+internal fun isReminderNotificationChannelEnabled(importance: Int?): Boolean =
+    importance != NotificationManager.IMPORTANCE_NONE
 
 fun Context.hasNotificationRuntimePermission(): Boolean {
     return Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||

@@ -1,11 +1,13 @@
 package com.example.timeapk.ui.reminder
 
+import com.example.timeapk.R
 import com.example.timeapk.data.Event
+import com.example.timeapk.notifications.ScheduleSyncManager
 
 data class ReminderStatusSummary(
     val level: ReminderStatusLevel,
     val messageKey: String,
-    val detail: String? = null,
+    val detailResId: Int? = null,
     val primaryAction: ReminderStatusAction = ReminderStatusAction.None,
     val appReminderAvailable: Boolean = false,
     val scheduleSyncAvailable: Boolean = false
@@ -42,9 +44,13 @@ fun buildReminderStatus(
         return ReminderStatusSummary(
             level = ReminderStatusLevel.Error,
             messageKey = "reminder_status_schedule_sync_failed",
-            detail = scheduleSyncDisplayDetail(event.lastScheduleSyncError),
-            primaryAction = ReminderStatusAction.RebuildScheduleSync,
-            appReminderAvailable = true,
+            detailResId = scheduleSyncDisplayDetail(event.lastScheduleSyncError),
+            primaryAction = if (calendarPermissionGranted) {
+                ReminderStatusAction.RebuildScheduleSync
+            } else {
+                ReminderStatusAction.OpenCalendarSettings
+            },
+            appReminderAvailable = event.remindEnabled && notificationsEnabled,
             scheduleSyncAvailable = false
         )
     }
@@ -100,7 +106,7 @@ fun buildReminderStatus(
         return ReminderStatusSummary(
             level = ReminderStatusLevel.Error,
             messageKey = "reminder_status_schedule_sync_failed",
-            detail = scheduleSyncDisplayDetail(event.lastScheduleSyncError),
+            detailResId = scheduleSyncDisplayDetail(event.lastScheduleSyncError),
             primaryAction = ReminderStatusAction.RebuildScheduleSync,
             appReminderAvailable = true,
             scheduleSyncAvailable = false
@@ -119,8 +125,13 @@ fun buildReminderStatus(
     )
 }
 
-internal fun scheduleSyncDisplayDetail(rawError: String?): String? {
-    return rawError
-        ?.takeIf { it.isNotBlank() }
-        ?.let { "日历暂未接住此笺，可稍后再试。" }
+internal fun scheduleSyncDisplayDetail(rawError: String?): Int? {
+    if (rawError.isNullOrBlank()) return null
+    return when {
+        rawError.contains("permission", ignoreCase = true) ->
+            R.string.reminder_status_detail_calendar_permission
+        ScheduleSyncManager.isNoWritableCalendarError(rawError) ->
+            R.string.reminder_status_detail_no_writable_calendar
+        else -> R.string.reminder_status_detail_calendar_failed
+    }
 }
