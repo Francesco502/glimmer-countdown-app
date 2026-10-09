@@ -10,9 +10,9 @@
 
 | 项目 | 当前状态 | 完成所需证据 |
 |---|---|---|
-| 源码 revision | CI6 候选实际 PR merge 为 `2481068d533cb2ad5307969246d25e59914cb3d8`；最终 commit 未冻结 | 最终 commit、干净工作区和本地/远端 exact tag 解引用结果 |
-| 自动测试与 lint | CI6 Direct/Play JVM 各 575/575、publisher 10/10；三份完整 lint 各 0 error、1 个 `OldTargetApi` warning；未签名 R8 构建通过 | 本节后续记录实际命令、测试数量、报告路径与对应 revision |
-| 模拟器运行与截图 | CI6 API36 47/48，唯一边缘拖动失败；组件 16 项原始文件已收集，仅属 Direct debug / synthetic scope；OS smoke 与实际 MainActivity 五页未执行 | APK 哈希、系统镜像、操作路径、新鲜截图、UI 树和崩溃日志 |
+| 源码 revision | CI7 候选实际 PR merge 为 `4a620779f7d0c4805b4ee9af5382e261e021be87`；最终 commit 未冻结 | 最终 commit、干净工作区和本地/远端 exact tag 解引用结果 |
+| 自动测试与 lint | CI7 Direct/Play JVM 各 575/575、publisher 10/10；三份完整 lint 各 0 error、1 个 `OldTargetApi` warning；强制新鲜执行的未签名 R8 构建通过 | 本节后续记录实际命令、测试数量、报告路径与对应 revision |
+| 模拟器运行与截图 | CI7 API36 47/48，唯一边缘拖动失败；组件月历、英文单位和详情固定操作截图已审阅，仅属 Direct debug / synthetic scope；OS smoke 与实际 MainActivity 五页未执行 | APK 哈希、系统镜像、操作路径、新鲜截图、UI 树和崩溃日志 |
 | 物理真机 | 当前无实体手机；未执行，按现有授权记录剩余限制 | 用户已明确授权发布并说明无手机；安装/升级、提醒、日历、Launcher 与性能缺少物理设备证据，不能写成通过，也不继承 v4.0 豁免 |
 | 正式签名 | 既有配置与 keystore 已取得；配置路径一致、私钥可用，证书与线上 v4.0 APK 一致 | 已完成 Java Properties / JCA 加载及证书 SHA-256 核验；最终 4.1 APK 仍须独立验签，不记录密码、密钥内容或 token |
 | 正式 APK | 本机中间候选已验签，非最终 tag 工件不得发布；最终 APK 尚待完成 | 从最终不可变 tag 新鲜构建的 exact Direct APK、大小、SHA-256、签名与真实包身份 |
@@ -114,6 +114,10 @@ artifact 为 `11607262690` / `android-verification-2481068d533cb2ad5307969246d25
 CI6 的目标 APK 保留及组件采集已实际成功；CI5 的 `run-as: unknown package` / 无效 tar 问题不再出现。后续未提交的综合步骤与 R8 `--no-build-cache --rerun-tasks` 调整不属于 CI6，最终 tag 必须按届时提交的 workflow 新鲜执行并记录原始报告。此处未签名 APK 不可直接发布，也不能替代最终 tag 工件。
 
 ### 后续候选复验
+
+- [CI7 run 37914565927](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/37914565927) 实际 PR merge 为 `4a620779f7d0c4805b4ee9af5382e261e021be87`，Direct/Play JVM 各 575/575，publisher 10/10，三份完整 lint 各 0 error / 1 个 `OldTargetApi` warning；综合与 R8 均实际使用 `--no-build-cache --rerun-tasks`。未签名 R8 APK 为 26,444,546 bytes，SHA-256 `69ba67326130b3d881023ae7b2a4787d63de9fa321be41ee42a110a9ba817f5d`，本机重算匹配，仍不是最终 tag 的正式 APK。
+- CI7 connected 为 47/48，唯一 edge case 在五秒 Compose 帧预算结束时失败：`composeElapsedMs=5004`、`scrollRange=0.0 -> 0.0`，拖动卡片越过 viewport 底部。实际字节码核对定位到排序库启动协程后才赋值任务字段，与测试框架默认 `UnconfinedTestDispatcher` 提前执行的初始化竞态；改用既有 `StandardTestDispatcher` 的排队调度后仍须重新执行，不能以诊断代替通过。
+- CI7 artifact `11609189493`，106,658,769 bytes，archive digest `ee4a11458f0801e9dbdd30273e15c667102b8bca38687aaf00557d40857a7efe`；原始报告保存在忽略目录 `.tmp/ci7-37914565927/`。组件 16 项文件完整且与原始 tar 逐字节相同；取图同步后初始月历已有内容，英文 `13 hours` / `1 day`、窄卡片和长备注底部四项操作已实看。这些均为 synthetic ComponentActivity / Direct debug API36 证据。connected 失败使实际 AMS 恢复脚本及 MainActivity 五页未执行。
 
 - [CI4 run 37903771924](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/37903771924)，实际 PR merge `76ed7c368fd21e706e2e82689d743040924fc246`：Direct JVM 574/575，唯一失败为文档旧阶段措辞断言；后续 Play、lint、R8 和 native 运行未执行。此断言已改为检查阶段一致性与新鲜证据规则，未放宽正式签名或标签约束。
 - [CI5 run 37906555695](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/37906555695)，实际 PR merge `8ad78c206f02369e904a9fad3e20a7b059b90f51`：Direct/Play JVM 各 575/575，0 failures/errors/skipped；publisher 10/10；三份完整 lint 各 0 error、1 个 `OldTargetApi` warning（目标 SDK 保持 36）。R8 阶段 Direct vital 实际执行，Play vital 汇总任务跳过。

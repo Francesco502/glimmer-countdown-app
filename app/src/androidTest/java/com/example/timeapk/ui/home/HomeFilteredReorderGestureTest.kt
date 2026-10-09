@@ -4,6 +4,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.onRoot
@@ -27,6 +28,7 @@ import com.example.timeapk.data.CATEGORY_OTHER
 import com.example.timeapk.data.Event
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.StandardTestDispatcher
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -37,10 +39,13 @@ import org.junit.runner.RunWith
 import java.time.LocalDate
 import java.time.ZoneId
 
+@OptIn(ExperimentalTestApi::class)
 @RunWith(AndroidJUnit4::class)
 class HomeFilteredReorderGestureTest {
     @get:Rule
-    val composeRule = createAndroidComposeRule<MainActivity>()
+    // The pinned library stores its edge-scroll Job after launch returns. Queued
+    // effects prevent it from reading the previous Job during that assignment.
+    val composeRule = createAndroidComposeRule<MainActivity>(effectContext = StandardTestDispatcher())
 
     private lateinit var app: TimeApplication
     private var dragAId = 0
