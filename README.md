@@ -2,7 +2,7 @@
 
 拾光是一款面向 Android 的倒数日、生日与纪念日应用。它把日子整理成安静的纸笺、月历和桌面小组件，让重要时刻能被看见，也能被系统提醒与日历同步照顾到。
 
-当前工作区为 `4.1` 开发候选（`versionCode=24`，文档日期 2026-10-09），尚未发布。修复范围与待完成的验证门见 [4.1 发布检查清单](docs/RELEASE_CHECKLIST.md)。v4.0 的发布证据保存在 [历史清单](docs/releases/v4.0-checklist.md)，不作为 4.1 的通过记录或豁免。
+当前工作区为 `4.1` 开发候选（`versionCode=24`，文档日期 2026-10-10），尚未发布。修复范围与待完成的验证门见 [4.1 发布检查清单](docs/RELEASE_CHECKLIST.md)。v4.0 的发布证据保存在 [历史清单](docs/releases/v4.0-checklist.md)，不作为 4.1 的通过记录或豁免。
 
 **唯一正式发布渠道：GitHub Release。** 4.1 的唯一官方资产为 Direct APK `glimmer-countdown-4-1.apk`，须在正式发布门完成后生成并上传。Play flavor 仅保留用于兼容性与开发回归，不是正式发布工件或阻断项。
 
@@ -45,7 +45,7 @@
 
 - `versionName`: `4.1`
 - `versionCode`: `24`
-- 发布状态：开发候选 / 未发布（2026-10-09）
+- 发布状态：开发候选 / 未发布（2026-10-10）
 - Direct APK 目标文件名：`glimmer-countdown-4-1.apk`
 
 ## 构建与运行
