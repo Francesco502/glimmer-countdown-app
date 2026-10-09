@@ -120,9 +120,14 @@ class UiTree:
             ):
                 target = self.parents.get(target)
             if target is not None and target.get("enabled") != "false" and bounds(target):
-                matches.append(target)
+                # A partially visible event can expose an unclipped clickable
+                # parent; tap its visible title instead of that parent's center.
+                hit_target = node if event else target
+                if hit_target.get("enabled") == "false":
+                    continue
+                matches.append(hit_target)
                 if title is not None and description.startswith(title + ", "):
-                    event_matches.append(target)
+                    event_matches.append(hit_target)
         # The home timeline can repeat a card title; its bucket is not the card.
         return self.unique(list(dict.fromkeys(event_matches or matches)), "action " + repr(title or labels))
 

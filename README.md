@@ -82,7 +82,7 @@
 - Direct release APK 的模拟器安装 / 升级、性能与更新 smoke；物理手机安装、提醒、日历与 Launcher 验收当前未执行，按现有发布授权记录剩余限制
 - GitHub Release 只保留 `glimmer-countdown-4-1.apk`，并完成公开下载复验、线上重装、更新检查与关键链路 smoke
 
-2026-10-09 [CI11](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/37924741446) 实际执行 PR merge `7ef83906e5cda51a00a197b22587d6adf7e1ea87`：Direct/Play JVM 各 575/575，publisher 10/10，三份 lint 各 0 error / 1 个 `OldTargetApi` warning，未签名 R8 构建通过。API36 connected 为 46/49，新增快速输入及页面重建回归通过；三项排序测试仍停在准备阶段。runtime 已实际记录新进程、同一任务草稿恢复与保存，但最终重开备注时字段定位错误，整条流程仍失败。后续须修复定位并独立检查实际菜单触摸；完整页面截图、最终正式 APK 与公开下载仍待完成，详见[清单](docs/RELEASE_CHECKLIST.md)。
+2026-10-09 [CI12](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/37928780065) 实际执行 PR merge `b2e7b921c4c5032fdfc6a74d340089d10a3d220a`：Direct/Play JVM 各 575/575，publisher 10/10，三份 lint 各 0 error / 1 个 `OldTargetApi` warning，未签名 R8 构建通过。API36 connected 为 46/49，三项排序测试在滚动后的可见性断言失败，尚未进入拖动。实际 MainActivity 已完成新进程、同一任务草稿恢复、保存及重新打开，并通过排序菜单触摸和原生返回；截图流程在日历打开详情时失败，仅完成五页中的两页。最终正式 APK 与公开下载仍待完成，详见[清单](docs/RELEASE_CHECKLIST.md)。
 
 publisher 会拒绝脏工作区或未指向 exact tag 的 `HEAD`，并核对输出元数据与 APK 的真实包名、版本、权限和非调试状态。发布流程禁止移动已推送的 tag 或覆盖已发布 Release，GitHub Release 仅上传 exact Direct APK。
 
