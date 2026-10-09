@@ -257,7 +257,10 @@ class Smoke:
             raise SmokeFailure("%s value differs: expected %r, got %r" % (key, expected, node.get("text")))
 
     def enter(self, key, value, confirm_each_character=False):
-        self.hide_keyboard()
+        # BACK hides 4.0's IME without clearing field focus. Keep its pending
+        # or shown input view so the focused-field path can become ready.
+        if not confirm_each_character:
+            self.hide_keyboard()
         node = self.seek(key, lambda tree: tree.field(LABELS[key]), scroll=True, upward=key == "title")
         if node.get("text", ""):
             raise SmokeFailure("New draft " + key + " was not empty")
