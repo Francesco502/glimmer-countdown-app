@@ -151,10 +151,13 @@ jobs:
             -n com.example.timeapk/.MainActivity > "$report_dir/cold-start.txt" 2>&1
           sleep 3
           "$adb" -s "$serial" exec-out screencap -p > "$report_dir/cold-start.png"
+          set +e
           timeout --signal=TERM --kill-after=30s 20m ./gradlew --no-daemon --no-parallel \
             connectedDirectDebugAndroidTest \
             -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true \
             --console=plain 2>&1 | tee "$report_dir/gradle-android-tests.txt"
+          tests_result=$?
+          set -e
           timeout 30 "$adb" -s "$serial" exec-out run-as com.example.timeapk \
             tar -C cache -cf - qa-evidence > "$report_dir/component-evidence.tar"
           tar -xf "$report_dir/component-evidence.tar" -C "$report_dir"
@@ -165,6 +168,7 @@ jobs:
           timeout --signal=TERM --kill-after=15s 8m python3 scripts/android-runtime-smoke.py \
             --adb "$adb" --serial "$serial" \
             --output "$report_dir/runtime-smoke" --capture-pages
+          exit "$tests_result"
 
       - name: Preserve verification reports and debug APKs
         if: always()

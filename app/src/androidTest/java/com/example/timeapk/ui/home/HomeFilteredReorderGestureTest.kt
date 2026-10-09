@@ -5,6 +5,7 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.onRoot
@@ -217,6 +218,12 @@ class HomeFilteredReorderGestureTest {
     private fun selectCustomSortAndSearchDragEvents() {
         val homeToolsDescription = composeRule.activity.getString(R.string.home_tools_action)
         val customSortLabel = composeRule.activity.getString(R.string.sort_by_created)
+        // Room/DataStore completion is not a rendered frame. Pump queued collectors
+        // while awaiting the fixture, before the first single-node assertion.
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.mainClock.advanceTimeByFrame()
+            composeRule.onAllNodesWithText("E2EDrag-A").fetchSemanticsNodes().size == 1
+        }
         composeRule.onNodeWithText("E2EDrag-A").assertExists()
         composeRule.onNodeWithContentDescription(homeToolsDescription).performClick()
         composeRule.onNodeWithText(customSortLabel).performScrollTo().performClick()
@@ -238,6 +245,15 @@ class HomeFilteredReorderGestureTest {
         composeRule.waitUntil(timeoutMillis = 5_000) {
             ViewCompat.getRootWindowInsets(composeRule.activity.window.decorView)
                 ?.isVisible(WindowInsetsCompat.Type.ime()) != true
+        }
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.mainClock.advanceTimeByFrame()
+            listOf("E2EDrag-A", "E2EDrag-B", "E2EDrag-C").all { title ->
+                composeRule.onAllNodesWithText(title).fetchSemanticsNodes().size == 1
+            } && composeRule.onAllNodesWithText("E2EHidden").fetchSemanticsNodes().isEmpty()
+        }
+        listOf("E2EDrag-A", "E2EDrag-B", "E2EDrag-C").forEach { title ->
+            composeRule.onNodeWithText(title).assertIsDisplayed()
         }
     }
 
