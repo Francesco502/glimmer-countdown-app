@@ -10,7 +10,7 @@
 
 ## 历史界面预览（v4.0）
 
-以下 `docs/screenshots/4.0` 图片是 v4.0 历史截图，本轮不将这些截图视为发布证据。4.1 各页面新鲜截图尚未完成审阅，候选模拟器启动截图不能替代完整 UI 验收；后续须使用同一最终候选与新鲜构建验证首页、月历、详情、设置和小组件，不能把历史图片标为 4.1 界面。
+以下 `docs/screenshots/4.0` 图片是 v4.0 历史截图，本轮不将这些截图视为发布证据。4.1 候选五页与分享预览已有模拟器证据；最终标签的正式签名包截图仍须新鲜收集与审阅。发布使用同一最终候选与新鲜构建验证首页、月历、详情、设置和小组件，不能把历史图片标为 4.1 界面。
 
 | 首页纸笺 | 月历视图 |
 |---|---|
@@ -82,7 +82,7 @@
 - Direct release APK 的模拟器安装 / 升级、性能与更新 smoke；物理手机安装、提醒、日历与 Launcher 验收当前未执行，按现有发布授权记录剩余限制
 - GitHub Release 只保留 `glimmer-countdown-4-1.apk`，并完成公开下载复验、线上重装、更新检查与关键链路 smoke
 
-2026-10-09 [CI13](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/37932788084) 实际执行 PR merge `7113b1a27c314671f66b9470c1a7de503e83dbe4`：Direct/Play JVM 各 575/575，publisher 10/10，三份 lint 各 0 error / 1 个 `OldTargetApi` warning，未签名 R8 构建通过。API36 connected 49/49，真实筛选拖动、边缘滚动和落盘断言通过；实际 MainActivity 草稿进程恢复、保存重开、菜单触摸及五页截图均完成，截图已人工审阅。PR 已合并，正式签名候选证书与 v4.0 一致；三个 Android 版本的签名升级验证仍待完成，最终 tag、正式发布 APK 与公开下载尚未完成，详见[清单](docs/RELEASE_CHECKLIST.md)。
+2026-10-09 [CI13](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/37932788084) 实际执行 PR merge `7113b1a27c314671f66b9470c1a7de503e83dbe4`：Direct/Play JVM 各575/575、publisher10/10、native49/49，lint无error、R8通过；实际恢复、保存重开、菜单触摸和五页已审阅。2026-10-10 [正式签名预验收](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/37988739107) 在API26/31/36全部通过升级与恢复，API36真实相册保存、分享选择器取消返回和五页通过。候选证书与v4.0一致；最终tag的新鲜构建、正式发布APK与公开下载仍待完成，详见[清单](docs/RELEASE_CHECKLIST.md)。
 
 publisher 会拒绝脏工作区或未指向 exact tag 的 `HEAD`，并核对输出元数据与 APK 的真实包名、版本、权限和非调试状态。发布流程禁止移动已推送的 tag 或覆盖已发布 Release，GitHub Release 仅上传 exact Direct APK。
 

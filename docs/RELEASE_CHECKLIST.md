@@ -10,7 +10,7 @@
 
 | 项目 | 当前状态 | 完成所需证据 |
 |---|---|---|
-| 源码 revision | CI13 候选实际 PR merge 为 `7113b1a27c314671f66b9470c1a7de503e83dbe4`；合并 main `a1b207d6587b8fe1a666e72129c68a79d23a2357` 的 tree 完全一致；最终 commit 未冻结 | 最终 commit、干净工作区和本地/远端 exact tag 解引用结果 |
+| 源码 revision | CI13 应用源码与当前 main 一致；签名预验收 source 为 `c8223320e22044e9fd044fbb92d8e6bb5bff41c4`，三API均通过；最终标签即将冻结 | 最终 commit、干净工作区和本地/远端 exact tag 解引用结果 |
 | 自动测试与 lint | CI13 Direct/Play JVM 各 575/575、publisher 10/10，三份 lint 各 0 error / 1 个 `OldTargetApi` warning；未签名 R8 构建通过 | 本节后续记录实际命令、测试数量、报告路径与对应 revision |
 | 模拟器运行与截图 | CI13 connected 49/49；真实拖动、边缘滚动、恢复、保存重开及菜单触摸完成，五页 5/5 且已人工审阅；仅 API36 Direct debug 候选 | APK 哈希、系统镜像、操作路径、新鲜截图、UI 树和崩溃日志 |
 | 物理真机 | 当前无实体手机；未执行，按现有授权记录剩余限制 | 用户已明确授权发布并说明无手机；安装/升级、提醒、日历、Launcher 与性能缺少物理设备证据，不能写成通过，也不继承 v4.0 豁免 |
@@ -44,7 +44,7 @@
 | 纪念节点含义 | 固定天数使用天数文案 | 跨闰年 365 天明确显示天数，不误称日历一周年；节点显示和提醒一致 | main CI 公历/农历周年、闰日锚点、366天一周年及提醒计划回归通过；固定天数与周年资源文案分开。实际 WorkManager 周年通知送达未执行 |
 | 详情状态 | 复用首页时间与偏好 | 跨午夜、回到前台、智能节点关闭、自定义节点与详情更新 | main CI 智能节点开关模型、原生时间切换/长备注操作及实际唯一事件详情通过；跨午夜、回前台、自定义节点实时更新未单独设备执行 |
 | 日历状态与通知频道 | 本地化资源与普通提醒频道检查 | 中文/英文权限、无可写系统日历、provider 失败；相关频道关闭不能显示普通提醒 ready | main CI JVM 分类本地化、日历失败保留及相关频道关闭/未创建判断通过；系统设置内实际关闭频道与定时触发、通知最终送达未验证 |
-| 分享一致性 | 预览与导出采用一致样式 | 浅色/深色、自定义字体、长标题、预览与 PNG 对照、保存和系统分享 | CI13 深色组件预览/导出对照、长文本确定性和四项 mock provider 失败/取消/busy 测试通过，截图已审阅；真实相册保存与 Android chooser 待签名 QA，接收方读取/发送未执行 |
+| 分享一致性 | 预览与导出采用一致样式 | 浅色/深色、自定义字体、长标题、预览与 PNG 对照、保存和系统分享 | CI13 深色组件预览/导出、长文本与四项mock失败测试通过。签名预验收 API36 实际相册PNG、系统chooser打开/原生Back返回同详情已通过；接收方读取/发送及完整字体/主题矩阵未执行 |
 | 首页交互与适配 | 筛选摘要、面板关闭、排序操作、短高度月历 | 系统返回/点外部关闭、清除筛选、长列表排序与无障碍移动、横屏六行月份可访问列表 | CI13 筛选子集真实拖动、边缘自动滚动（1996ms）、隐藏位置与落盘断言、无障碍移动及 Popup 原生返回通过；实际菜单触摸通过。320dp/font1.6 窄卡片、360×240 六周月份为已审阅组件证据，实际旋转/200% 字体/TalkBack 服务未执行 |
 | 小组件配置 | 恢复草稿、保存中保护和错误反馈 | 旋转、保存失败/重试、多实例、实际 Launcher 背景/圆角/密度/文字和独立配置 | CI13 draft saver 受控恢复、多实例仓库/默认值与 RemoteViews 布局测试通过；实际应用内默认预览已审阅。WidgetConfigActivity 真实旋转、保存失败重试及 Launcher 绑定/缩放未执行 |
 | 更新安装 | 对象级互斥、临时文件、长度校验和原子替换 | 重复下载、空/截断/超长响应、失败/取消保留完整 APK、安装权限与系统签名拒绝路径 | main CI 六项 JVM 下载及17项 GitHub版本/唯一资产解析通过，失败/取消保留完整APK；API26/31正式签名候选覆盖升级已通过。公开最新版本检查及实际应用内安装权限/签名拒绝路径待验证 |
@@ -115,6 +115,7 @@ CI6 的目标 APK 保留及组件采集已实际成功；CI5 的 `run-as: unknow
 
 ### 后续候选复验
 
+- [签名预验收 run 37988739107](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/37988739107) source 为 `c8223320e22044e9fd044fbb92d8e6bb5bff41c4`，API26/31/36 全部成功。沿用下述 CI13 正式候选（26,463,543 bytes / `b05c6329218a93f693e3367067f6f8658ded5d82d340be2775dbdb7cfda13c00`），不能代替最终标签工件。API36 覆盖升级保留 firstInstallTime `2026-10-09 20:43:54`、userId `10216`、精确标题/备注/日期；AMS PID6513→7233/task8/stopped=false，runtime passed=true。真实相册PNG为1080×1350 /62,686 bytes /SHA-256 `3f7f6c1a6c31d03b7579a7eefc34f649f5c36144fd72d24b39b223848ec0e9a8`，share_check passed=true，系统chooser截图/XML、原生Back返回同详情Activity记录完整，实际五页5/5、菜单touch通过。基线IME就绪与ChooserActivityLauncher识别修复已实际复验；接收方读取/发送、实体手机、自然LMK与Launcher绑定未执行。原始报告 `.tmp/pretag-qa-37988739107/`，最终不可变标签仍须新鲜完整CI、正式验签及三平台/公开下载QA。
 - [签名预验收 run 37988494418](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/37988494418) source 为 `f6b3c6f2edcfdfae583743cbe635d53a4f99f6a8`，原生验证进行中主动取消，不记为通过。检查实际 API26/31 的 BACK→IME隐藏→字段仍focused日志后发现新增就绪等待与入口 hide_keyboard 冲突；基线入口改为保留键盘状态，仍在每个字段录入结束隐藏键盘，未聚焦字段依旧实际点击。4.1快速录入及严格字段断言未改变，完整修正后新鲜复验。
 - [签名预验收 run 37987793650](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/37987793650) source 为 `ab6e87750b8276721a3d8aa5f40c1cc1b2000172`。API36 在 v4.0 基线第一字符录入失败（预期 `U`、实际 `UU`），尚未执行候选安装、恢复或分享。原 commands 只有一次 `input text U`、没有重复点击；logcat 记录首次输入法尚未 onShown 时 U DOWN 处理超时（2500ms）。脚本将仅基线录入增加实际 IME 就绪等待，仍严格验证每个前缀、完整字段、日期与升级身份，4.1快速输入路径不变。不能以此前升级通过替代本轮失败；原始报告 `.tmp/pretag-qa-37987793650/api36/`。
 - [签名预验收 run 37986450767](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/37986450767) source 为 `1a4845a271d6fc25839aa8a9b54e975b89ce68b0`，仍使用同一 CI13 正式候选。API26/31 整体通过；API36 的 v4.0→v4.1 覆盖升级、身份/标题/备注/日期保留和 AMS 恢复通过（PID6399→7100/task8/stopped=false），已解决旧版输入法重复点击误触。API36 实际相册保存成功，反馈被捕捉；新 MediaStore row 为 image/png、Pictures/TimeAPK/、is_pending=0，PNG 1080×1350 / 59,328 bytes / SHA-256 `c3a4b4f7df7835e3532cdd17148b266fb75f8891f53d2f7a494e2e7b3c49924b`。选择器检查误拒绝系统 `com.android.intentresolver/.ChooserActivityLauncher` 别名：实际 ActivityRecord 已有 CHOOSER 动作与 ChooserActivity component，但旧正则要求名称立即结束。脚本只补充 Launcher 别名并保持原断言与20秒预算；本轮未执行返回详情，五页仅3/5，整体仍失败，须新run证明完整分享返回路径。原始报告 `.tmp/pretag-qa-37986450767/signed-apk-qa-api{26,31,36}-1a4845a271d6fc25839aa8a9b54e975b89ce68b0/`。
