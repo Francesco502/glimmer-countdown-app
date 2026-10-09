@@ -33,7 +33,7 @@
     <string name="milestone_7">第 7 天</string>
     <string name="milestone_30">第 30 天</string>
     <string name="milestone_100">百日</string>
-    <string name="milestone_365">一周年</string>
+    <string name="milestone_365">第365天</string>
     <string name="milestone_520">第 520 天</string>
     <string name="milestone_1000">千日</string>
     <string name="milestone_days_format">第 %d 天</string>
@@ -298,7 +298,10 @@
     <string name="settings_schedule_rebuild_now">重整提醒与日程</string>
     <string name="settings_schedule_refresh_status">再探状态</string>
     <string name="lunar_calendar">农历</string>
-    <string name="days_unit">天</string>
+    <plurals name="days_unit">
+        <item quantity="other">天</item>
+    </plurals>
+    <string name="quantity_with_unit">%1$s%2$s</string>
     <string name="toggle_on">开</string>
     <string name="toggle_off">关</string>
     <string name="field_title_required">题名未成</string>
@@ -503,4 +506,25 @@
     <string name="event_preview_untitled">未题名事件</string>
     <string name="settings_appearance_preview_cd">外观样张预览</string>
     <string name="settings_appearance_preview_title">外观样张</string>
+    <string name="milestone_anniversary_years_format">%1$d周年</string>
+    <string name="milestone_birthday_years_format">%1$d岁生日</string>
+    <string name="home_clear_filters">清除筛选</string>
+    <string name="home_move_up">上移</string>
+    <string name="home_move_down">下移</string>
+    <string name="home_reordering">正在调整位置</string>
+    <string name="home_reorder_hint">长按拖动排序，或使用上移、下移操作</string>
+    <string name="widget_save_failed">小组件保存失败，请重试</string>
+    <string name="widget_load_failed">小组件配置读取失败，请重试</string>
+    <string name="reminder_status_detail_calendar_permission">请授予日历读写权限后重试。</string>
+    <string name="reminder_status_detail_no_writable_calendar">请添加可写日历或关闭日历同步。</string>
+    <string name="reminder_status_detail_calendar_failed">日历写入或清理未完成，请检查日历后重试。</string>
+    <string name="import_error_too_large">备份超过8 MiB，请缩小文件后再导入。</string>
+    <string name="import_error_read_failed">无法读取备份，请检查文件权限后重试。</string>
+    <string name="import_working">正在处理备份…</string>
+    <string name="import_progress">正在导入 %1$d / %2$d</string>
+    <string name="import_execution_failed">导入未完成，请重新预览后重试；已保存的事件会自动跳过。</string>
+    <plurals name="hours_unit">
+        <item quantity="other">小时</item>
+    </plurals>
+    <string name="event_draft_recovery_failed">编辑草稿未能保存或恢复，请检查存储空间；已保存的事件仍保留。</string>
 </resources>

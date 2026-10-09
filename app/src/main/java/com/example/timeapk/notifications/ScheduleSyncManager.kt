@@ -379,18 +379,7 @@ object ScheduleSyncManager {
 
         return try {
             if (!sanitizedEvent.syncToScheduleEnabled) {
-                val cleanupResult = cleanupReminderSeriesEntries(
-                    expectedEntriesPresent = false,
-                    staleIds = emptySet(),
-                    cleanupWholeSeries = {
-                        removeReminderSeriesEntries(
-                            context = context,
-                            eventId = sanitizedEvent.id,
-                            calendarEventId = sanitizedEvent.scheduleEventId
-                        )
-                    },
-                    cleanupSingleEntry = { staleId -> removeScheduleReminder(context, staleId) }
-                )
+                val cleanupResult = removeManagedCalendarEntriesLocked(context, sanitizedEvent)
                 scheduleSyncResultAfterCleanup(
                     event = sanitizedEvent,
                     primaryScheduleEventId = null,
@@ -887,6 +876,42 @@ object ScheduleSyncManager {
             throw cancelled
         } catch (t: Exception) {
             calendarCleanupFailureFor(t)
+        }
+    }
+
+    suspend fun removeManagedCalendarEntries(
+        context: Context,
+        event: Event,
+        repairReason: String? = null
+    ): CalendarCleanupResult = withScheduleEventProviderLock(event.id) {
+        removeManagedCalendarEntriesLocked(context, event, repairReason)
+    }
+
+    private fun removeManagedCalendarEntriesLocked(
+        context: Context,
+        event: Event,
+        repairReason: String? = null
+    ): CalendarCleanupResult = cleanupCalendarOwnershipForEvent(
+        event = event,
+        cleanupManagedEntries = {
+            recordManagedCalendarCleanupForMilestoneOwnership(
+                context = context,
+                eventId = event.id,
+                result = removeManagedCalendarEntries(
+                    gateway = ContextCalendarCleanupGateway(context),
+                    eventId = event.id,
+                    calendarEventId = event.scheduleEventId
+                )
+            )
+        },
+        cleanupPendingMilestones = {
+            MilestoneCalendarOwnershipStore.clearEventIfPending(context, event.id) {
+                clearMilestoneScheduleRemindersByEventIdLocked(context, event.id)
+            }
+        }
+    ).also { result ->
+        if (!result.isSuccess) {
+            repairReason?.let { RescheduleAllWorker.enqueue(context, it) }
         }
     }
 

@@ -85,6 +85,14 @@ class HomeInteractionPolicyTest {
     }
 
     @Test
+    fun customReorderOnlyMovesUnpinnedEventsInsideTheirSection() {
+        assertTrue(homeReorderAllowed(2, 3, listOf(1)))
+        assertFalse(homeReorderAllowed(1, 2, listOf(1)))
+        assertFalse(homeReorderAllowed(2, 1, listOf(1)))
+        assertFalse(homeReorderAllowed(2, 2, listOf(1)))
+    }
+
+    @Test
     fun homeUsesListLevelReorderDetection_isDisabledBecauseRowsOwnLongPressDrag() {
         assertFalse(homeUsesListLevelReorderDetection(SortType.Custom))
         assertFalse(homeUsesListLevelReorderDetection(SortType.ByDays))
@@ -101,7 +109,7 @@ class HomeInteractionPolicyTest {
         assertFalse(itemBlock.contains("Modifier.padding(end = 48.dp)"))
         assertFalse(itemBlock.contains("R.string.cd_reorder_event"))
         assertFalse(itemBlock.contains("kind = SongLineIconKind.More"))
-        assertTrue(itemBlock.contains("detectDragGesturesAfterLongPress"))
+        assertTrue(itemBlock.contains("detectReorderAfterLongPress(reorderState)"))
     }
 
     @Test
@@ -145,14 +153,14 @@ class HomeInteractionPolicyTest {
     }
 
     @Test
-    fun homeCardUsesSingleLineTitleOnlyForLargeTextLayouts() {
+    fun homeCardKeepsMultilineTitlesInStackedLayouts() {
         val source = readSource("ui/home/HomeScreen.kt")
         val cardSource = source
             .substringAfter("fun EventCard(")
             .substringBefore("private fun EventListItem(")
 
         assertTrue(cardSource.contains("val titleMaxLines = homeCardTitleMaxLines(LocalDensity.current.fontScale)"))
-        assertTrue(cardSource.contains("maxLines = titleMaxLines"))
+        assertTrue(cardSource.contains("maxLines = if (stacked) maxOf(2, titleMaxLines) else titleMaxLines"))
         assertTrue(cardSource.contains("overflow = TextOverflow.Ellipsis"))
     }
 
@@ -194,13 +202,15 @@ class HomeInteractionPolicyTest {
     }
 
     @Test
-    fun monthCalendarLetsSelectedEventListUseRemainingSpace() {
+    fun monthCalendarAndSelectedEventsShareOneScrollContainer() {
         val source = readSource("ui/home/HomeScreen.kt")
-        val monthSource = source.substringAfter("private fun MonthCalendarView(")
+        val monthSource = source.substringAfter("internal fun MonthCalendarView(")
             .substringBefore("@OptIn(ExperimentalFoundationApi::class)\n@Composable\nprivate fun CalendarOccurrenceRow")
 
         assertTrue(monthSource.contains("modifier = Modifier"))
-        assertTrue(monthSource.contains(".weight(1f"))
+        assertTrue(monthSource.contains("LazyColumn("))
+        assertTrue(monthSource.contains("items(selectedEvents"))
+        assertFalse(monthSource.contains(".weight(1f, fill = true)"))
         assertTrue(monthSource.contains(".heightIn(min = 48.dp, max = 72.dp"))
         assertFalse(monthSource.contains(".height(60.dp)"))
     }

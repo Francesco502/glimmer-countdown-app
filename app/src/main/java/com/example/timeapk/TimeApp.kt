@@ -39,8 +39,6 @@ import com.example.timeapk.ui.home.EventUiState
 import com.example.timeapk.ui.home.DeleteEventResult
 import com.example.timeapk.ui.settings.SettingsScreen
 import com.example.timeapk.ui.home.HomeScreen
-import com.example.timeapk.ui.home.toEventUiState
-import com.example.timeapk.data.DEFAULT_MILESTONE_DAYS
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 
@@ -129,12 +127,12 @@ fun TimeApp(
                         }
                     }
                     val event = eventLoadState.second
-                    val milestones by app.userPrefs.customMilestonesFlow.collectAsState(initial = DEFAULT_MILESTONE_DAYS)
-                    val eventState = event?.toEventUiState(milestones)
                     val homeViewModel: com.example.timeapk.ui.home.HomeViewModel = viewModel(factory = AppViewModelProvider.Factory)
+                    val allEventStates by homeViewModel.unfilteredCalendarUiState.collectAsState()
+                    val eventState = allEventStates.firstOrNull { it.event.id == eventId }
                     DetailScreen(
                         eventState = eventState,
-                        eventMissing = eventLoadState.first && eventState == null,
+                        eventMissing = eventLoadState.first && event == null,
                         onNavigateBack = { selectedEventIdForDetail = null },
                         onEditClick = {
                             selectedEventIdForDetail = null

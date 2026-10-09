@@ -1,8 +1,11 @@
 package com.example.timeapk.ui.reminder
 
+import com.example.timeapk.R
 import com.example.timeapk.data.CATEGORY_OTHER
 import com.example.timeapk.data.Event
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -77,7 +80,7 @@ class ReminderStatusModelsTest {
 
         assertEquals(ReminderStatusLevel.Error, status.level)
         assertEquals(ReminderStatusAction.RebuildScheduleSync, status.primaryAction)
-        assertEquals("日历暂未接住此笺，可稍后再试。", status.detail)
+        assertEquals(R.string.reminder_status_detail_calendar_failed, status.detailResId)
     }
 
     @Test
@@ -114,8 +117,8 @@ class ReminderStatusModelsTest {
         )
 
         assertEquals(ReminderStatusLevel.Error, status.level)
-        assertEquals(ReminderStatusAction.RebuildScheduleSync, status.primaryAction)
-        assertEquals("日历暂未接住此笺，可稍后再试。", status.detail)
+        assertEquals(ReminderStatusAction.OpenCalendarSettings, status.primaryAction)
+        assertEquals(R.string.reminder_status_detail_calendar_permission, status.detailResId)
     }
 
     @Test
@@ -132,7 +135,44 @@ class ReminderStatusModelsTest {
         )
 
         assertEquals(ReminderStatusLevel.Error, status.level)
+        assertEquals(ReminderStatusAction.OpenCalendarSettings, status.primaryAction)
+        assertFalse(status.appReminderAvailable)
+    }
+
+    @Test
+    fun scheduleSyncDetailsUseLocalizedResourceIdsForEachFailureKind() {
+        assertNull(scheduleSyncDisplayDetail(null))
+        assertNull(scheduleSyncDisplayDetail(" "))
+        assertEquals(
+            R.string.reminder_status_detail_calendar_permission,
+            scheduleSyncDisplayDetail("Calendar READ permission required")
+        )
+        assertEquals(
+            R.string.reminder_status_detail_no_writable_calendar,
+            scheduleSyncDisplayDetail("No writable calendar")
+        )
+        assertEquals(
+            R.string.reminder_status_detail_calendar_failed,
+            scheduleSyncDisplayDetail("provider failed")
+        )
+    }
+
+    @Test
+    fun retainedCalendarFailureDoesNotClaimAppReminderIsAvailableWhenNotificationsAreBlocked() {
+        val status = buildReminderStatus(
+            event = event(
+                remindEnabled = true,
+                syncToScheduleEnabled = false,
+                lastScheduleSyncError = "provider failed"
+            ).copy(scheduleEventId = 183L),
+            notificationsEnabled = false,
+            calendarPermissionGranted = true,
+            hasWritableCalendar = true
+        )
+
+        assertEquals(ReminderStatusLevel.Error, status.level)
         assertEquals(ReminderStatusAction.RebuildScheduleSync, status.primaryAction)
+        assertFalse(status.appReminderAvailable)
     }
 
     private fun event(

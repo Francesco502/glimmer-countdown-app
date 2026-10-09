@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -32,10 +33,17 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
+import kotlinx.coroutines.CancellationException
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.example.timeapk.R
 import com.example.timeapk.TimeApplication
@@ -100,7 +108,7 @@ class WidgetConfigActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun WidgetConfigRoute(
+internal fun WidgetConfigRoute(
     appWidgetId: Int,
     onCancel: () -> Unit,
     onSaved: () -> Unit
@@ -108,10 +116,27 @@ private fun WidgetConfigRoute(
     val context = androidx.compose.ui.platform.LocalContext.current
     val repository = remember(context) { WidgetConfigRepository(context.applicationContext) }
     val scope = rememberCoroutineScope()
-    var config by remember { mutableStateOf(WidgetConfig.default()) }
+    var config by rememberSaveable(appWidgetId, stateSaver = WidgetConfigDraftSaver) {
+        mutableStateOf(WidgetConfig.default())
+    }
+    var configLoaded by rememberSaveable(appWidgetId) { mutableStateOf(false) }
+    var loadAttempt by remember { mutableStateOf(0) }
+    var loadFailed by remember { mutableStateOf(false) }
+    var isSaving by remember { mutableStateOf(false) }
+    var saveFailed by remember { mutableStateOf(false) }
 
-    LaunchedEffect(appWidgetId) {
-        config = repository.getConfigForWidget(appWidgetId)
+    LaunchedEffect(appWidgetId, loadAttempt) {
+        if (!configLoaded) {
+            loadFailed = false
+            try {
+                config = repository.getConfigForWidget(appWidgetId)
+                configLoaded = true
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                loadFailed = true
+            }
+        }
     }
 
     Scaffold(
@@ -148,11 +173,25 @@ private fun WidgetConfigRoute(
         },
         bottomBar = {
             WidgetConfigSaveBar(
+                enabled = configLoaded && !isSaving,
+                isSaving = isSaving,
                 onSaveClick = {
-                    scope.launch {
-                        repository.setConfigForWidget(appWidgetId, config)
-                        CountdownAppWidgetProvider.refreshAllWidgetsAndAwait(context)
-                        onSaved()
+                    if (configLoaded && !isSaving) {
+                        isSaving = true
+                        saveFailed = false
+                        scope.launch {
+                            try {
+                                repository.setConfigForWidget(appWidgetId, config)
+                                CountdownAppWidgetProvider.refreshAllWidgetsAndAwait(context)
+                                onSaved()
+                            } catch (cancelled: CancellationException) {
+                                throw cancelled
+                            } catch (_: Exception) {
+                                saveFailed = true
+                            } finally {
+                                isSaving = false
+                            }
+                        }
                     }
                 }
             )
@@ -165,16 +204,41 @@ private fun WidgetConfigRoute(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp, vertical = 16.dp)
         ) {
-            WidgetConfigEditor(
-                config = config,
-                onConfigChange = { config = it }
-            )
+            if (loadFailed) {
+                Text(
+                    text = stringResource(R.string.widget_load_failed),
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.clickable(role = Role.Button) { loadAttempt += 1 }.padding(vertical = 16.dp)
+                )
+            } else if (!configLoaded || isSaving) {
+                Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            } else {
+                if (saveFailed) {
+                    Text(
+                        text = stringResource(R.string.widget_save_failed),
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                }
+                WidgetConfigEditor(
+                    config = config,
+                    onConfigChange = {
+                        if (!isSaving) {
+                            config = it
+                            saveFailed = false
+                        }
+                    }
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun WidgetConfigSaveBar(onSaveClick: () -> Unit) {
+private fun WidgetConfigSaveBar(enabled: Boolean, isSaving: Boolean, onSaveClick: () -> Unit) {
+    val saveLabel = stringResource(R.string.widget_config_save)
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -185,15 +249,25 @@ private fun WidgetConfigSaveBar(onSaveClick: () -> Unit) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(onClick = onSaveClick)
+                .clickable(enabled = enabled, onClick = onSaveClick)
+                .semantics { role = Role.Button; contentDescription = saveLabel }
                 .padding(horizontal = 24.dp, vertical = 16.dp),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = stringResource(R.string.widget_config_save),
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary
-            )
+            if (isSaving) {
+                CircularProgressIndicator(modifier = Modifier.padding(2.dp))
+            } else {
+                Text(
+                    text = stringResource(R.string.widget_config_save),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = if (enabled) 1f else 0.38f)
+                )
+            }
         }
     }
 }
+
+internal val WidgetConfigDraftSaver = Saver<WidgetConfig, String>(
+    save = { it.toJson() },
+    restore = { WidgetConfig.fromJson(it) }
+)

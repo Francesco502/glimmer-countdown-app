@@ -71,12 +71,20 @@ class EventEditRecreationTest {
 
         composeRule.onNode(hasSetTextAction() and hasText(UPDATED_TITLE)).assertExists()
         pressBack()
+        composeRule.waitForIdle()
+        // System Back may first dismiss the restored IME. Keep asserting the
+        // unsaved editor before sending the page Back, as in EventEntryImeInputTest.
+        if (composeRule.onAllNodes(hasText(discardTitle)).fetchSemanticsNodes().isEmpty()) {
+            composeRule.onNode(hasSetTextAction() and hasText(UPDATED_TITLE)).assertExists()
+            pressBack()
+        }
         composeRule.waitUntil(timeoutMillis = 5_000) {
             composeRule.onAllNodes(hasText(discardTitle)).fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText(discardTitle).assertExists()
         composeRule.onNodeWithText(stayLabel).performClick()
         composeRule.onNode(hasSetTextAction() and hasText(UPDATED_TITLE)).assertExists()
+        assertEquals(SEED_TITLE, runBlocking { app.repository.getEvent(eventId)?.title })
         composeRule.onNodeWithContentDescription(saveDescription).performClick()
 
         composeRule.waitUntil(timeoutMillis = 5_000) {

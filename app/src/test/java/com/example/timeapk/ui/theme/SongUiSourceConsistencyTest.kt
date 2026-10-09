@@ -74,7 +74,7 @@ class SongUiSourceConsistencyTest {
     fun monthCalendar_usesLighterBookCalendarTreatment() {
         val homeSource = readSource("ui/home/HomeScreen.kt")
         val componentSource = readSource("ui/theme/SongComponents.kt")
-        val monthBlock = homeSource.substringAfter("private fun MonthCalendarView(")
+        val monthBlock = homeSource.substringAfter("internal fun MonthCalendarView(")
 
         assertTrue(monthBlock.contains("var showMonthPicker by remember"))
         assertTrue(monthBlock.contains("SongDateWheelPickerDialog("))

@@ -39,7 +39,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.toColorInt
 import com.example.timeapk.BuildConfig
-import com.example.timeapk.permissions.areAppNotificationsEnabledCompat
+import com.example.timeapk.permissions.canPostEventReminderNotifications
 import com.example.timeapk.permissions.hasCalendarReadWritePermission
 import com.example.timeapk.permissions.markCalendarPermissionRequested
 import com.example.timeapk.permissions.openAppDetailsSettings
@@ -1677,7 +1677,7 @@ fun MilestoneSettingsContent(
         )
         val scheduleHealthStatus = buildReminderStatus(
             event = scheduleHealthEvent.copy(remindEnabled = true, syncToScheduleEnabled = true),
-            notificationsEnabled = context.areAppNotificationsEnabledCompat(),
+            notificationsEnabled = context.canPostEventReminderNotifications(),
             calendarPermissionGranted = calendarPermissionGranted,
             hasWritableCalendar = writableCalendars.isNotEmpty()
         )
@@ -1986,6 +1986,11 @@ fun DataSettingsContent(
     var importResultMessage by remember { mutableStateOf<String?>(null) }
     var pendingImportPreview by remember { mutableStateOf<PendingImportPreview?>(null) }
     var pendingExportText by remember { mutableStateOf<String?>(null) }
+    val importBusy by app.backupImportInProgress.collectAsState()
+    var parseBusy by remember { mutableStateOf(false) }
+    var importCompleted by remember { mutableIntStateOf(0) }
+    var importTotal by remember { mutableIntStateOf(0) }
+    val backupBusy = importBusy || parseBusy
 
     suspend fun importEvents(events: List<Event>): ImportExecutionResult {
         if (events.isEmpty()) return ImportExecutionResult(0, 0, 0)
@@ -1995,13 +2000,16 @@ fun DataSettingsContent(
         val preferredCalendarId = app.userPrefs.scheduleTargetCalendarIdFlow.first()
         val useRRuleSync = app.userPrefs.scheduleUseRRuleSyncFlow.first()
 
-        events.forEach { sourceEvent ->
+        events.forEachIndexed { index, sourceEvent ->
+            withContext(Dispatchers.Main) { importCompleted = index + 1 }
             val event = sourceEvent.sanitizedReminderConfig()
             val newId = try {
                 repository.insertEvent(event)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (_: Exception) {
                 failedCount += 1
-                return@forEach
+                return@forEachIndexed
             }
             val savedEvent = event.copy(id = newId.toInt(), scheduleEventId = null)
 
@@ -2023,9 +2031,9 @@ fun DataSettingsContent(
                         useRRuleSync = useRRuleSync
                     )
                 } else {
-                    val cleanup = ScheduleSyncManager.removeScheduleReminderByEventId(
+                    val cleanup = ScheduleSyncManager.removeManagedCalendarEntries(
                         context,
-                        savedEvent.id
+                        savedEvent
                     )
                     ScheduleSyncManager.scheduleSyncResultAfterCleanup(
                         event = savedEvent,
@@ -2083,6 +2091,7 @@ fun DataSettingsContent(
 
     fun importFailureText(parseResult: BackupParseResult): String {
         return when (parseResult.failure) {
+            BackupParseFailure.TOO_LARGE -> context.getString(R.string.import_error_too_large)
             BackupParseFailure.EMPTY_FILE -> context.getString(R.string.import_error_empty_file)
             BackupParseFailure.NO_EVENTS_FOUND -> context.getString(R.string.import_error_no_events)
             BackupParseFailure.UNSUPPORTED_FORMAT,
@@ -2123,7 +2132,7 @@ fun DataSettingsContent(
 
     suspend fun parseBytesForPreview(bytes: ByteArray) {
         pendingImportPreview = null
-        val parseResult = parseEventsFromBackupBytesDetailed(bytes)
+        val parseResult = withContext(Dispatchers.Default) { parseEventsFromBackupBytesDetailed(bytes) }
         pendingImportPreview = buildImportPreview(parseResult)
     }
 
@@ -2149,21 +2158,27 @@ fun DataSettingsContent(
 
     val importFromFileLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri ?: return@rememberLauncherForActivityResult
+        if (parseBusy || app.backupImportInProgress.value) return@rememberLauncherForActivityResult
+        parseBusy = true
         scope.launch {
-            val bytes = withContext(Dispatchers.IO) {
-                try {
-                    context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: ByteArray(0)
-                } catch (_: Exception) {
-                    ByteArray(0)
+            try {
+                val bytes = withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.use(::readBackupImportBytes)
+                        ?: throw java.io.IOException("Backup stream unavailable")
                 }
-            }
-            if (bytes.isEmpty()) {
-                importResultMessage = context.getString(R.string.import_error_empty_file)
+                importResultMessage = null
+                parseBytesForPreview(bytes)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: BackupInputTooLargeException) {
+                importResultMessage = context.getString(R.string.import_error_too_large)
                 pendingImportPreview = null
-                return@launch
+            } catch (_: Exception) {
+                importResultMessage = context.getString(R.string.import_error_read_failed)
+                pendingImportPreview = null
+            } finally {
+                parseBusy = false
             }
-            importResultMessage = null
-            parseBytesForPreview(bytes)
         }
     }
 
@@ -2193,15 +2208,22 @@ fun DataSettingsContent(
         SongFormDialog(
             title = stringResource(R.string.import_events),
             onDismissRequest = {
-                showImportDialog = false
-                importResultMessage = null
-                pendingImportPreview = null
+                if (!backupBusy) {
+                    showImportDialog = false
+                    importResultMessage = null
+                    pendingImportPreview = null
+                }
             },
             content = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = importJsonText,
+                        enabled = !backupBusy,
                         onValueChange = {
+                            if (it.length > MAX_BACKUP_IMPORT_BYTES) {
+                                importResultMessage = context.getString(R.string.import_error_too_large)
+                                return@OutlinedTextField
+                            }
                             importJsonText = it
                             pendingImportPreview = null
                             importResultMessage = null
@@ -2215,6 +2237,7 @@ fun DataSettingsContent(
                     )
                     OutlinedButton(
                         onClick = { importFromFileLauncher.launch("*/*") },
+                        enabled = !backupBusy,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(4.dp)
                     ) {
@@ -2222,6 +2245,14 @@ fun DataSettingsContent(
                     }
                     importResultMessage?.let { msg ->
                         Text(msg, color = MaterialTheme.colorScheme.primary)
+                    }
+                    if (backupBusy) {
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                        Text(
+                            if (importBusy && importTotal > 0) {
+                                stringResource(R.string.import_progress, importCompleted, importTotal)
+                            } else stringResource(R.string.import_working)
+                        )
                     }
                     pendingImportPreview?.let { preview ->
                         HorizontalDivider(
@@ -2268,6 +2299,7 @@ fun DataSettingsContent(
             buttons = {
                 SongDialogButton(
                     text = stringResource(R.string.delete_confirm_cancel),
+                    enabled = !backupBusy,
                     onClick = {
                         showImportDialog = false
                         importResultMessage = null
@@ -2283,22 +2315,52 @@ fun DataSettingsContent(
                             R.string.import_events
                         }
                     ),
-                    enabled = pendingImportPreview?.importableEvents?.isNotEmpty()
-                        ?: importJsonText.isNotBlank(),
+                    enabled = !backupBusy && (pendingImportPreview?.importableEvents?.isNotEmpty()
+                        ?: importJsonText.isNotBlank()),
                     onClick = {
-                        scope.launch {
-                            val preview = pendingImportPreview
-                            if (preview == null) {
-                                importResultMessage = null
-                                parseBytesForPreview(importJsonText.toByteArray(Charsets.UTF_8))
-                                return@launch
+                        if (parseBusy || app.backupImportInProgress.value) return@SongDialogButton
+                        val preview = pendingImportPreview
+                        if (preview == null) {
+                            parseBusy = true
+                            val inputText = importJsonText
+                            scope.launch {
+                                try {
+                                    importResultMessage = null
+                                    val bytes = withContext(Dispatchers.Default) {
+                                        inputText.toByteArray(Charsets.UTF_8)
+                                    }
+                                    parseBytesForPreview(bytes)
+                                } finally { parseBusy = false }
                             }
-
-                            val executionResult = importEvents(preview.importableEvents)
-                            importResultMessage = importResultText(preview, executionResult)
-                            pendingImportPreview = null
-                            if (executionResult.successCount > 0) {
-                                importJsonText = ""
+                        } else if (app.backupImportInProgress.compareAndSet(false, true)) {
+                            app.launchAppTask {
+                                try {
+                                    val freshPreview = buildImportPreview(preview.parseResult)
+                                        ?: return@launchAppTask
+                                    withContext(Dispatchers.Main) {
+                                        importCompleted = 0
+                                        importTotal = freshPreview.importableEvents.size
+                                    }
+                                    val executionResult = withContext(Dispatchers.IO) {
+                                        importEvents(freshPreview.importableEvents)
+                                    }
+                                    withContext(Dispatchers.Main) {
+                                        importResultMessage = importResultText(freshPreview, executionResult)
+                                        pendingImportPreview = null
+                                        if (executionResult.successCount > 0) importJsonText = ""
+                                    }
+                                } catch (cancelled: CancellationException) {
+                                    RescheduleAllWorker.enqueue(app, "import_interrupted")
+                                    throw cancelled
+                                } catch (_: Exception) {
+                                    RescheduleAllWorker.enqueue(app, "import_interrupted")
+                                    withContext(Dispatchers.Main) {
+                                        pendingImportPreview = null
+                                        importResultMessage = context.getString(R.string.import_execution_failed)
+                                    }
+                                } finally {
+                                    app.backupImportInProgress.value = false
+                                }
                             }
                         }
                     }
@@ -2314,6 +2376,7 @@ fun DataSettingsContent(
             .padding(24.dp)
     ) {
         SettingsGroupHeader(title = stringResource(R.string.export_import))
+        if (importBusy) Text(stringResource(R.string.import_working))
 
         SettingsActionRow(
             label = stringResource(R.string.export_events),
@@ -2493,17 +2556,18 @@ fun AboutSettingsContent(
                     SongDialogButton(
                         text = if (updateDownloading) context.getString(R.string.update_downloading)
                         else context.getString(R.string.update_download_install),
+                        enabled = !updateDownloading,
                         onClick = {
+                            if (updateDownloading) return@SongDialogButton
                             val url = result.downloadUrl
                             if (url != null) {
                                 updateDownloading = true
                                 scope.launch {
-                                    val ok = UpdateInstaller.downloadAndInstall(context, url)
-                                    updateDownloading = false
-                                    updateResult = null
-                                    if (!ok) {
-                                        snackbarHostState.showSnackbar(context.getString(R.string.update_download_failed))
-                                    }
+                                    try {
+                                        val ok = UpdateInstaller.downloadAndInstall(context, url)
+                                        updateResult = null
+                                        if (!ok) snackbarHostState.showSnackbar(context.getString(R.string.update_download_failed))
+                                    } finally { updateDownloading = false }
                                 }
                             }
                         }

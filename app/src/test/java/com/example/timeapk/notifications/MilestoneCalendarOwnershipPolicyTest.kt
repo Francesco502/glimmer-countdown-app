@@ -1,5 +1,9 @@
 package com.example.timeapk.notifications
 
+import com.example.timeapk.data.CATEGORY_OTHER
+import com.example.timeapk.data.Event
+import com.example.timeapk.ui.home.calendarCleanupRequired
+import com.example.timeapk.ui.home.eventAfterCleanupAttempt
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -8,6 +12,108 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MilestoneCalendarOwnershipPolicyTest {
+
+    @Test
+    fun ordinaryEventWithoutCalendarOwnershipDoesNotRequirePermissionOrBlockDeletion() {
+        val event = ordinaryEvent()
+        var providerCalls = 0
+        val result = cleanupCalendarOwnershipForEvent(
+            event = event,
+            cleanupManagedEntries = { error("An ordinary event has no calendar series to clean") },
+            cleanupPendingMilestones = {
+                cleanupPendingMilestoneOwnership(
+                    exactOwnershipPending = false,
+                    legacyScanPending = false,
+                    scope = MilestoneCleanupScope.EVENT,
+                    cleanup = { providerCalls += 1; CalendarCleanupResult.PermissionRequired },
+                    clearExactOwnership = { error("No exact ownership") },
+                    clearLegacyScan = { error("No legacy scan") }
+                )
+            }
+        )
+
+        val updated = eventAfterCleanupAttempt(event, result, 123L)
+        assertTrue(result.isSuccess)
+        assertEquals(0, providerCalls)
+        assertNull(updated.lastScheduleSyncError)
+        assertFalse(calendarCleanupRequired(updated))
+    }
+
+    @Test
+    fun recordedCalendarStateStillRequiresRealCleanupAndRetainsFailures() {
+        val event = ordinaryEvent()
+        listOf(
+            event.copy(syncToScheduleEnabled = true),
+            event.copy(scheduleEventId = 41L),
+            event.copy(targetCalendarId = 5L),
+            event.copy(lastScheduleSyncError = "Calendar permission required")
+        ).forEach { ownedEvent ->
+            val result = cleanupCalendarOwnershipForEvent(
+                event = ownedEvent,
+                cleanupManagedEntries = { CalendarCleanupResult.PermissionRequired },
+                cleanupPendingMilestones = { error("Recorded calendar state must not be skipped") }
+            )
+            val updated = eventAfterCleanupAttempt(ownedEvent, result, 123L)
+
+            assertEquals(CalendarCleanupResult.PermissionRequired, result)
+            assertTrue(calendarCleanupRequired(updated))
+            assertEquals(ownedEvent.scheduleEventId, updated.scheduleEventId)
+            assertEquals(ownedEvent.targetCalendarId, updated.targetCalendarId)
+        }
+    }
+
+    @Test
+    fun pendingMilestoneOwnershipIsProtectedEvenWhenEventHasNoCalendarFields() {
+        var ownershipCleared = false
+        val result = cleanupCalendarOwnershipForEvent(
+            event = ordinaryEvent(),
+            cleanupManagedEntries = { error("No regular series") },
+            cleanupPendingMilestones = {
+                cleanupPendingMilestoneOwnership(
+                    exactOwnershipPending = true,
+                    legacyScanPending = false,
+                    scope = MilestoneCleanupScope.EVENT,
+                    cleanup = { CalendarCleanupResult.PermissionRequired },
+                    clearExactOwnership = { ownershipCleared = true; true },
+                    clearLegacyScan = { error("No legacy scan") }
+                )
+            }
+        )
+
+        assertEquals(CalendarCleanupResult.PermissionRequired, result)
+        assertFalse(ownershipCleared)
+    }
+
+    @Test
+    fun eventLegacyScanWithoutPermissionIsDeferredWithoutCreatingFalseError() {
+        var legacyScanCleared = false
+        val result = cleanupCalendarOwnershipForEvent(
+            event = ordinaryEvent(),
+            cleanupManagedEntries = { error("No recorded regular series") },
+            cleanupPendingMilestones = {
+                cleanupPendingMilestoneOwnership(
+                    exactOwnershipPending = false,
+                    legacyScanPending = true,
+                    scope = MilestoneCleanupScope.EVENT,
+                    cleanup = { CalendarCleanupResult.PermissionRequired },
+                    clearExactOwnership = { error("No exact ownership") },
+                    clearLegacyScan = { legacyScanCleared = true; true }
+                )
+            }
+        )
+
+        assertTrue(result.isSuccess)
+        assertFalse(legacyScanCleared)
+    }
+
+    private fun ordinaryEvent() = Event(
+        id = 41,
+        title = "Ordinary event",
+        date = 1_800_000_000_000L,
+        category = CATEGORY_OTHER,
+        remindEnabled = true,
+        syncToScheduleEnabled = false
+    )
 
     @Test
     fun freshDisabledState_withoutPendingOwnership_skipsProviderAndSavesState() {

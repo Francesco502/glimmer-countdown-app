@@ -1,0 +1,199 @@
+name: Signed Android APK QA
+
+on:
+  workflow_dispatch:
+    inputs:
+      asset_id:
+        description: Owned Release APK asset ID
+        required: true
+        type: string
+      apk_sha256:
+        description: Expected candidate APK SHA-256
+        required: true
+        type: string
+      verify_public_release:
+        description: Verify latest published v4.1 and in-app update status
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  qa:
+    name: Signed APK on emulator API ${{ matrix.api }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [26, 31, 36]
+    env:
+      API_LEVEL: ${{ matrix.api }}
+      VERIFY_PUBLIC_RELEASE: ${{ inputs.verify_public_release }}
+    steps:
+      - name: Check out dispatched source revision
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Set up JDK 17 for official APK verifier
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Download fixed baseline and selected owned candidate
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ASSET_ID: ${{ inputs.asset_id }}
+          APK_SHA256: ${{ inputs.apk_sha256 }}
+        run: |
+          set -euo pipefail
+          report_dir="$PWD/app/build/reports/signed-apk-qa"
+          apk_dir="$RUNNER_TEMP/glimmer-apk-qa"
+          mkdir -p "$report_dir" "$apk_dir"
+          git rev-parse HEAD > "$report_dir/source-revision.txt"
+          printf 'scope=Formal signed APK on Android emulator; not physical-device evidence\napi=%s\nsource=%s\nrunner_os=%s\nasset_id=%s\nexpected_candidate_sha256=%s\nverify_public_release=%s\n' \
+            "$API_LEVEL" "$GITHUB_SHA" "$RUNNER_OS" "$ASSET_ID" "$APK_SHA256" "$VERIFY_PUBLIC_RELEASE" > "$report_dir/environment.txt"
+          [[ "$ASSET_ID" =~ ^[0-9]+$ && "$APK_SHA256" =~ ^[[:xdigit:]]{64}$ ]]
+          if [[ "$VERIFY_PUBLIC_RELEASE" == true ]]; then
+            timeout 60 gh api --method GET 'repos/Francesco502/glimmer-countdown-app/releases/latest' > "$report_dir/public-latest-release.json" 2> "$report_dir/public-release-error.txt"
+            python3 -I - "$report_dir/public-latest-release.json" <<'PY'
+          import json, os, sys
+          release = json.load(open(sys.argv[1], encoding="utf-8"))
+          assert release.get("draft") is False and release.get("prerelease") is False and release.get("tag_name") == "v4.1"
+          assert len(release["assets"]) == 1
+          asset = release["assets"][0]
+          assert asset["id"] == int(os.environ["ASSET_ID"]) and asset["name"] == "glimmer-countdown-4-1.apk" and asset["digest"] == "sha256:" + os.environ["APK_SHA256"].lower()
+          PY
+          fi
+          timeout 90 gh api --method GET -H 'Accept: application/octet-stream' \
+            "repos/Francesco502/glimmer-countdown-app/releases/assets/$ASSET_ID" \
+            > "$apk_dir/candidate.apk" 2> "$report_dir/candidate-download-error.txt"
+          curl --fail --location --silent --show-error --max-time 90 \
+            'https://github.com/Francesco502/glimmer-countdown-app/releases/download/v4.0/glimmer-countdown-4-0.apk' \
+            -o "$apk_dir/baseline.apk" 2> "$report_dir/baseline-download-error.txt"
+          sha256sum "$apk_dir/"*.apk > "$report_dir/apk-sha256.txt"
+          stat -c '%n %s bytes' "$apk_dir/"*.apk > "$report_dir/apk-sizes.txt"
+          printf '%s  %s\n' "${APK_SHA256,,}" "$apk_dir/candidate.apk" \
+            | sha256sum --check - | tee "$report_dir/candidate-hash-check.txt"
+          printf '%s  %s\n' 'f45afe96cbc6602e539e9300c424a56f4e9488bcab3ec69e0a91ce56069c7543' "$apk_dir/baseline.apk" \
+            | sha256sum --check - | tee "$report_dir/baseline-hash-check.txt"
+          [[ "$(stat -c %s "$apk_dir/baseline.apk")" == 26422346 ]]
+
+      - name: Verify formal APKs, upgrade, and restore on owned native AVD
+        timeout-minutes: 24
+        shell: bash
+        run: |
+          set -euo pipefail
+          report_dir="$PWD/app/build/reports/signed-apk-qa"
+          apk_dir="$RUNNER_TEMP/glimmer-apk-qa"
+          sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+          sdkmanager="$sdk_root/cmdline-tools/latest/bin/sdkmanager"
+          avdmanager="$sdk_root/cmdline-tools/latest/bin/avdmanager"
+          emulator="$sdk_root/emulator/emulator"
+          adb="$sdk_root/platform-tools/adb"
+          serial=emulator-5554
+          emulator_pid=''
+          avd_name="glimmer_apk_qa_api$API_LEVEL"
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/glimmer-apk-qa-avd-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$API_LEVEL"
+          mkdir -p "$ANDROID_AVD_HOME"
+
+          cleanup() {
+            result=$?
+            trap - EXIT
+            set +e
+            printf '%s\n' "$result" > "$report_dir/result-code.txt"
+            timeout 10 "$adb" devices -l > "$report_dir/adb-devices.txt" 2>&1
+            timeout 10 "$adb" -s "$serial" shell getprop > "$report_dir/device-properties.txt" 2>&1
+            timeout 15 "$adb" -s "$serial" logcat -d -v threadtime > "$report_dir/logcat.txt" 2>&1
+            timeout 10 "$adb" -s "$serial" exec-out screencap -p > "$report_dir/final-state.png" 2> "$report_dir/screenshot-error.txt"
+            if [[ -n "$emulator_pid" ]]; then
+              kill "$emulator_pid" 2>/dev/null || true
+              timeout 10 tail --pid="$emulator_pid" -f /dev/null || kill -KILL "$emulator_pid" 2>/dev/null
+              wait "$emulator_pid" 2>/dev/null
+            fi
+            exit "$result"
+          }
+          trap cleanup EXIT
+          trap 'exit 130' INT
+          trap 'exit 143' TERM
+
+          test -x "$sdkmanager"
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+          free -m > "$report_dir/host-memory.txt"
+          java -version > "$report_dir/java.txt" 2>&1
+          printf 'sdk_root=%s\navd_name=%s\n' "$sdk_root" "$avd_name" >> "$report_dir/environment.txt"
+          printf 'y\n%.0s' {1..20} | timeout 300 "$sdkmanager" --install \
+            "platform-tools" "emulator" "build-tools;36.0.0" "system-images;android-$API_LEVEL;google_apis;x86_64" \
+            > "$report_dir/sdkmanager.txt" 2>&1
+          "$emulator" -accel-check > "$report_dir/acceleration.txt" 2>&1
+          expected_cert=3b7cb426a82664f891c69511cc2505b67128c8503664639f297291da4ea903ca
+          verify_apk() {
+            local name="$1" version="$2" code="$3"
+            timeout 45 "$sdk_root/build-tools/36.0.0/apksigner" verify --print-certs \
+              --min-sdk-version "$API_LEVEL" --max-sdk-version "$API_LEVEL" "$apk_dir/$name.apk" \
+              > "$report_dir/$name-signature.txt" 2>&1
+            [[ "$(awk '/^(Signer #[0-9]+|V2 Signer):? certificate SHA-256 digest:/ {print tolower($NF)}' "$report_dir/$name-signature.txt")" == "$expected_cert" ]]
+            "$sdk_root/build-tools/36.0.0/aapt" dump badging "$apk_dir/$name.apk" > "$report_dir/$name-manifest.txt" 2>&1
+            [[ "$(grep -c '^package:' "$report_dir/$name-manifest.txt")" == 1 ]]
+            local package_line package_prefix
+            package_line=$(grep '^package:' "$report_dir/$name-manifest.txt")
+            package_prefix="package: name='com.example.timeapk' versionCode='$code' versionName='$version'"
+            [[ "$package_line" == "$package_prefix" || "$package_line" == "$package_prefix "* ]]
+            if grep -Eq '^application-debuggable([[:space:]]|$)' "$report_dir/$name-manifest.txt"; then
+              echo "Unexpected debuggable APK: $name" >&2
+              return 1
+            fi
+            grep -Eq "^uses-permission:[[:space:]]+name='android[.]permission[.]REQUEST_INSTALL_PACKAGES'([[:space:]]|$)" "$report_dir/$name-manifest.txt"
+          }
+          verify_apk baseline 4.0 23
+          verify_apk candidate 4.1 24
+          printf 'no\n' | timeout 30 "$avdmanager" create avd --force --name "$avd_name" \
+            --package "system-images;android-$API_LEVEL;google_apis;x86_64" --device pixel \
+            > "$report_dir/avdmanager.txt" 2>&1
+          "$emulator" -avd "$avd_name" -port 5554 -no-window -no-audio \
+            -no-boot-anim -no-snapshot -gpu swiftshader -accel on -cores 2 -memory 2048 \
+            > "$report_dir/emulator.txt" 2>&1 &
+          emulator_pid=$!
+
+          boot_deadline=$((SECONDS + 240))
+          boot_completed=''
+          while (( SECONDS < boot_deadline )); do
+            kill -0 "$emulator_pid" 2>/dev/null || { cat "$report_dir/emulator.txt"; exit 1; }
+            boot_completed=$(timeout 5 "$adb" -s "$serial" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)
+            [[ "$boot_completed" == 1 ]] && break
+            sleep 2
+          done
+          [[ "$boot_completed" == 1 ]] || { echo 'Owned emulator boot timed out after 240 seconds.' >&2; exit 1; }
+          [[ "$(timeout 5 "$adb" -s "$serial" shell getprop ro.build.version.sdk | tr -d '\r')" == "$API_LEVEL" ]]
+          "$adb" -s "$serial" shell input keyevent 82
+          "$adb" -s "$serial" shell settings put global window_animation_scale 0
+          "$adb" -s "$serial" shell settings put global transition_animation_scale 0
+          "$adb" -s "$serial" shell settings put global animator_duration_scale 0
+          timeout 45 "$adb" -s "$serial" install --user 0 "$apk_dir/baseline.apk" \
+            2>&1 | tee "$report_dir/baseline-install.txt"
+          timeout --signal=TERM --kill-after=10s 4m python3 scripts/android-runtime-smoke.py \
+            --adb "$adb" --serial "$serial" --output "$report_dir/upgrade" \
+            --upgrade-apk "$apk_dir/candidate.apk" 2>&1 | tee "$report_dir/upgrade-stdout.txt"
+          restore_args=()
+          restore_timeout=6m
+          if [[ "$API_LEVEL" == 36 ]]; then
+            restore_args+=(--capture-pages)
+            if [[ "$VERIFY_PUBLIC_RELEASE" == true ]]; then restore_args+=(--check-update); restore_timeout=7m; fi
+          fi
+          timeout --signal=TERM --kill-after=10s "$restore_timeout" python3 scripts/android-runtime-smoke.py \
+            --adb "$adb" --serial "$serial" --output "$report_dir/runtime-restore" \
+            "${restore_args[@]}" \
+            2>&1 | tee "$report_dir/runtime-restore-stdout.txt"
+
+      - name: Archive emulator APK QA evidence, including failures
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: signed-apk-qa-api${{ matrix.api }}-${{ github.sha }}
+          retention-days: 7
+          path: app/build/reports/signed-apk-qa/

@@ -9,7 +9,7 @@ import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.example.timeapk.MainActivity
-import com.example.timeapk.permissions.canPostAppNotifications
+import com.example.timeapk.permissions.canPostEventReminderNotifications
 import com.example.timeapk.R
 import com.example.timeapk.TimeApplication
 import com.example.timeapk.ui.home.eventAfterCleanupAttempt
@@ -78,7 +78,7 @@ class ReminderWorker(
     }
 
     private fun canPostNotifications(): Boolean {
-        return applicationContext.canPostAppNotifications()
+        return applicationContext.canPostEventReminderNotifications()
     }
 
     private fun ensureChannel(channelId: String) {
@@ -116,14 +116,9 @@ class ReminderWorker(
             )
             eventAfterScheduleSyncAttempt(event, syncResult)
         } else {
-            val cleanup = recordManagedCalendarCleanupForMilestoneOwnership(
+            val cleanup = ScheduleSyncManager.removeManagedCalendarEntries(
                 context = applicationContext,
-                eventId = event.id,
-                result = ScheduleSyncManager.removeManagedCalendarEntries(
-                    context = applicationContext,
-                    eventId = event.id,
-                    calendarEventId = event.scheduleEventId
-                ),
+                event = event,
                 repairReason = "manual_reminder_worker_cleanup"
             )
             eventAfterCleanupAttempt(

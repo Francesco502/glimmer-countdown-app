@@ -39,7 +39,7 @@
     <string name="milestone_7">Day 7</string>
     <string name="milestone_30">Day 30</string>
     <string name="milestone_100">100-day mark</string>
-    <string name="milestone_365">1 year</string>
+    <string name="milestone_365">Day 365</string>
     <string name="milestone_none">No upcoming milestone</string>
     <string name="milestone_520">Day 520</string>
     <string name="milestone_1000">1000-day mark</string>
@@ -342,7 +342,11 @@
     <string name="settings_schedule_refresh_status">Seek status again</string>
 
     <string name="lunar_calendar">Lunar</string>
-    <string name="days_unit">days</string>
+    <plurals name="days_unit">
+        <item quantity="one">day</item>
+        <item quantity="other">days</item>
+    </plurals>
+    <string name="quantity_with_unit">%1$s %2$s</string>
 
     <!-- Splash -->
 
@@ -556,4 +560,26 @@
     <string name="event_preview_untitled">Untitled event</string>
     <string name="settings_appearance_preview_cd">Appearance sample preview</string>
     <string name="settings_appearance_preview_title">Appearance sample</string>
+    <string name="milestone_anniversary_years_format">%1$d-year anniversary</string>
+    <string name="milestone_birthday_years_format">Birthday, age %1$d</string>
+    <string name="home_clear_filters">Clear filters</string>
+    <string name="home_move_up">Move up</string>
+    <string name="home_move_down">Move down</string>
+    <string name="home_reordering">Reordering</string>
+    <string name="home_reorder_hint">Hold and drag to reorder, or use Move up and Move down</string>
+    <string name="widget_save_failed">Could not save widget. Try again.</string>
+    <string name="widget_load_failed">Could not load widget settings. Try again.</string>
+    <string name="reminder_status_detail_calendar_permission">Grant calendar read and write permissions, then try again.</string>
+    <string name="reminder_status_detail_no_writable_calendar">Add a writable calendar or turn off calendar sync.</string>
+    <string name="reminder_status_detail_calendar_failed">Calendar writing or cleanup did not finish. Check the calendar and try again.</string>
+    <string name="import_error_too_large">The backup exceeds 8 MiB. Use a smaller file.</string>
+    <string name="import_error_read_failed">Could not read the backup. Check file access and try again.</string>
+    <string name="import_working">Processing backup…</string>
+    <string name="import_progress">Importing %1$d / %2$d</string>
+    <string name="import_execution_failed">Import did not finish. Preview again and retry; saved events will be skipped.</string>
+    <plurals name="hours_unit">
+        <item quantity="one">hour</item>
+        <item quantity="other">hours</item>
+    </plurals>
+    <string name="event_draft_recovery_failed">The editing draft could not be saved or restored. Check storage space; saved events are still available.</string>
 </resources>

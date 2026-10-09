@@ -1,6 +1,9 @@
 package com.example.timeapk.notifications
 
 import com.example.timeapk.data.CATEGORY_OTHER
+import com.example.timeapk.data.CATEGORY_ANNIVERSARY
+import com.example.timeapk.data.CATEGORY_BIRTHDAY
+import com.example.timeapk.ui.home.MilestoneReason
 import com.example.timeapk.data.Event
 import com.example.timeapk.data.REPEAT_NONE
 import org.junit.Assert.assertEquals
@@ -516,6 +519,45 @@ class MilestoneReminderSchedulerTest {
         assertNotNull(plan)
         assertEquals(1L, plan!!.milestoneValue)
         assertEquals(expectedReminderAt, plan.remindAtMillis)
+    }
+
+    @Test
+    fun anniversaryReminder_usesRealLeapYearDateAndYearLabel() {
+        val today = LocalDate.of(2024, 10, 8)
+        val event = Event(title = "anniversary", date = epochMillisOf(LocalDate.of(2023, 10, 9)), category = CATEGORY_ANNIVERSARY)
+        val plan = computeNextMilestoneReminderPlan(
+            event, emptyList(), 0, 600, true,
+            today = today, nowMillis = today.atTime(18, 0).atZone(zoneId).toInstant().toEpochMilli(), zoneId = zoneId
+        )!!
+        assertEquals(366L, plan.milestoneValue)
+        assertEquals(LocalDate.of(2024, 10, 9).atTime(10, 0).atZone(zoneId).toInstant().toEpochMilli(), plan.remindAtMillis)
+        assertEquals(MilestoneReason.ANNIVERSARY_YEAR, plan.milestoneReason)
+        assertEquals(1, plan.milestoneYears)
+    }
+
+    @Test
+    fun lunarBirthdayReminder_usesSameLunarOccurrenceAsUi() {
+        val today = LocalDate.of(2026, 1, 20)
+        val event = Event(title = "lunar", date = epochMillisOf(LocalDate.of(1996, 1, 25)), category = CATEGORY_BIRTHDAY, isLunar = true)
+        val plan = computeNextMilestoneReminderPlan(
+            event, emptyList(), 0, 600, true,
+            today = today, nowMillis = today.atTime(18, 0).atZone(zoneId).toInstant().toEpochMilli(), zoneId = zoneId
+        )!!
+        assertEquals(LocalDate.of(2026, 1, 24).atTime(10, 0).atZone(zoneId).toInstant().toEpochMilli(), plan.remindAtMillis)
+        assertEquals(MilestoneReason.BIRTHDAY_YEAR, plan.milestoneReason)
+        assertEquals(30, plan.milestoneYears)
+    }
+
+    @Test
+    fun milestoneToday_remainsEligibleBeforeReminderTime() {
+        val today = LocalDate.of(2026, 10, 9)
+        val event = Event(title = "100 days", date = epochMillisOf(today.minusDays(100)), category = CATEGORY_OTHER)
+        val plan = computeNextMilestoneReminderPlan(
+            event, listOf(100), 0, 600, false,
+            today = today, nowMillis = today.atTime(9, 0).atZone(zoneId).toInstant().toEpochMilli(), zoneId = zoneId
+        )!!
+        assertEquals(today.atTime(10, 0).atZone(zoneId).toInstant().toEpochMilli(), plan.remindAtMillis)
+        assertNull(plan.milestoneYears)
     }
 
     private fun ownedEvent(lastError: String?, lastSyncAt: Long) = Event(

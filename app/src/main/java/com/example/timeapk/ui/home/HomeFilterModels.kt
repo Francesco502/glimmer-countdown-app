@@ -19,6 +19,9 @@ internal fun homeCardTapNavigationEnabled(sortType: SortType): Boolean = true
 
 internal fun homeCardDragSortEnabled(sortType: SortType): Boolean = sortType == SortType.Custom
 
+internal fun homeReorderAllowed(fromId: Int, toId: Int, pinnedEventIds: List<Int>): Boolean =
+    fromId != toId && fromId !in pinnedEventIds && toId !in pinnedEventIds
+
 internal fun homeUsesListLevelReorderDetection(sortType: SortType): Boolean =
     false
 

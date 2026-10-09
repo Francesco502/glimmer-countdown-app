@@ -20,6 +20,7 @@ import com.example.timeapk.data.CATEGORY_BIRTHDAY
 import com.example.timeapk.data.CATEGORY_OTHER
 import com.example.timeapk.data.REPEAT_NONE
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
@@ -29,6 +30,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -47,7 +49,7 @@ import com.example.timeapk.data.REPEAT_HALF_YEARLY
 import com.example.timeapk.data.REPEAT_MONTHLY
 import com.example.timeapk.data.REPEAT_WEEKLY
 import com.example.timeapk.data.REPEAT_YEARLY
-import com.example.timeapk.permissions.areAppNotificationsEnabledCompat
+import com.example.timeapk.permissions.canPostEventReminderNotifications
 import com.example.timeapk.permissions.hasCalendarReadWritePermission
 import com.example.timeapk.permissions.openAppDetailsSettings
 import com.example.timeapk.permissions.openAppNotificationSettings
@@ -123,6 +125,7 @@ fun DetailScreen(
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var isDeleteInProgress by remember { mutableStateOf(false) }
     var showShareDialog by remember { mutableStateOf(false) }
+    var shareInProgress by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     if (eventState == null) {
@@ -230,7 +233,7 @@ fun DetailScreen(
     )
     val reminderStatus = buildReminderStatus(
         event = eventState.event,
-        notificationsEnabled = context.areAppNotificationsEnabledCompat(),
+        notificationsEnabled = context.canPostEventReminderNotifications(),
         calendarPermissionGranted = context.hasCalendarReadWritePermission(),
         hasWritableCalendar = true
     )
@@ -250,61 +253,72 @@ fun DetailScreen(
     if (showShareDialog) {
         SongFormDialog(
             title = stringResource(R.string.share_card_title),
-            onDismissRequest = { showShareDialog = false },
+            onDismissRequest = { if (!shareInProgress) showShareDialog = false },
             content = {
                 EventShareCard(
                     data = shareData,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(4f / 5f)
+                    modifier = Modifier.fillMaxWidth().aspectRatio(4f / 5f)
                 )
+                if (shareInProgress) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             },
             buttons = {
                 SongDialogButton(
                     text = stringResource(R.string.delete_confirm_cancel),
-                    onClick = { showShareDialog = false }
+                    enabled = !shareInProgress,
+                    onClick = { if (!shareInProgress) showShareDialog = false }
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 SongDialogButton(
                     text = stringResource(R.string.share_save_image),
+                    enabled = !shareInProgress,
                     onClick = {
-                        scope.launch {
-                            val savedUri = runCatching {
-                                withRenderedShareImage(shareData) { bitmap ->
-                                    ShareImageStore.saveShareImage(context, bitmap, shareImageName)
-                                }
-                            }.getOrNull()
-                            snackbarHostState.showSnackbar(
-                                context.getString(
-                                    if (savedUri != null) {
-                                        R.string.share_image_saved
-                                    } else {
-                                        R.string.share_image_failed
+                        if (!shareInProgress) {
+                            shareInProgress = true
+                            scope.launch {
+                                val savedUri = try {
+                                    withRenderedShareImage(shareData) { bitmap ->
+                                        ShareImageStore.saveShareImage(context, bitmap, shareImageName)
                                     }
+                                } catch (cancelled: CancellationException) {
+                                    throw cancelled
+                                } catch (_: Exception) {
+                                    null
+                                } finally {
+                                    shareInProgress = false
+                                }
+                                snackbarHostState.showSnackbar(
+                                    context.getString(if (savedUri != null) R.string.share_image_saved else R.string.share_image_failed)
                                 )
-                            )
+                            }
                         }
                     }
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 SongDialogButton(
                     text = stringResource(R.string.share_send_image),
+                    enabled = !shareInProgress,
                     onClick = {
-                        scope.launch {
-                            val shared = runCatching {
-                                val uri = withRenderedShareImage(shareData) { bitmap ->
-                                    ShareImageStore.cacheShareImage(context, bitmap, shareImageName)
+                        if (!shareInProgress) {
+                            shareInProgress = true
+                            scope.launch {
+                                val shared = try {
+                                    val uri = withRenderedShareImage(shareData) { bitmap ->
+                                        ShareImageStore.cacheShareImage(context, bitmap, shareImageName)
+                                    }
+                                    ShareImageStore.shareImage(context, uri, context.getString(R.string.share_chooser_title))
+                                    true
+                                } catch (cancelled: CancellationException) {
+                                    throw cancelled
+                                } catch (_: Exception) {
+                                    false
+                                } finally {
+                                    shareInProgress = false
                                 }
-                                ShareImageStore.shareImage(
-                                    context = context,
-                                    imageUri = uri,
-                                    chooserTitle = context.getString(R.string.share_chooser_title)
-                                )
-                            }.isSuccess
-                            if (shared) {
-                                showShareDialog = false
-                            } else {
-                                snackbarHostState.showSnackbar(context.getString(R.string.share_image_failed))
+                                if (shared) {
+                                    showShareDialog = false
+                                } else {
+                                    snackbarHostState.showSnackbar(context.getString(R.string.share_image_failed))
+                                }
                             }
                         }
                     }
@@ -316,6 +330,28 @@ fun DetailScreen(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        bottomBar = {
+            Box(
+                modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)
+                    .navigationBarsPadding().padding(horizontal = 16.dp, vertical = 4.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Box(modifier = Modifier.widthIn(max = DetailContentMaxWidth)) {
+                    DetailBottomActions(
+                        isPinned = eventState.event.id in pinnedEventIds,
+                        onPinClick = {
+                            scope.launch {
+                                prefs.togglePinnedEventId(eventState.event.id)
+                                WidgetUpdater.refreshCountdownWidgets(context)
+                            }
+                        },
+                        onEditClick = onEditClick,
+                        onShareClick = { showShareDialog = true },
+                        onDeleteClick = { showDeleteConfirm = true }
+                    )
+                }
+            }
+        },
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text(stringResource(R.string.detail_title), style = MaterialTheme.typography.titleLarge) },
@@ -396,20 +432,7 @@ fun DetailScreen(
                 )
             )
 
-            Spacer(modifier = Modifier.height(28.dp))
 
-            DetailBottomActions(
-                isPinned = eventState.event.id in pinnedEventIds,
-                onPinClick = {
-                    scope.launch {
-                        prefs.togglePinnedEventId(eventState.event.id)
-                        WidgetUpdater.refreshCountdownWidgets(context)
-                    }
-                },
-                onEditClick = onEditClick,
-                onShareClick = { showShareDialog = true },
-                onDeleteClick = { showDeleteConfirm = true }
-            )
         }
         }
         }
@@ -447,6 +470,16 @@ private fun detailTimeDisplayModeLabelRes(mode: Int): Int = when (mode) {
 }
 
 @Composable
+private fun detailDaysValue(days: Long, locale: Locale): String = stringResource(
+    R.string.quantity_with_unit,
+    formatDaysSmart(days, false, locale),
+    pluralStringResource(
+        R.plurals.days_unit,
+        days.coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt()
+    )
+)
+
+@Composable
 private fun detailTimeDisplay(
     eventState: EventUiState,
     mode: Int,
@@ -461,7 +494,7 @@ private fun detailTimeDisplay(
         DisplayModes.PAST_DAYS -> {
             val days = if (isRepeating) eventState.daysPassed else eventState.daysElapsed
             DetailTimeDisplay(
-                value = formatDaysSmart(days, false, locale) + stringResource(R.string.days_unit),
+                value = detailDaysValue(days, locale),
                 label = stringResource(R.string.days_past_label)
             )
         }
@@ -477,7 +510,7 @@ private fun detailTimeDisplay(
             } else {
                 val days = if (isRepeating) eventState.daysLeft else eventState.daysRemaining
                 DetailTimeDisplay(
-                    value = formatDaysSmart(days, false, locale) + stringResource(R.string.days_unit),
+                    value = detailDaysValue(days, locale),
                     label = com.example.timeapk.ui.utils.getUntilLabel(LocalContext.current, eventState)
                 )
             }
@@ -496,8 +529,8 @@ private fun detailTimeDisplay(
         DisplayModes.MILESTONE -> {
             val milestoneVal = eventState.nextMilestoneValue ?: 0L
             DetailTimeDisplay(
-                value = formatDaysSmart(eventState.nextMilestoneDays ?: 0L, false, locale) + stringResource(R.string.days_unit),
-                label = stringResource(R.string.milestone_label_prefix, milestoneLabel(milestoneVal))
+                value = detailDaysValue(eventState.nextMilestoneDays ?: 0L, locale),
+                label = stringResource(R.string.milestone_label_prefix, milestoneLabel(milestoneVal, eventState.nextMilestoneReason, eventState.nextMilestoneYears))
             )
         }
         else -> DetailTimeDisplay(value = "", label = "")

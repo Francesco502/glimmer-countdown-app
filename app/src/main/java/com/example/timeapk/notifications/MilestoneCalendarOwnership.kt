@@ -3,12 +3,24 @@ package com.example.timeapk.notifications
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.SharedPreferences
+import com.example.timeapk.data.Event
+import com.example.timeapk.ui.home.calendarCleanupRequired
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 internal enum class MilestoneCleanupScope {
     EVENT,
     GLOBAL
+}
+
+internal fun cleanupCalendarOwnershipForEvent(
+    event: Event,
+    cleanupManagedEntries: () -> CalendarCleanupResult,
+    cleanupPendingMilestones: () -> CalendarCleanupResult
+): CalendarCleanupResult = if (calendarCleanupRequired(event)) {
+    cleanupManagedEntries()
+} else {
+    cleanupPendingMilestones()
 }
 
 internal data class MilestoneOwnershipRegistryState(

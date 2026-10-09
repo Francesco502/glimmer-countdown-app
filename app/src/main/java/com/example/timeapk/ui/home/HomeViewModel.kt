@@ -21,12 +21,12 @@ import com.example.timeapk.notifications.syncMilestoneReminderForEvent
 import com.example.timeapk.notifications.enqueueMilestoneScheduleRetry
 import com.example.timeapk.notifications.eventAfterMilestoneScheduleSyncAttempt
 import com.example.timeapk.notifications.requestMilestoneScheduleRetryOnFailure
-import com.example.timeapk.notifications.recordManagedCalendarCleanupForMilestoneOwnership
 import com.example.timeapk.ui.utils.eventDateToLocalDate
 import com.example.timeapk.ui.utils.getNextLunarOccurrence
 import com.example.timeapk.ui.utils.getPreviousLunarOccurrence
 import com.example.timeapk.ui.utils.nextOccurrenceDate
 import com.example.timeapk.ui.utils.previousOccurrenceDate
+import com.nlf.calendar.Solar
 import com.example.timeapk.widget.WidgetUpdater
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -42,6 +42,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.Instant
+import java.time.Duration
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -56,9 +57,11 @@ private val SMART_BASE_MILESTONES = listOf(
 
 fun Event.toEventUiState(
     milestones: List<Long> = DEFAULT_MILESTONE_DAYS,
-    smartMilestonesEnabled: Boolean = true
+    smartMilestonesEnabled: Boolean = true,
+    now: Instant = Instant.now(),
+    zoneId: ZoneId = ZoneId.systemDefault()
 ): EventUiState {
-    val today = LocalDate.now()
+    val today = now.atZone(zoneId).toLocalDate()
     val targetDate = eventDateToLocalDate(date)
     val hasStarted = !targetDate.isAfter(today)
     var nextTargetDate = targetDate
@@ -77,7 +80,7 @@ fun Event.toEventUiState(
     }
 
     val daysDiff = ChronoUnit.DAYS.between(today, nextTargetDate)
-    val nextTargetInstant = nextTargetDate.atStartOfDay(ZoneId.systemDefault()).toInstant()
+    val nextTargetInstant = nextTargetDate.atStartOfDay(zoneId).toInstant()
     val isPast = daysDiff < 0
     val daysRemainingAbs = abs(daysDiff)
     val daysElapsed = if (isPast) daysRemainingAbs else 0L
@@ -88,11 +91,11 @@ fun Event.toEventUiState(
         prevTargetDate != null -> maxOf(0L, ChronoUnit.DAYS.between(prevTargetDate, today))
         else -> 0L
     }
-    val totalHours = ChronoUnit.HOURS.between(Instant.now(), nextTargetInstant)
-    val hoursRemaining = if (!isPast && totalHours in 0..23) {
-        totalHours
+    val remainingMillis = Duration.between(now, nextTargetInstant).toMillis()
+    val hoursRemaining = if (nextTargetDate.isAfter(today) && remainingMillis in 1L until 86_400_000L) {
+        (remainingMillis + 3_599_999L) / 3_600_000L
     } else {
-        0L
+        null
     }
 
     val milestoneCurrent = when {
@@ -115,7 +118,9 @@ fun Event.toEventUiState(
                 milestones = milestones,
                 current = milestoneCurrent,
                 smartMilestonesEnabled = smartMilestonesEnabled,
-                category = category
+                category = category,
+                event = this,
+                today = today
             )
         }
     }
@@ -131,7 +136,8 @@ fun Event.toEventUiState(
         nextMilestoneDays = nextMilestone?.daysUntil,
         nextMilestoneValue = nextMilestone?.value,
         nextOccurrenceDate = nextTargetDate,
-        nextMilestoneReason = nextMilestone?.reason
+        nextMilestoneReason = nextMilestone?.reason,
+        nextMilestoneYears = nextMilestone?.years
     )
 }
 
@@ -139,13 +145,17 @@ private fun computeNextMilestone(
     milestones: List<Long>,
     current: Long,
     smartMilestonesEnabled: Boolean,
-    category: String
+    category: String,
+    event: Event,
+    today: LocalDate
 ): MilestoneSelection? {
     val candidates = buildProgressMilestoneCandidates(
         customMilestones = milestones,
         current = current,
         smartEnabled = smartMilestonesEnabled,
-        category = category
+        category = category,
+        event = event,
+        today = today
     )
     val next = candidates
         .filter { it.value > current }
@@ -158,7 +168,8 @@ private fun computeNextMilestone(
     return MilestoneSelection(
         daysUntil = next.value - current,
         value = next.value,
-        reason = next.reason
+        reason = next.reason,
+        years = next.years
     )
 }
 
@@ -193,7 +204,9 @@ private fun buildProgressMilestoneCandidates(
     customMilestones: List<Long>,
     current: Long,
     smartEnabled: Boolean,
-    category: String
+    category: String,
+    event: Event,
+    today: LocalDate
 ): List<MilestoneCandidate> {
     val custom = customMilestones
         .filter { it > 0 }
@@ -224,16 +237,19 @@ private fun buildProgressMilestoneCandidates(
             priority = progressBasePriority(it)
         )
     }
-    val typed = when (category) {
-        CATEGORY_BIRTHDAY -> buildYearCycleMilestones(
-            current = current,
+    val typed = when {
+        event.repeatType != REPEAT_NONE && event.repeatType != REPEAT_YEARLY -> emptyList()
+        category == CATEGORY_BIRTHDAY -> buildYearCycleMilestones(
+            event = event,
+            today = today,
             yearReason = MilestoneReason.BIRTHDAY_YEAR,
             halfYearReason = MilestoneReason.BIRTHDAY_HALF_YEAR,
             yearPriority = 96,
             halfYearPriority = 86
         )
-        CATEGORY_ANNIVERSARY -> buildYearCycleMilestones(
-            current = current,
+        category == CATEGORY_ANNIVERSARY -> buildYearCycleMilestones(
+            event = event,
+            today = today,
             yearReason = MilestoneReason.ANNIVERSARY_YEAR,
             halfYearReason = MilestoneReason.ANNIVERSARY_HALF_YEAR,
             yearPriority = 98,
@@ -292,28 +308,60 @@ private fun buildCountdownMilestoneCandidates(
         .filter { it.value <= daysRemaining }
 }
 
+internal data class AnniversaryMilestone(val date: LocalDate, val years: Int)
+
+/** Calendar anniversaries remain distinct from user-defined elapsed-day milestones. */
+internal fun Event.upcomingAnniversaryMilestones(today: LocalDate): List<AnniversaryMilestone> {
+    if (category != CATEGORY_BIRTHDAY && category != CATEGORY_ANNIVERSARY) return emptyList()
+    val origin = eventDateToLocalDate(date)
+    if (!isLunar) {
+        val firstYear = maxOf(1, today.year - origin.year)
+        return (firstYear..firstYear + 6).map { years ->
+            AnniversaryMilestone(origin.plusYears(years.toLong()), years)
+        }.filter { !it.date.isBefore(today) }
+    }
+    return runCatching<List<AnniversaryMilestone>> {
+        val originLunarYear = Solar.fromYmd(origin.year, origin.monthValue, origin.dayOfMonth).lunar.year
+        var pivot = maxOf(today, origin.plusDays(1))
+        val result = mutableListOf<AnniversaryMilestone>()
+        repeat(7) {
+            val occurrence = getNextLunarOccurrence(origin, pivot)
+            if (occurrence.isBefore(pivot)) return@runCatching result
+            val lunarYear = Solar.fromYmd(occurrence.year, occurrence.monthValue, occurrence.dayOfMonth).lunar.year
+            result += AnniversaryMilestone(occurrence, lunarYear - originLunarYear)
+            pivot = occurrence.plusDays(1)
+        }
+        result
+    }.getOrDefault(emptyList())
+}
+
 private fun buildYearCycleMilestones(
-    current: Long,
+    event: Event,
+    today: LocalDate,
     yearReason: MilestoneReason,
     halfYearReason: MilestoneReason,
     yearPriority: Int,
     halfYearPriority: Int
 ): List<MilestoneCandidate> {
-    val startCycle = maxOf(0L, current / 365L - 1L)
-    return (startCycle..startCycle + 6L).flatMap { cycle ->
-        listOf(
-            MilestoneCandidate(
-                value = cycle * 365L + 183L,
-                reason = halfYearReason,
-                priority = halfYearPriority
-            ),
-            MilestoneCandidate(
-                value = (cycle + 1L) * 365L,
-                reason = yearReason,
-                priority = yearPriority
-            )
+    val origin = eventDateToLocalDate(event.date)
+    val years = event.upcomingAnniversaryMilestones(today).map { anniversary ->
+        MilestoneCandidate(
+            value = ChronoUnit.DAYS.between(origin, anniversary.date),
+            reason = yearReason,
+            priority = yearPriority,
+            years = anniversary.years
         )
     }
+    if (event.isLunar) return years
+    val firstCycle = maxOf(0, today.year - origin.year - 1)
+    val halfYears = (firstCycle..firstCycle + 6).map { cycle ->
+        MilestoneCandidate(
+            value = ChronoUnit.DAYS.between(origin, origin.plusYears(cycle.toLong()).plusMonths(6)),
+            reason = halfYearReason,
+            priority = halfYearPriority
+        )
+    }
+    return years + halfYears
 }
 
 private fun dedupeMilestoneCandidates(candidates: List<MilestoneCandidate>): List<MilestoneCandidate> {
@@ -370,13 +418,15 @@ private fun countdownMilestoneScore(candidate: MilestoneCandidate, daysRemaining
 private data class MilestoneCandidate(
     val value: Long,
     val reason: MilestoneReason,
-    val priority: Int
+    val priority: Int,
+    val years: Int? = null
 )
 
 private data class MilestoneSelection(
     val daysUntil: Long,
     val value: Long,
-    val reason: MilestoneReason
+    val reason: MilestoneReason,
+    val years: Int? = null
 )
 
 enum class MilestoneReason {
@@ -397,11 +447,12 @@ data class EventUiState(
     val daysLeft: Long = 0,
     val daysPassed: Long = 0,
     val isPast: Boolean,
-    val hoursRemaining: Long = 0,
+    val hoursRemaining: Long? = null,
     val nextMilestoneDays: Long? = null,
     val nextMilestoneValue: Long? = null,
     val nextOccurrenceDate: LocalDate,
-    val nextMilestoneReason: MilestoneReason? = null
+    val nextMilestoneReason: MilestoneReason? = null,
+    val nextMilestoneYears: Int? = null
 )
 
 class HomeViewModel(
@@ -436,8 +487,8 @@ class HomeViewModel(
         userPrefs.customMilestonesFlow,
         smartMilestonesEnabled,
         minuteTickerFlow()
-    ) { events: List<Event>, milestones: List<Long>, smartEnabled: Boolean, _: Long ->
-        events.map { it.toEventUiState(milestones, smartEnabled) }
+    ) { events: List<Event>, milestones: List<Long>, smartEnabled: Boolean, nowMillis: Long ->
+        events.map { it.toEventUiState(milestones, smartEnabled, Instant.ofEpochMilli(nowMillis)) }
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -555,14 +606,9 @@ class HomeViewModel(
         event = event,
         nowMillis = System::currentTimeMillis,
         cleanup = { target ->
-            recordManagedCalendarCleanupForMilestoneOwnership(
+            ScheduleSyncManager.removeManagedCalendarEntries(
                 context = application,
-                eventId = target.id,
-                result = ScheduleSyncManager.removeManagedCalendarEntries(
-                    context = application,
-                    eventId = target.id,
-                    calendarEventId = target.scheduleEventId
-                )
+                event = target
             )
         },
         update = repository::updateEvent,
@@ -589,9 +635,9 @@ class HomeViewModel(
                     )
                     eventAfterScheduleSyncAttempt(savedEvent, syncResult)
                 } else {
-                    val cleanup = ScheduleSyncManager.removeScheduleReminderByEventId(
+                    val cleanup = ScheduleSyncManager.removeManagedCalendarEntries(
                         application,
-                        savedEvent.id
+                        savedEvent
                     )
                     eventAfterCleanupAttempt(
                         event = savedEvent,

@@ -54,26 +54,30 @@ class WidgetContentResolverTest {
 
     @Test
     fun filterAndSortStates_appliesContentScopes() {
+        // Keep scope assertions independent of construction-time millisecond boundaries.
         val birthday = Event(
             id = 1,
             title = "birthday",
             date = epochMillisOf(LocalDate.now().plusDays(3)),
             category = CATEGORY_BIRTHDAY,
-            repeatType = REPEAT_NONE
+            repeatType = REPEAT_NONE,
+            createdAt = 0L
         )
         val normal = Event(
             id = 2,
             title = "normal",
             date = epochMillisOf(LocalDate.now().plusDays(8)),
             category = CATEGORY_OTHER,
-            repeatType = REPEAT_NONE
+            repeatType = REPEAT_NONE,
+            createdAt = 0L
         )
         val past = Event(
             id = 3,
             title = "past",
             date = epochMillisOf(LocalDate.now().minusDays(2)),
             category = CATEGORY_OTHER,
-            repeatType = REPEAT_NONE
+            repeatType = REPEAT_NONE,
+            createdAt = 0L
         )
         val states = listOf(birthday, normal, past).map { it.toEventUiState() }
 

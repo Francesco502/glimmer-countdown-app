@@ -30,6 +30,11 @@ class DetailHeroTimeAccessibilityTest {
     fun cyclingTimeDisplayAnnouncesValueModeAndAction() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val actionLabel = context.getString(R.string.cd_toggle_date_delta_display)
+        val expectedDaysValue = if (context.resources.configuration.locales[0].language == "en") {
+            "10 days"
+        } else {
+            "10天"
+        }
         val targetDate = LocalDate.now().plusDays(10)
         val eventState = EventUiState(
             event = Event(
@@ -64,6 +69,10 @@ class DetailHeroTimeAccessibilityTest {
             node.config.contains(SemanticsProperties.ContentDescription) &&
                 node.config[SemanticsProperties.ContentDescription].any(String::isNotBlank)
         }
+        val formattedDaysDescription = SemanticsMatcher("localized plural days with number-unit spacing") { node ->
+            node.config.contains(SemanticsProperties.ContentDescription) &&
+                node.config[SemanticsProperties.ContentDescription].any { it.contains(expectedDaysValue) }
+        }
         val nonEmptyMode = SemanticsMatcher("non-empty current time display mode") { node ->
             node.config.contains(SemanticsProperties.StateDescription) &&
                 node.config[SemanticsProperties.StateDescription].isNotBlank()
@@ -72,6 +81,7 @@ class DetailHeroTimeAccessibilityTest {
         composeRule.onNode(labeledCycleAction)
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
             .assert(nonEmptyDescription)
+            .assert(formattedDaysDescription)
             .assert(nonEmptyMode)
             .assertHasClickAction()
     }
