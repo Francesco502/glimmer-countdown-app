@@ -228,7 +228,9 @@ class Smoke:
             if scroll:
                 containers = [node for node in tree.nodes if node.get("scrollable") == "true" and not editable(node)]
                 if not containers:
-                    raise SmokeFailure("No scroll container while looking for " + description)
+                    # Navigation can briefly expose the previous, non-scrollable page.
+                    time.sleep(0.4)
+                    continue
                 container = max(containers, key=lambda node: (bounds(node)[2] - bounds(node)[0]) * (bounds(node)[3] - bounds(node)[1]))
                 left, top, right, bottom = bounds(container)
                 x = (left + right) // 2
