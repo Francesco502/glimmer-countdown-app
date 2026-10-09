@@ -10,9 +10,9 @@
 
 | 项目 | 当前状态 | 完成所需证据 |
 |---|---|---|
-| 源码 revision | CI10 候选实际 PR merge 为 `7b55529ef9edc98153784ac11a9deca47a475340`；最终 commit 未冻结 | 最终 commit、干净工作区和本地/远端 exact tag 解引用结果 |
-| 自动测试与 lint | CI10 publisher 10/10；主程序与两渠道 AndroidTest 编译通过，Direct JVM 574/575；Play 测试、完整 lint 与 R8 本轮未执行 | 本节后续记录实际命令、测试数量、报告路径与对应 revision |
-| 模拟器运行与截图 | CI10 原生步骤未执行；输入和排序调度修复仍待实测，AMS 恢复与 MainActivity 五页未通过；旧组件证据仅属各自 Direct debug / synthetic scope | APK 哈希、系统镜像、操作路径、新鲜截图、UI 树和崩溃日志 |
+| 源码 revision | CI11 候选实际 PR merge 为 `7ef83906e5cda51a00a197b22587d6adf7e1ea87`；最终 commit 未冻结 | 最终 commit、干净工作区和本地/远端 exact tag 解引用结果 |
+| 自动测试与 lint | CI11 Direct/Play JVM 各 575/575、publisher 10/10，三份 lint 各 0 error / 1 个 `OldTargetApi` warning；未签名 R8 构建通过 | 本节后续记录实际命令、测试数量、报告路径与对应 revision |
+| 模拟器运行与截图 | CI11 connected 46/49，新快速输入及页面重建回归通过；排序准备仍失败，runtime 最终备注定位错误，整体恢复与 MainActivity 五页未通过 | APK 哈希、系统镜像、操作路径、新鲜截图、UI 树和崩溃日志 |
 | 物理真机 | 当前无实体手机；未执行，按现有授权记录剩余限制 | 用户已明确授权发布并说明无手机；安装/升级、提醒、日历、Launcher 与性能缺少物理设备证据，不能写成通过，也不继承 v4.0 豁免 |
 | 正式签名 | 既有配置与 keystore 已取得；配置路径一致、私钥可用，证书与线上 v4.0 APK 一致 | 已完成 Java Properties / JCA 加载及证书 SHA-256 核验；最终 4.1 APK 仍须独立验签，不记录密码、密钥内容或 token |
 | 正式 APK | 本机中间候选已验签，非最终 tag 工件不得发布；最终 APK 尚待完成 | 从最终不可变 tag 新鲜构建的 exact Direct APK、大小、SHA-256、签名与真实包身份 |
@@ -115,6 +115,7 @@ CI6 的目标 APK 保留及组件采集已实际成功；CI5 的 `run-as: unknow
 
 ### 后续候选复验
 
+- [CI11 run 37924741446](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/37924741446) 实际 PR merge 为 `7ef83906e5cda51a00a197b22587d6adf7e1ea87`。JVM 各 575/575、publisher 10/10，三份 lint 各 0 error / 1 个 `OldTargetApi` warning；未签名 R8 APK 为 26,443,962 bytes，SHA-256 `fed94c615610e6c4d32ceb95c74fc3a39e1af29b4c87e5959921632064f76a11`。connected 46/49，新整串快速输入及页面重建用例实际通过（7.466s）；三项 Home 用例仍在排序准备等待失败，尚未进入拖动。runtime 记录 PID `5626→5967`、同一 task `78`、`package_stopped_after_kill=false`，并通过保存前的草稿与返回确认；最后 `11-reopen-event` 将视口内唯一标题框误匹配为备注框，整体 `passed=false`。原始详情 XML 中保存后的标题和备注均完整；字段查找须在局部容器关联标签，并滚动找到实际备注输入框后重新精确核验。artifact `11613754347`，108,346,395 bytes，archive digest `7b30328c9ca6acd060ec3e834addb7c61e5d1fbe2bdd6230ba5f3a3242ddbd75`；原始报告在忽略目录 `.tmp/ci11-37924741446/`，组件 16 项文件完整。后续排序 fixture 使用实际 UI 的语义点击回调，核心拖动保持真实触摸；物理菜单点击另由实际 MainActivity 脚本核对，不将 fixture 语义动作标为菜单触摸证据。
 - [CI10 run 37923334942](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/37923334942) 实际 PR merge 为 `7b55529ef9edc98153784ac11a9deca47a475340`。publisher 10/10、主程序与两渠道 AndroidTest 编译通过，Direct JVM 574/575；`WidgetContentResolverTest.filterAndSortStates_appliesContentScopes` 期望 `[1,2]`，实际 `[2,1]`。Play 测试、完整 lint、R8、connected 与 runtime 本轮未执行。artifact `11613327172`，205,786 bytes，archive digest `aaa7755f6ea70d6f928aa05fcde44b48a78fe40683daabf833a7cb8de5b79bd8`；原始失败 XML 在忽略目录 `.tmp/ci10-37923334942/`。后续 CI 独立尝试 Release 构建及原生验证，任何前置质量门失败仍使整个 job 失败，不放宽发布门。
 - [CI9 run 37920691029](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/37920691029) 实际 PR merge 为 `e94281a160d4e4bbde907dcbeb15ffa507a6fa24`。JVM 各 575/575、publisher 10/10，三份 lint 各 0 error / 1 个 `OldTargetApi` warning；未签名 R8 APK 为 26,444,546 bytes，SHA-256 `e6067974b5d472c6a75675dfab45a5e61dd5ca1ec97b793edd5b23c85a53bff5`。connected 45/48，三项均在排序偏好等待超时，未进入拖动；实际 runtime smoke 的 `02-enter-draft` 标题精确核验发现丢字符，未进入 AMS 回收、恢复或五页截图。artifact `11612487455`，105,276,471 bytes，archive digest `29f30f2799206f3f03f84ff7e51a5f26075d283f8e75d85cf0c593a8cf10131f`；原始 XML、输入命令、result.json 与截图在忽略目录 `.tmp/ci9-37920691029/`。
 - [CI8 run 37917421040](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/37917421040) 实际 PR merge 为 `e6006d487330d5dcdd0c35c42a31a39f86a19603`。JVM 各 575/575、publisher 10/10，三份 lint 各 0 error / 1 个 `OldTargetApi` warning；未签名 R8 APK 为 26,444,546 bytes，SHA-256 `1d5232bba59eebe4f950370712dc86c6398d875f13f00422c77abafcbb118636`。connected 45/48，三项排序测试均在准备函数找不到 `E2EDrag-A`，未进入拖动断言；runtime smoke 未执行。artifact `11611366183`，106,618,633 bytes，archive digest `94d13556871ab6345c6e4ce7f6f729fbcbd61617e3fa59ab895e5eb01978197f`，原始报告位于忽略目录 `.tmp/ci8-37917421040/`；组件 16 项文件完整。后续 CI 保留 connected 的失败退出码并独立执行 runtime smoke，分别判断两个结果，不将失败改为通过。

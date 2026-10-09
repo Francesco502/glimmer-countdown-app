@@ -8,6 +8,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -15,6 +16,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.printToString
@@ -229,10 +231,30 @@ class HomeFilteredReorderGestureTest {
         }
         composeRule.onNodeWithText("E2EDrag-A").assertExists()
         composeRule.onNodeWithContentDescription(homeToolsDescription).performClick()
-        composeRule.onNodeWithText(customSortLabel).performScrollTo().performClick()
-        composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule.mainClock.advanceTimeByFrame()
-            runBlocking { app.userPrefs.sortTypeFlow.first() } == SortType.Custom.ordinal
+        // Fixture preparation exercises the UI callback, independently of popup
+        // touch coordinates. The reorder tests below retain real down/move/up input.
+        val customSortOption = composeRule.onNodeWithText(customSortLabel)
+            .performScrollTo().assertIsDisplayed()
+        val optionBeforeClick = customSortOption.fetchSemanticsNode()
+        val optionBoundsBeforeClick = optionBeforeClick.boundsInRoot
+        val optionSelectedBeforeClick = optionBeforeClick.config.getOrNull(SemanticsProperties.Selected)
+        val sortClockStart = composeRule.mainClock.currentTime
+        customSortOption.performSemanticsAction(SemanticsActions.OnClick) { click ->
+            assertTrue("Custom sort UI callback must accept the action", click())
+        }
+        try {
+            composeRule.waitUntil(timeoutMillis = 5_000) {
+                composeRule.mainClock.advanceTimeByFrame()
+                runBlocking { app.userPrefs.sortTypeFlow.first() } == SortType.Custom.ordinal
+            }
+        } catch (failure: Throwable) {
+            println("Custom sort fixture: composeElapsedMs=${composeRule.mainClock.currentTime - sortClockStart}, " +
+                "persistedSort=${runCatching { runBlocking { app.userPrefs.sortTypeFlow.first() } }.getOrNull()}, " +
+                "optionBounds=$optionBoundsBeforeClick, " +
+                "optionSelected=$optionSelectedBeforeClick")
+            println(runCatching { composeRule.onAllNodes(isRoot(), useUnmergedTree = true).printToString() }
+                .getOrElse { "Semantics unavailable: $it" })
+            throw failure
         }
         composeRule.waitUntil(timeoutMillis = 5_000) {
             composeRule.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isEmpty()

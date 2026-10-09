@@ -82,9 +82,13 @@ class UiTree:
             if not editable(node):
                 continue
             # Compose can expose the description on the EditText or its wrapper.
-            # Otherwise require a labelled container with exactly one EditText.
+            # Otherwise require a local labelled container with exactly one EditText.
             container = node
             for _ in range(4):
+                # A form may show another field's label while its EditText is below
+                # the viewport. The whole scroll container cannot bind that label.
+                if container.get("scrollable") == "true":
+                    break
                 children = list(container.iter("node"))
                 edits = [child for child in children if editable(child)]
                 labelled = container.get("content-desc") in labels or any(
@@ -99,7 +103,7 @@ class UiTree:
                     break
         return self.unique(matches, "EditText labelled " + repr(labels))
 
-    def action(self, labels=(), title=None):
+    def action(self, labels=(), title=None, allow_selected=False):
         matches = []
         event_matches = []
         for node in self.nodes:
@@ -109,7 +113,11 @@ class UiTree:
             if not (exact or event):
                 continue
             target = node
-            while target is not None and target.get("clickable") != "true":
+            # Compose omits the accessibility click action on selected choices,
+            # although their native touch target still accepts taps.
+            while target is not None and target.get("clickable") != "true" and not (
+                allow_selected and (target.get("selected") == "true" or target.get("checked") == "true")
+            ):
                 target = self.parents.get(target)
             if target is not None and target.get("enabled") != "false" and bounds(target):
                 matches.append(target)
@@ -470,7 +478,7 @@ class Smoke:
                              pages_scope="Five actual MainActivity pages: home cards, calendar, the unique saved event detail, settings root, and app-internal widget default configuration preview; no Launcher widget binding claim.")
 
         def selected(tree, labels):
-            node = tree.action(labels)
+            node = tree.action(labels, allow_selected=True)
             return node is not None and (node.get("selected") == "true" or node.get("checked") == "true")
 
         def capture(stage, visible):
@@ -497,11 +505,43 @@ class Smoke:
         defaults = ("Default configuration", "默认配置")
         preview = ("Preview", "预览")
         self.stage = "pages-01-home-cards"
-        self.tap(self.seek("Cards tab", lambda tree: tree.action(cards)))
-        capture(self.stage, lambda tree: selected(tree, cards) and tree.action(title=title) is not None)
+        self.tap(self.seek("Cards tab", lambda tree: tree.action(cards, allow_selected=True)))
+
+        tools = ("Filters and sorting", "筛选与排序")
+        by_days = ("By days left", "按剩余天数")
+        custom = ("Custom order", "自定义排序")
+        self.evidence["sort_menu_touch"] = {
+            "passed": False, "selections": [],
+            "scope": "Actual MainActivity menu touch targets, reopened selected-state XML, and native Back dismissal; an initially selected ByDays is not evidence of a state change.",
+        }
+        self.stage = "pages-sort-00-open"
+        self.tap(self.seek("Filters and sorting", lambda tree: tree.action(tools)))
+        for name, labels in (("by-days", by_days), ("custom", custom)):
+            self.stage = "pages-sort-" + name + "-tap"
+            self.tap(self.seek(name + " sort option", lambda tree: tree.action(labels, allow_selected=True), scroll=True))
+            # A physical option tap must dismiss the popup before reopening it.
+            self.tap(self.seek("reopen Filters and sorting", lambda tree: tree.action(tools)))
+            self.stage = "pages-sort-" + name + "-selected"
+            self.seek(name + " selected after reopening", lambda tree: tree.root if selected(tree, labels) else None, scroll=True)
+            tree = self.checkpoint(self.stage)
+            if not selected(tree, labels):
+                raise SmokeFailure("Sort selection changed before capture: " + name)
+            node = tree.action(labels, allow_selected=True)
+            self.evidence["sort_menu_touch"]["selections"].append({
+                "sort": name, "checked": node.get("checked"), "selected": node.get("selected"),
+                "xml": str(Path(self.last_xml).relative_to(self.output)), "png": self.stage + ".png",
+            })
+        self.run("shell", "input", "keyevent", "BACK")
+        self.stage = "pages-01-home-cards"
+        capture(self.stage, lambda tree: selected(tree, cards) and tree.action(title=title) is not None and
+                not tree.contains(by_days + custom))
+        self.evidence["sort_menu_touch"].update(
+            passed=True, closed_by_native_back=True,
+            closed_xml=str(Path(self.last_xml).relative_to(self.output)), closed_png=self.stage + ".png"
+        )
 
         self.stage = "pages-02-calendar"
-        self.tap(self.seek("Calendar tab", lambda tree: tree.action(calendar)))
+        self.tap(self.seek("Calendar tab", lambda tree: tree.action(calendar, allow_selected=True)))
         capture(self.stage, lambda tree: selected(tree, calendar) and
                 tree.contains(("Previous month", "上个月")) and tree.contains(("Next month", "下个月")))
         self.tap(self.seek("unique saved event in calendar", lambda tree: tree.action(title=title), scroll=True))
