@@ -261,7 +261,10 @@ class Smoke:
         node = self.seek(key, lambda tree: tree.field(LABELS[key]), scroll=True, upward=key == "title")
         if node.get("text", ""):
             raise SmokeFailure("New draft " + key + " was not empty")
-        self.tap(node)
+        # 4.0 autofocus can show its IME after the XML dump; retapping an
+        # already focused field can hit the keyboard at the old coordinates.
+        if not confirm_each_character or node.get("focused") != "true":
+            self.tap(node)
         if confirm_each_character:
             # The immutable 4.0 baseline has the old delayed text-echo race. Only
             # its upgrade fixture waits for each exact prefix through the real UI.
@@ -552,6 +555,7 @@ class Smoke:
         self.tap(self.seek("unique saved event in calendar", lambda tree: tree.action(title=title), scroll=True))
         capture("pages-03-event-detail", lambda tree: tree.contains(("Event detail", "事件详情")) and
                 tree.contains((title,)) and tree.action(LABELS["edit"]) is not None)
+        self.check_share(title)
 
         self.tap_action("back")
         self.stage = "pages-04-settings-root"
@@ -565,6 +569,125 @@ class Smoke:
         if not tree.contains(preview):
             self.tap(tree.action(defaults))
         capture(self.stage, lambda tree: tree.contains(widget) and tree.contains(defaults) and tree.contains(preview))
+
+    def check_share(self, title):
+        share = ("Share", "分享")
+        dialog = ("Share card", "分享笺")
+        save = ("Save image", "保存图片")
+        send = ("Share", "唤起分享")
+        saved = ("Image saved", "图片已入相册")
+        failed = ("Could not prepare the image", "成图未成，稍候再试")
+        safe_title = re.sub(r"[^A-Za-z0-9\u4e00-\u9fa5_-]+", "-", title).strip("-")[:28] or "event"
+        name = "timeapk-" + safe_title + ".png"
+        media = "content://media/external/images/media"
+        self.evidence["share_check"] = {
+            "passed": False, "title": title, "display_name": name,
+            "scope": "Actual MainActivity save to MediaStore and raw PNG verification; system chooser opened and cancelled; no recipient selection, URI-read or delivery claim.",
+        }
+
+        def media_rows():
+            # Filename characters are restricted above; retain SQL string quotes
+            # across adb shell's argument joining without accepting arbitrary SQL.
+            result = self.text("shell", "content", "query", "--uri", media,
+                               "--projection", "_id:_display_name:mime_type:relative_path:is_pending",
+                               "--where", '"_display_name=\'' + name + '\'"')
+            if result.strip() == "No result found.":
+                return []
+            rows = [dict(field.strip().split("=", 1) for field in line.split(", "))
+                    for line in re.findall(r"^Row:\s*\d+\s+(.+)$", result, re.MULTILINE)]
+            if not rows or any(not re.fullmatch(r"\d+", row.get("_id", "")) or
+                               row.get("_display_name") != name for row in rows):
+                raise SmokeFailure("Unexpected MediaStore query result: " + result[-500:])
+            return rows
+
+        def dialog_ready(tree):
+            if tree.contains(failed):
+                raise SmokeFailure("Actual share UI reported image preparation failure")
+            return tree if tree.contains(dialog) and tree.action(save) is not None and any(
+                title in node.get("content-desc", "") for node in tree.nodes) else None
+
+        def save_feedback(tree):
+            if tree.contains(failed):
+                raise SmokeFailure("Actual share UI reported image save failure")
+            return str(Path(self.last_xml).relative_to(self.output)) if tree.contains(saved) else None
+
+        self.stage = "share-00-media-before"
+        before_ids = {row["_id"] for row in media_rows()}
+        self.stage = "share-01-preview"
+        self.tap(self.seek("detail Share", lambda tree: tree.action(share)))
+        self.seek("rendered share dialog", dialog_ready)
+        self.checkpoint(self.stage)
+        self.stage = "share-02-save"
+        self.tap(self.seek("Save image", lambda tree: tree.action(save)))
+
+        def published_image():
+            rows = [row for row in media_rows() if row["_id"] not in before_ids]
+            if len(rows) > 1:
+                raise SmokeFailure("One save action created multiple MediaStore images")
+            if rows and rows[0].get("is_pending") == "0":
+                row = rows[0]
+                if row.get("mime_type") != "image/png" or row.get("relative_path", "").strip("/") != "Pictures/TimeAPK":
+                    raise SmokeFailure("Saved image MIME or location differs: " + repr(row))
+                return row
+            return None
+
+        tree = self.seek("completed save controls", lambda tree: tree if
+                         tree.action(("Cancel", "取消")) is not None else None)
+        feedback_xml = save_feedback(tree)
+        if feedback_xml:
+            self.screenshot("share-02-save-feedback")
+        self.tap(tree.action(("Cancel", "取消")))
+        tree = self.checkpoint("share-03-saved-detail")
+        feedback_xml = save_feedback(tree) or feedback_xml
+        row = self.wait("new published share image", published_image, timeout=20)
+        uri = media + "/" + row["_id"]
+        image_path = self.output / "share-saved-image.png"
+        data = self.run("exec-out", "content", "read", "--uri", uri, destination=image_path)
+        if len(data) < 33 or not data.startswith(b"\x89PNG\r\n\x1a\n") or data[12:16] != b"IHDR" or not data.endswith(b"\x00\x00\x00\x00IEND\xaeB`\x82"):
+            raise SmokeFailure("Saved MediaStore image is not a complete PNG")
+        dimensions = (int.from_bytes(data[16:20], "big"), int.from_bytes(data[20:24], "big"))
+        if dimensions != (1080, 1350) or not image_path.is_file():
+            raise SmokeFailure("Saved share image dimensions differ: " + repr(dimensions))
+        self.evidence["share_check"].update(
+            source="MediaStore row created by this UI save action", saved_uri=uri, media_row=row,
+            saved_png=image_path.name, bytes=len(data), sha256=hashlib.sha256(data).hexdigest(),
+            width=dimensions[0], height=dimensions[1], feedback_observed=feedback_xml is not None,
+            feedback_xml=feedback_xml,
+            feedback_scope="Transient success feedback is recorded only if observed; new published row and raw PNG independently prove saving.",
+        )
+
+        self.stage = "share-04-chooser"
+        self.tap(self.seek("reopen detail Share", lambda tree: tree.action(share)))
+        tree = self.seek("rendered share dialog", dialog_ready)
+        self.tap(tree.action(send))
+
+        def chooser_activity():
+            state = self.text("shell", "dumpsys", "activity", "activities")
+            if re.search(r"(?:mResumedActivity|topResumedActivity|ResumedActivity)[^\n]*(?:android|com\.android\.intentresolver)/[^\s}]*ChooserActivity\b", state) and "android.intent.action.CHOOSER" in state:
+                return state
+            return None
+
+        activity = self.wait("system chooser Activity", chooser_activity, timeout=20)
+        (self.output / "share-04-chooser-activity.txt").write_text(activity, encoding="utf-8")
+        # The chooser is a system-package window, deliberately outside UiTree.nodes.
+        chooser_xml = self.output / "share-04-chooser.xml"
+        self.run("shell", "uiautomator", "dump", "/sdcard/glimmer-runtime-smoke.xml", timeout=12)
+        raw = self.run("exec-out", "cat", "/sdcard/glimmer-runtime-smoke.xml", destination=chooser_xml)
+        ET.fromstring(raw)
+        self.last_xml = str(chooser_xml)
+        self.screenshot(self.stage)
+        self.run("shell", "input", "keyevent", "BACK")
+        self.stage = "share-05-returned-detail"
+        self.seek("same detail after chooser Back", lambda tree: tree.root if
+                  tree.contains(("Event detail", "事件详情")) and tree.contains((title,)) and
+                  tree.action(LABELS["edit"]) is not None and not tree.contains(dialog) else None)
+        self.checkpoint(self.stage)
+        activity_file = self.output / (self.stage + "-activity.txt")
+        activity = self.text("shell", "dumpsys", "activity", "activities", destination=activity_file)
+        if not re.search(r"(?:mResumedActivity|topResumedActivity|ResumedActivity)[^\n]*" + re.escape(COMPONENT) + r"\b", activity):
+            raise SmokeFailure("Chooser Back did not resume MainActivity")
+        self.evidence["share_check"].update(passed=True, chooser_xml=chooser_xml.name,
+                                           chooser_png="share-04-chooser.png", returned_activity=activity_file.name)
 
     def check_update(self):
         self.stage = "update-01-open-about"
