@@ -243,13 +243,20 @@ class Smoke:
         if node.get("text") != expected:
             raise SmokeFailure("%s value differs: expected %r, got %r" % (key, expected, node.get("text")))
 
-    def enter(self, key, value):
+    def enter(self, key, value, confirm_each_character=False):
         self.hide_keyboard()
         node = self.seek(key, lambda tree: tree.field(LABELS[key]), scroll=True, upward=key == "title")
         if node.get("text", ""):
             raise SmokeFailure("New draft " + key + " was not empty")
         self.tap(node)
-        self.run("shell", "input", "text", value)
+        if confirm_each_character:
+            # The immutable 4.0 baseline has the old delayed text-echo race. Only
+            # its upgrade fixture waits for each exact prefix through the real UI.
+            for index, character in enumerate(value, 1):
+                self.run("shell", "input", "text", character)
+                self.field_text(key, value[:index], scroll=False)
+        else:
+            self.run("shell", "input", "text", value)
         self.field_text(key, value, scroll=False)
         self.hide_keyboard()
 
@@ -391,15 +398,17 @@ class Smoke:
         if (before["versionName"], before["versionCode"]) != ("4.0", "23"):
             raise SmokeFailure("Upgrade requires installed baseline 4.0/23, got " + repr(before))
 
-        nonce = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S") + "-" + uuid.uuid4().hex[:8]
+        nonce = uuid.uuid4().hex[:12]
         title, note = "UpgradeEvent-" + nonce, "UpgradeNote-" + nonce
-        self.evidence.update(title=title, note=note)
+        self.evidence.update(title=title, note=note,
+                             baseline_input="4.0 only: each ASCII character confirmed against its complete UI prefix",
+                             baseline_input_character_count=len(title) + len(note))
         self.launch()
         self.checkpoint("upgrade-02-baseline-home")
         self.tap_action("add")
         self.stage = "upgrade-03-create-fixture"
-        self.enter("title", title)
-        self.enter("note", note)
+        self.enter("title", title, confirm_each_character=True)
+        self.enter("note", note, confirm_each_character=True)
         self.checkpoint(self.stage)
         self.tap_action("save")
         self.stage = "upgrade-04-saved-baseline"

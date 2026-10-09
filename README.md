@@ -23,7 +23,7 @@
 ## 4.1 候选修复范围
 
 - 修复普通事件产生虚假日历权限错误的清理路径，同时保留真实受管日历记录的删除保护。
-- 完善编辑草稿恢复、保存任务生命周期、导入防重复执行和更新下载完整性。
+- 完善编辑草稿恢复、保存任务生命周期、连续输入、导入防重复执行和更新下载完整性。
 - 接入 24 小时内小时显示，统一详情页的时间与偏好，明确固定天数纪念节点和周年的区别。
 - 改善筛选条件反馈、返回关闭工具面板、排序无障碍、短窗口月历和分享图片的一致性。
 - 保留桌面小组件独立配置与 1-5 格“预览宽度 / 预览高度”，复核配置恢复、保存反馈和 Launcher 实际表现。
@@ -82,7 +82,7 @@
 - Direct release APK 的模拟器安装 / 升级、性能与更新 smoke；物理手机安装、提醒、日历与 Launcher 验收当前未执行，按现有发布授权记录剩余限制
 - GitHub Release 只保留 `glimmer-countdown-4-1.apk`，并完成公开下载复验、线上重装、更新检查与关键链路 smoke
 
-2026-10-09 [CI8](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/37917421040) 实际执行 PR merge `e6006d487330d5dcdd0c35c42a31a39f86a19603`：Direct/Play JVM 各 575 项，失败/错误/跳过均为 0；publisher 10/10；三份完整 lint 各 0 error、1 个 `OldTargetApi` warning（目标 SDK 维持 36）。强制新鲜执行的未签名 R8 构建通过，API36 connected 为 48 项、3 失败、0 错误、0 跳过，三项均停在排序测试的数据加载阶段，尚未进入拖动验证。组件月历、英文单位和固定详情操作截图已审阅；测试调度修复仍须下一轮实证。实际进程恢复、完整页面截图、最终正式 APK 与公开下载仍待完成，详见[清单](docs/RELEASE_CHECKLIST.md)。
+2026-10-09 [CI9](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/37920691029) 实际执行 PR merge `e94281a160d4e4bbde907dcbeb15ffa507a6fa24`：Direct/Play JVM 各 575 项，失败/错误/跳过均为 0；publisher 10/10；三份完整 lint 各 0 error、1 个 `OldTargetApi` warning（目标 SDK 维持 36）。强制新鲜执行的未签名 R8 构建通过，API36 connected 为 48 项、3 失败、0 错误、0 跳过，三项均停在排序偏好等待阶段，尚未进入拖动验证。首次实际 runtime smoke 在录入标题时发现丢字符，尚未进入进程回收。组件月历、英文单位和固定详情操作截图已审阅；输入与测试调度修复仍须下一轮实证。实际进程恢复、完整页面截图、最终正式 APK 与公开下载仍待完成，详见[清单](docs/RELEASE_CHECKLIST.md)。
 
 publisher 会拒绝脏工作区或未指向 exact tag 的 `HEAD`，并核对输出元数据与 APK 的真实包名、版本、权限和非调试状态。发布流程禁止移动已推送的 tag 或覆盖已发布 Release，GitHub Release 仅上传 exact Direct APK。
 

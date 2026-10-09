@@ -32,9 +32,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -1326,7 +1324,6 @@ private fun SongInkTextField(
     val keyboardController = LocalSoftwareKeyboardController.current
     val view = LocalView.current
     val clickInteractionSource = remember { MutableInteractionSource() }
-    var fieldValue by remember { mutableStateOf(TextFieldValue(value)) }
     val requestInputFocus = {
         focusRequester.requestFocus()
         keyboardController?.show()
@@ -1340,15 +1337,6 @@ private fun SongInkTextField(
     LaunchedEffect(requestInitialFocus) {
         if (requestInitialFocus) {
             requestInputFocus()
-        }
-    }
-
-    LaunchedEffect(value) {
-        if (value != fieldValue.text) {
-            fieldValue = TextFieldValue(
-                text = value,
-                selection = TextRange(value.length)
-            )
         }
     }
 
@@ -1368,14 +1356,11 @@ private fun SongInkTextField(
             color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(modifier = Modifier.height(4.dp))
+        // The String overload preserves IME selection/composition internally. An asynchronous
+        // upstream echo into a second text buffer can overwrite newer keys and restart input.
         TextField(
-            value = fieldValue,
-            onValueChange = { nextValue ->
-                fieldValue = nextValue
-                if (nextValue.text != value) {
-                    onValueChange(nextValue.text)
-                }
-            },
+            value = value,
+            onValueChange = onValueChange,
             modifier = Modifier
                 .fillMaxWidth()
                 .focusRequester(focusRequester)

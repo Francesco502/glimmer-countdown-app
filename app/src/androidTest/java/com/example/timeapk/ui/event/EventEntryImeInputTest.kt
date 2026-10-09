@@ -3,6 +3,7 @@ package com.example.timeapk.ui.event
 import android.view.KeyEvent
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
+import android.os.ParcelFileDescriptor
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
@@ -11,6 +12,7 @@ import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.text.AnnotatedString
 import androidx.test.espresso.Espresso.pressBack
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -87,6 +89,37 @@ class EventEntryImeInputTest {
 
         composeRule.activityRule.scenario.recreate()
         composeRule.onNode(hasSetTextAction() and hasText(PINYIN_COMPOSING_TEXT)).assertExists()
+    }
+
+    @Test
+    fun completeShellInputTitleAndNoteSurviveRecreationWithoutPerKeyIdle() {
+        val titleLabel = composeRule.activity.getString(R.string.field_title)
+        val noteLabel = composeRule.activity.getString(R.string.field_note)
+        val title = "OSDraft-20261009111042-73c7d7eb"
+        val note = "OSNote-20261009111042-73c7d7eb"
+
+        openEventEntry()
+        composeRule.onNodeWithContentDescription(titleLabel).performClick()
+        composeRule.waitForIdle()
+        shellInputText(title)
+        composeRule.onNode(hasSetTextAction() and hasText(title)).assertExists()
+
+        composeRule.onNodeWithContentDescription(noteLabel).performScrollTo().performClick()
+        composeRule.waitForIdle()
+        shellInputText(note)
+        composeRule.onNode(hasSetTextAction() and hasText(title)).assertExists()
+        composeRule.onNode(hasSetTextAction() and hasText(note)).assertExists()
+
+        composeRule.activityRule.scenario.recreate()
+        composeRule.onNode(hasSetTextAction() and hasText(title)).assertExists()
+        composeRule.onNode(hasSetTextAction() and hasText(note)).assertExists()
+    }
+
+    private fun shellInputText(value: String) {
+        // Exercise the same unpaced native key stream as the host runtime smoke.
+        val output = InstrumentationRegistry.getInstrumentation().uiAutomation
+            .executeShellCommand("input text $value")
+        ParcelFileDescriptor.AutoCloseInputStream(output).use { it.readBytes() }
     }
 
     private fun focusedInputConnection(): InputConnection {

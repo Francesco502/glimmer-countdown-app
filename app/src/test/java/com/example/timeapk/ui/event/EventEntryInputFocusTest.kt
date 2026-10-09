@@ -22,18 +22,15 @@ class EventEntryInputFocusTest {
     }
 
     @Test
-    fun inkTextFieldKeepsImeCompositionStateForPinyinInput() {
+    fun inkTextFieldUsesNativeImeStateWithoutDelayedTextEcho() {
         val source = readSource("ui/event/EventEntryScreen.kt")
         val textField = source.substringAfter("private fun SongInkTextField(")
             .substringBefore("@Composable\nprivate fun SongInkDateRow(")
 
-        assertTrue(source.contains("import androidx.compose.ui.text.input.TextFieldValue"))
-        assertTrue(textField.contains("var fieldValue by remember { mutableStateOf(TextFieldValue(value)) }"))
-        assertTrue(textField.contains("if (value != fieldValue.text)"))
-        assertTrue(textField.contains("value = fieldValue"))
-        assertTrue(textField.contains("onValueChange = { nextValue ->"))
-        assertTrue(textField.contains("fieldValue = nextValue"))
-        assertTrue(textField.contains("onValueChange(nextValue.text)"))
+        assertTrue(textField.contains("value = value"))
+        assertTrue(textField.contains("onValueChange = onValueChange"))
+        assertFalse(textField.contains("LaunchedEffect(value)"))
+        assertFalse(textField.contains("TextFieldValue("))
     }
 
     @Test

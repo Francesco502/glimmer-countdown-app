@@ -116,6 +116,7 @@ class HomeFilteredReorderGestureTest {
         composeRule.waitForIdle()
 
         composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.mainClock.advanceTimeByFrame()
             runBlocking {
                 app.userPrefs.customEventOrderFlow.first().take(4) ==
                     listOf(dragAId, hiddenId, dragCId, dragBId)
@@ -137,6 +138,7 @@ class HomeFilteredReorderGestureTest {
         val moveDown = actions.single { it.label == moveDownLabel }
         composeRule.runOnIdle { assertTrue(moveDown.action()) }
         composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.mainClock.advanceTimeByFrame()
             runBlocking { app.userPrefs.customEventOrderFlow.first().take(4) } ==
                 listOf(dragAId, hiddenId, dragCId, dragBId)
         }
@@ -199,6 +201,7 @@ class HomeFilteredReorderGestureTest {
             composeRule.mainClock.autoAdvance = true
         }
         composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.mainClock.advanceTimeByFrame()
             runBlocking { app.userPrefs.customEventOrderFlow.first().indexOf(dragAId) } > 4
         }
         val persisted = runBlocking { app.userPrefs.customEventOrderFlow.first() }
@@ -228,6 +231,7 @@ class HomeFilteredReorderGestureTest {
         composeRule.onNodeWithContentDescription(homeToolsDescription).performClick()
         composeRule.onNodeWithText(customSortLabel).performScrollTo().performClick()
         composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.mainClock.advanceTimeByFrame()
             runBlocking { app.userPrefs.sortTypeFlow.first() } == SortType.Custom.ordinal
         }
         composeRule.waitUntil(timeoutMillis = 5_000) {
