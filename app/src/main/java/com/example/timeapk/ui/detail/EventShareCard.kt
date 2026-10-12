@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -64,11 +63,8 @@ fun EventShareCard(
             runCatching { EventShareImageRenderer().render(data) }
         }
     }
-    // The 1080x1350 preview is large; free it as soon as the dialog closes or the data changes.
-    DisposableEffect(rendered) {
-        val previous = rendered?.getOrNull()
-        onDispose { previous?.recycle() }
-    }
+    // Do not recycle the preview on dispose: RenderThread may still draw the last
+    // frame that references it ("trying to use a recycled bitmap"). GC frees it.
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         val bitmap = rendered?.getOrNull()
         if (bitmap != null) {
