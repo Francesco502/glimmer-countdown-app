@@ -2,15 +2,31 @@
 
 拾光是一款面向 Android 的倒数日、生日与纪念日应用。它把日子整理成安静的纸笺、月历和桌面小组件，让重要时刻能被看见，也能被系统提醒与日历同步照顾到。
 
-`4.2` 为候选 / 未发布（`versionCode=25`，文档日期 2026-10-12）。发布门、实际验证与剩余限制见 [4.2 发布检查清单](docs/RELEASE_CHECKLIST.md)；设计与实施记录见 [4.2 设计文档](docs/superpowers/specs/2026-10-12-v4-2-experience-polish-design.md)。v4.1 与 v4.0 的发布证据保存在 [v4.1 历史清单](docs/releases/v4.1-checklist.md) 与 [v4.0 历史清单](docs/releases/v4.0-checklist.md)，不作为 4.2 的通过记录或豁免。
+`4.2` 已发布（`versionCode=25`，2026-10-12）。发布门、实际验证与剩余限制见 [4.2 发布检查清单](docs/RELEASE_CHECKLIST.md)；设计与实施记录见 [4.2 设计文档](docs/superpowers/specs/2026-10-12-v4-2-experience-polish-design.md)。v4.1 与 v4.0 的发布证据保存在 [v4.1 历史清单](docs/releases/v4.1-checklist.md) 与 [v4.0 历史清单](docs/releases/v4.0-checklist.md)，不作为 4.2 的通过记录或豁免。
 
 **唯一正式发布渠道：GitHub Release。** 4.2 的唯一官方资产为 Direct APK `glimmer-countdown-4-2.apk`，复用 v4.0 / v4.1 正式签名，可覆盖升级。Play flavor 仅保留用于兼容性与开发回归，不是正式发布工件或阻断项。
 
-最新公开版本为 `4.1`：[下载 v4.1 APK](https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v4.1)。4.2 公开前不提供下载。
+最新公开版本为 `4.2`：[下载 v4.2 APK](https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v4.2)
+
+## 4.2 模拟器界面
+
+以下截图来自线上正式 APK，按同一最终候选与新鲜构建核验，绑定不可变 `v4.2` 标签。环境为 API36、1080×1920、字体1.0；事件为 QA 夹具，小组件截图是应用内预览。原图来源、哈希与验证范围见[截图记录](docs/screenshots/4.2/README.md)。
+
+| 首页 | 月历 |
+|---|---|
+| <img src="docs/screenshots/4.2/home.png" width="260" alt="拾光4.2正式APK首页"> | <img src="docs/screenshots/4.2/calendar.png" width="260" alt="拾光4.2正式APK月历"> |
+
+| 详情 | 设置 |
+|---|---|
+| <img src="docs/screenshots/4.2/detail.png" width="260" alt="拾光4.2正式APK事件详情"> | <img src="docs/screenshots/4.2/settings.png" width="260" alt="拾光4.2正式APK设置"> |
+
+| 应用内小组件预览 | 分享预览 |
+|---|---|
+| <img src="docs/screenshots/4.2/widget-preview.png" width="260" alt="拾光4.2应用内小组件预览"> | <img src="docs/screenshots/4.2/share-preview.png" width="260" alt="拾光4.2实际分享图片预览"> |
 
 ## 历史界面预览（v4.1）
 
-以下 `docs/screenshots/4.1` 图片是 v4.1 历史截图，来自线上 v4.1 正式 APK，按当时同一最终候选与新鲜构建核验，绑定不可变 `v4.1` 标签；本轮不将这些截图视为 4.2 发布证据，4.2 界面截图在最终 tag 的正式签名 QA 后补充。环境为 API36、411dp、字体1.0；事件为 QA 夹具，小组件截图是应用内预览。原图来源、哈希与验证范围见[截图记录](docs/screenshots/4.1/README.md)。
+以下 `docs/screenshots/4.1` 图片是 v4.1 历史截图，来自线上 v4.1 正式 APK，按当时同一最终候选与新鲜构建核验，绑定不可变 `v4.1` 标签；本轮不将这些截图视为 4.2 发布证据，4.2 截图见上一节。环境为 API36、411dp、字体1.0；事件为 QA 夹具，小组件截图是应用内预览。原图来源、哈希与验证范围见[截图记录](docs/screenshots/4.1/README.md)。
 
 | 首页 | 月历 |
 |---|---|
@@ -69,7 +85,7 @@
 
 - `versionName`: `4.2`
 - `versionCode`: `25`
-- 发布状态：候选 / 未发布
+- 发布状态：已发布（2026-10-12）
 - Direct APK 目标文件名：`glimmer-countdown-4-2.apk`
 
 ## 构建与运行
@@ -106,7 +122,7 @@
 - Direct release APK 的模拟器安装 / v4.1→v4.2 升级、性能与更新 smoke；物理手机安装、提醒、日历与 Launcher 验收按评审决定不安排，记录为未执行
 - GitHub Release 只保留 `glimmer-countdown-4-2.apk`，并完成公开下载复验、线上重装、更新检查与关键链路 smoke
 
-4.2 尚未执行最终标签 CI、正式签名 QA 与公开发布；本机候选核对结果（JVM 各 637/637、lint 无问题、API36 模拟器人工核对）记录在[清单](docs/RELEASE_CHECKLIST.md)，不作为发布门证据。v4.1 的最终标签、正式签名与公开复验记录见 [v4.1 历史清单](docs/releases/v4.1-checklist.md)。
+2026-10-12 [最终标签 CI](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/38235651872)：Direct/Play JVM各638/638、原生51/51、publisher10/10、lint无error，R8新鲜构建通过。[最终正式签名QA](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/38238275647) 在API26/31/36全部通过v4.1→v4.2覆盖升级、精确数据保留与进程恢复；API36五页、真实相册保存和分享选择器返回通过。正式APK为12,513,338 bytes，SHA-256 `7fe9673e4b3a85f4152c1e5786f8a221779a95fc56578f9c93b660b4e9019e74`，公开下载独立验签通过。[线上安装与更新复验](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/38239618078) 三平台全部成功，API36实际更新检查显示已是最新版本；原始范围见[清单](docs/RELEASE_CHECKLIST.md)。APK源码与QA工具均为不可变标签 `f0937448efa02232d5c6b1d47c531d50cad0797e`。
 
 publisher 会拒绝脏工作区或未指向 exact tag 的 `HEAD`，并核对输出元数据与 APK 的真实包名、版本、权限和非调试状态。发布流程禁止移动已推送的 tag 或覆盖已发布 Release，GitHub Release 仅上传 exact Direct APK。
 

@@ -1,8 +1,8 @@
 # TimeAPK 发布与更新指引
 
-本文档记录 4.2 的正式签名、构建、验证与更新流程（2026-10-12）。**4.2 当前为候选 / 未发布**：代码与发布文档在 `feat/v4.2` 分支，尚未创建 `v4.2` tag，也没有正式签名的最终 APK。最新公开版本仍为 [v4.1](https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v4.1)，其 tag commit、CI、正式 APK QA、Release/资产 ID 与公开复验记录归档在 [v4.1 清单](releases/v4.1-checklist.md)，不作为 4.2 的通过证据。
+本文档记录 4.2 的正式签名、构建、验证与更新流程与当前结果（2026-10-12）。4.2 已公开，最终正式签名 APK 已独立验签，与线上 v4.0 / v4.1 同证。不可变 `v4.2` tag 对应 APK 源码 commit 为 `f0937448efa02232d5c6b1d47c531d50cad0797e`（annotated tag 对象 `294035246e8a96072175710efbc4961088531df3`）；最终 [TAG CI 38235651872](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/38235651872) 与 [正式 APK QA 38238275647](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/38238275647) 均通过，后者覆盖 API26/31/36 由公开 v4.1 保留数据覆盖升级与 AMS 草稿恢复，以及 API36 五页和分享验证。
 
-4.2 正式签名须继续使用线上 v4.0 / v4.1 的同一证书（SHA-256 `3b7cb426a82664f891c69511cc2505b67128c8503664639f297291da4ea903ca`），以便覆盖升级。签名 QA 以公开 v4.1 APK（26,463,543 bytes，SHA-256 `8fbeee7590f89104995ecce98769842dc2a75cf84d8641efd6a0c7b67619e5b4`）为固定升级基线。按用户决定，本版不安排实体手机验收，物理设备相关项保持未执行并如实记录。
+公开 Release ID 为 `410506677`，唯一资产 ID 为 `633513961`，大小 `12513338` 字节，SHA-256 为 `7fe9673e4b3a85f4152c1e5786f8a221779a95fc56578f9c93b660b4e9019e74`。公开无鉴权下载的哈希、证书及真实包身份 `com.example.timeapk` / `4.2` / `25` 已复核；[公开 APK 安装与在线更新复验 38239618078](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/38239618078) 三平台 job 均成功，API36 实际检查更新显示“已是最新版本”。原始结果见 [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)。按评审决定，本版不安排实体手机验收，物理设备相关项保持未执行，不继承历史豁免。
 
 **唯一正式发布渠道：GitHub Release。** 唯一官方资产为 Direct APK `glimmer-countdown-4-2.apk`。Play flavor 仅保留用于兼容性与开发回归，不是 4.2 正式发布工件或阻断项。
 
@@ -13,7 +13,7 @@
 | `applicationId` / 版本号 | Direct：`com.example.timeapk` / `4.2`；Play：`com.example.timeapk.play` / `4.2`（仅开发回归） |
 | 最低 / 目标 SDK | `minSdk 26` / `targetSdk 36` |
 | Release 构建 | 已启用 `release` buildType，并开启 `minify` 与 `shrinkResources` |
-| Release 签名 | 既有正式密钥已核验（与线上 v4.0 / v4.1 同证）；最终 4.2 APK 尚未从 tag 正式签名 |
+| Release 签名 | 既有正式密钥已核验；最终 4.2 APK 正式签名与独立验签已完成，与线上 v4.0 / v4.1 同证 |
 | Direct APK 命名 | 输出为 `glimmer-countdown-4-2.apk` |
 | 正式渠道 | GitHub Release，只上传 Direct APK |
 | Play flavor | 保留用于兼容性与开发回归；不产生正式资产或发布门 |
@@ -37,7 +37,7 @@ keyPassword=xxx
 GLIMMER_RELEASE_CERT_SHA256=<64位SHA-256证书指纹>
 ```
 
-已取得密钥及线上 v4.1 APK 的证书 SHA-256 均独立核验为 `3b7cb426a82664f891c69511cc2505b67128c8503664639f297291da4ea903ca`；最终 4.2 APK 须单独验签并一致。私钥、密码、配置内容和 GitHub token 不进入文档或日志。
+已取得密钥、线上 v4.1 APK 及最终 4.2 正式 APK 的证书 SHA-256 均独立核验为 `3b7cb426a82664f891c69511cc2505b67128c8503664639f297291da4ea903ca`。私钥、密码、配置内容和 GitHub token 不进入文档或日志。
 
 确保以下文件不进入仓库：
 
@@ -51,7 +51,7 @@ GLIMMER_RELEASE_CERT_SHA256=<64位SHA-256证书指纹>
 - `VERSION_NAME=4.2`
 - `VERSION_CODE=25`
 
-当前 `4.2` / `25` 为候选 / 未发布，实际证据按本版 [发布检查清单](RELEASE_CHECKLIST.md) 记录。按用户决定本版不安排实体手机验收，物理设备项保持未执行，不继承 v4.0 豁免。
+当前 `4.2` / `25` APK 已正式签名并公开，实际证据按本版 [发布检查清单](RELEASE_CHECKLIST.md) 记录。按用户决定本版不安排实体手机验收，物理设备项保持未执行，不继承 v4.0 豁免。
 
 继续发布新版本时，应同步递增 `versionCode`，并更新 `versionName`、`README.md`、`CHANGELOG.md` 与发布文档。
 
@@ -153,4 +153,4 @@ gh auth login
 - 新建 / 编辑 / 删除事件、提醒、系统日历同步和小组件刷新链路是否正常
 - Direct 渠道检查更新是否能读取 GitHub Release，下载进度与安装权限引导
 - 物理手机 Direct APK 安装 / 升级、通知、日历、Launcher 小组件与性能 smoke：本版按用户决定不安排，记录为未执行，不写成通过
-- 从公开 GitHub Release 在线重新安装唯一 APK，并完成更新检查与关键链路 smoke：发布后执行，结果写入本版检查清单
+- 从公开 GitHub Release 在线重新安装唯一 APK，并完成更新检查与关键链路 smoke：复验 38239618078 三平台 job 均成功，原始结果见本版检查清单
