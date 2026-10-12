@@ -151,11 +151,8 @@ class ReleaseReadinessTest {
         assertTrue(readme.contains("releases/tag/v$latestPublicVersion"))
         assertTrue(changelog.contains("## [4.0] - 2026-07-20"))
         assertTrue(changelog.contains("## [4.1] - 2026-10-10"))
-        if (published) {
-            assertTrue(Regex("(?m)^## \\[4\\.2\\] - \\d{4}-\\d{2}-\\d{2}\\r?$").containsMatchIn(changelog))
-        } else {
-            assertTrue(changelog.contains("## [4.2] - 未发布"))
-        }
+        // The tag commit carries the release date; the publisher takes notes from this section.
+        assertTrue(Regex("(?m)^## \\[4\\.2\\] - \\d{4}-\\d{2}-\\d{2}\\r?$").containsMatchIn(changelog))
         assertTrue(checklist.contains("# 发布检查清单（v4.2）"))
         listOf(readme, githubGuide, releaseGuide).forEach { document ->
             assertFalse(document.contains("最新公开版本仍为 3.17"))

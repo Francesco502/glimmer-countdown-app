@@ -98,7 +98,7 @@
 - [ ] 从该 tag commit 新鲜构建并正式签名，未复用旧产物；CI 未签名工件的 revision、原始哈希与 metadata 在本机签名前保留
 - [ ] 验证签名、精确证书指纹与 SHA-256，并记录 exact APK 大小、包名 `com.example.timeapk`、`4.2` / `25`、非调试状态和安装权限
 - [ ] 准备安全凭据环境：本地用 `gh auth login` / `gh auth token`；CI 才注入 secret，不打印凭据
-- [ ] 将 CHANGELOG 的 `## [4.2] - 未发布` 改为发布日期，并据此准备可公开 Release Notes，剩余限制按实际结果修订
+- [x] CHANGELOG 的 4.2 小节已写入发布日期 `2026-10-12`，作为可公开 Release Notes；剩余限制按实际结果修订
 - [ ] 运行发布脚本；只创建/恢复带 ownership marker 的 owned draft，不覆盖 published Release 或接管人工 draft
 - [ ] 删除 owned draft 中的所有旧资产，并验证整个 Release 只保留唯一的 exact Direct APK
 - [ ] 最终 GET 核对公开、非 prerelease 的 Release 身份与 asset id、size、digest、MIME、下载 URL；Release 仅含 `glimmer-countdown-4-2.apk`
