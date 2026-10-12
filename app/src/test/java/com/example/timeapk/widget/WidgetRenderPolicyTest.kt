@@ -209,7 +209,7 @@ class WidgetRenderPolicyTest {
     }
 
     @Test
-    fun resolve_systemGlassPresetsUseNativeMilkySurfaceTextEvenInDarkTheme() {
+    fun resolve_systemGlassPresetsUseDeepGlassWithLightTextInDarkTheme() {
         val glass = WidgetRenderPolicy.resolve(
             config = WidgetConfig.default().copy(
                 appearancePreset = APPEARANCE_SYSTEM,
@@ -220,6 +220,23 @@ class WidgetRenderPolicyTest {
         )
 
         assertEquals(R.drawable.widget_background_translucent_25, glass.backgroundResId)
+        assertEquals(0xFFEDE8DD.toInt(), glass.primaryTextColor)
+        assertEquals(0xFFC8BBAA.toInt(), glass.secondaryTextColor)
+        assertEquals(0xFFF6D9A6.toInt(), glass.accentTextColor)
+        assertEquals(R.layout.widget_countdown_item, glass.itemLayoutResId)
+    }
+
+    @Test
+    fun resolve_systemGlassKeepsMilkyInkTextInLightTheme() {
+        val glass = WidgetRenderPolicy.resolve(
+            config = WidgetConfig.default().copy(
+                appearancePreset = APPEARANCE_SYSTEM,
+                backgroundOpacityPercent = 25,
+                contrastMode = CONTRAST_AUTO
+            ),
+            theme = WidgetThemeSnapshot(isDark = false, usesSystemPalette = true)
+        )
+
         assertEquals(0xFF202124.toInt(), glass.primaryTextColor)
         assertEquals(0xCC202124.toInt(), glass.secondaryTextColor)
         assertEquals(0xFFB45A4E.toInt(), glass.accentTextColor)
@@ -227,7 +244,7 @@ class WidgetRenderPolicyTest {
     }
 
     @Test
-    fun resolve_translucentPresetUsesNativeMilkySurfaceTextEvenInDarkTheme() {
+    fun resolve_translucentPresetUsesDeepGlassTextInDarkTheme() {
         val glass = WidgetRenderPolicy.resolve(
             config = WidgetConfig.default().copy(
                 appearancePreset = APPEARANCE_TRANSLUCENT,
@@ -238,24 +255,34 @@ class WidgetRenderPolicyTest {
         )
 
         assertEquals(R.drawable.widget_background_translucent_25, glass.backgroundResId)
-        assertEquals(0xFF202124.toInt(), glass.primaryTextColor)
-        assertEquals(0xFFB45A4E.toInt(), glass.accentTextColor)
+        assertEquals(0xFFEDE8DD.toInt(), glass.primaryTextColor)
+        assertEquals(0xFFF6D9A6.toInt(), glass.accentTextColor)
         assertEquals(R.layout.widget_countdown_item, glass.itemLayoutResId)
     }
 
     @Test
-    fun resolve_glassWithLightTextOverrideKeepsTextProtection() {
-        val glass = WidgetRenderPolicy.resolve(
+    fun resolve_glassWithOpposingTextOverrideKeepsTextProtection() {
+        val lightOnMilky = WidgetRenderPolicy.resolve(
             config = WidgetConfig.default().copy(
                 appearancePreset = APPEARANCE_TRANSLUCENT,
                 backgroundOpacityPercent = 25,
                 contrastMode = CONTRAST_LIGHT_TEXT
             ),
+            theme = WidgetThemeSnapshot(isDark = false, usesSystemPalette = true)
+        )
+        assertEquals(0xFFEDE8DD.toInt(), lightOnMilky.primaryTextColor)
+        assertEquals(R.layout.widget_countdown_item_shadow_dark, lightOnMilky.itemLayoutResId)
+
+        val darkOnDeep = WidgetRenderPolicy.resolve(
+            config = WidgetConfig.default().copy(
+                appearancePreset = APPEARANCE_TRANSLUCENT,
+                backgroundOpacityPercent = 25,
+                contrastMode = CONTRAST_DARK_TEXT
+            ),
             theme = WidgetThemeSnapshot(isDark = true, usesSystemPalette = true)
         )
-
-        assertEquals(0xFFEDE8DD.toInt(), glass.primaryTextColor)
-        assertEquals(R.layout.widget_countdown_item_shadow_dark, glass.itemLayoutResId)
+        assertEquals(0xFF202124.toInt(), darkOnDeep.primaryTextColor)
+        assertEquals(R.layout.widget_countdown_item_shadow_light, darkOnDeep.itemLayoutResId)
     }
 
     @Test

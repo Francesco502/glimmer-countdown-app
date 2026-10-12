@@ -47,6 +47,13 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.example.timeapk.ui.components.SongConfirmDialog
+import com.example.timeapk.ui.theme.SongModeTabRow
+import com.example.timeapk.widget.SingleEventWidgetConfigActivity
+import com.example.timeapk.widget.SingleEventWidgetProvider
 import com.example.timeapk.R
 import com.example.timeapk.TimeApplication
 import com.example.timeapk.ui.theme.SongDesignTokens
@@ -96,6 +103,9 @@ fun WidgetSettingsContent(
     val defaultWidgetConfig by widgetConfigRepository.defaultConfigFlow.collectAsState(initial = WidgetConfig.default())
     val widgetInstanceConfigs by widgetConfigRepository.instanceConfigsFlow.collectAsState(initial = emptyMap())
     val appWidgetIds = CountdownAppWidgetProvider.getAppWidgetIds(app).toList()
+    val singleEventWidgetIds = SingleEventWidgetProvider.getAppWidgetIds(app).toList()
+    var confirmApplyToAll by remember { mutableStateOf(false) }
+    var pendingResetWidgetId by remember { mutableStateOf<Int?>(null) }
 
     fun launchWidgetSettingsUpdate(update: suspend () -> Unit) {
         app.launchAppTask {
@@ -111,6 +121,48 @@ fun WidgetSettingsContent(
         )
     }
 
+    fun openSingleEventWidgetConfig(appWidgetId: Int) {
+        context.startActivity(
+            Intent(context, SingleEventWidgetConfigActivity::class.java)
+                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+        )
+    }
+
+    if (confirmApplyToAll) {
+        SongConfirmDialog(
+            title = stringResource(R.string.widget_config_apply_to_all),
+            message = stringResource(R.string.widget_config_apply_to_all_confirm),
+            confirmText = stringResource(R.string.action_apply),
+            dismissText = stringResource(R.string.delete_confirm_cancel),
+            onConfirm = {
+                confirmApplyToAll = false
+                launchWidgetSettingsUpdate {
+                    val ids = CountdownAppWidgetProvider.getAppWidgetIds(app)
+                    val latestDefault = widgetConfigRepository.getDefaultConfig()
+                    widgetConfigRepository.setAllInstanceConfigs(
+                        ids.associateWith { latestDefault }
+                    )
+                }
+            },
+            onDismiss = { confirmApplyToAll = false }
+        )
+    }
+    pendingResetWidgetId?.let { resetId ->
+        SongConfirmDialog(
+            title = stringResource(R.string.widget_config_reset_instance),
+            message = stringResource(R.string.widget_config_reset_confirm),
+            confirmText = stringResource(R.string.widget_config_reset_instance),
+            dismissText = stringResource(R.string.delete_confirm_cancel),
+            onConfirm = {
+                pendingResetWidgetId = null
+                launchWidgetSettingsUpdate {
+                    widgetConfigRepository.removeConfigForWidget(resetId)
+                }
+            },
+            onDismiss = { pendingResetWidgetId = null }
+        )
+    }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -121,20 +173,6 @@ fun WidgetSettingsContent(
             title = stringResource(R.string.widget_config_defaults_title),
             summary = widgetConfigSummary(defaultWidgetConfig)
         ) {
-            TextButton(
-                onClick = {
-                    launchWidgetSettingsUpdate {
-                        val ids = CountdownAppWidgetProvider.getAppWidgetIds(app)
-                        val latestDefault = widgetConfigRepository.getDefaultConfig()
-                        widgetConfigRepository.setAllInstanceConfigs(
-                            ids.associateWith { latestDefault }
-                        )
-                    }
-                },
-                modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
-            ) {
-                Text(stringResource(R.string.widget_config_apply_to_all))
-            }
             WidgetConfigEditor(
                 config = defaultWidgetConfig,
                 onConfigChange = { next ->
@@ -144,22 +182,36 @@ fun WidgetSettingsContent(
                 },
                 modifier = Modifier.padding(top = 4.dp)
             )
+            if (appWidgetIds.isNotEmpty()) {
+                TextButton(
+                    onClick = { confirmApplyToAll = true },
+                    modifier = Modifier.padding(top = 8.dp)
+                ) {
+                    Text(stringResource(R.string.widget_config_apply_to_all))
+                }
+            }
         }
 
         SettingsExpandableSection(
             title = stringResource(R.string.widget_config_existing_widgets),
-            summary = ""
+            summary = if (appWidgetIds.isEmpty() && singleEventWidgetIds.isEmpty()) {
+                stringResource(R.string.settings_widget_summary_none)
+            } else {
+                pluralStringResource(
+                    R.plurals.settings_widget_summary_count,
+                    appWidgetIds.size + singleEventWidgetIds.size,
+                    appWidgetIds.size + singleEventWidgetIds.size
+                )
+            }
         ) {
             WidgetInstanceManager(
                 appWidgetIds = appWidgetIds,
                 instanceConfigs = widgetInstanceConfigs,
                 defaultConfig = defaultWidgetConfig,
                 onEditWidget = ::openWidgetConfig,
-                onResetWidget = { appWidgetId ->
-                    launchWidgetSettingsUpdate {
-                        widgetConfigRepository.removeConfigForWidget(appWidgetId)
-                    }
-                },
+                onResetWidget = { appWidgetId -> pendingResetWidgetId = appWidgetId },
+                singleEventWidgetIds = singleEventWidgetIds,
+                onEditSingleEventWidget = ::openSingleEventWidgetConfig,
                 modifier = Modifier.padding(top = 4.dp)
             )
         }
@@ -172,61 +224,23 @@ fun WidgetConfigEditor(
     onConfigChange: (WidgetConfig) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var selectedTab by rememberSaveable { mutableStateOf(0) }
     Column(modifier = modifier.fillMaxWidth()) {
         WidgetSettingsLayerHeader(title = stringResource(R.string.widget_config_layer_preview))
         WidgetConfigPreview(
             config = config,
             modifier = Modifier.padding(bottom = 12.dp)
         )
-        WidgetSettingsLayerHeader(title = stringResource(R.string.widget_config_layer_display))
-        WidgetConfigSection(
-            title = stringResource(R.string.widget_config_display),
-            summary = "",
-            initiallyExpanded = true
-        ) {
-            WidgetFontScaleControl(
-                value = config.fontScale,
-                onValueChange = { onConfigChange(config.copy(fontScale = it).sanitize()) }
-            )
-            WidgetOptionGroup(
-                title = stringResource(R.string.widget_config_width_cells),
-                options = (1..5).map {
-                    it to pluralStringResource(R.plurals.widget_config_cell_count, it, it)
-                },
-                selected = config.widthCells,
-                onSelected = { onConfigChange(config.copy(widthCells = it).sanitize()) }
-            )
-            WidgetOptionGroup(
-                title = stringResource(R.string.widget_config_height_cells),
-                options = (1..5).map {
-                    it to pluralStringResource(R.plurals.widget_config_cell_count, it, it)
-                },
-                selected = config.heightCells,
-                onSelected = { onConfigChange(config.copy(heightCells = it).sanitize()) }
-            )
-            Text(
-                text = stringResource(R.string.widget_config_size_preview_guidance),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
-            )
-            WidgetOptionGroup(
-                title = stringResource(R.string.widget_config_density),
-                options = listOf(
-                    DENSITY_COMPACT to stringResource(R.string.widget_config_density_compact),
-                    DENSITY_STANDARD to stringResource(R.string.widget_config_density_standard),
-                    DENSITY_COMFORTABLE to stringResource(R.string.widget_config_density_comfortable)
-                ),
-                selected = config.densityMode,
-                onSelected = { onConfigChange(config.copy(densityMode = it).sanitize()) }
-            )
-        }
-        WidgetSettingsLayerHeader(title = stringResource(R.string.widget_config_layer_appearance))
-        WidgetConfigSection(
-            title = stringResource(R.string.widget_config_appearance_group),
-            summary = "",
-            initiallyExpanded = true
-        ) {
+        SongModeTabRow(
+            options = listOf(
+                0 to stringResource(R.string.widget_config_layer_appearance),
+                1 to stringResource(R.string.widget_config_layer_content)
+            ),
+            selected = selectedTab,
+            onSelected = { selectedTab = it },
+            modifier = Modifier.fillMaxWidth()
+        )
+        if (selectedTab == 0) {
             WidgetOptionGroup(
                 title = stringResource(R.string.widget_config_appearance),
                 options = listOf(
@@ -241,14 +255,23 @@ fun WidgetConfigEditor(
                 onSelected = { onConfigChange(config.copy(appearancePreset = it).sanitize()) },
                 showSwatches = true
             )
-            WidgetOptionGroup(
-                title = stringResource(R.string.widget_config_opacity),
-                options = listOf(0, 25, 50, 75, 100).map {
-                    it to stringResource(R.string.widget_config_percent, it)
-                },
-                selected = config.backgroundOpacityPercent,
-                onSelected = { onConfigChange(config.copy(backgroundOpacityPercent = it).sanitize()) }
-            )
+            if (widgetAppearanceSupportsOpacity(config.appearancePreset)) {
+                WidgetOptionGroup(
+                    title = stringResource(R.string.widget_config_opacity),
+                    options = listOf(0, 25, 50, 75, 100).map {
+                        it to stringResource(R.string.widget_config_percent, it)
+                    },
+                    selected = config.backgroundOpacityPercent,
+                    onSelected = { onConfigChange(config.copy(backgroundOpacityPercent = it).sanitize()) }
+                )
+            } else {
+                Text(
+                    text = stringResource(R.string.widget_config_opacity_unavailable),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
             WidgetOptionGroup(
                 title = stringResource(R.string.widget_config_border),
                 options = listOf(
@@ -280,12 +303,11 @@ fun WidgetConfigEditor(
                 selected = config.contrastMode,
                 onSelected = { onConfigChange(config.copy(contrastMode = it).sanitize()) }
             )
-        }
-        WidgetSettingsLayerHeader(title = stringResource(R.string.widget_config_layer_content))
-        WidgetConfigSection(
-            title = stringResource(R.string.widget_config_content_group),
-            summary = ""
-        ) {
+            WidgetFontScaleControl(
+                value = config.fontScale,
+                onValueChange = { onConfigChange(config.copy(fontScale = it).sanitize()) }
+            )
+        } else {
             WidgetOptionGroup(
                 title = stringResource(R.string.widget_config_content_scope),
                 options = listOf(
@@ -307,14 +329,54 @@ fun WidgetConfigEditor(
                 selected = config.sortMode,
                 onSelected = { onConfigChange(config.copy(sortMode = it).sanitize()) }
             )
+            WidgetOptionGroup(
+                title = stringResource(R.string.widget_config_density),
+                options = listOf(
+                    DENSITY_COMPACT to stringResource(R.string.widget_config_density_compact),
+                    DENSITY_STANDARD to stringResource(R.string.widget_config_density_standard),
+                    DENSITY_COMFORTABLE to stringResource(R.string.widget_config_density_comfortable)
+                ),
+                selected = config.densityMode,
+                onSelected = { onConfigChange(config.copy(densityMode = it).sanitize()) }
+            )
             WidgetSwitchRow(
                 title = stringResource(R.string.widget_config_show_lunar_prefix),
                 checked = config.showLunarPrefix,
                 onCheckedChange = { onConfigChange(config.copy(showLunarPrefix = it).sanitize()) }
             )
+            // One choice for the preview's proportions; the real size is set on the home screen.
+            WidgetOptionGroup(
+                title = stringResource(R.string.widget_config_preview_size),
+                options = WidgetPreviewSizes.mapIndexed { index, (w, h) ->
+                    index to stringResource(R.string.widget_config_size_summary, w, h)
+                },
+                selected = WidgetPreviewSizes.indexOf(config.widthCells to config.heightCells),
+                onSelected = { index ->
+                    val (w, h) = WidgetPreviewSizes[index]
+                    onConfigChange(config.copy(widthCells = w, heightCells = h).sanitize())
+                }
+            )
+            Text(
+                text = stringResource(R.string.widget_config_preview_size_note),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 6.dp)
+            )
         }
     }
 }
+
+/** 预览常用尺寸（宽 × 高格数）。 */
+internal val WidgetPreviewSizes: List<Pair<Int, Int>> = listOf(
+    1 to 1, 2 to 1, 2 to 2, 3 to 2, 4 to 2, 4 to 3, 4 to 4
+)
+
+/** 只有“跟随系统”与磨砂玻璃两种背景会随不透明度变化。 */
+internal fun widgetAppearanceSupportsOpacity(appearancePreset: Int): Boolean =
+    appearancePreset == APPEARANCE_SYSTEM || appearancePreset == APPEARANCE_TRANSLUCENT
+
+/** 预览行数随高度格数增加（每格约两行），与桌面 RemoteViews 自上而下的排列一致。 */
+internal fun widgetPreviewRowCount(heightCells: Int): Int = (heightCells * 2).coerceIn(1, 6)
 
 @Composable
 private fun WidgetFontScaleControl(
@@ -407,16 +469,31 @@ fun WidgetInstanceManager(
     defaultConfig: WidgetConfig,
     onEditWidget: (Int) -> Unit,
     onResetWidget: (Int) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    singleEventWidgetIds: List<Int> = emptyList(),
+    onEditSingleEventWidget: (Int) -> Unit = {}
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
-        Text(
-            text = stringResource(R.string.widget_config_existing_widgets),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(top = 14.dp, bottom = 4.dp)
-        )
-        if (appWidgetIds.isEmpty()) {
+        singleEventWidgetIds.forEachIndexed { index, id ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.widget_config_single_widget_title, index + 1),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(onClick = { onEditSingleEventWidget(id) }) {
+                    Text(stringResource(R.string.widget_config_edit))
+                }
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.24f))
+        }
+        if (appWidgetIds.isEmpty() && singleEventWidgetIds.isEmpty()) {
             Text(
                 text = stringResource(R.string.widget_config_no_existing_widgets),
                 style = MaterialTheme.typography.bodySmall,
@@ -426,7 +503,7 @@ fun WidgetInstanceManager(
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.24f))
             return
         }
-        appWidgetIds.forEach { id ->
+        appWidgetIds.forEachIndexed { index, id ->
             val config = instanceConfigs[id] ?: defaultConfig
             Row(
                 modifier = Modifier
@@ -436,7 +513,7 @@ fun WidgetInstanceManager(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = stringResource(R.string.widget_config_existing_widget_title, id),
+                        text = stringResource(R.string.widget_config_existing_widget_title, index + 1),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -458,6 +535,7 @@ fun WidgetInstanceManager(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun WidgetOptionGroup(
     title: String,
@@ -472,12 +550,12 @@ private fun WidgetOptionGroup(
         color = MaterialTheme.colorScheme.onSurface,
         modifier = Modifier.padding(top = 14.dp, bottom = 4.dp)
     )
-    Row(
+    FlowRow(
         modifier = Modifier
             .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
             .padding(vertical = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         options.forEach { (value, label) ->
             WidgetOptionPill(
@@ -530,24 +608,27 @@ private fun WidgetConfigPreview(
                 .background(backgroundColor, RoundedCornerShape(cornerRadius))
                 .border(0.5f.dp, borderColor, RoundedCornerShape(cornerRadius))
                 .padding(contentPadding),
-            verticalArrangement = if (clean.heightCells <= 1) Arrangement.Center else Arrangement.SpaceBetween
+            verticalArrangement = if (clean.heightCells <= 1) {
+                Arrangement.Center
+            } else {
+                Arrangement.spacedBy(6.dp, Alignment.Top)
+            }
         ) {
-            WidgetPreviewRow(
-                title = stringResource(R.string.widget_config_preview_event_primary),
-                value = stringResource(R.string.widget_config_preview_value_primary),
-                contentColor = contentColor,
-                accentColor = accentColor,
-                compact = clean.widthCells <= 1,
-                verticalPadding = rowVerticalPadding
+            val samples = listOf(
+                stringResource(R.string.widget_config_preview_event_primary) to
+                    stringResource(R.string.widget_config_preview_value_primary),
+                stringResource(resolveWidgetPreviewSecondaryTitleResId(clean.showLunarPrefix)) to
+                    stringResource(R.string.widget_config_preview_value_secondary),
+                stringResource(R.string.widget_config_preview_event_third) to
+                    stringResource(R.string.widget_config_preview_value_third)
             )
-            if (clean.heightCells > 1) {
+            repeat(widgetPreviewRowCount(clean.heightCells)) { index ->
+                val (title, value) = samples[index % samples.size]
                 WidgetPreviewRow(
-                    title = stringResource(
-                        resolveWidgetPreviewSecondaryTitleResId(clean.showLunarPrefix)
-                    ),
-                    value = stringResource(R.string.widget_config_preview_value_secondary),
-                    contentColor = secondaryContentColor,
-                    accentColor = accentColor.copy(alpha = 0.82f),
+                    title = title,
+                    value = value,
+                    contentColor = if (index == 0) contentColor else secondaryContentColor,
+                    accentColor = if (index == 0) accentColor else accentColor.copy(alpha = 0.82f),
                     compact = clean.widthCells <= 1,
                     verticalPadding = rowVerticalPadding
                 )
@@ -618,10 +699,18 @@ private fun resolveWidgetPreviewBackgroundArgb(config: WidgetConfig, isDark: Boo
 }
 
 private fun resolveWidgetPreviewGlassArgb(opacityPercent: Int, isDark: Boolean): Int {
-    return when (opacityPercent) {
-        25 -> 0xB3F1F3F0.toInt()
-        50 -> 0xC7F1F3F0.toInt()
-        else -> 0xDDF2F3F0.toInt()
+    return if (isDark) {
+        when (opacityPercent) {
+            25 -> 0xA61C1C1E.toInt()
+            50 -> 0xBF1C1C1E.toInt()
+            else -> 0xD91C1C1E.toInt()
+        }
+    } else {
+        when (opacityPercent) {
+            25 -> 0xB3F1F3F0.toInt()
+            50 -> 0xC7F1F3F0.toInt()
+            else -> 0xDDF2F3F0.toInt()
+        }
     }
 }
 
@@ -631,9 +720,9 @@ private fun resolveWidgetPreviewBorderArgb(config: WidgetConfig, isDark: Boolean
         APPEARANCE_SEAL -> if (isDark) 0x66F6D9A6 else 0x667A2F20
         APPEARANCE_CELADON -> if (isDark) 0x665B8E79 else 0x66457080
         APPEARANCE_TRANSPARENT -> 0x66FFFFFF
-        APPEARANCE_TRANSLUCENT -> 0x1A202124
+        APPEARANCE_TRANSLUCENT -> if (isDark) 0x26FFFFFF else 0x1A202124
         else -> if (config.backgroundOpacityPercent in 25..75) {
-            0x1A202124
+            if (isDark) 0x26FFFFFF else 0x1A202124
         } else if (isDark) {
             0x52EDE8DD
         } else {

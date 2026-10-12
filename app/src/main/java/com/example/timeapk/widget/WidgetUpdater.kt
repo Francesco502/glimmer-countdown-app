@@ -9,6 +9,9 @@ import android.content.Context
 object WidgetUpdater {
     fun refreshCountdownWidgets(context: Context) {
         val appWidgetManager = AppWidgetManager.getInstance(context)
+        if (SingleEventWidgetProvider.getAppWidgetIds(context, appWidgetManager).isNotEmpty()) {
+            SingleEventWidgetProvider.refreshAll(context)
+        }
         val ids = CountdownAppWidgetProvider.getAppWidgetIds(context, appWidgetManager)
         if (ids.isEmpty()) return
         CountdownAppWidgetProvider.refreshAllWidgets(context)

@@ -6,5 +6,6 @@
     <dimen name="widget_background_radius_large">30dp</dimen>
     <dimen name="widget_item_radius">8dp</dimen>
     <dimen name="widget_content_padding">14dp</dimen>
+    <dimen name="widget_single_padding">16dp</dimen>
     <dimen name="widget_stroke_width">0.5dp</dimen>
 </resources>

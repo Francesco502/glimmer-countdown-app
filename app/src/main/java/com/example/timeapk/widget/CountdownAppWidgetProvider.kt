@@ -246,7 +246,7 @@ class CountdownAppWidgetProvider : AppWidgetProvider() {
 
     override fun onDisabled(context: Context) {
         super.onDisabled(context)
-        WidgetDateBoundaryScheduler.cancel(context)
+        WidgetDateBoundaryScheduler.scheduleOrCancel(context)
     }
 }
 

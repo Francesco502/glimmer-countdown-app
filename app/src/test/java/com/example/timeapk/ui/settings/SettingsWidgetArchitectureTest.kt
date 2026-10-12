@@ -53,104 +53,50 @@ class SettingsWidgetArchitectureTest {
             .substringBefore("@Composable\nfun WidgetConfigEditor")
         val editorBody = widgetSettings
             .substringAfter("fun WidgetConfigEditor(")
-            .substringBefore("@Composable\nprivate fun WidgetConfigSection")
-        val displayBody = editorBody
-            .substringAfter("widget_config_layer_display")
-            .substringBefore("widget_config_layer_appearance")
+            .substringBefore("/** 预览常用尺寸")
         val appearanceBody = editorBody
-            .substringAfter("widget_config_layer_appearance")
-            .substringBefore("widget_config_layer_content")
-        val contentBody = editorBody.substringAfter("widget_config_layer_content")
+            .substringAfter("if (selectedTab == 0) {")
+            .substringBefore("} else {\n            WidgetOptionGroup(\n                title = stringResource(R.string.widget_config_content_scope)")
+        val contentBody = editorBody.substringAfter("R.string.widget_config_content_scope")
 
         assertTrue(topLevelBody.countOccurrences("SettingsExpandableSection(") == 2)
         val defaultSectionBody = topLevelBody
-            .substringAfter("widget_config_defaults_title")
-            .substringBefore("widget_config_existing_widgets")
-        assertFalse(topLevelBody.contains("settings_widget_font_scale_title"))
+            .substringAfter("title = stringResource(R.string.widget_config_defaults_title)")
+            .substringBefore("title = stringResource(R.string.widget_config_existing_widgets)")
         assertFalse(topLevelBody.contains("widgetFontScaleFlow"))
-        assertFalse(topLevelBody.contains("setWidgetFontScale"))
         assertTrue(defaultSectionBody.contains("summary = widgetConfigSummary(defaultWidgetConfig)"))
-        assertTrue(defaultSectionBody.contains("launchWidgetSettingsUpdate"))
         assertTrue(defaultSectionBody.contains("widgetConfigRepository.setDefaultConfig(next)"))
         assertTrue(defaultSectionBody.contains("widget_config_apply_to_all"))
-        assertTrue(
-            defaultSectionBody.indexOf("widget_config_apply_to_all") <
-                defaultSectionBody.indexOf("WidgetConfigEditor(")
-        )
-        assertTrue(defaultSectionBody.contains("val latestDefault = widgetConfigRepository.getDefaultConfig()"))
-        assertTrue(defaultSectionBody.contains("ids.associateWith { latestDefault }"))
+        // Applying the default to every widget now asks first.
+        assertTrue(topLevelBody.contains("R.string.widget_config_apply_to_all_confirm"))
+        assertTrue(topLevelBody.contains("val latestDefault = widgetConfigRepository.getDefaultConfig()"))
+        assertTrue(topLevelBody.contains("ids.associateWith { latestDefault }"))
 
-        assertFalse(widgetSettings.contains("widget_config_defaults_summary"))
-        assertFalse(widgetSettings.contains("widget_config_existing_widgets_summary"))
-        assertFalse(widgetSettings.contains("widget_config_existing_widgets_empty_summary"))
-        assertFalse(widgetSettings.contains("title = stringResource(R.string.widget_config_existing_widgets),\n            summary = stringResource(R.string.widget_config_defaults_summary)"))
+        // Preview first, then two tabs instead of two-level headings.
+        assertTrue(editorBody.contains("WidgetSettingsLayerHeader(title = stringResource(R.string.widget_config_layer_preview))"))
+        assertTrue(editorBody.indexOf("WidgetConfigPreview(") < editorBody.indexOf("SongModeTabRow("))
+        assertFalse(editorBody.contains("widget_config_layer_display"))
 
-        assertTrue(editorBody.contains("WidgetSettingsLayerHeader("))
-        assertTrue(editorBody.contains("widget_config_layer_preview"))
-        assertTrue(editorBody.contains("widget_config_layer_display"))
-        assertTrue(editorBody.contains("widget_config_layer_appearance"))
-        assertTrue(editorBody.contains("widget_config_layer_content"))
-        assertFalse(editorBody.contains("widget_config_appearance_summary"))
-        assertFalse(editorBody.contains("widget_config_content_summary"))
+        assertTrue(appearanceBody.contains("widget_config_appearance"))
+        assertTrue(appearanceBody.contains("widgetAppearanceSupportsOpacity(config.appearancePreset)"))
+        assertTrue(appearanceBody.contains("widget_config_border"))
+        assertTrue(appearanceBody.contains("widget_config_corner"))
+        assertTrue(appearanceBody.contains("widget_config_contrast"))
+        assertTrue(appearanceBody.contains("WidgetFontScaleControl("))
+        assertFalse(appearanceBody.contains("widget_config_density"))
+
+        assertTrue(contentBody.contains("widget_config_sort"))
+        assertTrue(contentBody.contains("widget_config_density"))
+        assertTrue(contentBody.contains("widget_config_show_lunar_prefix"))
+        assertTrue(contentBody.contains("widget_config_preview_size"))
+        assertFalse(contentBody.contains("widget_config_width_cells"))
+        assertFalse(contentBody.contains("widget_config_apply_to_all"))
 
         assertTrue(widgetSettings.contains("settings_widget_font_scale_title"))
         assertTrue(widgetSettings.contains("settings_widget_font_scale_value"))
         assertTrue(widgetSettings.contains("settings_widget_font_scale_reset_action"))
-        assertTrue(displayBody.contains("WidgetFontScaleControl("))
-        assertTrue(displayBody.contains("config.fontScale"))
-        assertFalse(displayBody.contains("widget_config_size_template"))
-        assertFalse(displayBody.contains("widget_config_size_2x2"))
-        assertFalse(displayBody.contains("widget_config_size_3x3"))
-        assertFalse(displayBody.contains("widget_config_size_4x2"))
-        assertTrue(displayBody.contains("widget_config_width_cells"))
-        assertTrue(displayBody.contains("widget_config_height_cells"))
-        assertTrue(displayBody.contains("(1..5).map"))
-        assertTrue(displayBody.contains("widget_config_size_preview_guidance"))
-        assertTrue(
-            displayBody.indexOf("widget_config_height_cells") <
-                displayBody.indexOf("widget_config_size_preview_guidance")
-        )
-        assertTrue(
-            displayBody.indexOf("widget_config_size_preview_guidance") <
-                displayBody.indexOf("widget_config_density")
-        )
-        assertTrue(displayBody.contains("style = MaterialTheme.typography.bodySmall"))
-        assertTrue(displayBody.contains("color = MaterialTheme.colorScheme.onSurfaceVariant"))
-        assertTrue(displayBody.contains("widget_config_density"))
-
-        assertTrue(appearanceBody.contains("widget_config_appearance"))
-        assertTrue(appearanceBody.contains("widget_config_appearance_group"))
-        assertTrue(appearanceBody.contains("widget_config_opacity"))
-        assertTrue(appearanceBody.contains("widget_config_border"))
-        assertTrue(appearanceBody.contains("widget_config_corner"))
-        assertTrue(appearanceBody.contains("widget_config_contrast"))
-        assertFalse(appearanceBody.contains("widget_config_size_template"))
-        assertFalse(appearanceBody.contains("settings_widget_font_scale_title"))
-        assertFalse(appearanceBody.contains("widget_config_density"))
-
-        assertTrue(contentBody.contains("widget_config_content_scope"))
-        assertTrue(contentBody.contains("widget_config_content_group"))
-        assertTrue(contentBody.contains("widget_config_sort"))
-        assertTrue(contentBody.contains("widget_config_show_lunar_prefix"))
-        assertFalse(contentBody.contains("widget_config_apply_to_all"))
-        assertFalse(contentBody.contains("widget_config_density"))
-
         assertFalse(contentResolver.contains("widgetFontScaleFlow"))
         assertFalse(contentResolver.contains("effectiveFontScale"))
-
-        val summaryBody = widgetSettings
-            .substringAfter("private fun widgetConfigSummary(")
-            .substringBefore("private fun appearanceLabelRes")
-        assertTrue(summaryBody.contains("widget_config_size_summary"))
-        assertTrue(summaryBody.contains("widget_config_percent"))
-        assertTrue(summaryBody.contains("contrastLabelRes(config.contrastMode)"))
-        assertTrue(summaryBody.contains("densityLabelRes(config.densityMode)"))
-        assertTrue(summaryBody.contains("sortLabelRes(config.sortMode)"))
-        assertFalse(summaryBody.contains("contentScopeLabelRes"))
-
-        assertTrue(widgetSettings.contains("SORT_HOME -> R.string.widget_config_sort_home"))
-        assertTrue(widgetSettings.contains("SORT_PINNED_FIRST -> R.string.widget_config_sort_pinned"))
-        assertTrue(widgetSettings.contains("SORT_NEAREST_FIRST -> R.string.widget_config_sort_nearest"))
     }
 
     @Test

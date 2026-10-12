@@ -57,17 +57,17 @@ class WidgetLayoutResourceTest {
     }
 
     @Test
-    fun twentyFivePercentGlass_usesMilkyScrimAndSoftHairline() {
+    fun twentyFivePercentGlass_isMilkyByDayAndDeepByNight() {
         val lightGlass = readLayoutText("drawable/widget_background_translucent_25.xml")
         val darkGlass = readLayoutText("drawable-night/widget_background_translucent_25.xml")
 
+        assertTrue(lightGlass.contains("#B3F1F3F0"))
+        assertTrue(lightGlass.contains("#1A202124"))
+        assertTrue(darkGlass.contains("#A61C1C1E"))
+        assertTrue(darkGlass.contains("#26FFFFFF"))
         listOf(lightGlass, darkGlass).forEach { glass ->
-            assertTrue(glass.contains("#B3F1F3F0"))
-            assertTrue(glass.contains("#1A202124"))
             assertFalse(glass.contains("#42F7F3EA"))
             assertFalse(glass.contains("#59141618"))
-            assertFalse(glass.contains("#331F1F1F"))
-            assertFalse(glass.contains("#3DEDE8DD"))
         }
     }
 

@@ -25,7 +25,9 @@ internal object WidgetDateBoundaryScheduler {
         val appContext = context.applicationContext
         val alarmManager = appContext.getSystemService(AlarmManager::class.java)
         val operation = pendingIntent(appContext)
-        if (CountdownAppWidgetProvider.getAppWidgetIds(appContext).isEmpty()) {
+        if (CountdownAppWidgetProvider.getAppWidgetIds(appContext).isEmpty() &&
+            SingleEventWidgetProvider.getAppWidgetIds(appContext).isEmpty()
+        ) {
             alarmManager.cancel(operation)
             return
         }

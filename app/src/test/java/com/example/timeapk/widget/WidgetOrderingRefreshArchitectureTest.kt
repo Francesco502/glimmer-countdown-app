@@ -58,8 +58,15 @@ class WidgetOrderingRefreshArchitectureTest {
         assertTrue(scheduler.contains("AlarmManager.RTC_WAKEUP"))
         assertTrue(scheduler.contains("setAndAllowWhileIdle"))
         assertFalse(scheduler.contains("setExact"))
-        assertFalse(manifest.contains("SCHEDULE_EXACT_ALARM"))
-        assertFalse(manifest.contains("USE_EXACT_ALARM"))
+        // 4.2: SCHEDULE_EXACT_ALARM exists only for opt-in exact event reminders (removed on Play);
+        // the widget date boundary must stay inexact and USE_EXACT_ALARM is never requested.
+        assertFalse(manifest.contains("android.permission.USE_EXACT_ALARM"))
+        assertTrue(
+            listOf(java.io.File("src/play/AndroidManifest.xml"), java.io.File("app/src/play/AndroidManifest.xml"))
+                .first { it.exists() }
+                .readText(Charsets.UTF_8)
+                .contains("android:name=\"android.permission.SCHEDULE_EXACT_ALARM\"")
+        )
 
         listOf(
             "override fun onEnabled(",
@@ -200,7 +207,7 @@ class WidgetOrderingRefreshArchitectureTest {
 
     @Test
     fun homeDragCallbacksReadCurrentStateAndCaptureIdsAtFirstMove() {
-        val source = mainSource("ui/home/HomeScreen.kt").readText(Charsets.UTF_8)
+        val source = com.example.timeapk.HomeSourceFiles.combined()
         val reorderSetup = source.substringAfter("val reorderState = rememberReorderableLazyListState(")
             .substringBefore("AnimatedContent(")
         val move = reorderSetup.substringAfter("onMove =").substringBefore("onDragEnd =")
@@ -222,7 +229,7 @@ class WidgetOrderingRefreshArchitectureTest {
 
     @Test
     fun homeKeepsAReorderedSnapshotOnlyWhileItsPersistenceIsPending() {
-        val source = mainSource("ui/home/HomeScreen.kt").readText(Charsets.UTF_8)
+        val source = com.example.timeapk.HomeSourceFiles.combined()
         val sync = mainSource("ui/home/HomeListSync.kt").readText(Charsets.UTF_8)
         val dragEnd = source.substringAfter("val finishReorder: () -> Unit = {")
             .substringBefore("val reorderState =")
@@ -243,7 +250,7 @@ class WidgetOrderingRefreshArchitectureTest {
 
     @Test
     fun homeSerializesReorderPersistenceAndRejectsInvalidDragEnds() {
-        val source = mainSource("ui/home/HomeScreen.kt").readText(Charsets.UTF_8)
+        val source = com.example.timeapk.HomeSourceFiles.combined()
         val reorderSetup = source.substringAfter("val reorderState = rememberReorderableLazyListState(")
             .substringBefore("AnimatedContent(")
         val move = reorderSetup.substringAfter("onMove =").substringBefore("onDragEnd =")
@@ -266,7 +273,7 @@ class WidgetOrderingRefreshArchitectureTest {
 
     @Test
     fun dragEndingAfterSortModeChangeCannotLeavePendingWithoutAWrite() {
-        val source = mainSource("ui/home/HomeScreen.kt").readText(Charsets.UTF_8)
+        val source = com.example.timeapk.HomeSourceFiles.combined()
         val dragEnd = source.substringAfter("val finishReorder: () -> Unit = {")
             .substringBefore("val reorderState =")
 
@@ -279,7 +286,7 @@ class WidgetOrderingRefreshArchitectureTest {
 
     @Test
     fun persistedHomeReorderSettlesFromLatestAuthoritativeInputsBeforeUnlocking() {
-        val source = mainSource("ui/home/HomeScreen.kt").readText(Charsets.UTF_8)
+        val source = com.example.timeapk.HomeSourceFiles.combined()
         val viewModel = mainSource("ui/home/HomeViewModel.kt").readText(Charsets.UTF_8)
         val dragEnd = source.substringAfter("val finishReorder: () -> Unit = {")
             .substringBefore("val reorderState =")
@@ -302,7 +309,7 @@ class WidgetOrderingRefreshArchitectureTest {
 
     @Test
     fun displayedTargetChangesNeverReleaseAnInFlightReorder() {
-        val source = mainSource("ui/home/HomeScreen.kt").readText(Charsets.UTF_8)
+        val source = com.example.timeapk.HomeSourceFiles.combined()
         val snapshotSync = source.substringAfter("fun applyDisplayedListSnapshot(")
             .substringBefore("if (orderedList.isEmpty() && displayedList.isNotEmpty())")
         val dragEnd = source.substringAfter("val finishReorder: () -> Unit = {")
@@ -330,7 +337,7 @@ class WidgetOrderingRefreshArchitectureTest {
     @Test
     fun homeOrderingPreferenceChangesRefreshWidgetsAfterPersistence() {
         val viewModel = mainSource("ui/home/HomeViewModel.kt").readText(Charsets.UTF_8)
-        val homeScreen = mainSource("ui/home/HomeScreen.kt").readText(Charsets.UTF_8)
+        val homeScreen = com.example.timeapk.HomeSourceFiles.combined()
         val detailScreen = mainSource("ui/detail/DetailScreen.kt").readText(Charsets.UTF_8)
 
         assertPersistedBeforeRefresh(

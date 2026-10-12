@@ -5,6 +5,6 @@
     android:updatePeriodMillis="86400000"
     android:initialLayout="@layout/widget_countdown"
     android:configure="com.example.timeapk.widget.WidgetConfigActivity"
-    android:description="@string/app_name"
+    android:description="@string/widget_list_description"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen" />

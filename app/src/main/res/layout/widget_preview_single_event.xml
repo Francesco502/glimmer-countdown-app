@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Static picker preview (API 31+ previewLayout) for the single-event widget. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:gravity="center_vertical"
+    android:orientation="vertical"
+    android:padding="@dimen/widget_single_padding"
+    android:theme="@style/Theme.TimeAPK.Widget">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/days_until_label"
+        android:textColor="?attr/widgetTextSecondaryColor"
+        android:textSize="12sp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="serif"
+        android:includeFontPadding="false"
+        android:text="@string/single_widget_preview_number"
+        android:textColor="?attr/widgetTextAccentColor"
+        android:textSize="40sp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="@string/widget_config_preview_event_primary"
+        android:textColor="?attr/widgetTextPrimaryColor"
+        android:textSize="14sp" />
+</LinearLayout>

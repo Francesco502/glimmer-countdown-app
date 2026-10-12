@@ -59,7 +59,7 @@ class WidgetPreviewPolicyTest {
     }
 
     @Test
-    fun resolveWidgetPreviewStyle_systemGlassUsesNativeMilkySurfaceInDarkTheme() {
+    fun resolveWidgetPreviewStyle_systemGlassUsesDeepGlassInDarkTheme() {
         val style = resolveWidgetPreviewStyle(
             config = WidgetConfig.default().copy(
                 appearancePreset = APPEARANCE_SYSTEM,
@@ -69,9 +69,10 @@ class WidgetPreviewPolicyTest {
             isDark = true
         )
 
-        assertEquals(0xB3F1F3F0.toInt(), style.backgroundColorArgb)
-        assertEquals(0x1A202124, style.borderColorArgb)
-        assertEquals(0xFF202124.toInt(), style.contentColorArgb)
-        assertEquals(0xFFB45A4E.toInt(), style.accentColorArgb)
+        // Matches drawable-night/widget_background_translucent_25.xml.
+        assertEquals(0xA61C1C1E.toInt(), style.backgroundColorArgb)
+        assertEquals(0x26FFFFFF, style.borderColorArgb)
+        assertEquals(0xFFEDE8DD.toInt(), style.contentColorArgb)
+        assertEquals(0xFFF6D9A6.toInt(), style.accentColorArgb)
     }
 }

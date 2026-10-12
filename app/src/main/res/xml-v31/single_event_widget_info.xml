@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="50dp"
+    android:minHeight="50dp"
+    android:minResizeWidth="50dp"
+    android:minResizeHeight="50dp"
+    android:maxResizeWidth="530dp"
+    android:maxResizeHeight="270dp"
+    android:targetCellWidth="2"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="86400000"
+    android:initialLayout="@layout/widget_single_event"
+    android:previewLayout="@layout/widget_preview_single_event"
+    android:configure="com.example.timeapk.widget.SingleEventWidgetConfigActivity"
+    android:description="@string/single_widget_description"
+    android:resizeMode="horizontal|vertical"
+    android:widgetFeatures="reconfigurable|configuration_optional"
+    android:widgetCategory="home_screen" />

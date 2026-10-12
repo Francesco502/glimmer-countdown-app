@@ -44,7 +44,7 @@ internal object WidgetRenderPolicy {
         return WidgetRenderStyle(
             rootLayoutResId = resolveRootLayoutResId(clean),
             backgroundResId = resolveBackgroundResId(clean),
-            itemLayoutResId = resolveItemLayoutResId(clean, useLightText),
+            itemLayoutResId = resolveItemLayoutResId(clean, useLightText, theme.isDark),
             useThemeTextColors = resolveUseThemeTextColors(clean),
             primaryTextColor = colors.primary,
             secondaryTextColor = colors.secondary,
@@ -78,6 +78,18 @@ internal object WidgetRenderPolicy {
             CORNER_MEDIUM -> R.layout.widget_countdown_corner_medium
             CORNER_LARGE -> R.layout.widget_countdown_corner_large
             else -> R.layout.widget_countdown
+        }
+    }
+
+    /** 单事件小组件的根布局，圆角与透明表面规则与列表小组件一致。 */
+    fun resolveSingleEventLayoutResId(config: WidgetConfig): Int {
+        val clean = config.sanitize()
+        if (isTransparentSurface(clean)) return R.layout.widget_single_event_transparent
+        return when (clean.cornerMode) {
+            CORNER_SMALL -> R.layout.widget_single_event_corner_small
+            CORNER_MEDIUM -> R.layout.widget_single_event_corner_medium
+            CORNER_LARGE -> R.layout.widget_single_event_corner_large
+            else -> R.layout.widget_single_event
         }
     }
 
@@ -159,7 +171,7 @@ internal object WidgetRenderPolicy {
                 secondary = PaperSecondary,
                 accent = GoldAccent
             )
-            isMilkyGlassSurface(config) && config.contrastMode != CONTRAST_LIGHT_TEXT -> TextColors(
+            isMilkyGlassSurface(config) && !useLightText -> TextColors(
                 primary = NativeGlassText,
                 secondary = NativeGlassSecondary,
                 accent = NativeGlassAccent
@@ -177,8 +189,8 @@ internal object WidgetRenderPolicy {
         }
     }
 
-    private fun resolveItemLayoutResId(config: WidgetConfig, useLightText: Boolean): Int {
-        if (!needsTextProtection(config, useLightText)) return R.layout.widget_countdown_item
+    private fun resolveItemLayoutResId(config: WidgetConfig, useLightText: Boolean, isDark: Boolean): Int {
+        if (!needsTextProtection(config, useLightText, isDark)) return R.layout.widget_countdown_item
         return if (useLightText) {
             R.layout.widget_countdown_item_shadow_dark
         } else {
@@ -186,8 +198,10 @@ internal object WidgetRenderPolicy {
         }
     }
 
-    private fun needsTextProtection(config: WidgetConfig, useLightText: Boolean): Boolean {
-        if (isMilkyGlassSurface(config) && !useLightText) return false
+    private fun needsTextProtection(config: WidgetConfig, useLightText: Boolean, isDark: Boolean): Boolean {
+        // Glass is milky by day and deep by night: text matching that tone needs no shadow,
+        // a forced opposite text colour (light on milky, dark on deep) does.
+        if (isMilkyGlassSurface(config)) return useLightText != isDark
         return when (config.appearancePreset) {
             APPEARANCE_TRANSPARENT,
             APPEARANCE_TRANSLUCENT -> true
@@ -200,11 +214,8 @@ internal object WidgetRenderPolicy {
         return when (config.contrastMode) {
             CONTRAST_LIGHT_TEXT -> true
             CONTRAST_DARK_TEXT -> false
-            else -> if (isMilkyGlassSurface(config)) {
-                false
-            } else {
-                config.appearancePreset == APPEARANCE_SEAL || theme.isDark
-            }
+            // Glass follows the theme: milky glass with ink text by day, deep glass with light text by night.
+            else -> config.appearancePreset == APPEARANCE_SEAL || theme.isDark
         }
     }
 

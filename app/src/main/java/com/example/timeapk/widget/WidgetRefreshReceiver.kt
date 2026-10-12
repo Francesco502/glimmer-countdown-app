@@ -23,6 +23,7 @@ class WidgetRefreshReceiver : BroadcastReceiver() {
         if (action != ACTION_REFRESH_CLOCK_CHANGED) {
             WidgetDateBoundaryScheduler.scheduleOrCancel(context)
         }
+        SingleEventWidgetProvider.refreshAll(context)
         if (appWidgetIds.isEmpty()) return
         CountdownAppWidgetProvider.launchRefresh(
             context = context,
