@@ -12,7 +12,7 @@ on:
         required: true
         type: string
       verify_public_release:
-        description: Verify latest published v4.1 and in-app update status
+        description: Verify latest published v4.2 and in-app update status
         type: boolean
         default: false
 
@@ -66,25 +66,25 @@ jobs:
             python3 -I - "$report_dir/public-latest-release.json" <<'PY'
           import json, os, sys
           release = json.load(open(sys.argv[1], encoding="utf-8"))
-          assert release.get("draft") is False and release.get("prerelease") is False and release.get("tag_name") == "v4.1"
+          assert release.get("draft") is False and release.get("prerelease") is False and release.get("tag_name") == "v4.2"
           assert len(release["assets"]) == 1
           asset = release["assets"][0]
-          assert asset["id"] == int(os.environ["ASSET_ID"]) and asset["name"] == "glimmer-countdown-4-1.apk" and asset["digest"] == "sha256:" + os.environ["APK_SHA256"].lower()
+          assert asset["id"] == int(os.environ["ASSET_ID"]) and asset["name"] == "glimmer-countdown-4-2.apk" and asset["digest"] == "sha256:" + os.environ["APK_SHA256"].lower()
           PY
           fi
           timeout 90 gh api --method GET -H 'Accept: application/octet-stream' \
             "repos/Francesco502/glimmer-countdown-app/releases/assets/$ASSET_ID" \
             > "$apk_dir/candidate.apk" 2> "$report_dir/candidate-download-error.txt"
           curl --fail --location --silent --show-error --max-time 90 \
-            'https://github.com/Francesco502/glimmer-countdown-app/releases/download/v4.0/glimmer-countdown-4-0.apk' \
+            'https://github.com/Francesco502/glimmer-countdown-app/releases/download/v4.1/glimmer-countdown-4-1.apk' \
             -o "$apk_dir/baseline.apk" 2> "$report_dir/baseline-download-error.txt"
           sha256sum "$apk_dir/"*.apk > "$report_dir/apk-sha256.txt"
           stat -c '%n %s bytes' "$apk_dir/"*.apk > "$report_dir/apk-sizes.txt"
           printf '%s  %s\n' "${APK_SHA256,,}" "$apk_dir/candidate.apk" \
             | sha256sum --check - | tee "$report_dir/candidate-hash-check.txt"
-          printf '%s  %s\n' 'f45afe96cbc6602e539e9300c424a56f4e9488bcab3ec69e0a91ce56069c7543' "$apk_dir/baseline.apk" \
+          printf '%s  %s\n' '8fbeee7590f89104995ecce98769842dc2a75cf84d8641efd6a0c7b67619e5b4' "$apk_dir/baseline.apk" \
             | sha256sum --check - | tee "$report_dir/baseline-hash-check.txt"
-          [[ "$(stat -c %s "$apk_dir/baseline.apk")" == 26422346 ]]
+          [[ "$(stat -c %s "$apk_dir/baseline.apk")" == 26463543 ]]
 
       - name: Verify formal APKs, upgrade, and restore on owned native AVD
         timeout-minutes: 24
@@ -153,8 +153,8 @@ jobs:
             fi
             grep -Eq "^uses-permission:[[:space:]]+name='android[.]permission[.]REQUEST_INSTALL_PACKAGES'([[:space:]]|$)" "$report_dir/$name-manifest.txt"
           }
-          verify_apk baseline 4.0 23
-          verify_apk candidate 4.1 24
+          verify_apk baseline 4.1 24
+          verify_apk candidate 4.2 25
           printf 'no\n' | timeout 30 "$avdmanager" create avd --force --name "$avd_name" \
             --package "system-images;android-$API_LEVEL;google_apis;x86_64" --device pixel \
             > "$report_dir/avdmanager.txt" 2>&1

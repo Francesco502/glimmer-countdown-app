@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Host-driven draft recovery, or 4.0-to-4.1 upgrade with --upgrade-apk.
+"""Host-driven draft recovery, or 4.1-to-4.2 upgrade with --upgrade-apk.
 
 This terminates a real background process through ActivityManager while retaining
 its task. It does not claim natural low-memory-killer or physical-device coverage.
@@ -26,7 +26,7 @@ LABELS = {
     "new": ("New event", "新建事件"),
     "title": ("Title", "标题"),
     "note": ("Note", "备注"),
-    "save": ("Commit", "落笔"),
+    "save": ("Save", "保存", "Commit", "落笔"),
     "back": ("Back", "返回"),
     "discard": ("Discard changes?", "放弃修改？"),
     "stay": ("Stay", "留在此页"),
@@ -278,10 +278,10 @@ class Smoke:
                 return all(re.search(r"\b" + flag + r"=true\b", state) for flag in (
                     "mInputShown", "mInputViewStarted", "mIsInputViewShown"))
 
-            self.wait("4.0 IME input view ready", input_ready, timeout=20)
+            self.wait("baseline IME input view ready", input_ready, timeout=20)
             node = self.seek(key, lambda tree: tree.field(LABELS[key]), scroll=False)
             if node.get("focused") != "true" or node.get("text", ""):
-                raise SmokeFailure("4.0 " + key + " input was not focused and empty before typing")
+                raise SmokeFailure("Baseline " + key + " input was not focused and empty before typing")
             # The immutable 4.0 baseline has the old delayed text-echo race. Only
             # its upgrade fixture waits for each exact prefix through the real UI.
             for index, character in enumerate(value, 1):
@@ -411,7 +411,7 @@ class Smoke:
         return next(iter(values))
 
     def upgrade(self, apk):
-        self.evidence["scenario"] = "saved-event-4.0-to-4.1-in-place-upgrade"
+        self.evidence["scenario"] = "saved-event-4.1-to-4.2-in-place-upgrade"
         apk = Path(apk).resolve()
         if not apk.is_file():
             raise SmokeFailure("Upgrade APK does not exist: " + str(apk))
@@ -427,13 +427,13 @@ class Smoke:
         before = package_identity(self.text("shell", "dumpsys", "package", PACKAGE,
                                             destination=self.output / "before-package.txt"))
         self.evidence["package_before"] = before
-        if (before["versionName"], before["versionCode"]) != ("4.0", "23"):
-            raise SmokeFailure("Upgrade requires installed baseline 4.0/23, got " + repr(before))
+        if (before["versionName"], before["versionCode"]) != ("4.1", "24"):
+            raise SmokeFailure("Upgrade requires installed baseline 4.1/24, got " + repr(before))
 
         nonce = uuid.uuid4().hex[:12]
         title, note = "UpgradeEvent-" + nonce, "UpgradeNote-" + nonce
         self.evidence.update(title=title, note=note,
-                             baseline_input="4.0 only: each ASCII character confirmed against its complete UI prefix",
+                             baseline_input="baseline only: each ASCII character confirmed against its complete UI prefix",
                              baseline_input_character_count=len(title) + len(note))
         self.launch()
         self.checkpoint("upgrade-02-baseline-home")
@@ -466,8 +466,8 @@ class Smoke:
         after = package_identity(self.text("shell", "dumpsys", "package", PACKAGE,
                                            destination=self.output / "after-package.txt"))
         self.evidence["package_after"] = after
-        if (after["versionName"], after["versionCode"]) != ("4.1", "24"):
-            raise SmokeFailure("Upgrade did not install 4.1/24: " + repr(after))
+        if (after["versionName"], after["versionCode"]) != ("4.2", "25"):
+            raise SmokeFailure("Upgrade did not install 4.2/25: " + repr(after))
         for key in ("firstInstallTime", "userId"):
             if after[key] != before[key]:
                 raise SmokeFailure("In-place upgrade changed " + key)
@@ -490,14 +490,14 @@ class Smoke:
         self.hide_keyboard()
         self.tap_action("back")
         self.evidence["passed"] = True
-        self.evidence["scope"] = "One saved synthetic event upgraded from 4.0/23 to 4.1/24 with unchanged firstInstallTime/userId and title/note/displayed date; caller verifies APK signature separately; no 4.0 process-recovery or physical-device claim."
+        self.evidence["scope"] = "One saved synthetic event upgraded from 4.1/24 to 4.2/25 with unchanged firstInstallTime/userId and title/note/displayed date; caller verifies APK signature separately; no 4.1 process-recovery or physical-device claim."
 
     def capture_pages(self, title):
         self.stage = "pages-00-package"
         identity = package_identity(self.text("shell", "dumpsys", "package", PACKAGE,
                                                destination=self.output / "pages-installed-package.txt"))
-        if (identity["versionName"], identity["versionCode"]) != ("4.1", "24"):
-            raise SmokeFailure("Page capture requires installed 4.1/24: " + repr(identity))
+        if (identity["versionName"], identity["versionCode"]) != ("4.2", "25"):
+            raise SmokeFailure("Page capture requires installed 4.2/25: " + repr(identity))
         self.evidence.update(pages_package=identity, pages_title=title, captured_pages=[],
                              pages_scope="Five actual MainActivity pages: home cards, calendar, the unique saved event detail, settings root, and app-internal widget default configuration preview; no Launcher widget binding claim.")
 
@@ -590,9 +590,9 @@ class Smoke:
         share = ("Share", "分享")
         dialog = ("Share card", "分享笺")
         save = ("Save image", "保存图片")
-        send = ("Share", "唤起分享")
-        saved = ("Image saved", "图片已入相册")
-        failed = ("Could not prepare the image", "成图未成，稍候再试")
+        send = ("Share", "分享", "唤起分享")
+        saved = ("Image saved", "图片已保存到相册", "图片已入相册")
+        failed = ("Could not prepare the image", "图片生成失败，请稍后重试", "成图未成，稍候再试")
         safe_title = re.sub(r"[^A-Za-z0-9\u4e00-\u9fa5_-]+", "-", title).strip("-")[:28] or "event"
         name = "timeapk-" + safe_title + ".png"
         media = "content://media/external/images/media"
@@ -709,8 +709,8 @@ class Smoke:
         self.stage = "update-01-open-about"
         package_file = self.output / "update-installed-package.txt"
         identity = package_identity(self.text("shell", "dumpsys", "package", PACKAGE, destination=package_file))
-        if (identity["versionName"], identity["versionCode"]) != ("4.1", "24"):
-            raise SmokeFailure("Published-update check requires installed 4.1/24: " + repr(identity))
+        if (identity["versionName"], identity["versionCode"]) != ("4.2", "25"):
+            raise SmokeFailure("Published-update check requires installed 4.2/25: " + repr(identity))
         tree = self.tree()
         if tree.contains(("Widget settings", "小组件设置")) and tree.contains(("Default configuration", "默认配置")):
             self.tap_action("back")
@@ -720,7 +720,7 @@ class Smoke:
             self.tap(settings)
         about = ("About & updates", "关于与更新")
         self.tap(self.seek("About & updates entry", lambda tree: tree.action(about), scroll=True))
-        update = ("Check for updates", "探寻新章")
+        update = ("Check for updates", "检查更新", "探寻新章")
         latest = ("Already up to date", "已是最新版本")
         self.seek("About update controls", lambda tree: tree.root if
                   tree.contains(about) and tree.action(update) is not None else None)
@@ -735,7 +735,8 @@ class Smoke:
 
         def read_result():
             tree = self.tree()
-            if tree.contains(("Update search did not settle.", "探寻未成，稍候再试")):
+            if tree.contains(("Could not check for updates. Try again later.", "检查失败，请稍后重试",
+                              "Update search did not settle.", "探寻未成，稍候再试")):
                 raise SmokeFailure("Actual UI update check reported failure")
             if any(node.get(key, "").startswith(("New version ", "发现新版本 "))
                    for node in tree.nodes for key in ("text", "content-desc")):
@@ -783,7 +784,7 @@ def main():
     parser.add_argument("--adb", required=True)
     parser.add_argument("--serial", required=True)
     parser.add_argument("--output", required=True)
-    parser.add_argument("--upgrade-apk", help="Upgrade installed 4.0/23 to this caller-verified signed 4.1/24 APK")
+    parser.add_argument("--upgrade-apk", help="Upgrade installed 4.1/24 to this caller-verified signed 4.2/25 APK")
     parser.add_argument("--capture-pages", action="store_true", help="After success, capture five MainActivity pages for manual review")
     parser.add_argument("--check-update", action="store_true", help="After success, require the published Direct-app update UI to confirm Already up to date")
     args = parser.parse_args()

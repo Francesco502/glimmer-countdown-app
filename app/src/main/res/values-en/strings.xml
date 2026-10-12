@@ -375,7 +375,7 @@
         <item quantity="one">%1$s: %2$s in %3$d day</item>
         <item quantity="other">%1$s: %2$s in %3$d days</item>
     </plurals>
-    <string name="save_event_failed">Commit did not settle.</string>
+    <string name="save_event_failed">Could not save. Try again later.</string>
     <string name="save_event_partial_warning">Committed; reminder or calendar is unsettled.</string>
     <string name="save_event_partial_warning_no_writable_calendar">Committed; no writable device calendar, so sync paused.</string>
     <string name="import_completed_detailed">Settled: found %1$d, placed %2$d, repeats %3$d, unfinished %4$d, notices %5$d</string>

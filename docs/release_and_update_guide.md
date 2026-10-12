@@ -1,22 +1,20 @@
 # TimeAPK 发布与更新指引
 
-本文档记录 4.1 的正式签名、构建、验证与更新流程（2026-10-10）。最新公开版本为 [v4.1](https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v4.1)，不可变 tag 对应 APK 源码 commit 为 `6c52a3a0e7f495e015f12c035ea94bd614fc2813`。正式签名与独立验签已完成，证书与线上 v4.0 一致；最终 [TAG CI 37990007930](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/37990007930) 和 [正式 APK QA 37992543286](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/37992543286) 均通过，后者覆盖 API26/31/36 保留数据升级与 AMS 草稿恢复，以及 API36 五页和分享验证。
+本文档记录 4.2 的正式签名、构建、验证与更新流程（2026-10-12）。**4.2 当前为候选 / 未发布**：代码与发布文档在 `feat/v4.2` 分支，尚未创建 `v4.2` tag，也没有正式签名的最终 APK。最新公开版本仍为 [v4.1](https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v4.1)，其 tag commit、CI、正式 APK QA、Release/资产 ID 与公开复验记录归档在 [v4.1 清单](releases/v4.1-checklist.md)，不作为 4.2 的通过证据。
 
-Release ID 为 `408364983`，唯一资产 ID 为 `626232462`，大小 `26463543` 字节，SHA-256 为 `8fbeee7590f89104995ecce98769842dc2a75cf84d8641efd6a0c7b67619e5b4`。公开无鉴权下载的哈希、证书和真实 `4.1` / `24` 包身份已复核。
+4.2 正式签名须继续使用线上 v4.0 / v4.1 的同一证书（SHA-256 `3b7cb426a82664f891c69511cc2505b67128c8503664639f297291da4ea903ca`），以便覆盖升级。签名 QA 以公开 v4.1 APK（26,463,543 bytes，SHA-256 `8fbeee7590f89104995ecce98769842dc2a75cf84d8641efd6a0c7b67619e5b4`）为固定升级基线。按用户决定，本版不安排实体手机验收，物理设备相关项保持未执行并如实记录。
 
-首次公开复验 [37994317407](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/37994317407) 的 API36 旧 4.0 基线场景因测试工具在页面过渡时立即失败，尚未进入该场景的升级或在线更新验证，原失败记录保留。仅测试驱动的 `seek` 等待已在 `6a1bdb5d73a5e6228303d631e29007a5ad32ca91` 修正，应用源码、不可变 tag 和公开 APK 均未改变；新 [公开 APK 安装与在线更新复验 37995185711](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/37995185711) 使用该驱动验证同一唯一公开资产，三平台 job 均成功；原始升级 / AMS、API36 分享 / 更新 / 五页结果见 [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)。用户已授权发布并说明无实体手机；物理验收未执行，按现有授权记录剩余限制，不继承 v4.0 豁免。
-
-**唯一正式发布渠道：GitHub Release。** 唯一官方资产为 Direct APK `glimmer-countdown-4-1.apk`。Play flavor 仅保留用于兼容性与开发回归，不是 4.1 正式发布工件或阻断项。
+**唯一正式发布渠道：GitHub Release。** 唯一官方资产为 Direct APK `glimmer-countdown-4-2.apk`。Play flavor 仅保留用于兼容性与开发回归，不是 4.2 正式发布工件或阻断项。
 
 ## 一、当前状态
 
 | 项目 | 状态 |
 |------|------|
-| `applicationId` / 版本号 | Direct：`com.example.timeapk` / `4.1`；Play：`com.example.timeapk.play` / `4.1`（仅开发回归） |
+| `applicationId` / 版本号 | Direct：`com.example.timeapk` / `4.2`；Play：`com.example.timeapk.play` / `4.2`（仅开发回归） |
 | 最低 / 目标 SDK | `minSdk 26` / `targetSdk 36` |
 | Release 构建 | 已启用 `release` buildType，并开启 `minify` 与 `shrinkResources` |
-| Release 签名 | 既有正式密钥已核验；最终 4.1 APK 正式签名与独立验签已完成，与线上 v4.0 同证 |
-| Direct APK 命名 | 输出为 `glimmer-countdown-4-1.apk` |
+| Release 签名 | 既有正式密钥已核验（与线上 v4.0 / v4.1 同证）；最终 4.2 APK 尚未从 tag 正式签名 |
+| Direct APK 命名 | 输出为 `glimmer-countdown-4-2.apk` |
 | 正式渠道 | GitHub Release，只上传 Direct APK |
 | Play flavor | 保留用于兼容性与开发回归；不产生正式资产或发布门 |
 
@@ -39,7 +37,7 @@ keyPassword=xxx
 GLIMMER_RELEASE_CERT_SHA256=<64位SHA-256证书指纹>
 ```
 
-已取得密钥及最终 4.1 正式 APK 的证书 SHA-256 均独立核验为 `3b7cb426a82664f891c69511cc2505b67128c8503664639f297291da4ea903ca`，与下载核验的线上 v4.0 APK 一致。私钥、密码、配置内容和 GitHub token 不进入文档或日志。
+已取得密钥及线上 v4.1 APK 的证书 SHA-256 均独立核验为 `3b7cb426a82664f891c69511cc2505b67128c8503664639f297291da4ea903ca`；最终 4.2 APK 须单独验签并一致。私钥、密码、配置内容和 GitHub token 不进入文档或日志。
 
 确保以下文件不进入仓库：
 
@@ -50,10 +48,10 @@ GLIMMER_RELEASE_CERT_SHA256=<64位SHA-256证书指纹>
 
 当前版本值：
 
-- `VERSION_NAME=4.1`
-- `VERSION_CODE=24`
+- `VERSION_NAME=4.2`
+- `VERSION_CODE=25`
 
-当前 `4.1` / `24` APK 已正式签名并公开，实际证据按本版 [发布检查清单](RELEASE_CHECKLIST.md) 记录。当前无手机的物理验收保持未执行，按用户现有发布授权记录剩余限制，不另设二次审批门，也不继承 v4.0 豁免。
+当前 `4.2` / `25` 为候选 / 未发布，实际证据按本版 [发布检查清单](RELEASE_CHECKLIST.md) 记录。按用户决定本版不安排实体手机验收，物理设备项保持未执行，不继承 v4.0 豁免。
 
 继续发布新版本时，应同步递增 `versionCode`，并更新 `versionName`、`README.md`、`CHANGELOG.md` 与发布文档。
 
@@ -68,25 +66,25 @@ GLIMMER_RELEASE_CERT_SHA256=<64位SHA-256证书指纹>
 
 若正式密钥只留在本机，可采用等价路径完成签名，不修改 Gradle 的默认签名门：
 
-1. 从最终不可变 `v4.1` tag 对应 commit 在无密钥的 CI 执行 `./gradlew --no-daemon --no-parallel packageDirectRelease -x validateReleaseSigning`，生成 Release R8 / 资源压缩的未签名工件。此处排除签名校验仅用于未签名打包，不能称正式签名完成，也不能直接发布。
-2. 保存该 run 的源码 revision、未签名 APK 原始 SHA-256 和原始 `output-metadata.json`；下载后核对哈希及 `directRelease` / `com.example.timeapk` / `4.1` / `24` 的唯一无过滤 artifact。不得用 CI3 或其他旧候选工件替代最终 tag 工件。
+1. 从最终不可变 `v4.2` tag 对应 commit 在无密钥的 CI 执行 `./gradlew --no-daemon --no-parallel packageDirectRelease -x validateReleaseSigning`，生成 Release R8 / 资源压缩的未签名工件。此处排除签名校验仅用于未签名打包，不能称正式签名完成，也不能直接发布。
+2. 保存该 run 的源码 revision、未签名 APK 原始 SHA-256 和原始 `output-metadata.json`；下载后核对哈希及 `directRelease` / `com.example.timeapk` / `4.2` / `25` 的唯一无过滤 artifact。不得用 CI3 或其他旧候选工件替代最终 tag 工件。
 3. 在本机先 zipalign，再用原生 apksigner 和已核验的正式 keystore 签名。密钥不出本机，密码通过进程环境输入，不写入命令或日志。下例 `unsigned.apk` 指原始 metadata 引用的未签名 APK，SDK Build Tools 路径按本机环境解析；环境变量须事先安全注入。
 
    ```bash
    zipalign -P 16 -f 4 unsigned.apk aligned.apk
    apksigner sign --ks local-release.keystore --ks-key-alias release-alias \
      --ks-pass env:TIMEAPK_STORE_PASSWORD --key-pass env:TIMEAPK_KEY_PASSWORD \
-     --out glimmer-countdown-4-1.apk aligned.apk
-   apksigner verify --print-certs glimmer-countdown-4-1.apk
-   zipalign -c -P 16 4 glimmer-countdown-4-1.apk
+     --out glimmer-countdown-4-2.apk aligned.apk
+   apksigner verify --print-certs glimmer-countdown-4-2.apk
+   zipalign -c -P 16 4 glimmer-countdown-4-2.apk
    ```
 
    zipalign 必须在 apksigner 签名前完成；密码的 `env:` 输入格式见 [apksigner](https://developer.android.com/tools/apksigner)，对齐顺序见 [zipalign](https://developer.android.com/tools/zipalign)。签名后不得再改 APK 内容。
-4. 记录正式 APK 的大小、SHA-256、证书及真实包身份，将最终 APK 与 metadata 放入下述输出目录；保留原始 metadata，只将发布用副本的唯一 artifact `outputFile` 改为 `glimmer-countdown-4-1.apk`，不改版本、包名、variant、类型或 filters。publisher 独立验签和核对 APK/metadata；只有全部校验成功的最终 APK 才可发布。
+4. 记录正式 APK 的大小、SHA-256、证书及真实包身份，将最终 APK 与 metadata 放入下述输出目录；保留原始 metadata，只将发布用副本的唯一 artifact `outputFile` 改为 `glimmer-countdown-4-2.apk`，不改版本、包名、variant、类型或 filters。publisher 独立验签和核对 APK/metadata；只有全部校验成功的最终 APK 才可发布。
 
 产物路径：
 
-- `app/build/outputs/apk/direct/release/glimmer-countdown-4-1.apk`
+- `app/build/outputs/apk/direct/release/glimmer-countdown-4-2.apk`
 
 Play flavor 的 Debug 测试、编译或安装仅用于开发回归，必须单独记录，且不是本页正式发布的前置条件。
 
@@ -98,7 +96,7 @@ Play flavor 的 Debug 测试、编译或安装仅用于开发回归，必须单�
 
 ```bash
 git add app gradle.properties README.md CHANGELOG.md docs scripts .gitignore
-git commit -m "release: ship v4.1"
+git commit -m "release: ship v4.2"
 git push origin main
 ```
 
@@ -107,17 +105,17 @@ git push origin main
 标签必须在代码、文档和检查结果全部确定后，创建于最终发布 commit：
 
 ```bash
-git tag -a v4.1 -m "Release v4.1"
-git push origin v4.1
+git tag -a v4.2 -m "Release v4.2"
+git push origin v4.2
 ```
 
 脚本会分别解引用 annotated/lightweight tag，并要求本地与远端 tag 解引用后的 commit 精确一致。禁止 force-push、移动或复用已推送 tag，禁止覆盖已发布 Release；已发布后出现问题必须递增版本号。
 
-标签推送后先核对 `git rev-parse HEAD` 与 `git rev-parse v4.1^{commit}` 一致，再从该提交执行本页“构建命令”或 CI 未签名构建、本机正式签名路径。可用 `./gradlew clean` 清理构建输出，不得复用旧构建产物，也不要使用可能删除未跟踪文件的 `git clean`。用正式密钥完成 Direct APK 后，记录 SHA-256，并验证签名、精确证书指纹与安装权限。
+标签推送后先核对 `git rev-parse HEAD` 与 `git rev-parse v4.2^{commit}` 一致，再从该提交执行本页“构建命令”或 CI 未签名构建、本机正式签名路径。可用 `./gradlew clean` 清理构建输出，不得复用旧构建产物，也不要使用可能删除未跟踪文件的 `git clean`。用正式密钥完成 Direct APK 后，记录 SHA-256，并验证签名、精确证书指纹与安装权限。
 
 ### 3. Release
 
-前置条件：正式签名 exact Direct APK 已从 tag commit 新鲜生成；`ANDROID_HOME` 可定位稳定版 `apksigner` 与 `aapt`；`GLIMMER_RELEASE_CERT_SHA256` 已安全注入；本地运行 `gh auth login` 后脚本可通过 `gh auth token` 取得具备 `GitHub Contents: write` 的凭据；本地和远端 `v4.1` tag 已指向最终发布 commit。CI 才通过仓库 secret 注入 `GITHUB_TOKEN`，且不得打印其值。
+前置条件：正式签名 exact Direct APK 已从 tag commit 新鲜生成；`ANDROID_HOME` 可定位稳定版 `apksigner` 与 `aapt`；`GLIMMER_RELEASE_CERT_SHA256` 已安全注入；本地运行 `gh auth login` 后脚本可通过 `gh auth token` 取得具备 `GitHub Contents: write` 的凭据；本地和远端 `v4.2` tag 已指向最终发布 commit。CI 才通过仓库 secret 注入 `GITHUB_TOKEN`，且不得打印其值。
 
 ```powershell
 $env:GLIMMER_RELEASE_CERT_SHA256 = "your_release_certificate_sha256"
@@ -128,15 +126,15 @@ gh auth login
 
 不要在命令行中直接书写 token。GitHub CLI 可减少明文凭据暴露，但命令历史和凭据存储安全仍取决于本机配置，不能作绝对保证。
 
-当前 `main` 的发布工具修正提交 `a608b70` 兼容正式 apksigner 的 `Signer #1 certificate SHA-256 digest:` 输出及旧 `V2 Signer:` 格式，既有隔离回归 10/10 通过。本次使用已测试工具的受控副本，在应用工作树保持不可变 `v4.1` tag commit 且干净时完成发布；工具提交不作为 APK 源码 revision，tag 未移动。
+发布工具沿用 v4.1 已验证的 `scripts/publish-release.ps1`（兼容正式 apksigner 的 `Signer #1 certificate SHA-256 digest:` 输出及旧 `V2 Signer:` 格式），隔离回归须在本版 CI 重新 10/10 通过。
 
 脚本会：
 
 - 读取当前版本号；工作区存在 tracked / untracked 改动时拒绝发布
-- 提取 `CHANGELOG.md` 中 `4.1` 小节作为 Release Notes
+- 提取 `CHANGELOG.md` 中 `4.2` 小节作为 Release Notes
 - 要求当前 `HEAD` 等于 exact 本地 tag commit，并在首次远端写入前再次复核
 - 校验 `output-metadata.json` 的唯一 Direct artifact，再用 `aapt` 验证 APK 的真实包名、版本、非调试状态和安装包权限
-- 校验正式证书指纹及本地/远端 tag commit 后创建 `refs/heads/release-locks/v4.1` Git ref 锁
+- 校验正式证书指纹及本地/远端 tag commit 后创建 `refs/heads/release-locks/v4.2` Git ref 锁
 - 创建带 `ownership marker` 的 draft；仅恢复带脚本自身 marker 的 draft，拒绝 published Release 和人工 draft
 - 删除 owned draft 中的所有旧资产，再上传 exact Direct APK，并将响应及重新读取结果绑定到 asset id、size、digest、content type 和下载 URL
 - 要求整个 Release 只保留唯一的 exact Direct APK，发现任何其他资产即拒绝发布
@@ -146,13 +144,13 @@ gh auth login
 
 ## 五、建议抽检
 
-- 首页右上近期入口、轻量页签、册页卡片、透明书目列表和历书月历是否层级清楚
-- 首页月历日格是否只显示日期、今日标记和事件点/数量，选中日期区域是否显示完整农历信息，顶部年月是否可切换月份
-- 月历选中日期内容、详情轻量主卡与分享卡、新建 / 编辑日期卡片和提醒滚轮是否正常
-- 设置页外观样张与系统日程健康状态是否正常
-- 小组件 1-5 格“预览宽度 / 预览高度”、折叠摘要、默认配置应用入口与透明 / 半透明背景是否正常
-- 小组件内容筛选、排序、密度、边框、圆角、文字对比和农历前缀是否生效
+- 首页“最近”横幅、放大的倒数数字与上方“已经 / 还有”、朱印“今天”、置顶标记、顶栏搜索与长按菜单
+- 月历格内农历日 / 节日 / 节气、分类色点、今天与选中日区分、左右滑动换月与“今天”按钮；新建按钮预填所选日期
+- 详情配图与分享弹窗（不透明、预览完整、弹窗内保存反馈）；新建页日期紧随标题、快捷提醒、自定义分类与配图
+- 设置页当前值、宋韵方形开关、分类管理、跟随壁纸取色、精确提醒（Direct）
+- 小组件设置“外观 / 内容”分页、1-5 格“预览宽度 / 预览高度”、透明度项按背景显隐、覆盖确认；单事件大数字小组件
+- 宽屏（≥840dp）列表与详情双栏；深色模式下的磨砂玻璃与自定义颜色
 - 新建 / 编辑 / 删除事件、提醒、系统日历同步和小组件刷新链路是否正常
-- Direct 渠道检查更新是否能读取 GitHub Release
-- 物理手机 Direct APK 安装 / 升级、通知、日历、Launcher 小组件与性能 smoke：未执行（当前无手机），按用户现有发布授权记录剩余限制，不写成通过
-- 从公开 GitHub Release 在线重新安装唯一 APK，并完成更新检查与关键链路 smoke：复验 37995185711 三平台 job 均成功，原始结果见本版检查清单
+- Direct 渠道检查更新是否能读取 GitHub Release，下载进度与安装权限引导
+- 物理手机 Direct APK 安装 / 升级、通知、日历、Launcher 小组件与性能 smoke：本版按用户决定不安排，记录为未执行，不写成通过
+- 从公开 GitHub Release 在线重新安装唯一 APK，并完成更新检查与关键链路 smoke：发布后执行，结果写入本版检查清单
