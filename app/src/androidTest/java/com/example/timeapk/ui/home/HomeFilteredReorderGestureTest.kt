@@ -188,10 +188,14 @@ class HomeFilteredReorderGestureTest {
                 val remainingClockMillis = 5_000 - (composeRule.mainClock.currentTime - scrollClockStart)
                 check(remainingClockMillis > 0) { "M6 still outside the viewport after five seconds of drag frames" }
                 composeRule.mainClock.advanceTimeBy(minOf(100L, remainingClockMillis))
-                assertDragIsActive("E2EDrag-A")
-                composeRule.onAllNodesWithText("E2EDrag-M6").fetchSemanticsNodes().any {
-                    val bounds = it.boundsInRoot
-                    bounds.top < listBounds.bottom && bounds.bottom > listBounds.top
+                // Manual frames can overlap a main-thread layout pass while this thread
+                // walks the semantics tree; skip that poll instead of failing the drag.
+                retryOnConcurrentSemanticsRead {
+                    assertDragIsActive("E2EDrag-A")
+                    composeRule.onAllNodesWithText("E2EDrag-M6").fetchSemanticsNodes().any {
+                        val bounds = it.boundsInRoot
+                        bounds.top < listBounds.bottom && bounds.bottom > listBounds.top
+                    }
                 }
             }
             println("Edge drag reached M6: composeElapsedMs=${composeRule.mainClock.currentTime - scrollClockStart}, " +
@@ -302,6 +306,13 @@ class HomeFilteredReorderGestureTest {
         listOf("E2EDrag-A", "E2EDrag-B", "E2EDrag-C").forEach { title ->
             composeRule.onNodeWithText(title).assertIsDisplayed()
         }
+    }
+
+    private fun retryOnConcurrentSemanticsRead(read: () -> Boolean): Boolean = try {
+        read()
+    } catch (failure: IllegalArgumentException) {
+        if (failure.message?.contains("multithreaded access to SnapshotStateObserver") != true) throw failure
+        false
     }
 
     /** The tools panel is a popup window, which adds a second semantics root. */
