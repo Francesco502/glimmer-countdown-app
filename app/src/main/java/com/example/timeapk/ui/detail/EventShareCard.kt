@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -26,7 +27,9 @@ data class EventShareCardData(
     val timeText: String,
     val timeLabel: String,
     val accentColor: Color,
-    val brandText: String
+    val brandText: String,
+    /** 事件配图，淡淡铺在纸笺底层；null 表示无配图。 */
+    val backgroundImage: android.graphics.Bitmap? = null
 )
 
 fun buildEventShareCardData(
@@ -36,7 +39,8 @@ fun buildEventShareCardData(
     timeText: String,
     timeLabel: String,
     accentColor: Color,
-    brandText: String
+    brandText: String,
+    backgroundImage: android.graphics.Bitmap? = null
 ): EventShareCardData {
     return EventShareCardData(
         title = title,
@@ -45,7 +49,8 @@ fun buildEventShareCardData(
         timeText = timeText,
         timeLabel = timeLabel,
         accentColor = accentColor,
-        brandText = brandText
+        brandText = brandText,
+        backgroundImage = backgroundImage
     )
 }
 
@@ -58,6 +63,11 @@ fun EventShareCard(
         value = withContext(Dispatchers.Default) {
             runCatching { EventShareImageRenderer().render(data) }
         }
+    }
+    // The 1080x1350 preview is large; free it as soon as the dialog closes or the data changes.
+    DisposableEffect(rendered) {
+        val previous = rendered?.getOrNull()
+        onDispose { previous?.recycle() }
     }
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         val bitmap = rendered?.getOrNull()

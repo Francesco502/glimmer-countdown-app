@@ -78,6 +78,15 @@ import com.example.timeapk.ui.components.SongFormDialog
 import com.example.timeapk.ui.components.SongWheelPickerDialog
 import com.example.timeapk.ui.components.SnapWheelPicker
 import com.example.timeapk.ui.common.SongEventPreviewCard
+import com.example.timeapk.ui.common.CategoryColorChoices
+import com.example.timeapk.ui.common.EventImageStore
+import com.example.timeapk.ui.common.categoryLabel
+import com.example.timeapk.ui.common.categoryOptions
+import com.example.timeapk.ui.common.rememberEventImage
+import com.example.timeapk.data.CATEGORY_NAME_MAX_LENGTH
+import com.example.timeapk.data.normalizeCategoryName
+import androidx.activity.result.PickVisualMediaRequest
+import kotlinx.coroutines.launch
 import com.example.timeapk.ui.settings.ClassicalToggle
 import com.example.timeapk.ui.sound.SongSoundEffect
 import com.example.timeapk.ui.sound.rememberSongSoundscape
@@ -96,7 +105,7 @@ import kotlinx.coroutines.delay
 import java.time.ZoneId
 import java.util.Locale
 
-private val EventEntryContentMaxWidth = 720.dp
+private val EventEntryContentMaxWidth = SongDesignTokens.ContentMaxWidth.dp
 
 private enum class SaveRequestOrigin {
     Standard,
@@ -513,11 +522,7 @@ fun EventEntryBody(
     } else {
         previewDate.format(dateFormatter)
     }
-    val previewCategoryLabel = when (previewDetails.category) {
-        CATEGORY_BIRTHDAY -> stringResource(R.string.category_birthday)
-        CATEGORY_ANNIVERSARY -> stringResource(R.string.category_anniversary)
-        else -> stringResource(R.string.category_other)
-    }
+    val previewCategoryLabel = categoryLabel(previewDetails.category)
     val previewColor = remember(previewDetails.colorHex) {
         previewDetails.colorHex?.let { hex ->
             try { Color(hex.toColorInt()) } catch (_: Exception) { null }
@@ -536,8 +541,14 @@ fun EventEntryBody(
             modifier = Modifier
                 .fillMaxWidth()
                 .widthIn(max = EventEntryContentMaxWidth),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            EventInputForm(
+                eventDetails = eventUiState.eventDetails,
+                onValueChange = onEventValueChange,
+                modifier = Modifier.fillMaxWidth()
+            )
+            // Preview sits below the form so the keyboard never hides the fields being edited.
             SongEventPreviewCard(
                 title = previewDetails.title.ifBlank { stringResource(R.string.event_preview_untitled) },
                 categoryLabel = previewCategoryLabel,
@@ -548,11 +559,6 @@ fun EventEntryBody(
                 } else {
                     stringResource(R.string.cd_reminder_off)
                 },
-                modifier = Modifier.fillMaxWidth()
-            )
-            EventInputForm(
-                eventDetails = eventUiState.eventDetails,
-                onValueChange = onEventValueChange,
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -568,7 +574,7 @@ private fun EventEntrySaveBar(
 ) {
     val soundscape = rememberSongSoundscape()
     Surface(
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.86f),
+        color = MaterialTheme.colorScheme.background,
         shadowElevation = 0.dp,
         tonalElevation = 0.dp
     ) {
@@ -610,7 +616,17 @@ private fun SongSaveSlip(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val label = stringResource(R.string.button_save_event)
-    SongPaperSurface(
+    val containerColor = if (enabled) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f)
+    }
+    val contentColor = if (enabled) {
+        MaterialTheme.colorScheme.onPrimary
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    Surface(
         modifier = modifier
             .heightIn(min = 48.dp)
             .clickable(
@@ -620,16 +636,8 @@ private fun SongSaveSlip(
                 onClick = onClick
             )
             .semantics { contentDescription = label },
-        backgroundColor = if (enabled) {
-            MaterialTheme.colorScheme.surface.copy(alpha = 0.42f)
-        } else {
-            MaterialTheme.colorScheme.surface.copy(alpha = 0.30f)
-        },
-        borderColor = if (enabled) {
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.30f)
-        } else {
-            MaterialTheme.colorScheme.outline.copy(alpha = SongDesignTokens.BorderAlphaSoft)
-        }
+        shape = RoundedCornerShape(SongDesignTokens.StandardRadius.dp),
+        color = containerColor
     ) {
         Row(
             modifier = Modifier
@@ -642,35 +650,20 @@ private fun SongSaveSlip(
                 CircularProgressIndicator(
                     modifier = Modifier.size(18.dp),
                     strokeWidth = 1.6.dp,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-            } else {
-                SongLineIcon(
-                    kind = SongLineIconKind.Seal,
-                    tint = if (enabled) {
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.82f)
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.62f)
-                    },
-                    size = 17.dp
+                    color = contentColor
                 )
                 Spacer(modifier = Modifier.width(8.dp))
             }
             Text(
                 text = label,
                 style = MaterialTheme.typography.titleMedium,
-                color = if (enabled) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                }
+                color = contentColor
             )
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun EventInputForm(
     eventDetails: EventDetails,
@@ -841,6 +834,8 @@ fun EventInputForm(
     val showTitleError = titleTouched.value && eventDetails.title.isBlank()
     val reminderDayOptions = remember { (0..3650).toList() }
     val reminderDayPresets = remember { listOf(0, 1, 7, 30) }
+    val reminderQuickDayPresets = remember { listOf(0, 1, 3, 7) }
+    val primaryRepeatTypes = remember { setOf(REPEAT_NONE, REPEAT_YEARLY, REPEAT_MONTHLY) }
     val reminderHourPresets = remember { listOf(0, 7, 10, 12, 18) }
     val reminderHourOptions = remember { (0..23).toList() }
     val reminderMinuteOptions = remember { (0..59).toList() }
@@ -862,9 +857,45 @@ fun EventInputForm(
     var showCustomRepeatPicker by remember { mutableStateOf(false) }
     var showCustomRemindDaysPicker by remember { mutableStateOf(false) }
     var showCustomRemindTimePicker by remember { mutableStateOf(false) }
-    val currentCategory = eventDetails.category.takeIf {
-        it in listOf(CATEGORY_BIRTHDAY, CATEGORY_ANNIVERSARY, CATEGORY_OTHER)
-    } ?: CATEGORY_OTHER
+    val availableCategories = categoryOptions()
+    val currentCategory = eventDetails.category.takeIf { id -> availableCategories.any { it.id == id } }
+        ?: CATEGORY_OTHER
+    var showNewCategoryDialog by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val app = context.applicationContext as TimeApplication
+    var imageLoading by remember { mutableStateOf(false) }
+    var imageError by remember { mutableStateOf(false) }
+    val pickImageLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        imageLoading = true
+        imageError = false
+        scope.launch {
+            val name = EventImageStore.importFromUri(context, uri)
+            imageLoading = false
+            if (name != null) {
+                onValueChange(latestEventDetails.copy(imagePath = name))
+            } else {
+                imageError = true
+            }
+        }
+    }
+
+    if (showNewCategoryDialog) {
+        NewCategoryDialog(
+            onDismiss = { showNewCategoryDialog = false },
+            onCreate = { name, colorHex ->
+                scope.launch {
+                    val created = app.categoryRepository.add(name, colorHex)
+                    showNewCategoryDialog = false
+                    if (created != null) {
+                        onValueChange(latestEventDetails.copy(category = created.id))
+                    }
+                }
+            }
+        )
+    }
 
     if (showCustomRepeatPicker) {
         var draftRepeat by remember(eventDetails.repeatType) {
@@ -875,7 +906,7 @@ fun EventInputForm(
         var isRepeatPickerScrolling by remember { mutableStateOf(false) }
         SongWheelPickerDialog(
             onDismissRequest = { showCustomRepeatPicker = false },
-            title = stringResource(R.string.category_custom),
+            title = stringResource(R.string.field_repeat),
             confirmEnabled = !isRepeatPickerScrolling,
             onConfirm = {
                 onValueChange(eventDetails.copy(repeatType = draftRepeat))
@@ -995,16 +1026,6 @@ fun EventInputForm(
     }
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SongInkSection(
-            title = stringResource(R.string.event_entry_section_time)
-        ) {
-            SongInkDateRow(
-                value = dateString,
-                contentDescription = stringResource(R.string.field_date),
-                onClick = { showDatePicker = true }
-            )
-        }
-
-        SongInkSection(
             title = stringResource(R.string.event_entry_section_content)
         ) {
             SongInkTextField(
@@ -1019,33 +1040,30 @@ fun EventInputForm(
                 isError = showTitleError,
                 errorText = stringResource(R.string.field_title_required)
             )
+            // Date follows the title directly so it stays visible above the keyboard.
+            SongInkChoiceRow(
+                label = stringResource(R.string.field_date),
+                value = dateString,
+                onClick = { showDatePicker = true }
+            )
             SongInkChoiceRow(
                 label = stringResource(R.string.field_category),
-                value = when (currentCategory) {
-                    CATEGORY_BIRTHDAY -> stringResource(R.string.category_birthday)
-                    CATEGORY_ANNIVERSARY -> stringResource(R.string.category_anniversary)
-                    else -> stringResource(R.string.category_other)
-                }
+                value = availableCategories.firstOrNull { it.id == currentCategory }?.label.orEmpty()
             ) {
-                listOf(
-                    stringResource(R.string.category_birthday) to CATEGORY_BIRTHDAY,
-                    stringResource(R.string.category_anniversary) to CATEGORY_ANNIVERSARY,
-                    stringResource(R.string.category_other) to CATEGORY_OTHER
-                ).forEach { (label, value) ->
+                availableCategories.forEach { option ->
                     SongFilterChip(
-                        selected = currentCategory == value,
-                        onClick = { onValueChange(applyTemplateForCategory(eventDetails, value)) },
-                        label = label
+                        selected = currentCategory == option.id,
+                        onClick = { onValueChange(applyTemplateForCategory(eventDetails, option.id)) },
+                        label = option.label
                     )
                 }
+                SongFilterChip(
+                    selected = false,
+                    onClick = { showNewCategoryDialog = true },
+                    label = stringResource(R.string.category_add_new),
+                    selectionRole = null
+                )
             }
-            SongInkTextField(
-                value = eventDetails.note,
-                onValueChange = { onValueChange(eventDetails.copy(note = it)) },
-                label = stringResource(R.string.field_note),
-                minLines = 2,
-                maxLines = 4
-            )
         }
 
         SongInkSection(
@@ -1055,17 +1073,19 @@ fun EventInputForm(
                 label = stringResource(R.string.field_repeat),
                 value = repeatOptions.firstOrNull { it.first == eventDetails.repeatType }?.second ?: eventDetails.repeatType
             ) {
-                repeatOptions.forEach { (value, label) ->
+                // Common choices stay one tap away; the rest live behind "more".
+                repeatOptions.filter { it.first in primaryRepeatTypes }.forEach { (value, label) ->
                     SongFilterChip(
                         selected = eventDetails.repeatType == value,
                         onClick = { onValueChange(eventDetails.copy(repeatType = value)) },
                         label = label
                     )
                 }
+                val customRepeatActive = repeatOptions.filter { it.first in primaryRepeatTypes }.none { it.first == eventDetails.repeatType }
                 SongFilterChip(
-                    selected = false,
+                    selected = customRepeatActive,
                     onClick = { showCustomRepeatPicker = true },
-                    label = stringResource(R.string.category_custom),
+                    label = stringResource(R.string.repeat_more),
                     selectionRole = null
                 )
             }
@@ -1116,11 +1136,25 @@ fun EventInputForm(
             }
 
             if (eventDetails.remindEnabled) {
+                // Quick presets: picking a lead time is one tap, the wheel is only for unusual values.
                 SongInkChoiceRow(
                     label = stringResource(R.string.custom_remind_days_label),
-                    value = remindDaysLabel(selectedRemindDays),
-                    onClick = { showCustomRemindDaysPicker = true }
-                )
+                    value = remindDaysLabel(selectedRemindDays)
+                ) {
+                    reminderQuickDayPresets.forEach { days ->
+                        SongFilterChip(
+                            selected = selectedRemindDays == days,
+                            onClick = { onValueChange(eventDetails.copy(remindDaysBefore = days)) },
+                            label = remindDaysLabel(days)
+                        )
+                    }
+                    SongFilterChip(
+                        selected = selectedRemindDays !in reminderQuickDayPresets,
+                        onClick = { showCustomRemindDaysPicker = true },
+                        label = stringResource(R.string.repeat_more),
+                        selectionRole = null
+                    )
+                }
                 SongInkChoiceRow(
                     label = stringResource(R.string.custom_reminder_time_label),
                     value = formatMinutesOfDay(eventDetails.reminderTimeMinutesOfDay),
@@ -1183,8 +1217,136 @@ fun EventInputForm(
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(stringResource(R.string.custom_colors_title))
             }
+            EventImagePickerRow(
+                imagePath = eventDetails.imagePath,
+                loading = imageLoading,
+                failed = imageError,
+                onPick = {
+                    pickImageLauncher.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                    )
+                },
+                onRemove = {
+                    imageError = false
+                    onValueChange(eventDetails.copy(imagePath = null))
+                }
+            )
+        }
+
+        SongInkSection(
+            title = stringResource(R.string.field_note)
+        ) {
+            SongInkTextField(
+                value = eventDetails.note,
+                onValueChange = { onValueChange(eventDetails.copy(note = it)) },
+                label = stringResource(R.string.field_note),
+                minLines = 2,
+                maxLines = 4
+            )
         }
     }
+}
+
+@Composable
+private fun EventImagePickerRow(
+    imagePath: String?,
+    loading: Boolean,
+    failed: Boolean,
+    onPick: () -> Unit,
+    onRemove: () -> Unit
+) {
+    val thumbnail = rememberEventImage(imagePath, 256)
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            text = stringResource(R.string.event_entry_image_label),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (thumbnail != null) {
+                androidx.compose.foundation.Image(
+                    bitmap = thumbnail,
+                    contentDescription = stringResource(R.string.event_entry_image_label),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                    modifier = Modifier
+                        .size(64.dp)
+                        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(SongDesignTokens.RadiusSm.dp))
+                        .border(
+                            SongDesignTokens.BorderWidth.dp,
+                            MaterialTheme.colorScheme.outline.copy(alpha = SongDesignTokens.BorderAlphaStrong),
+                            RoundedCornerShape(SongDesignTokens.RadiusSm.dp)
+                        )
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+            }
+            if (loading) {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 1.6.dp)
+                Spacer(modifier = Modifier.width(12.dp))
+            }
+            TextButton(onClick = onPick, enabled = !loading) {
+                Text(
+                    stringResource(
+                        if (imagePath == null) R.string.event_entry_image_add else R.string.event_entry_image_replace
+                    )
+                )
+            }
+            if (imagePath != null) {
+                TextButton(onClick = onRemove, enabled = !loading) {
+                    Text(stringResource(R.string.event_entry_image_remove))
+                }
+            }
+        }
+        if (failed) {
+            Text(
+                text = stringResource(R.string.event_entry_image_failed),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+    }
+}
+
+@Composable
+private fun NewCategoryDialog(
+    onDismiss: () -> Unit,
+    onCreate: (name: String, colorHex: String?) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var colorHex by remember { mutableStateOf(CategoryColorChoices.first()) }
+    val normalized = normalizeCategoryName(name)
+    SongFormDialog(
+        title = stringResource(R.string.category_add_new),
+        onDismissRequest = onDismiss,
+        content = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it.take(CATEGORY_NAME_MAX_LENGTH) },
+                label = { Text(stringResource(R.string.category_name_hint)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                CategoryColorChoices.forEach { hex ->
+                    SongColorSwatch(
+                        color = Color(hex.toColorInt()),
+                        selected = colorHex == hex,
+                        size = 28.dp,
+                        onClick = { colorHex = hex },
+                        contentDescription = hex
+                    )
+                }
+            }
+        },
+        buttons = {
+            SongDialogButton(text = stringResource(R.string.date_picker_cancel), onClick = onDismiss)
+            Spacer(modifier = Modifier.width(4.dp))
+            SongDialogButton(
+                text = stringResource(R.string.category_create),
+                enabled = normalized.isNotEmpty(),
+                onClick = { onCreate(normalized, colorHex) }
+            )
+        }
+    )
 }
 
 @Composable
@@ -1427,13 +1589,14 @@ private fun SongInkDateRow(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SongInkChoiceRow(
     label: String,
     value: String,
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
-    choices: (@Composable RowScope.() -> Unit)? = null
+    choices: (@Composable FlowRowScope.() -> Unit)? = null
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
@@ -1460,13 +1623,13 @@ private fun SongInkChoiceRow(
         }
         choices?.let { choiceContent ->
             Spacer(modifier = Modifier.height(6.dp))
-            Row(
+            // Choices wrap onto new lines so none hide behind a sideways scroll.
+            FlowRow(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .selectableGroup()
-                    .horizontalScroll(rememberScrollState()),
+                    .selectableGroup(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
                 content = choiceContent
             )
         }

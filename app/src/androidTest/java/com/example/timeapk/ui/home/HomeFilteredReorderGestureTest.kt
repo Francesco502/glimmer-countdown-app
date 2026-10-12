@@ -223,7 +223,7 @@ class HomeFilteredReorderGestureTest {
 
     private fun selectCustomSortAndSearchDragEvents() {
         val homeToolsDescription = composeRule.activity.getString(R.string.home_tools_action)
-        val customSortLabel = composeRule.activity.getString(R.string.sort_by_created)
+        val customSortLabel = composeRule.activity.getString(R.string.sort_custom)
         // Room/DataStore completion is not a rendered frame. Pump queued collectors
         // while awaiting the fixture, before the first single-node assertion.
         composeRule.waitUntil(timeoutMillis = 5_000) {

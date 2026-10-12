@@ -4,6 +4,7 @@ import android.os.Build
 import android.view.View
 import android.window.OnBackInvokedCallback
 import android.window.OnBackInvokedDispatcher
+import androidx.activity.compose.BackHandler
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateFloatAsState
@@ -15,13 +16,10 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.LocalOverscrollConfiguration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -30,87 +28,66 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import kotlinx.coroutines.launch
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.CustomAccessibilityAction
-import androidx.compose.ui.semantics.customActions
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalView
-import com.example.timeapk.data.CATEGORY_ANNIVERSARY
-import com.example.timeapk.data.CATEGORY_BIRTHDAY
-import com.example.timeapk.data.REPEAT_NONE
-import com.example.timeapk.data.REPEAT_DAILY
-import com.example.timeapk.data.REPEAT_HALF_YEARLY
-import com.example.timeapk.data.REPEAT_MONTHLY
-import com.example.timeapk.data.REPEAT_WEEKLY
-import com.example.timeapk.data.REPEAT_YEARLY
-import com.example.timeapk.ui.components.SongDateWheelPickerDialog
-import com.example.timeapk.ui.common.homeCardTitleMaxLines
-import com.example.timeapk.ui.utils.formatBetweenAsYMD
-import com.example.timeapk.ui.utils.formatDaysSmart
-import com.example.timeapk.ui.utils.getDisplayDateFormatter
-import com.example.timeapk.ui.utils.parseEventColorOrFallback
-import com.example.timeapk.ui.utils.eventDateToLocalDate
-import com.example.timeapk.ui.utils.DisplayModes
-import com.example.timeapk.ui.utils.getAvailableDisplayModes
-import java.time.format.DateTimeFormatter
-import java.time.LocalDate
-import java.time.YearMonth
-import java.time.ZoneOffset
-import java.time.temporal.ChronoUnit
 import com.example.timeapk.R
 import com.example.timeapk.TimeApplication
+import com.example.timeapk.ui.common.categoryLabel
+import com.example.timeapk.ui.common.categoryOptions
+import com.example.timeapk.ui.components.SongConfirmDialog
 import com.example.timeapk.ui.sound.SongSoundEffect
 import com.example.timeapk.ui.sound.rememberSongSoundscape
 import com.example.timeapk.ui.theme.AnimationSpecs
-import com.example.timeapk.ui.theme.SongCalendarCell
 import com.example.timeapk.ui.theme.SongDesignTokens
 import com.example.timeapk.ui.theme.SongLineIcon
 import com.example.timeapk.ui.theme.SongLineIconKind
 import com.example.timeapk.ui.theme.SongModeTabRow
-import com.example.timeapk.ui.theme.SongPalette
 import com.example.timeapk.ui.theme.SongPaperSurface
 import com.example.timeapk.ui.theme.SongSealLabel
-import com.example.timeapk.ui.utils.formatLunarDateString
-
-import androidx.compose.foundation.LocalOverscrollConfiguration
-import androidx.compose.foundation.OverscrollConfiguration
-import androidx.compose.runtime.CompositionLocalProvider
+import com.example.timeapk.ui.utils.getAvailableDisplayModes
+import com.example.timeapk.ui.utils.getDisplayDateFormatter
+import kotlinx.coroutines.launch
+import org.burnoutcrew.reorderable.ReorderableItem
 import org.burnoutcrew.reorderable.detectReorderAfterLongPress
 import org.burnoutcrew.reorderable.rememberReorderableLazyListState
 import org.burnoutcrew.reorderable.reorderable
-import org.burnoutcrew.reorderable.ReorderableItem
+import java.time.LocalDate
+import java.time.ZoneOffset
 
 private val HomeOverflowActionItemHeight = 48.dp
+private const val NEAREST_BANNER_KEY = "home-nearest-banner"
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -120,6 +97,9 @@ fun HomeScreen(
     navigateToEdit: (Int) -> Unit,
     navigateToSettings: () -> Unit = {},
     modifier: Modifier = Modifier,
+    navigateToItemEntryOnDate: (Long) -> Unit = { navigateToItemEntry() },
+    onDeleteEvent: suspend (EventUiState) -> Boolean = { false },
+    selectedEventId: Int? = null,
     viewModel: HomeViewModel = viewModel(factory = com.example.timeapk.ui.AppViewModelProvider.Factory)
 ) {
     val homeUiState by viewModel.homeUiState.collectAsState()
@@ -127,9 +107,9 @@ fun HomeScreen(
     val unfilteredCalendarUiState by viewModel.unfilteredCalendarUiState.collectAsState()
     val context = LocalContext.current
     val prefs = (context.applicationContext as TimeApplication).userPrefs
-    val today = LocalDate.now()
+    val today by viewModel.today.collectAsState()
     val scope = rememberCoroutineScope()
-    val filterType by viewModel.filterType.collectAsState()
+    val categoryFilter by viewModel.categoryFilter.collectAsState()
     val sortType by viewModel.sortType.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val showHours by prefs.showHoursFlow.collectAsState(initial = true)
@@ -141,10 +121,19 @@ fun HomeScreen(
     val perEventDateDeltaModes by prefs.perEventDateDeltaDisplayModesFlow.collectAsState(initial = emptyMap())
     val pinnedEventIds by prefs.pinnedEventIdsFlow.collectAsState(initial = emptyList())
     val savedHomeDisplayMode by prefs.homeDisplayModeFlow.collectAsState(initial = 0)
+    val nearestBannerEnabled by prefs.homeNearestBannerEnabledFlow.collectAsState(initial = true)
+    // Initial values hide one-time hints until the stored value arrives, so they never flash.
+    val reorderHintSeen by prefs.homeReorderHintSeenFlow.collectAsState(initial = true)
+    val timeToggleHintSeen by prefs.homeTimeToggleHintSeenFlow.collectAsState(initial = true)
     val homeDisplayMode = savedHomeDisplayMode
     var showOverflowMenu by remember { mutableStateOf(false) }
     var timelineFocus by remember { mutableStateOf<TimelineBucketType?>(null) }
-    val snackbarHostState = remember { SnackbarHostState() }
+    var searchExpanded by rememberSaveable { mutableStateOf(false) }
+    var calendarPickedEpochDay by rememberSaveable { mutableStateOf<Long?>(null) }
+    val calendarPickedDate = calendarPickedEpochDay?.let(LocalDate::ofEpochDay) ?: today
+    var menuEventId by remember { mutableStateOf<Int?>(null) }
+    var pendingDeleteEvent by remember { mutableStateOf<EventUiState?>(null) }
+    var deleteInProgress by remember { mutableStateOf(false) }
     val timelineDigest = remember(calendarUiState, today, pinnedEventIds) {
         buildHomeTimelineDigest(
             events = calendarUiState,
@@ -158,12 +147,23 @@ fun HomeScreen(
         }
     }
     val displayedList = focusedTimelineList ?: homeUiState
+    val calendarEvents = focusedTimelineList ?: calendarUiState
     val emptyStateKind = resolveHomeEmptyStateKind(unfilteredCalendarUiState.isEmpty())
     val clearEmptyStateConstraints: () -> Unit = {
         viewModel.updateSearchQuery("")
         viewModel.updateFilterType(FilterType.All)
         timelineFocus = null
+        searchExpanded = false
     }
+    val nearestEvent = remember(unfilteredCalendarUiState, today, pinnedEventIds) {
+        pickNearestUpcomingEvent(unfilteredCalendarUiState, today, pinnedEventIds)
+    }
+    val showNearestBanner = nearestBannerEnabled &&
+        homeDisplayMode == 0 &&
+        nearestEvent != null &&
+        categoryFilter == null &&
+        timelineFocus == null &&
+        searchQuery.isBlank()
 
     // Reorder list state is seeded synchronously to avoid first-frame jump/glitch.
     val orderedList = remember { mutableStateListOf<EventUiState>() }
@@ -217,29 +217,87 @@ fun HomeScreen(
         applyDisplayedListSnapshot(targetList)
     }
 
+    BackHandler(enabled = searchExpanded) {
+        viewModel.updateSearchQuery("")
+        searchExpanded = false
+    }
+
+    pendingDeleteEvent?.let { target ->
+        SongConfirmDialog(
+            title = stringResource(R.string.delete_confirm_title),
+            message = stringResource(R.string.delete_confirm_message, target.event.title),
+            confirmText = stringResource(
+                if (deleteInProgress) R.string.delete_in_progress else R.string.delete_confirm_ok
+            ),
+            dismissText = stringResource(R.string.delete_confirm_cancel),
+            destructiveConfirm = true,
+            confirmEnabled = !deleteInProgress,
+            onConfirm = {
+                if (!deleteInProgress) {
+                    deleteInProgress = true
+                    scope.launch {
+                        try {
+                            if (onDeleteEvent(target)) pendingDeleteEvent = null
+                        } finally {
+                            deleteInProgress = false
+                        }
+                    }
+                }
+            },
+            onDismiss = { if (!deleteInProgress) pendingDeleteEvent = null }
+        )
+    }
+
     Scaffold(
+        // The caller sizes the whole screen (the two-pane layout gives it a fixed width).
+        modifier = modifier,
         containerColor = MaterialTheme.colorScheme.background,
-        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
-                    Text(
-                        text = stringResource(R.string.app_name),
-                        style = MaterialTheme.typography.titleLarge,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    if (searchExpanded) {
+                        HomeSearchField(
+                            searchQuery = searchQuery,
+                            onSearchQueryChange = viewModel::updateSearchQuery
+                        )
+                    } else {
+                        Text(
+                            text = stringResource(R.string.app_name),
+                            style = MaterialTheme.typography.titleLarge,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 },
                 actions = {
+                    val soundscape = rememberSongSoundscape()
+                    if (searchExpanded) {
+                        InlineActionIconButton(
+                            icon = SongLineIconKind.Close,
+                            contentDescription = stringResource(R.string.home_search_close),
+                            onClick = {
+                                viewModel.updateSearchQuery("")
+                                searchExpanded = false
+                            }
+                        )
+                    } else {
+                        InlineActionIconButton(
+                            icon = SongLineIconKind.Search,
+                            contentDescription = stringResource(R.string.home_search_open),
+                            active = searchQuery.isNotBlank(),
+                            onClick = {
+                                soundscape.play(SongSoundEffect.Action)
+                                showOverflowMenu = false
+                                searchExpanded = true
+                            }
+                        )
+                    }
                     HomeOverflowActionMenu(
                         selectedBucket = timelineFocus,
-                        searchQuery = searchQuery,
-                        filterType = filterType,
-                        sortType = sortType,
+                        categoryFilter = categoryFilter,
                         expanded = showOverflowMenu,
                         onExpandedChange = { showOverflowMenu = it }
                     )
-                    val soundscape = rememberSongSoundscape()
                     InlineActionIconButton(
                         icon = SongLineIconKind.Settings,
                         contentDescription = stringResource(R.string.settings_title),
@@ -259,7 +317,7 @@ fun HomeScreen(
                 )
             )
         },
-        floatingActionButtonPosition = FabPosition.Center,
+        floatingActionButtonPosition = if (homeDisplayMode == 2) FabPosition.End else FabPosition.Center,
         floatingActionButton = {
             if (emptyStateKind != HomeEmptyStateKind.FirstEvent) {
                 val isEmpty = displayedList.isEmpty()
@@ -268,30 +326,23 @@ fun HomeScreen(
                     animationSpec = AnimationSpecs.springButton,
                     label = "fabScale"
                 )
-                Surface(
-                    onClick = navigateToItemEntry,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .graphicsLayer { scaleX = fabScale; scaleY = fabScale },
-                    shape = MaterialTheme.shapes.medium,
-                    color = MaterialTheme.colorScheme.surface,
-                    border = BorderStroke(SongDesignTokens.BorderWidth.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = SongDesignTokens.BorderAlphaStrong)),
-                    shadowElevation = 0.dp
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        SongLineIcon(
-                            kind = SongLineIconKind.Add,
-                            contentDescription = stringResource(R.string.cd_add_event),
-                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                            size = 24.dp
-                        )
-                    }
+                val addForPickedDate: () -> Unit = {
+                    navigateToItemEntryOnDate(
+                        calendarPickedDate.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+                    )
                 }
+                HomeAddButton(
+                    onClick = if (homeDisplayMode == 2) addForPickedDate else navigateToItemEntry,
+                    contentDescription = stringResource(
+                        if (homeDisplayMode == 2) R.string.cd_add_event_on_date else R.string.cd_add_event
+                    ),
+                    modifier = Modifier.graphicsLayer { scaleX = fabScale; scaleY = fabScale }
+                )
             }
         }
     ) { innerPadding ->
         Box(
-            modifier = modifier
+            modifier = Modifier
                 .padding(innerPadding)
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
@@ -305,13 +356,9 @@ fun HomeScreen(
                         .padding(horizontal = 16.dp, vertical = 4.dp)
                 )
 
+                val categoryFilterLabel = categoryFilter?.let { categoryLabel(it) }
                 val activeFilters = buildList {
-                    when (filterType) {
-                        FilterType.All -> Unit
-                        FilterType.Birthday -> add(stringResource(R.string.category_birthday))
-                        FilterType.Anniversary -> add(stringResource(R.string.category_anniversary))
-                        FilterType.Other -> add(stringResource(R.string.category_other))
-                    }
+                    categoryFilterLabel?.let(::add)
                     timelineFocus?.let {
                         add(stringResource(when (it) {
                             TimelineBucketType.Today -> R.string.home_timeline_today
@@ -341,19 +388,24 @@ fun HomeScreen(
                     }
                 }
 
-                if (sortType == SortType.Custom && homeDisplayMode != 2 &&
-                    displayedList.count { it.event.id !in pinnedEventIds } > 1) {
-                    Text(
+                val reorderableCount = displayedList.count { it.event.id !in pinnedEventIds }
+                if (sortType == SortType.Custom && homeDisplayMode != 2 && reorderableCount > 1 && !reorderHintSeen) {
+                    HomeOneTimeHint(
                         text = stringResource(R.string.home_reorder_hint),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                        onDismiss = { scope.launch { prefs.markHomeReorderHintSeen() } }
+                    )
+                } else if (sortType != SortType.ByDays && homeDisplayMode != 2 &&
+                    displayedList.isNotEmpty() && !timeToggleHintSeen
+                ) {
+                    HomeOneTimeHint(
+                        text = stringResource(R.string.home_time_toggle_hint),
+                        onDismiss = { scope.launch { prefs.markHomeTimeToggleHintSeen() } }
                     )
                 }
 
             // Event list / month view
             if (homeDisplayMode == 2) {
-                if (calendarUiState.isEmpty()) {
+                if (calendarEvents.isEmpty() && emptyStateKind == HomeEmptyStateKind.FirstEvent) {
                     EmptyState(
                         kind = emptyStateKind,
                         onFirstEventClick = navigateToItemEntry,
@@ -362,8 +414,10 @@ fun HomeScreen(
                     )
                 } else {
                     MonthCalendarView(
-                        events = calendarUiState,
+                        events = calendarEvents,
                         selectedDate = today,
+                        pickedDate = calendarPickedDate,
+                        onPickedDateChange = { calendarPickedEpochDay = it.toEpochDay() },
                         onEventClick = { navigateToDetail(it) },
                         onEventLongClick = null,
                         modifier = Modifier.fillMaxSize()
@@ -372,11 +426,7 @@ fun HomeScreen(
             } else {
                 key(homeDisplayMode) {
                     val dragEnabled = canStartHomeReorder(sortType, pendingLocalReorder) &&
-                        displayedList.count { it.event.id !in pinnedEventIds } > 1
-                    val longPressEditEnabled = homeCardLongPressEditEnabled(sortType)
-                    val tapOnlyInteraction = homeCardUsesTapOnlyInteraction(sortType)
-                    val tapNavigationEnabled = homeCardTapNavigationEnabled(sortType)
-                    val useListLevelReorderDetection = homeUsesListLevelReorderDetection(sortType)
+                        reorderableCount > 1
                     val latestDragEnabled by rememberUpdatedState(dragEnabled)
                     val latestDisplayedIds by rememberUpdatedState(
                         displayedList.map { it.event.id }
@@ -441,8 +491,9 @@ fun HomeScreen(
                                     visibleIdsAtDragStart = latestDisplayedIds
                                 }
                                 dragInProgress = true
-                                val fromIdx = from.index
-                                val toIdx = to.index
+                                // Resolve by key: the optional nearest banner occupies a list slot.
+                                val fromIdx = orderedList.indexOfFirst { it.event.id == from.key }
+                                val toIdx = orderedList.indexOfFirst { it.event.id == to.key }
                                 if (fromIdx in orderedList.indices && toIdx in orderedList.indices &&
                                     homeReorderAllowed(orderedList[fromIdx].event.id, orderedList[toIdx].event.id, latestPinnedEventIds)) {
                                     val item = orderedList.removeAt(fromIdx)
@@ -479,26 +530,33 @@ fun HomeScreen(
                                     userScrollEnabled = reorderState.draggingItemIndex == null,
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .then(
-                                            if (dragEnabled && useListLevelReorderDetection) {
-                                                Modifier
-                                                    .reorderable(reorderState)
-                                                    .detectReorderAfterLongPress(reorderState)
-                                            } else if (dragEnabled) {
-                                                Modifier
-                                                    .reorderable(reorderState)
-                                            } else {
-                                                Modifier
-                                            }
-                                        ),
-                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                                        .then(if (dragEnabled) Modifier.reorderable(reorderState) else Modifier),
+                                    contentPadding = PaddingValues(
+                                        start = 16.dp,
+                                        end = 16.dp,
+                                        top = 12.dp,
+                                        bottom = SongDesignTokens.FabClearance.dp
+                                    ),
                                     verticalArrangement = Arrangement.spacedBy(if (homeDisplayMode == 0) 12.dp else SongDesignTokens.PaddingList.dp)
                                 ) {
+                                    if (showNearestBanner && nearestEvent != null) {
+                                        item(key = NEAREST_BANNER_KEY) {
+                                            NearestEventBanner(
+                                                eventState = nearestEvent,
+                                                today = today,
+                                                dateFormatter = dateFormatter,
+                                                showHours = showHours,
+                                                pinned = nearestEvent.event.id in pinnedEventIds,
+                                                onClick = { navigateToDetail(nearestEvent.event.id) }
+                                            )
+                                        }
+                                    }
                                     items(orderedList, key = { it.event.id }) { eventState ->
                                         ReorderableItem(reorderState, key = eventState.event.id) { isDragging ->
                                             val eventId = eventState.event.id
                                             val itemDragging = isDragging
-                                            val rowDragEnabled = dragEnabled && eventId !in pinnedEventIds
+                                            val isPinned = eventId in pinnedEventIds
+                                            val rowDragEnabled = dragEnabled && !isPinned
                                             val moveUpLabel = stringResource(R.string.home_move_up)
                                             val moveDownLabel = stringResource(R.string.home_move_down)
                                             val reorderingLabel = stringResource(R.string.home_reordering)
@@ -533,6 +591,14 @@ fun HomeScreen(
                                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                                 }
                                             }
+                                            val openMenu: (() -> Unit)? = if (rowDragEnabled) {
+                                                null
+                                            } else {
+                                                {
+                                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                    menuEventId = eventId
+                                                }
+                                            }
                                             Box(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
@@ -549,75 +615,73 @@ fun HomeScreen(
                                                     )
                                             ) {
                                                 val showDetail = homeDensityMode == 1
-                                                if (homeDisplayMode == 0) {
-                                                    val persistedMode = perEventDateDeltaModes[eventState.event.id] ?: dateDeltaDisplayMode
-                                                    var cardDisplayMode by remember(eventState.event.id, persistedMode) {
-                                                        mutableStateOf(persistedMode)
+                                                val persistedMode = perEventDateDeltaModes[eventState.event.id] ?: dateDeltaDisplayMode
+                                                var itemDisplayMode by remember(eventState.event.id, persistedMode) {
+                                                    mutableStateOf(persistedMode)
+                                                }
+                                                val toggleDisplayMode: () -> Unit = {
+                                                    val availableModes = getAvailableDisplayModes(eventState, showMilestone = showMilestone)
+                                                    val currentModeIndex = availableModes.indexOf(itemDisplayMode)
+                                                    val nextModeIndex = (if (currentModeIndex != -1) currentModeIndex + 1 else 1) % availableModes.size
+                                                    val nextMode = availableModes[nextModeIndex]
+                                                    itemDisplayMode = nextMode
+                                                    scope.launch {
+                                                        prefs.setDateDeltaDisplayModeForEvent(eventState.event.id, nextMode)
+                                                        prefs.markHomeTimeToggleHintSeen()
                                                     }
+                                                }
+                                                if (homeDisplayMode == 0) {
                                                     EventCard(
                                                         eventState = eventState,
                                                         today = today,
                                                         dateFormatter = dateFormatter,
                                                         sortType = sortType,
-                                                        dateDeltaDisplayMode = cardDisplayMode,
-                                                        onToggleDateDeltaDisplayMode = {
-                                                            val availableModes = getAvailableDisplayModes(eventState, showMilestone = showMilestone)
-                                                            val currentModeIndex = availableModes.indexOf(cardDisplayMode)
-                                                            val nextModeIndex = (if (currentModeIndex != -1) currentModeIndex + 1 else 1) % availableModes.size
-                                                            val nextMode = availableModes[nextModeIndex]
-                                                            cardDisplayMode = nextMode
-                                                            scope.launch {
-                                                                prefs.setDateDeltaDisplayModeForEvent(eventState.event.id, nextMode)
-                                                            }
-                                                        },
+                                                        dateDeltaDisplayMode = itemDisplayMode,
+                                                        onToggleDateDeltaDisplayMode = toggleDisplayMode,
                                                         onClick = { navigateToDetail(eventState.event.id) },
-                                                        onLongClick = if (longPressEditEnabled) {
-                                                            { navigateToEdit(eventState.event.id) }
-                                                        } else {
-                                                            null
-                                                        },
-                                                        tapOnlyInteraction = tapOnlyInteraction,
-                                                        tapNavigationEnabled = tapNavigationEnabled,
+                                                        onLongClick = openMenu,
                                                         showHours = showHours,
                                                         showMilestone = showMilestone,
                                                         showDetail = showDetail,
                                                         isDragging = itemDragging,
+                                                        pinned = isPinned,
+                                                        selected = eventId == selectedEventId,
                                                         modifier = reorderAccessibility
                                                     )
                                                 } else {
-                                                    val persistedMode = perEventDateDeltaModes[eventState.event.id] ?: dateDeltaDisplayMode
-                                                    var itemDisplayMode by remember(eventState.event.id, persistedMode) {
-                                                        mutableStateOf(persistedMode)
-                                                    }
                                                     EventListItem(
                                                         eventState = eventState,
                                                         today = today,
                                                         sortType = sortType,
                                                         dateDeltaDisplayMode = itemDisplayMode,
-                                                        onToggleDateDeltaDisplayMode = {
-                                                            val availableModes = getAvailableDisplayModes(eventState, showMilestone = showMilestone)
-                                                            val currentModeIndex = availableModes.indexOf(itemDisplayMode)
-                                                            val nextModeIndex = (if (currentModeIndex != -1) currentModeIndex + 1 else 1) % availableModes.size
-                                                            val nextMode = availableModes[nextModeIndex]
-                                                            itemDisplayMode = nextMode
-                                                            scope.launch {
-                                                                prefs.setDateDeltaDisplayModeForEvent(eventState.event.id, nextMode)
-                                                            }
-                                                        },
+                                                        onToggleDateDeltaDisplayMode = toggleDisplayMode,
                                                         onClick = { navigateToDetail(eventState.event.id) },
-                                                        onLongClick = if (longPressEditEnabled) {
-                                                            { navigateToEdit(eventState.event.id) }
-                                                        } else {
-                                                            null
-                                                        },
-                                                        tapOnlyInteraction = tapOnlyInteraction,
-                                                        tapNavigationEnabled = tapNavigationEnabled,
+                                                        onLongClick = openMenu,
                                                         showHours = showHours,
                                                         showMilestone = showMilestone,
                                                         isDragging = itemDragging,
+                                                        pinned = isPinned,
+                                                        selected = eventId == selectedEventId,
                                                         modifier = reorderAccessibility
                                                     )
                                                 }
+                                                HomeEventActionMenu(
+                                                    expanded = menuEventId == eventId,
+                                                    pinned = isPinned,
+                                                    onDismiss = { menuEventId = null },
+                                                    onTogglePin = {
+                                                        menuEventId = null
+                                                        viewModel.togglePinned(eventId)
+                                                    },
+                                                    onEdit = {
+                                                        menuEventId = null
+                                                        navigateToEdit(eventId)
+                                                    },
+                                                    onDelete = {
+                                                        menuEventId = null
+                                                        pendingDeleteEvent = eventState
+                                                    }
+                                                )
                                             }
                                         }
                                     }
@@ -638,25 +702,23 @@ fun HomeScreen(
                         HomeToolsPopupBackHandler { showOverflowMenu = false }
                     }
                     HomeOverflowPanel(
-                    digest = timelineDigest,
-                    selectedBucket = timelineFocus,
-                    searchQuery = searchQuery,
-                    filterType = filterType,
-                    sortType = sortType,
-                    onSearchQueryChange = viewModel::updateSearchQuery,
-                    onBucketClick = { bucket ->
-                        timelineFocus = if (timelineFocus == bucket) null else bucket
-                        showOverflowMenu = false
-                    },
-                    onFilterClick = { type ->
-                        viewModel.updateFilterType(type)
-                        showOverflowMenu = false
-                    },
-                    onSortClick = { type ->
-                        viewModel.updateSortType(type)
-                        showOverflowMenu = false
-                    },
-                    modifier = Modifier.padding(top = 8.dp, end = 16.dp)
+                        digest = timelineDigest,
+                        selectedBucket = timelineFocus,
+                        categoryFilter = categoryFilter,
+                        sortType = sortType,
+                        onBucketClick = { bucket ->
+                            timelineFocus = if (timelineFocus == bucket) null else bucket
+                            showOverflowMenu = false
+                        },
+                        onCategoryClick = { id ->
+                            viewModel.updateCategoryFilter(id)
+                            showOverflowMenu = false
+                        },
+                        onSortClick = { type ->
+                            viewModel.updateSortType(type)
+                            showOverflowMenu = false
+                        },
+                        modifier = Modifier.padding(top = 8.dp, end = 16.dp)
                     )
                 }
             }
@@ -721,19 +783,98 @@ private fun HomeDisplayModeSegmentedControl(
     )
 }
 
+/** Seal-styled add button: a solid vermilion square that reads as the primary action. */
+@Composable
+private fun HomeAddButton(
+    onClick: () -> Unit,
+    contentDescription: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier
+            .size(SongDesignTokens.FabSize.dp)
+            .semantics { this.contentDescription = contentDescription },
+        shape = RoundedCornerShape(SongDesignTokens.StandardRadius.dp),
+        color = MaterialTheme.colorScheme.primary,
+        contentColor = MaterialTheme.colorScheme.onPrimary,
+        shadowElevation = 2.dp
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            SongLineIcon(
+                kind = SongLineIconKind.Add,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onPrimary,
+                size = SongDesignTokens.IconLarge.dp,
+                strokeWidth = 1.8.dp
+            )
+        }
+    }
+}
+
+@Composable
+private fun HomeOneTimeHint(text: String, onDismiss: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f)
+        )
+        TextButton(onClick = onDismiss) {
+            Text(stringResource(R.string.home_hint_dismiss))
+        }
+    }
+}
+
+@Composable
+private fun HomeEventActionMenu(
+    expanded: Boolean,
+    pinned: Boolean,
+    onDismiss: () -> Unit,
+    onTogglePin: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        DropdownMenuItem(
+            text = { Text(stringResource(if (pinned) R.string.button_unpin else R.string.button_pin)) },
+            leadingIcon = { SongLineIcon(SongLineIconKind.Pin, size = SongDesignTokens.IconSmall.dp) },
+            onClick = onTogglePin
+        )
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.button_edit)) },
+            leadingIcon = { SongLineIcon(SongLineIconKind.Edit, size = SongDesignTokens.IconSmall.dp) },
+            onClick = onEdit
+        )
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.button_delete), color = MaterialTheme.colorScheme.error) },
+            leadingIcon = {
+                SongLineIcon(
+                    SongLineIconKind.Delete,
+                    size = SongDesignTokens.IconSmall.dp,
+                    tint = MaterialTheme.colorScheme.error
+                )
+            },
+            onClick = onDelete
+        )
+    }
+}
+
 @Composable
 private fun HomeOverflowActionMenu(
     selectedBucket: TimelineBucketType?,
-    searchQuery: String,
-    filterType: FilterType,
-    sortType: SortType,
+    categoryFilter: String?,
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit
 ) {
-    val hasActiveTool = selectedBucket != null ||
-        searchQuery.isNotBlank() ||
-        filterType != FilterType.All ||
-        sortType != SortType.Custom
+    // Sort order is a persistent preference, not a filter, so it never lights the icon.
+    val hasActiveTool = selectedBucket != null || categoryFilter != null
     val soundscape = rememberSongSoundscape()
     Box {
         InlineActionIconButton(
@@ -752,12 +893,10 @@ private fun HomeOverflowActionMenu(
 private fun HomeOverflowPanel(
     digest: HomeTimelineDigest,
     selectedBucket: TimelineBucketType?,
-    searchQuery: String,
-    filterType: FilterType,
+    categoryFilter: String?,
     sortType: SortType,
-    onSearchQueryChange: (String) -> Unit,
     onBucketClick: (TimelineBucketType) -> Unit,
-    onFilterClick: (FilterType) -> Unit,
+    onCategoryClick: (String?) -> Unit,
     onSortClick: (SortType) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -805,32 +944,23 @@ private fun HomeOverflowPanel(
                 items = listOf(
                     SongActionOptionSpec(
                         label = stringResource(R.string.filter_all),
-                        selected = filterType == FilterType.All,
-                        onClick = { playActionThen { onFilterClick(FilterType.All) } }
-                    ),
-                    SongActionOptionSpec(
-                        label = stringResource(R.string.category_birthday),
-                        selected = filterType == FilterType.Birthday,
-                        onClick = { playActionThen { onFilterClick(FilterType.Birthday) } }
-                    ),
-                    SongActionOptionSpec(
-                        label = stringResource(R.string.category_anniversary),
-                        selected = filterType == FilterType.Anniversary,
-                        onClick = { playActionThen { onFilterClick(FilterType.Anniversary) } }
-                    ),
-                    SongActionOptionSpec(
-                        label = stringResource(R.string.category_other),
-                        selected = filterType == FilterType.Other,
-                        onClick = { playActionThen { onFilterClick(FilterType.Other) } }
+                        selected = categoryFilter == null,
+                        onClick = { playActionThen { onCategoryClick(null) } }
                     )
-                )
+                ) + categoryOptions().map { option ->
+                    SongActionOptionSpec(
+                        label = option.label,
+                        selected = categoryFilter == option.id,
+                        onClick = { playActionThen { onCategoryClick(option.id) } }
+                    )
+                }
             )
             SongActionSlipDivider()
             HomeMenuSectionLabel(text = stringResource(R.string.sort_menu))
             SongActionOptionGrid(
                 items = listOf(
                     SongActionOptionSpec(
-                        label = stringResource(R.string.sort_by_created),
+                        label = stringResource(R.string.sort_custom),
                         selected = sortType == SortType.Custom,
                         onClick = { playActionThen { onSortClick(SortType.Custom) } }
                     ),
@@ -846,32 +976,22 @@ private fun HomeOverflowPanel(
                     )
                 )
             )
-        },
-        footer = {
-            HomeOverflowSearchField(
-                searchQuery = searchQuery,
-                onSearchQueryChange = onSearchQueryChange
-            )
         }
     )
 }
 
 @Composable
-private fun HomeOverflowSearchField(
+private fun HomeSearchField(
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit
 ) {
-    val shape = RoundedCornerShape(3.dp)
+    val shape = RoundedCornerShape(SongDesignTokens.StandardRadius.dp)
     val textColor = MaterialTheme.colorScheme.onSurface
-    val borderColor = if (searchQuery.isNotBlank()) {
-        MaterialTheme.colorScheme.primary.copy(alpha = 0.36f)
-    } else {
-        MaterialTheme.colorScheme.outline.copy(alpha = 0.14f)
-    }
-    val backgroundColor = if (searchQuery.isNotBlank()) {
-        MaterialTheme.colorScheme.primary.copy(alpha = 0.07f)
-    } else {
-        MaterialTheme.colorScheme.surface.copy(alpha = 0.22f)
+    val focusRequester = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+        keyboard?.show()
     }
     BasicTextField(
         value = searchQuery,
@@ -879,11 +999,19 @@ private fun HomeOverflowSearchField(
         modifier = Modifier
             .fillMaxWidth()
             .height(48.dp)
-            .border(BorderStroke(SongDesignTokens.BorderWidth.dp, borderColor), shape)
-            .background(backgroundColor, shape)
+            .focusRequester(focusRequester)
+            .border(
+                BorderStroke(
+                    SongDesignTokens.BorderWidth.dp,
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.36f)
+                ),
+                shape
+            )
+            .background(MaterialTheme.colorScheme.surface, shape)
             .padding(horizontal = 10.dp),
-        textStyle = MaterialTheme.typography.bodyMedium.copy(color = textColor),
+        textStyle = MaterialTheme.typography.bodyLarge.copy(color = textColor),
         singleLine = true,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
         decorationBox = { innerTextField ->
             Row(
@@ -893,27 +1021,26 @@ private fun HomeOverflowSearchField(
                 SongLineIcon(
                     kind = SongLineIconKind.Search,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.74f),
-                    size = 18.dp
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    size = SongDesignTokens.IconSmall.dp
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Box(
                     modifier = Modifier.weight(1f),
                     contentAlignment = Alignment.CenterStart
                 ) {
-                    if (searchQuery.isBlank()) {
+                    if (searchQuery.isEmpty()) {
                         Text(
                             text = stringResource(R.string.search_hint),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.62f),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
                     innerTextField()
                 }
-                if (searchQuery.isNotBlank()) {
-                    Spacer(modifier = Modifier.width(8.dp))
+                if (searchQuery.isNotEmpty()) {
                     Box(
                         modifier = Modifier
                             .size(48.dp)
@@ -923,8 +1050,8 @@ private fun HomeOverflowSearchField(
                         SongLineIcon(
                             kind = SongLineIconKind.Close,
                             contentDescription = stringResource(R.string.cd_clear_search),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.74f),
-                            size = 18.dp
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            size = SongDesignTokens.IconSmall.dp
                         )
                     }
                 }
@@ -949,13 +1076,12 @@ internal data class SongActionOptionSpec(
 @Composable
 private fun SongActionSlip(
     modifier: Modifier = Modifier,
-    content: @Composable ColumnScope.() -> Unit,
-    footer: (@Composable ColumnScope.() -> Unit)? = null
+    content: @Composable ColumnScope.() -> Unit
 ) {
     SongPaperSurface(
         modifier = modifier
             .widthIn(min = 228.dp, max = 276.dp)
-            .heightIn(max = 420.dp)
+            .heightIn(max = 460.dp)
             .padding(end = 8.dp),
         backgroundColor = MaterialTheme.colorScheme.surface,
         borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.26f)
@@ -964,21 +1090,11 @@ private fun SongActionSlip(
             SongActionSlipFoldDecoration(modifier = Modifier.matchParentSize())
             Column(
                 modifier = Modifier
-                    .padding(start = 12.dp, top = 12.dp, end = 18.dp, bottom = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .weight(1f, fill = false)
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    content = content
-                )
-                footer?.let { footerContent ->
-                    SongActionSlipDivider()
-                    footerContent()
-                }
-            }
+                    .padding(start = 12.dp, top = 12.dp, end = 18.dp, bottom = 12.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                content = content
+            )
         }
     }
 }
@@ -1080,20 +1196,20 @@ private fun TimelineActionTile(
     modifier: Modifier = Modifier
 ) {
     val color = if (spec.selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-    val shape = RoundedCornerShape(3.dp)
+    val shape = RoundedCornerShape(SongDesignTokens.StandardRadius.dp)
     Column(
         modifier = modifier
             .border(
                 BorderStroke(
                     SongDesignTokens.BorderWidth.dp,
                     if (spec.selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.42f)
-                    else MaterialTheme.colorScheme.outline.copy(alpha = 0.16f)
+                    else MaterialTheme.colorScheme.outline.copy(alpha = 0.22f)
                 ),
                 shape
             )
             .background(
                 if (spec.selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.075f)
-                else MaterialTheme.colorScheme.surface.copy(alpha = 0.28f),
+                else MaterialTheme.colorScheme.background,
                 shape
             )
             .clickable(onClick = spec.onClick)
@@ -1162,7 +1278,7 @@ private fun SongActionOptionTile(
     modifier: Modifier = Modifier
 ) {
     val color = if (spec.selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-    val shape = RoundedCornerShape(3.dp)
+    val shape = RoundedCornerShape(SongDesignTokens.StandardRadius.dp)
     Row(
         modifier = modifier
             .heightIn(min = HomeOverflowActionItemHeight)
@@ -1170,13 +1286,13 @@ private fun SongActionOptionTile(
                 BorderStroke(
                     SongDesignTokens.BorderWidth.dp,
                     if (spec.selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.38f)
-                    else MaterialTheme.colorScheme.outline.copy(alpha = 0.14f)
+                    else MaterialTheme.colorScheme.outline.copy(alpha = 0.22f)
                 ),
                 shape
             )
             .background(
                 if (spec.selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.07f)
-                else MaterialTheme.colorScheme.surface.copy(alpha = 0.22f),
+                else MaterialTheme.colorScheme.background,
                 shape
             )
             .selectable(
@@ -1207,73 +1323,6 @@ private fun SongActionOptionTile(
 }
 
 @Composable
-private fun SongActionSlipItem(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    meta: String? = null,
-    trailing: String? = null
-) {
-    val contentColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-    val shape = RoundedCornerShape(3.dp)
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(
-                if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.055f) else Color.Transparent,
-                shape
-            )
-            .border(
-                BorderStroke(
-                    SongDesignTokens.BorderWidth.dp,
-                    if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.22f) else Color.Transparent
-                ),
-                shape
-            )
-            .clickable(onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyMedium,
-                color = contentColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            meta?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-        if (trailing != null) {
-            Spacer(modifier = Modifier.width(12.dp))
-            SongSealLabel(
-                text = trailing,
-                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        } else if (selected) {
-            Spacer(modifier = Modifier.width(12.dp))
-            SongLineIcon(
-                kind = SongLineIconKind.Check,
-                tint = MaterialTheme.colorScheme.primary,
-                size = 16.dp
-            )
-        }
-    }
-}
-
-@Composable
 internal fun InlineActionIconButton(
     icon: SongLineIconKind,
     contentDescription: String,
@@ -1292,1088 +1341,9 @@ internal fun InlineActionIconButton(
             tint = if (active) {
                 MaterialTheme.colorScheme.primary
             } else {
-                MaterialTheme.colorScheme.onBackground.copy(alpha = 0.76f)
+                MaterialTheme.colorScheme.onBackground.copy(alpha = 0.82f)
             },
-            size = 18.dp
-        )
-    }
-}
-
-@Composable
-private fun EmptyState(
-    kind: HomeEmptyStateKind,
-    onFirstEventClick: () -> Unit,
-    onClearConstraints: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Box(modifier = modifier, contentAlignment = Alignment.Center) {
-        when (kind) {
-            HomeEmptyStateKind.FirstEvent -> {
-                val firstEventCta = stringResource(R.string.home_empty_first_event_cta)
-                Surface(
-                    onClick = onFirstEventClick,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 48.dp)
-                        .semantics(mergeDescendants = true) {
-                            role = Role.Button
-                            contentDescription = firstEventCta
-                        },
-                    shape = MaterialTheme.shapes.medium,
-                    color = MaterialTheme.colorScheme.surface,
-                    border = BorderStroke(
-                        SongDesignTokens.BorderWidth.dp,
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = SongDesignTokens.BorderAlphaStrong)
-                    ),
-                    shadowElevation = 0.dp
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        SongLineIcon(
-                            kind = SongLineIconKind.Add,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            size = 24.dp
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = firstEventCta,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                }
-            }
-
-            HomeEmptyStateKind.NoMatches -> {
-                val noMatches = stringResource(R.string.home_empty_no_matches)
-                val clearConstraints = stringResource(R.string.home_empty_clear_constraints)
-                Surface(
-                    onClick = onClearConstraints,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 48.dp)
-                        .semantics(mergeDescendants = true) {
-                            role = Role.Button
-                            contentDescription = clearConstraints
-                        },
-                    shape = MaterialTheme.shapes.medium,
-                    color = MaterialTheme.colorScheme.surface,
-                    border = BorderStroke(
-                        SongDesignTokens.BorderWidth.dp,
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = SongDesignTokens.BorderAlphaStrong)
-                    ),
-                    shadowElevation = 0.dp
-                ) {
-                    Column(
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        SongLineIcon(
-                            kind = SongLineIconKind.Search,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            size = 24.dp
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Text(
-                            text = noMatches,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = clearConstraints,
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-fun EventCard(
-    eventState: EventUiState,
-    today: LocalDate,
-    dateFormatter: DateTimeFormatter,
-    sortType: SortType,
-    dateDeltaDisplayMode: Int,
-    onToggleDateDeltaDisplayMode: () -> Unit,
-    onClick: () -> Unit,
-    onLongClick: (() -> Unit)?,
-    tapOnlyInteraction: Boolean = false,
-    tapNavigationEnabled: Boolean = true,
-    showHours: Boolean = true,
-    showMilestone: Boolean = true,
-    showDetail: Boolean = true,
-    isDragging: Boolean = false,
-    modifier: Modifier = Modifier
-) {
-    val isPast = eventState.isPast
-    val baseCardColor = parseEventColorOrFallback(
-        hex = eventState.event.colorHex,
-        fallback = MaterialTheme.colorScheme.primary
-    )
-
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = AnimationSpecs.responsiveScale(if (isDragging) 1.02f else if (isPressed) 0.98f else 1f),
-        animationSpec = AnimationSpecs.springItem,
-        label = "cardScale"
-    )
-    val lightSurface = MaterialTheme.colorScheme.surface.luminance() > 0.5f
-    val cardContainerColor = when {
-        isPast && lightSurface -> SongPalette.PaperMuted
-        isPast -> MaterialTheme.colorScheme.surface.copy(alpha = 0.86f)
-        else -> MaterialTheme.colorScheme.surface
-    }
-    val cardContentColor = lerp(MaterialTheme.colorScheme.onSurface, baseCardColor, 0.06f)
-    val cardAccentColor = baseCardColor.copy(alpha = if (isPast) 0.30f else 0.58f)
-    val cardBorderColor = baseCardColor.copy(alpha = if (isPast) 0.16f else 0.22f)
-    val effectiveCardBackground = HomeEventColorPolicy.compositeOver(
-        foreground = cardContainerColor,
-        background = MaterialTheme.colorScheme.background
-    )
-    val cardOnSurfaceColor = MaterialTheme.colorScheme.onSurface
-    val cardAuxiliaryColor = if (lightSurface) {
-        baseCardColor.copy(alpha = if (isPast) 0.54f else 0.74f)
-    } else {
-        remember(baseCardColor, cardOnSurfaceColor, effectiveCardBackground) {
-            HomeEventColorPolicy.ensureTextContrast(
-                eventColor = baseCardColor,
-                onSurface = cardOnSurfaceColor,
-                background = effectiveCardBackground
-            )
-        }
-    }
-
-    val locale = androidx.compose.ui.platform.LocalContext.current.resources.configuration.locales[0]
-    val titleMaxLines = homeCardTitleMaxLines(LocalDensity.current.fontScale)
-
-    val targetLocalDate = remember(eventState.event.date) {
-        eventDateToLocalDate(eventState.event.date)
-    }
-
-    val isRepeating = eventState.event.repeatType != REPEAT_NONE
-    val isToday = eventState.daysRemaining == 0L && !eventState.isPast
-    val todayLabel = stringResource(R.string.days_today_label)
-
-    val resolvedDateDeltaDisplayMode = resolveHomeDateDeltaDisplayMode(
-        sortType = sortType,
-        requestedMode = dateDeltaDisplayMode,
-        eventState = eventState
-    )
-    val availableModes = getAvailableDisplayModes(eventState, showMilestone)
-    val modeIndex = availableModes.indexOf(resolvedDateDeltaDisplayMode)
-    val mode = if (modeIndex != -1) resolvedDateDeltaDisplayMode else availableModes.first()
-    val dateDeltaToggleEnabled = sortType != SortType.ByDays && tapNavigationEnabled
-
-    val displayContent: String
-    val displayUnit: String
-    val labelText: String
-
-    when (mode) {
-        DisplayModes.PAST_DAYS -> {
-            val days = if (isRepeating) eventState.daysPassed else eventState.daysElapsed
-            displayContent = formatDaysSmart(days, false, locale)
-            displayUnit = pluralStringResource(R.plurals.days_unit, days.coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt())
-            labelText = stringResource(R.string.days_past_label)
-        }
-        DisplayModes.PAST_YMD -> {
-            val start = targetLocalDate
-            val end = today
-            displayContent = formatBetweenAsYMD(start, end, locale)
-            displayUnit = ""
-            labelText = stringResource(R.string.days_past_label)
-        }
-        DisplayModes.UNTIL_DAYS -> {
-            if (showHours && eventState.hoursRemaining != null) {
-                displayContent = String.format(locale, "%d", eventState.hoursRemaining)
-                displayUnit = pluralStringResource(R.plurals.hours_unit, eventState.hoursRemaining.toInt())
-                labelText = com.example.timeapk.ui.utils.getUntilLabel(androidx.compose.ui.platform.LocalContext.current, eventState)
-            } else if (isToday) {
-                displayContent = todayLabel
-                displayUnit = ""
-                labelText = ""
-            } else {
-                val days = if (isRepeating) eventState.daysLeft else eventState.daysRemaining
-                displayContent = formatDaysSmart(days, false, locale)
-                displayUnit = pluralStringResource(R.plurals.days_unit, days.coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt())
-                labelText = com.example.timeapk.ui.utils.getUntilLabel(androidx.compose.ui.platform.LocalContext.current, eventState)
-            }
-        }
-        DisplayModes.UNTIL_YMD -> {
-            if (isToday) {
-                displayContent = todayLabel
-                displayUnit = ""
-                labelText = ""
-            } else {
-                val days = if (isRepeating) eventState.daysLeft else eventState.daysRemaining
-                val end = today.plusDays(days)
-                displayContent = formatBetweenAsYMD(today, end, locale)
-                displayUnit = ""
-                labelText = com.example.timeapk.ui.utils.getUntilLabel(androidx.compose.ui.platform.LocalContext.current, eventState)
-            }
-        }
-        DisplayModes.MILESTONE -> {
-            if (eventState.nextMilestoneDays != null && eventState.nextMilestoneValue != null) {
-                displayContent = formatDaysSmart(eventState.nextMilestoneDays, false, locale)
-                displayUnit = pluralStringResource(R.plurals.days_unit, eventState.nextMilestoneDays.coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt())
-                val milestoneStr = milestoneLabel(eventState.nextMilestoneValue, eventState.nextMilestoneReason, eventState.nextMilestoneYears)
-                labelText = stringResource(R.string.milestone_label_prefix, milestoneStr)
-            } else {
-                displayContent = ""
-                displayUnit = ""
-                labelText = stringResource(R.string.milestone_none)
-            }
-        }
-        else -> {
-            displayContent = ""
-            displayUnit = ""
-            labelText = ""
-        }
-    }
-
-    val cardDescription = buildString {
-        append(eventState.event.title)
-        append(", ")
-        if (isToday) append(todayLabel)
-        else append(labelText).append(" ").append(
-            if (displayUnit.isEmpty()) displayContent
-            else stringResource(R.string.quantity_with_unit, displayContent, displayUnit)
-        )
-    }
-    val categoryLabel = when (eventState.event.category) {
-        CATEGORY_BIRTHDAY -> stringResource(R.string.category_birthday)
-        CATEGORY_ANNIVERSARY -> stringResource(R.string.category_anniversary)
-        else -> stringResource(R.string.category_other)
-    }
-    val repeatLabel = when (eventState.event.repeatType) {
-        REPEAT_DAILY -> stringResource(R.string.repeat_daily)
-        REPEAT_WEEKLY -> stringResource(R.string.repeat_weekly)
-        REPEAT_MONTHLY -> stringResource(R.string.repeat_monthly)
-        REPEAT_HALF_YEARLY -> stringResource(R.string.repeat_half_yearly)
-        REPEAT_YEARLY -> stringResource(R.string.repeat_yearly)
-        else -> null
-    }
-    val cardAuxiliaryLine = buildList {
-        add(categoryLabel)
-        if (eventState.event.isLunar) add(stringResource(R.string.lunar_calendar))
-        repeatLabel?.let(::add)
-        if (eventState.event.remindEnabled) add(stringResource(R.string.field_remind))
-    }.joinToString(" · ")
-    val toggleDateDeltaDescription = stringResource(R.string.cd_toggle_date_delta_display)
-
-    SongPaperSurface(
-        modifier = modifier
-            .fillMaxWidth()
-            .heightIn(min = 110.dp)
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            }
-            .then(
-                if (!tapNavigationEnabled) {
-                    Modifier
-                } else if (tapOnlyInteraction) {
-                    Modifier.clickable(
-                        interactionSource = interactionSource,
-                        indication = LocalIndication.current,
-                        onClick = onClick
-                    )
-                } else {
-                    Modifier.combinedClickable(
-                        interactionSource = interactionSource,
-                        indication = LocalIndication.current,
-                        onClick = onClick,
-                        onLongClick = onLongClick
-                    )
-                }
-            )
-            .semantics(mergeDescendants = true) { contentDescription = cardDescription },
-        backgroundColor = cardContainerColor,
-        borderColor = if (isDragging) {
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.42f)
-        } else {
-            cardBorderColor
-        }
-    ) {
-        BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
-            val stacked = maxWidth < 300.dp || LocalDensity.current.fontScale >= 1.3f
-            val titleContent: @Composable () -> Unit = {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(
-                        text = eventState.event.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = cardContentColor.copy(alpha = if (isPast) 0.8f else 1.0f),
-                        maxLines = if (stacked) maxOf(2, titleMaxLines) else titleMaxLines,
-                        overflow = TextOverflow.Ellipsis
-                    )
-
-                    val dateLine = targetLocalDate.format(dateFormatter)
-                    val dateLineStyle = if (dateLine.length > 12) {
-                        MaterialTheme.typography.labelSmall
-                    } else {
-                        MaterialTheme.typography.bodySmall
-                    }
-                    Text(
-                        text = dateLine,
-                        style = dateLineStyle,
-                        color = cardContentColor.copy(alpha = 0.8f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    if (showDetail && cardAuxiliaryLine.isNotBlank()) {
-                        Text(
-                            text = cardAuxiliaryLine,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = cardAuxiliaryColor,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-            }
-            val timeContent: @Composable () -> Unit = {
-            val timeColor = if (isPast) cardContentColor.copy(alpha = 0.85f) else cardContentColor
-            Box(
-                modifier = Modifier
-                    .then(if (stacked) Modifier.fillMaxWidth() else Modifier.widthIn(min = 72.dp, max = maxWidth * 0.48f))
-                    .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
-                    .then(
-                        if (dateDeltaToggleEnabled) {
-                            Modifier.clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = LocalIndication.current,
-                                onClick = onToggleDateDeltaDisplayMode
-                            )
-                        } else {
-                            Modifier
-                        }
-                    )
-                    .then(
-                        if (dateDeltaToggleEnabled) {
-                            Modifier.semantics {
-                                role = Role.Button
-                                contentDescription = toggleDateDeltaDescription
-                            }
-                        } else {
-                            Modifier
-                        }
-                    ),
-                contentAlignment = Alignment.CenterEnd
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.End,
-                    verticalArrangement = Arrangement.Center,
-                    modifier = Modifier.heightIn(min = 52.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.Bottom,
-                        horizontalArrangement = Arrangement.End
-                    ) {
-                        Text(
-                            text = displayContent,
-                            style = MaterialTheme.typography.displaySmall,
-                            color = timeColor,
-                            modifier = Modifier.weight(1f, fill = false),
-                            maxLines = if (stacked && displayUnit.isEmpty()) 2 else 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        if (displayUnit.isNotEmpty()) {
-                            Spacer(modifier = Modifier.width(if (locale.language == "en") 6.dp else 2.dp))
-                            Text(
-                                text = displayUnit,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = timeColor.copy(alpha = 1.0f),
-                                modifier = Modifier.padding(bottom = 4.dp)
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = labelText,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = timeColor.copy(alpha = 0.85f),
-                        letterSpacing = 0.sp
-                    )
-                }
-            }
-            }
-            if (stacked) {
-                Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.width(3.dp).height(44.dp).background(cardAccentColor, RoundedCornerShape(2.dp)))
-                        Spacer(Modifier.width(12.dp))
-                        Box(Modifier.weight(1f)) { titleContent() }
-                    }
-                    timeContent()
-                }
-            } else {
-                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.width(3.dp).height(52.dp).background(cardAccentColor, RoundedCornerShape(2.dp)))
-                    Spacer(Modifier.width(16.dp))
-                    Box(Modifier.weight(1f)) { titleContent() }
-                    Spacer(Modifier.width(16.dp))
-                    timeContent()
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun EventListItem(
-    eventState: EventUiState,
-    today: LocalDate,
-    sortType: SortType,
-    dateDeltaDisplayMode: Int,
-    onToggleDateDeltaDisplayMode: () -> Unit,
-    onClick: () -> Unit,
-    onLongClick: (() -> Unit)?,
-    tapOnlyInteraction: Boolean = false,
-    tapNavigationEnabled: Boolean = true,
-    showHours: Boolean = true,
-    showMilestone: Boolean = true,
-    isDragging: Boolean = false,
-    modifier: Modifier = Modifier
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = AnimationSpecs.responsiveScale(if (isDragging) 1.02f else if (isPressed) 0.98f else 1f),
-        animationSpec = AnimationSpecs.springItem,
-        label = "listItemScale"
-    )
-    val isPast = eventState.isPast
-    val targetLocalDate = remember(eventState.event.date) {
-        eventDateToLocalDate(eventState.event.date)
-    }
-
-    val isRepeating = eventState.event.repeatType != REPEAT_NONE
-    val isToday = eventState.daysRemaining == 0L && !eventState.isPast
-    val todayLabel = stringResource(R.string.days_today_label)
-    val locale = androidx.compose.ui.platform.LocalContext.current.resources.configuration.locales[0]
-
-    val resolvedDateDeltaDisplayMode = resolveHomeDateDeltaDisplayMode(
-        sortType = sortType,
-        requestedMode = dateDeltaDisplayMode,
-        eventState = eventState
-    )
-    val availableModes = getAvailableDisplayModes(eventState, showMilestone = showMilestone)
-    val modeIndex = availableModes.indexOf(resolvedDateDeltaDisplayMode)
-    val mode = if (modeIndex != -1) resolvedDateDeltaDisplayMode else availableModes.first()
-    val dateDeltaToggleEnabled = sortType != SortType.ByDays && tapNavigationEnabled
-
-    val labelText: String
-    val daysDisplay: String
-
-    when (mode) {
-        DisplayModes.PAST_DAYS -> {
-            val days = if (isRepeating) eventState.daysPassed else eventState.daysElapsed
-            daysDisplay = stringResource(R.string.quantity_with_unit, formatDaysSmart(days, false, locale),
-                pluralStringResource(R.plurals.days_unit, days.coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt()))
-            labelText = stringResource(R.string.days_past_label)
-        }
-        DisplayModes.PAST_YMD -> {
-            val start = targetLocalDate
-            val end = today
-            daysDisplay = formatBetweenAsYMD(start, end, locale)
-            labelText = stringResource(R.string.days_past_label)
-        }
-        DisplayModes.UNTIL_DAYS -> {
-            if (showHours && eventState.hoursRemaining != null) {
-                daysDisplay = String.format(locale, "%d %s", eventState.hoursRemaining,
-                    pluralStringResource(R.plurals.hours_unit, eventState.hoursRemaining.toInt()))
-                labelText = com.example.timeapk.ui.utils.getUntilLabel(androidx.compose.ui.platform.LocalContext.current, eventState)
-            } else if (isToday) {
-                daysDisplay = todayLabel
-                labelText = ""
-            } else {
-                val days = if (isRepeating) eventState.daysLeft else eventState.daysRemaining
-                daysDisplay = stringResource(R.string.quantity_with_unit, formatDaysSmart(days, false, locale),
-                    pluralStringResource(R.plurals.days_unit, days.coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt()))
-                labelText = com.example.timeapk.ui.utils.getUntilLabel(androidx.compose.ui.platform.LocalContext.current, eventState)
-            }
-        }
-        DisplayModes.UNTIL_YMD -> {
-            if (isToday) {
-                daysDisplay = todayLabel
-                labelText = ""
-            } else {
-                val days = if (isRepeating) eventState.daysLeft else eventState.daysRemaining
-                val end = today.plusDays(days)
-                daysDisplay = formatBetweenAsYMD(today, end, locale)
-                labelText = com.example.timeapk.ui.utils.getUntilLabel(androidx.compose.ui.platform.LocalContext.current, eventState)
-            }
-        }
-        DisplayModes.MILESTONE -> {
-            if (eventState.nextMilestoneDays != null && eventState.nextMilestoneValue != null) {
-                daysDisplay = stringResource(R.string.quantity_with_unit, formatDaysSmart(eventState.nextMilestoneDays, false, locale),
-                    pluralStringResource(R.plurals.days_unit, eventState.nextMilestoneDays.coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt()))
-                val milestoneStr = milestoneLabel(eventState.nextMilestoneValue, eventState.nextMilestoneReason, eventState.nextMilestoneYears)
-                labelText = stringResource(R.string.milestone_label_prefix, milestoneStr)
-            } else {
-                daysDisplay = ""
-                labelText = stringResource(R.string.milestone_none)
-            }
-        }
-        else -> {
-            daysDisplay = ""
-            labelText = ""
-        }
-    }
-
-    val eventColor = parseEventColorOrFallback(
-        hex = eventState.event.colorHex,
-        fallback = MaterialTheme.colorScheme.primary
-    )
-    val itemDescription = buildString {
-        append(eventState.event.title)
-        append(", ")
-        if (isToday) append(todayLabel)
-        else append(labelText).append(" ").append(daysDisplay)
-    }
-    val isLightSurface = MaterialTheme.colorScheme.surface.luminance() > 0.5f
-    val rowBackground = when {
-        isDragging -> MaterialTheme.colorScheme.surface
-        isPressed -> MaterialTheme.colorScheme.primary.copy(alpha = 0.05f)
-        else -> Color.Transparent
-    }
-    val effectiveListBackground = HomeEventColorPolicy.compositeOver(
-        foreground = rowBackground,
-        background = MaterialTheme.colorScheme.background
-    )
-    val listOnBackgroundColor = MaterialTheme.colorScheme.onBackground
-    val displayColor = if (isLightSurface) {
-        lerp(eventColor, listOnBackgroundColor, 0.4f)
-    } else {
-        remember(eventColor, listOnBackgroundColor, effectiveListBackground) {
-            HomeEventColorPolicy.ensureTextContrast(
-                eventColor = eventColor,
-                onSurface = listOnBackgroundColor,
-                background = effectiveListBackground
-            )
-        }
-    }
-
-    val baseTextColorListItem = MaterialTheme.colorScheme.onSurface
-    val itemContentColor = lerp(baseTextColorListItem, eventColor, 0.04f)
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            }
-            .background(color = rowBackground, shape = MaterialTheme.shapes.medium)
-            .then(
-                if (isDragging) Modifier.border(SongDesignTokens.BorderWidth.dp, MaterialTheme.colorScheme.primary.copy(alpha = SongDesignTokens.BorderAlphaStrong), MaterialTheme.shapes.medium)
-                else Modifier
-            )
-            .then(
-                if (!tapNavigationEnabled) {
-                    Modifier
-                } else if (tapOnlyInteraction) {
-                    Modifier.clickable(
-                        interactionSource = interactionSource,
-                        indication = LocalIndication.current,
-                        onClick = onClick
-                    )
-                } else {
-                    Modifier.combinedClickable(
-                        interactionSource = interactionSource,
-                        indication = LocalIndication.current,
-                        onClick = onClick,
-                        onLongClick = onLongClick
-                    )
-                }
-            )
-            .semantics(mergeDescendants = true) { contentDescription = itemDescription }
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 52.dp)
-                .padding(horizontal = 8.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .width(2.dp)
-                    .height(18.dp)
-                    .background(
-                        color = eventColor.copy(alpha = if (isPast) 0.26f else 0.50f),
-                        shape = RoundedCornerShape(2.dp)
-                    )
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = eventState.event.title,
-                style = MaterialTheme.typography.titleMedium.copy(
-                    letterSpacing = 0.sp
-                ),
-                color = itemContentColor.copy(alpha = if (isPast) 0.84f else 1f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            CompactEventTime(
-                daysDisplay = daysDisplay,
-                labelText = labelText,
-                timeColor = if (isPast && isLightSurface) {
-                    displayColor.copy(alpha = 0.82f)
-                } else {
-                    displayColor
-                },
-                labelColor = itemContentColor.copy(alpha = 0.64f),
-                contentDescription = stringResource(R.string.cd_toggle_date_delta_display),
-                enabled = dateDeltaToggleEnabled,
-                onClick = onToggleDateDeltaDisplayMode
-            )
-        }
-        HorizontalDivider(
-            modifier = Modifier.padding(start = 24.dp),
-            thickness = SongDesignTokens.BorderWidth.dp,
-            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
-        )
-    }
-}
-
-@Composable
-private fun CompactEventTime(
-    daysDisplay: String,
-    labelText: String,
-    timeColor: Color,
-    labelColor: Color,
-    contentDescription: String,
-    enabled: Boolean,
-    onClick: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .widthIn(min = 82.dp, max = 138.dp)
-            .heightIn(min = 42.dp)
-            .then(
-                if (enabled) {
-                    Modifier.clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = LocalIndication.current,
-                        onClick = onClick
-                    )
-                } else {
-                    Modifier
-                }
-            )
-            .then(
-                if (enabled) {
-                    Modifier.semantics {
-                        role = Role.Button
-                        this.contentDescription = contentDescription
-                    }
-                } else {
-                    Modifier
-                }
-            ),
-        horizontalAlignment = Alignment.End,
-        verticalArrangement = Arrangement.Center
-    ) {
-        if (daysDisplay.isNotBlank()) {
-            Text(
-                text = daysDisplay,
-                style = when {
-                    daysDisplay.length > 12 -> MaterialTheme.typography.bodySmall
-                    daysDisplay.length > 8 -> MaterialTheme.typography.bodyMedium
-                    else -> MaterialTheme.typography.titleMedium
-                },
-                color = timeColor,
-                maxLines = if (daysDisplay.length > 12) 3 else 2,
-                overflow = TextOverflow.Clip,
-                textAlign = TextAlign.End,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-        if (labelText.isNotBlank()) {
-            if (daysDisplay.isNotBlank()) {
-                Spacer(modifier = Modifier.height(2.dp))
-            }
-            Text(
-                text = labelText,
-                style = MaterialTheme.typography.labelSmall,
-                color = labelColor,
-                letterSpacing = 0.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.End,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-    }
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-internal fun MonthCalendarView(
-    events: List<EventUiState>,
-    selectedDate: LocalDate,
-    onEventClick: (Int) -> Unit,
-    onEventLongClick: ((Int) -> Unit)?,
-    modifier: Modifier = Modifier
-) {
-    var currentMonth by remember(selectedDate) { mutableStateOf(YearMonth.from(selectedDate)) }
-    var pickedDate by remember(selectedDate) { mutableStateOf(selectedDate) }
-    var showMonthPicker by remember { mutableStateOf(false) }
-    val context = androidx.compose.ui.platform.LocalContext.current
-
-    val locale = context.resources.configuration.locales[0]
-    val monthPattern = stringResource(R.string.calendar_month_title_pattern)
-    val selectedDatePattern = stringResource(R.string.calendar_selected_date_pattern)
-    val monthFormatter = remember(locale, monthPattern) {
-        DateTimeFormatter.ofPattern(monthPattern, locale)
-    }
-    val selectedDateFormatter = remember(locale, selectedDatePattern) {
-        DateTimeFormatter.ofPattern(selectedDatePattern, locale)
-    }
-    val currentMonthTitle = currentMonth.atDay(1).format(monthFormatter)
-    val monthPickerInitialDate = remember(currentMonth, pickedDate) {
-        val safeDay = pickedDate.dayOfMonth.coerceIn(1, currentMonth.lengthOfMonth())
-        currentMonth.atDay(safeDay)
-            .atStartOfDay(ZoneOffset.UTC)
-            .toInstant()
-            .toEpochMilli()
-    }
-    val occurrences = remember(events, currentMonth) {
-        calendarOccurrencesForMonth(events, currentMonth)
-    }
-    val eventsByDate = remember(occurrences) { occurrences.groupBy { it.date } }
-
-    val daysInMonth = currentMonth.lengthOfMonth()
-    val monthStart = currentMonth.atDay(1)
-    val firstDayOffset = monthStart.dayOfWeek.value - 1 // Monday = 0
-    val cells = remember(currentMonth) {
-        buildList {
-            repeat(firstDayOffset.coerceAtLeast(0)) { add(null) }
-            for (day in 1..daysInMonth) {
-                add(currentMonth.atDay(day))
-            }
-            while (size % 7 != 0) {
-                add(null)
-            }
-        }
-    }
-
-    if (YearMonth.from(pickedDate) != currentMonth) {
-        pickedDate = currentMonth.atDay(1)
-    }
-
-    if (showMonthPicker) {
-        SongDateWheelPickerDialog(
-            initialDateMillis = monthPickerInitialDate,
-            initialIsLunar = false,
-            title = stringResource(R.string.field_date),
-            onDismissRequest = { showMonthPicker = false },
-            onConfirm = { millis, _ ->
-                val pickedLocalDate = eventDateToLocalDate(millis)
-                val pickedMonth = YearMonth.from(pickedLocalDate)
-                currentMonth = pickedMonth
-                pickedDate = pickedMonth.atDay(pickedLocalDate.dayOfMonth.coerceIn(1, pickedMonth.lengthOfMonth()))
-                showMonthPicker = false
-            }
-        )
-    }
-
-    val selectedEvents = eventsByDate[pickedDate].orEmpty()
-    LazyColumn(
-        modifier = modifier.fillMaxSize().padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        contentPadding = PaddingValues(top = 8.dp, bottom = 72.dp)
-    ) {
-        item {
-            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = { currentMonth = currentMonth.minusMonths(1) }) {
-                SongLineIcon(
-                    kind = SongLineIconKind.ChevronLeft,
-                    contentDescription = stringResource(R.string.calendar_prev_month),
-                    tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.74f)
-                )
-            }
-            Text(
-                text = currentMonthTitle,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier
-                    .clickable { showMonthPicker = true }
-                    .semantics {
-                        role = Role.Button
-                        this.contentDescription = currentMonthTitle
-                    }
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-            )
-            IconButton(onClick = { currentMonth = currentMonth.plusMonths(1) }) {
-                SongLineIcon(
-                    kind = SongLineIconKind.ChevronRight,
-                    contentDescription = stringResource(R.string.calendar_next_month),
-                    tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.74f)
-                )
-            }
-        }
-
-        Row(modifier = Modifier.fillMaxWidth()) {
-            listOf(
-                R.string.weekday_mon,
-                R.string.weekday_tue,
-                R.string.weekday_wed,
-                R.string.weekday_thu,
-                R.string.weekday_fri,
-                R.string.weekday_sat,
-                R.string.weekday_sun
-            ).forEach { labelRes ->
-                Text(
-                    text = stringResource(labelRes),
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-
-        cells.chunked(7).forEach { week ->
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                week.forEach { date ->
-                    val dayEvents = date?.let { eventsByDate[it] }.orEmpty()
-                    val isSelected = date != null && date == pickedDate
-                    val isToday = date != null && date == selectedDate
-                    val hasEvents = dayEvents.isNotEmpty()
-                    if (date == null) {
-	                        Box(
-	                            modifier = Modifier
-	                                .weight(1f)
-	                                .heightIn(min = 48.dp, max = 72.dp)
-	                        )
-                    } else {
-                        val cellContent = calendarDayCellContent(date, dayEvents)
-                        val eventCountLabel = pluralStringResource(
-                            R.plurals.calendar_day_event_count,
-                            dayEvents.size,
-                            dayEvents.size
-                        )
-                        val dayStateLabel = buildList {
-                            if (isToday) add(stringResource(R.string.calendar_day_today))
-                            if (isSelected) add(stringResource(R.string.calendar_day_selected))
-                            add(eventCountLabel)
-                        }.joinToString(stringResource(R.string.calendar_day_state_separator))
-                        val dayAccessibilityLabel = stringResource(
-                            R.string.calendar_day_accessibility,
-                            date.format(selectedDateFormatter),
-                            dayStateLabel
-                        )
-                        SongCalendarCell(
-                            dayText = cellContent.dayText,
-                            eventIndicatorText = cellContent.eventIndicatorText,
-                            selected = isSelected,
-                            today = isToday,
-                            hasEvents = hasEvents,
-	                            modifier = Modifier
-	                                .weight(1f)
-	                                .heightIn(min = 48.dp, max = 72.dp)
-                                    .semantics {
-                                        contentDescription = dayAccessibilityLabel
-                                    },
-                            onClick = { pickedDate = date }
-                        )
-                    }
-                }
-            }
-        }
-
-        Column(
-            modifier = Modifier.padding(top = 4.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.calendar_selected_date_events, pickedDate.format(selectedDateFormatter)),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = stringResource(
-                    R.string.calendar_selected_date_lunar,
-                    formatLunarDateString(pickedDate, context)
-                ),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.82f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-
-            }
-        }
-        if (selectedEvents.isEmpty()) {
-            item {
-                Text(
-                    text = stringResource(R.string.calendar_no_events),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        } else {
-            items(selectedEvents, key = { "${it.eventState.event.id}-${it.date}" }) { occurrence ->
-                CalendarOccurrenceRow(
-                    occurrence = occurrence,
-                    onEventClick = onEventClick,
-                    onEventLongClick = onEventLongClick
-                )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun CalendarOccurrenceRow(
-    occurrence: CalendarEventOccurrence,
-    onEventClick: (Int) -> Unit,
-    onEventLongClick: ((Int) -> Unit)?
-) {
-    val context = LocalContext.current
-    val locale = context.resources.configuration.locales[0]
-    val today = LocalDate.now()
-    val selectedDatePattern = stringResource(R.string.calendar_selected_date_pattern)
-    val rowDateFormatter = remember(selectedDatePattern, locale) {
-        DateTimeFormatter.ofPattern(selectedDatePattern, locale)
-    }
-    val categoryLabel = when (occurrence.eventState.event.category) {
-        CATEGORY_BIRTHDAY -> stringResource(R.string.category_birthday)
-        CATEGORY_ANNIVERSARY -> stringResource(R.string.category_anniversary)
-        else -> stringResource(R.string.category_other)
-    }
-    val repeatLabel = when (occurrence.eventState.event.repeatType) {
-        REPEAT_DAILY -> stringResource(R.string.repeat_daily)
-        REPEAT_WEEKLY -> stringResource(R.string.repeat_weekly)
-        REPEAT_MONTHLY -> stringResource(R.string.repeat_monthly)
-        REPEAT_HALF_YEARLY -> stringResource(R.string.repeat_half_yearly)
-        REPEAT_YEARLY -> stringResource(R.string.repeat_yearly)
-        else -> null
-    }
-    val daysFromToday = ChronoUnit.DAYS.between(today, occurrence.date)
-    val relativeDateLabel = when {
-        daysFromToday == 0L -> stringResource(R.string.days_today_label)
-        daysFromToday > 0L -> buildString {
-            append(stringResource(R.string.days_left_label))
-            append(" ")
-            append(stringResource(R.string.quantity_with_unit, formatDaysSmart(daysFromToday, false, locale),
-                pluralStringResource(R.plurals.days_unit, daysFromToday.coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt())))
-        }
-        else -> context.resources.getQuantityString(
-            R.plurals.days_elapsed_format,
-            (-daysFromToday).toInt(),
-            (-daysFromToday).toInt()
-        )
-    }
-    val calendarMetaLine = buildList {
-        add(categoryLabel)
-        repeatLabel?.let(::add)
-        if (occurrence.eventState.event.remindEnabled) add(stringResource(R.string.field_remind))
-    }.joinToString(" · ")
-    val calendarTimeLine = buildList {
-        add(occurrence.date.format(rowDateFormatter))
-        add(stringResource(R.string.calendar_selected_date_lunar, formatLunarDateString(occurrence.date, context)))
-        add(relativeDateLabel)
-    }.joinToString(" · ")
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(
-                if (onEventLongClick != null) {
-                    Modifier.combinedClickable(
-                        onClick = { onEventClick(occurrence.eventState.event.id) },
-                        onLongClick = { onEventLongClick(occurrence.eventState.event.id) }
-                    )
-                } else {
-                    Modifier.clickable { onEventClick(occurrence.eventState.event.id) }
-                }
-            )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 68.dp)
-                .padding(horizontal = 4.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.Top
-        ) {
-            Box(
-                modifier = Modifier
-                    .width(2.dp)
-                    .height(40.dp)
-                    .background(
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.38f),
-                        RoundedCornerShape(1.dp)
-                    )
-            )
-            Spacer(modifier = Modifier.width(10.dp))
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = occurrence.eventState.event.title,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(3.dp))
-                Text(
-                    text = calendarTimeLine,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = calendarMetaLine,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.82f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-        HorizontalDivider(
-            thickness = SongDesignTokens.BorderWidth.dp,
-            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.10f)
+            size = SongDesignTokens.IconDefault.dp
         )
     }
 }

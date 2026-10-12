@@ -3,6 +3,7 @@ package com.example.timeapk
 import android.app.Application
 import android.content.res.Configuration
 import com.example.timeapk.data.AppDatabase
+import com.example.timeapk.data.CategoryRepository
 import com.example.timeapk.data.EventRepository
 import com.example.timeapk.data.UserPreferencesRepository
 import com.example.timeapk.notifications.RescheduleAllWorker
@@ -23,10 +24,13 @@ class TimeApplication : Application() {
 
     val database by lazy { AppDatabase.getDatabase(this) }
     val repository by lazy { EventRepository(database.eventDao()) }
+    val categoryRepository by lazy { CategoryRepository(database.categoryDao()) }
     val userPrefs by lazy { UserPreferencesRepository(this) }
     internal val backupImportInProgress = MutableStateFlow(false)
     val updateChecker: UpdateChecker by lazy { UpdateCheckerFactory.create() }
     var initialCategoryForAdd: String? = null
+    /** 月历中选中的日期（UTC 零点毫秒），新建页读取一次后清空。 */
+    var initialDateForAdd: Long? = null
 
     fun launchAppTask(block: suspend CoroutineScope.() -> Unit) {
         appScope.launch(block = block)

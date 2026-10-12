@@ -15,7 +15,8 @@ object AppViewModelProvider {
             HomeViewModel(
                 timeApplication(),
                 timeApplication().repository,
-                timeApplication().userPrefs
+                timeApplication().userPrefs,
+                timeApplication().categoryRepository
             )
         }
         initializer {

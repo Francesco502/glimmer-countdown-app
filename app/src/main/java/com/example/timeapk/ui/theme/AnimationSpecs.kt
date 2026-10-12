@@ -40,6 +40,8 @@ object AnimationSpecs {
 
     fun smallTweenDp() = tween<Dp>(effectiveDuration(DurationSmallMs), easing = EaseOut)
 
+    fun smallTweenColor() = tween<androidx.compose.ui.graphics.Color>(effectiveDuration(DurationSmallMs), easing = EaseOut)
+
     fun mediumTween() = tween<Float>(effectiveDuration(DurationMediumMs), easing = EaseOut)
 
     fun mediumTweenIntOffset() = tween<IntOffset>(effectiveDuration(DurationMediumMs), easing = EaseOut)

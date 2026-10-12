@@ -9,21 +9,27 @@ import com.example.timeapk.ui.utils.DisplayModes
 
 enum class FilterType { All, Birthday, Anniversary, Other }
 
+/** 旧筛选枚举对应的分类 id；null 表示全部。 */
+fun FilterType.toCategoryId(): String? = when (this) {
+    FilterType.All -> null
+    FilterType.Birthday -> CATEGORY_BIRTHDAY
+    FilterType.Anniversary -> CATEGORY_ANNIVERSARY
+    FilterType.Other -> CATEGORY_OTHER
+}
+
+internal fun EventUiState.matchesCategoryFilter(categoryId: String?): Boolean =
+    categoryId == null || event.category == categoryId
+
 enum class SortType { ByDays, ByDate, Custom }
 
-internal fun homeCardLongPressEditEnabled(sortType: SortType): Boolean = false
-
-internal fun homeCardUsesTapOnlyInteraction(sortType: SortType): Boolean = false
-
-internal fun homeCardTapNavigationEnabled(sortType: SortType): Boolean = true
+/** 非自定义排序时长按卡片打开操作菜单；自定义排序时长按用于拖动。 */
+internal fun homeCardLongPressMenuEnabled(sortType: SortType): Boolean = sortType != SortType.Custom
 
 internal fun homeCardDragSortEnabled(sortType: SortType): Boolean = sortType == SortType.Custom
 
 internal fun homeReorderAllowed(fromId: Int, toId: Int, pinnedEventIds: List<Int>): Boolean =
     fromId != toId && fromId !in pinnedEventIds && toId !in pinnedEventIds
 
-internal fun homeUsesListLevelReorderDetection(sortType: SortType): Boolean =
-    false
 
 internal fun resolveHomeDateDeltaDisplayMode(
     sortType: SortType,
@@ -105,13 +111,25 @@ internal fun buildHomeVisibleList(
     query: String,
     customEventOrderIds: List<Int>,
     pinnedEventIds: List<Int>
+): List<EventUiState> = buildHomeVisibleList(
+    all = all,
+    categoryFilter = filterType.toCategoryId(),
+    sortType = sortType,
+    query = query,
+    customEventOrderIds = customEventOrderIds,
+    pinnedEventIds = pinnedEventIds
+)
+
+internal fun buildHomeVisibleList(
+    all: List<EventUiState>,
+    categoryFilter: String?,
+    sortType: SortType,
+    query: String,
+    customEventOrderIds: List<Int>,
+    pinnedEventIds: List<Int>,
+    categoryLabels: Map<String, String> = emptyMap()
 ): List<EventUiState> {
-    val categoryFiltered = when (filterType) {
-        FilterType.All -> all
-        FilterType.Birthday -> all.filter { it.event.category == CATEGORY_BIRTHDAY }
-        FilterType.Anniversary -> all.filter { it.event.category == CATEGORY_ANNIVERSARY }
-        FilterType.Other -> all.filter { it.event.category == CATEGORY_OTHER }
-    }
+    val categoryFiltered = all.filter { it.matchesCategoryFilter(categoryFilter) }
     val normalizedQuery = query.trim().lowercase()
     val searched = if (normalizedQuery.isEmpty()) {
         categoryFiltered
@@ -119,7 +137,8 @@ internal fun buildHomeVisibleList(
         categoryFiltered.filter { state ->
             state.event.title.lowercase().contains(normalizedQuery) ||
                 state.event.note.lowercase().contains(normalizedQuery) ||
-                state.event.category.lowercase().contains(normalizedQuery)
+                state.event.category.lowercase().contains(normalizedQuery) ||
+                categoryLabels[state.event.category]?.lowercase()?.contains(normalizedQuery) == true
         }
     }
     return applyHomeSort(

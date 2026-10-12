@@ -64,7 +64,8 @@ fun SongDialogScaffold(
                         .fillMaxWidth()
                         .widthIn(max = 420.dp)
                         .heightIn(max = maxHeight * 0.8f),
-                    backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
+                    // Opaque: a translucent dialog lets the page underneath show through.
+                    backgroundColor = MaterialTheme.colorScheme.surface,
                     borderColor = MaterialTheme.colorScheme.outline.copy(alpha = SongDesignTokens.BorderAlphaStrong)
                 ) {
                     Column(

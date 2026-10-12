@@ -85,6 +85,7 @@ class HomeEmptyStatePolicyTest {
     }
 
     private fun readSource(relative: String): String {
+        if (relative == "ui/home/HomeScreen.kt") return com.example.timeapk.HomeSourceFiles.combined()
         val direct = File("src/main/java/com/example/timeapk/$relative")
         if (direct.exists()) return direct.readText(Charsets.UTF_8)
         val fromRoot = File("app/src/main/java/com/example/timeapk/$relative")

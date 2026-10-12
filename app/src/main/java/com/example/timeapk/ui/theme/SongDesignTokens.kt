@@ -16,6 +16,28 @@ object SongDesignTokens {
 
     const val PaddingBase = 8 // Base spacing unit.
     const val PaddingList = 16 // Default list item spacing.
+
+    // 4.2 spacing scale; new code uses these instead of dp literals.
+    const val SpaceXs = 4
+    const val SpaceSm = 8
+    const val SpaceMd = 12
+    const val SpaceLg = 16
+    const val SpaceXl = 24
+    const val SpaceXxl = 32
+
+    // Icon sizes.
+    const val IconSmall = 16
+    const val IconDefault = 20
+    const val IconLarge = 24
+
+    /** Seal-styled add button size and the list padding that keeps the last item clear of it. */
+    const val FabSize = 56
+    const val FabClearance = FabSize + 2 * SpaceLg
+
+    /** Content max width for forms and settings on wide windows. */
+    const val ContentMaxWidth = 640
+
+    const val RippleAlpha = 0.10f
     const val MotionFastMs = 140
     const val MotionNormalMs = 220
     const val MotionSlowMs = 300

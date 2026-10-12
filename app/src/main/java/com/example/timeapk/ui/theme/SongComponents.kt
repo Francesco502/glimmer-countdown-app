@@ -460,6 +460,8 @@ fun SongCalendarCell(
     today: Boolean,
     hasEvents: Boolean,
     modifier: Modifier = Modifier,
+    lunarText: String? = null,
+    eventDotColors: List<Color> = emptyList(),
     onClick: (() -> Unit)? = null
 ) {
     val primary = MaterialTheme.colorScheme.primary
@@ -467,19 +469,23 @@ fun SongCalendarCell(
         preferred = MaterialTheme.colorScheme.onPrimary,
         background = primary
     )
+    val shape = RoundedCornerShape(SongDesignTokens.StandardRadius.dp)
+    // Selected is a solid seal fill; today keeps a strong seal outline so both stay distinguishable.
     val borderColor = when {
         selected -> primary.copy(alpha = 0.58f)
-        today -> SongPalette.Gold.copy(alpha = 0.46f)
+        today -> primary.copy(alpha = 0.86f)
         hasEvents -> primary.copy(alpha = 0.24f)
-        else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
+        else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.16f)
     }
+    val borderWidth = if (today && !selected) 1.5.dp else SongDesignTokens.BorderWidth.dp
     val backgroundColor = when {
         selected -> primary
-        hasEvents -> SongPalette.PaperWarm.copy(alpha = 0.45f)
+        today -> primary.copy(alpha = 0.06f)
+        hasEvents -> MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
         else -> Color.Transparent
     }
     val cellModifier = modifier
-        .clip(RoundedCornerShape(SongDesignTokens.StandardRadius.dp))
+        .clip(shape)
         .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
         .semantics(mergeDescendants = true) {
             if (onClick != null) role = Role.Button
@@ -488,53 +494,60 @@ fun SongCalendarCell(
 
     Box(
         modifier = cellModifier
-            .background(backgroundColor, RoundedCornerShape(SongDesignTokens.StandardRadius.dp))
-            .border(BorderStroke(SongDesignTokens.BorderWidth.dp, borderColor), RoundedCornerShape(SongDesignTokens.StandardRadius.dp))
+            .background(backgroundColor, shape)
+            .border(BorderStroke(borderWidth, borderColor), shape)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 6.dp, vertical = 5.dp)
+                .padding(horizontal = 5.dp, vertical = 4.dp)
         ) {
-            Row(verticalAlignment = Alignment.Top) {
+            Text(
+                text = dayText,
+                style = MaterialTheme.typography.bodyMedium,
+                color = when {
+                    selected -> selectedContentColor
+                    today || hasEvents -> primary
+                    else -> MaterialTheme.colorScheme.onSurface
+                },
+                maxLines = 1
+            )
+            if (!lunarText.isNullOrBlank()) {
                 Text(
-                    text = dayText,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = when {
-                        selected -> selectedContentColor
-                        hasEvents -> primary
-                        else -> MaterialTheme.colorScheme.onSurface
-                    }
+                    text = lunarText,
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, lineHeight = 11.sp),
+                    color = if (selected) selectedContentColor.copy(alpha = 0.82f)
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Clip
                 )
-                Spacer(modifier = Modifier.weight(1f))
-                if (today) {
-                    Box(
-                        modifier = Modifier
-                            .size(5.dp)
-                            .background(SongPalette.Seal, RoundedCornerShape(1.dp))
-                    )
-                }
             }
             Spacer(modifier = Modifier.weight(1f))
             if (hasEvents) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(4.dp)
-                            .background(
-                                if (selected) selectedContentColor else primary,
-                                RoundedCornerShape(1.dp)
-                            )
-                    )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    val dots = eventDotColors.ifEmpty { listOf(primary) }
+                    dots.forEach { dotColor ->
+                        Box(
+                            modifier = Modifier
+                                .size(5.dp)
+                                .background(
+                                    if (selected) selectedContentColor else dotColor,
+                                    RoundedCornerShape(50)
+                                )
+                        )
+                    }
                     if (!eventIndicatorText.isNullOrBlank()) {
                         Text(
                             text = eventIndicatorText,
-                            style = MaterialTheme.typography.labelSmall,
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, lineHeight = 11.sp),
                             color = if (selected) selectedContentColor else primary,
                             maxLines = 1,
                             overflow = TextOverflow.Clip,
                             textAlign = TextAlign.Start,
-                            modifier = Modifier.padding(start = 4.dp)
+                            modifier = Modifier.padding(start = 1.dp)
                         )
                     }
                 }

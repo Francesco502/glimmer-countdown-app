@@ -67,8 +67,9 @@ fun defaultTemplateForCategory(category: String): EventEntryTemplate {
 
 fun applyTemplateForCategory(details: EventDetails, category: String): EventDetails {
     val template = defaultTemplateForCategory(category)
+    // Custom categories reuse the countdown template but keep their own id.
     return details.copy(
-        category = template.category,
+        category = category,
         repeatType = template.repeatType,
         isLunar = if (template.allowLunar) details.isLunar else false
     )

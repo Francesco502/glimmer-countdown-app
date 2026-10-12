@@ -7,6 +7,7 @@ import androidx.compose.material3.Shapes
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -35,7 +36,7 @@ private val DarkColorScheme = darkColorScheme(
     onTertiary = Color.White,
     onBackground = SongDarkTextOnBG,
     onSurface = SongDarkTextOnSurface,
-    onSurfaceVariant = SongDarkTextOnBG,
+    onSurfaceVariant = SongDarkTextSecondary,
     outline = SongDarkTextOnBG.copy(alpha = SongDesignTokens.BorderAlphaSoft)
 )
 
@@ -51,13 +52,33 @@ private val LightColorScheme = lightColorScheme(
     onTertiary = Color.White,
     onBackground = SongLightTextOnBG,
     onSurface = SongLightTextOnSurface,
-    onSurfaceVariant = SongLightTextOnBG,
+    onSurfaceVariant = SongLightTextSecondary,
     outline = SongLightTextOnBG.copy(alpha = SongDesignTokens.BorderAlphaSoft)
 )
 
 private fun parseHexOrNull(hex: String?): Color? {
     val normalized = normalizeOpaqueThemeHex(hex) ?: return null
     return Color(normalized.toColorInt())
+}
+
+private fun parseCustomColor(hex: String?, dark: Boolean, role: CustomColorRole): Color? {
+    val color = parseHexOrNull(hex) ?: return null
+    if (!dark) return color
+    val rgb = color.toArgb() and 0xFFFFFF
+    return Color(0xFF000000.toInt() or adaptCustomColorForDark(rgb, role))
+}
+
+/** 动态取色：取壁纸配色的色相，保留宋韵的纸纹、字体与圆角。 */
+@androidx.annotation.RequiresApi(Build.VERSION_CODES.S)
+private fun songDynamicColorScheme(
+    context: android.content.Context,
+    dark: Boolean
+): androidx.compose.material3.ColorScheme {
+    val dynamic = if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    return dynamic.copy(
+        surfaceVariant = dynamic.surfaceContainerHigh,
+        outline = dynamic.onBackground.copy(alpha = SongDesignTokens.BorderAlphaSoft)
+    )
 }
 
 @Suppress("DEPRECATION")
@@ -81,10 +102,10 @@ private object SongRippleTheme : RippleTheme {
 
     @Composable
     override fun rippleAlpha(): RippleAlpha = RippleAlpha(
-        pressedAlpha = 0.04f,
-        focusedAlpha = 0.04f,
-        draggedAlpha = 0.04f,
-        hoveredAlpha = 0.04f
+        pressedAlpha = SongDesignTokens.RippleAlpha,
+        focusedAlpha = SongDesignTokens.RippleAlpha,
+        draggedAlpha = SongDesignTokens.RippleAlpha * 1.2f,
+        hoveredAlpha = SongDesignTokens.RippleAlpha * 0.6f
     )
 }
 
@@ -107,26 +128,47 @@ fun TimeAPKTheme(
         else -> darkTheme
     }
 
+    val useDynamicColor = dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    val context = LocalContext.current
     var colorScheme = when {
-        dynamicColor && !resolvedDark && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            dynamicLightColorScheme(LocalContext.current)
-        }
+        useDynamicColor -> songDynamicColorScheme(context, resolvedDark)
         resolvedDark -> DarkColorScheme
         else -> LightColorScheme
     }
 
-    parseHexOrNull(customBackgroundHex)?.let {
-        colorScheme = colorScheme.copy(background = it)
+    // 动态取色开启时自定义颜色不生效（设置页有说明）。
+    if (!useDynamicColor) {
+        parseCustomColor(customBackgroundHex, resolvedDark, CustomColorRole.Background)?.let {
+            colorScheme = colorScheme.copy(background = it)
+        }
+        parseCustomColor(customSurfaceHex, resolvedDark, CustomColorRole.Surface)?.let {
+            colorScheme = colorScheme.copy(surface = it, surfaceVariant = it.copy(alpha = 0.95f))
+        }
+        parseCustomColor(customPrimaryHex, resolvedDark, CustomColorRole.Primary)?.let {
+            colorScheme = colorScheme.copy(primary = it)
+        }
+        parseCustomColor(customOnBackgroundHex, resolvedDark, CustomColorRole.OnBackground)?.let {
+            colorScheme = colorScheme.copy(
+                onBackground = it,
+                onSurface = it,
+                onSurfaceVariant = it.copy(alpha = 0.74f),
+                outline = it.copy(alpha = SongDesignTokens.BorderAlphaSoft)
+            )
+        }
     }
-    parseHexOrNull(customSurfaceHex)?.let {
-        colorScheme = colorScheme.copy(surface = it, surfaceVariant = it.copy(alpha = 0.95f))
-    }
-    parseHexOrNull(customPrimaryHex)?.let { colorScheme = colorScheme.copy(primary = it) }
-    parseHexOrNull(customOnBackgroundHex)?.let {
+
+    if (!useDynamicColor) {
+        // Menus, sheets and dialogs read surfaceContainer*; keep them on paper instead of M3 baseline lilac.
+        val paper = colorScheme.surface
         colorScheme = colorScheme.copy(
-            onBackground = it,
-            onSurface = it,
-            onSurfaceVariant = it
+            surfaceContainerLowest = paper,
+            surfaceContainerLow = paper,
+            surfaceContainer = paper,
+            surfaceContainerHigh = paper,
+            surfaceContainerHighest = colorScheme.surfaceVariant,
+            surfaceBright = paper,
+            surfaceDim = colorScheme.background,
+            surfaceTint = Color.Transparent
         )
     }
 

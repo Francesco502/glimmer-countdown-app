@@ -57,6 +57,9 @@ import com.example.timeapk.ui.common.SongBottomAction
 import com.example.timeapk.ui.common.SongBottomActionBar
 import com.example.timeapk.ui.common.SongReminderStatusStrip
 import com.example.timeapk.ui.common.useLargeTextLayout
+import com.example.timeapk.ui.common.EventImageStore
+import com.example.timeapk.ui.common.categoryLabel
+import com.example.timeapk.ui.common.rememberEventImage
 import com.example.timeapk.ui.components.SongConfirmDialog
 import com.example.timeapk.ui.components.SongDialogButton
 import com.example.timeapk.ui.components.SongFormDialog
@@ -110,7 +113,8 @@ fun DetailScreen(
     onNavigateBack: () -> Unit,
     onEditClick: () -> Unit,
     onDeleteClick: suspend () -> Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    showBackButton: Boolean = true
 ) {
     val context = LocalContext.current
     val locale = context.resources.configuration.locales[0]
@@ -126,6 +130,8 @@ fun DetailScreen(
     var isDeleteInProgress by remember { mutableStateOf(false) }
     var showShareDialog by remember { mutableStateOf(false) }
     var shareInProgress by remember { mutableStateOf(false) }
+    // Share results are shown inside the dialog: a snackbar would sit behind the dialog window.
+    var shareStatusMessage by remember { mutableStateOf<String?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     if (eventState == null) {
@@ -200,11 +206,10 @@ fun DetailScreen(
     val today = LocalDate.now()
     val targetLocalDate = eventDateToLocalDate(eventState.event.date)
     val dateStr = targetLocalDate.format(dateFormatter)
-    val categoryName = when (eventState.event.category) {
-        CATEGORY_BIRTHDAY -> stringResource(R.string.category_birthday)
-        CATEGORY_ANNIVERSARY -> stringResource(R.string.category_anniversary)
-        CATEGORY_OTHER -> stringResource(R.string.category_other)
-        else -> eventState.event.category
+    val categoryName = categoryLabel(eventState.event.category)
+    val heroImage = rememberEventImage(eventState.event.imagePath, 1200)
+    val shareBackgroundImage by produceState<Bitmap?>(null, eventState.event.imagePath) {
+        value = eventState.event.imagePath?.let { EventImageStore.loadBitmap(context, it, 1350) }
     }
     val repeatLabel = when (eventState.event.repeatType) {
         REPEAT_DAILY -> stringResource(R.string.repeat_daily)
@@ -244,7 +249,8 @@ fun DetailScreen(
         timeText = timeDisplay.value,
         timeLabel = timeDisplay.label,
         accentColor = detailBaseColor,
-        brandText = stringResource(R.string.app_name)
+        brandText = stringResource(R.string.app_name),
+        backgroundImage = shareBackgroundImage
     )
     val shareImageName = remember(eventState.event.title) {
         ShareImageStore.shareImageName(eventState.event.title)
@@ -255,11 +261,27 @@ fun DetailScreen(
             title = stringResource(R.string.share_card_title),
             onDismissRequest = { if (!shareInProgress) showShareDialog = false },
             content = {
-                EventShareCard(
-                    data = shareData,
-                    modifier = Modifier.fillMaxWidth().aspectRatio(4f / 5f)
-                )
+                // Scale the 4:5 preview to fit instead of letting the dialog crop it.
+                BoxWithConstraints(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    val previewWidth = minOf(maxWidth, 300.dp)
+                    EventShareCard(
+                        data = shareData,
+                        modifier = Modifier.width(previewWidth).aspectRatio(4f / 5f)
+                    )
+                }
                 if (shareInProgress) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                shareStatusMessage?.let { message ->
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                }
             },
             buttons = {
                 SongDialogButton(
@@ -286,8 +308,8 @@ fun DetailScreen(
                                 } finally {
                                     shareInProgress = false
                                 }
-                                snackbarHostState.showSnackbar(
-                                    context.getString(if (savedUri != null) R.string.share_image_saved else R.string.share_image_failed)
+                                shareStatusMessage = context.getString(
+                                    if (savedUri != null) R.string.share_image_saved else R.string.share_image_failed
                                 )
                             }
                         }
@@ -317,7 +339,7 @@ fun DetailScreen(
                                 if (shared) {
                                     showShareDialog = false
                                 } else {
-                                    snackbarHostState.showSnackbar(context.getString(R.string.share_image_failed))
+                                    shareStatusMessage = context.getString(R.string.share_image_failed)
                                 }
                             }
                         }
@@ -346,7 +368,10 @@ fun DetailScreen(
                             }
                         },
                         onEditClick = onEditClick,
-                        onShareClick = { showShareDialog = true },
+                        onShareClick = {
+                            shareStatusMessage = null
+                            showShareDialog = true
+                        },
                         onDeleteClick = { showDeleteConfirm = true }
                     )
                 }
@@ -356,14 +381,16 @@ fun DetailScreen(
             CenterAlignedTopAppBar(
                 title = { Text(stringResource(R.string.detail_title), style = MaterialTheme.typography.titleLarge) },
                 navigationIcon = {
-                    IconButton(
-                        onClick = onNavigateBack
-                    ) {
-                        SongLineIcon(
-                            kind = SongLineIconKind.Back,
-                            contentDescription = stringResource(R.string.nav_back),
-                            tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.78f)
-                        )
+                    if (showBackButton) {
+                        IconButton(
+                            onClick = onNavigateBack
+                        ) {
+                            SongLineIcon(
+                                kind = SongLineIconKind.Back,
+                                contentDescription = stringResource(R.string.nav_back),
+                                tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.78f)
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
@@ -399,6 +426,7 @@ fun DetailScreen(
         ) {
             DetailHeroCard(
                 eventState = eventState,
+                heroImage = heroImage,
                 categoryName = categoryName,
                 dateStr = dateStr,
                 timeDisplay = timeDisplay,
@@ -540,6 +568,7 @@ private fun detailTimeDisplay(
 @Composable
 private fun DetailHeroCard(
     eventState: EventUiState,
+    heroImage: androidx.compose.ui.graphics.ImageBitmap?,
     categoryName: String,
     dateStr: String,
     timeDisplay: DetailTimeDisplay,
@@ -555,6 +584,28 @@ private fun DetailHeroCard(
         backgroundColor = detailCardColor,
         borderColor = MaterialTheme.colorScheme.outline.copy(alpha = SongDesignTokens.BorderAlphaStrong)
     ) {
+        Column {
+        if (heroImage != null) {
+            // 配图作为纸笺题图，底部渐隐到纸色，保证下方文字清晰。
+            Box(modifier = Modifier.fillMaxWidth().height(180.dp)) {
+                androidx.compose.foundation.Image(
+                    bitmap = heroImage,
+                    contentDescription = null,
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            androidx.compose.ui.graphics.Brush.verticalGradient(
+                                0.55f to Color.Transparent,
+                                1f to detailCardColor
+                            )
+                        )
+                )
+            }
+        }
         Column(
             modifier = Modifier.padding(32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -665,6 +716,7 @@ private fun DetailHeroCard(
                     )
                 }
             }
+        }
         }
     }
 }
@@ -966,7 +1018,7 @@ private fun DetailLabelRow(
     modifier: Modifier = Modifier
 ) {
     val largeTextLayout = useLargeTextLayout(LocalDensity.current.fontScale)
-    val labelText = "$label:"
+    val labelText = stringResource(R.string.detail_label_format, label)
 
     Column(
         modifier = modifier

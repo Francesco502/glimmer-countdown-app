@@ -42,27 +42,25 @@ class SongUiSourceConsistencyTest {
     @Test
     fun homeSearchClearActionHasAccessibleTargetAndDedicatedLabel() {
         val source = readSource("ui/home/HomeScreen.kt")
-        val search = source.substringAfter("private fun HomeOverflowSearchField(")
+        val search = source.substringAfter("private fun HomeSearchField(")
             .substringBefore("private data class TimelineActionTileSpec")
 
         assertTrue(search.contains(".size(48.dp)"))
         assertTrue(search.contains(".height(48.dp)"))
-        assertFalse(search.contains(".heightIn(min = HomeOverflowActionItemHeight)"))
         assertTrue(search.contains(".padding(horizontal = 10.dp)"))
-        assertFalse(search.contains("vertical = 8.dp"))
         assertTrue(search.contains("contentDescription = stringResource(R.string.cd_clear_search)"))
         assertFalse(search.contains("contentDescription = stringResource(R.string.date_picker_cancel)"))
-        assertTrue(search.contains("size = 18.dp"))
+        assertTrue(search.contains("focusRequester.requestFocus()"))
     }
 
     @Test
     fun homeListMode_usesBookListRhythmInsteadOfCardRhythm() {
         val source = readSource("ui/home/HomeScreen.kt")
-        val listBlock = source.substringAfter("private fun EventListItem(")
+        val listBlock = source.substringAfter("internal fun EventListItem(")
             .substringBefore("private fun CompactEventTime")
 
         assertTrue(listBlock.contains(".heightIn(min = 52.dp)"))
-        assertTrue(listBlock.contains(".width(2.dp)"))
+        assertTrue(listBlock.contains(".width(if (isToday) 3.dp else 2.dp)"))
         assertTrue(listBlock.contains(".height(18.dp)"))
         assertTrue(listBlock.contains("HorizontalDivider("))
         assertFalse(listBlock.contains(".heightIn(min = 64.dp)"))
@@ -82,7 +80,7 @@ class SongUiSourceConsistencyTest {
         assertTrue(monthBlock.contains("title = stringResource(R.string.field_date)"))
         assertTrue(monthBlock.contains("val pickedMonth = YearMonth.from(pickedLocalDate)"))
         assertTrue(monthBlock.contains("currentMonth = pickedMonth"))
-        assertTrue(monthBlock.contains("pickedDate = pickedMonth.atDay"))
+        assertTrue(monthBlock.contains("updatePickedDate(pickedMonth.atDay("))
         assertTrue(monthBlock.contains("role = Role.Button"))
         assertTrue(monthBlock.contains("this.contentDescription = currentMonthTitle"))
         assertTrue(monthBlock.contains(".heightIn(min = 48.dp, max = 72.dp"))
@@ -93,7 +91,9 @@ class SongUiSourceConsistencyTest {
         assertTrue(componentSource.contains("selected -> primary"))
         assertTrue(componentSource.contains("selected -> selectedContentColor"))
         assertTrue(componentSource.contains("if (selected) selectedContentColor else primary"))
-        assertTrue(componentSource.contains("hasEvents -> SongPalette.PaperWarm.copy(alpha = 0.45f)"))
+        assertTrue(componentSource.contains("hasEvents -> MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)"))
+        // 4.2: today keeps a strong seal outline so it stays distinct from the selected fill.
+        assertTrue(componentSource.contains("today -> primary.copy(alpha = 0.86f)"))
     }
 
     @Test
@@ -119,39 +119,26 @@ class SongUiSourceConsistencyTest {
         assertFalse(formBlock.contains("title = stringResource(R.string.event_template_title)"))
         assertFalse(formBlock.contains("eventEntryTemplates.forEach"))
         assertTrue(formBlock.contains("SongInkChoiceRow(\n                label = stringResource(R.string.field_category)"))
-        assertTrue(formBlock.contains("applyTemplateForCategory(eventDetails, value)"))
+        assertTrue(formBlock.contains("applyTemplateForCategory(eventDetails, option.id)"))
+        assertTrue(formBlock.contains("availableCategories.forEach"))
     }
 
     @Test
-    fun eventEntryPlacesDateFirstAndMovesRepeatIntoReminderSection() {
+    fun eventEntryPlacesDateRightAfterTitleAndKeepsRepeatInReminderSection() {
         val source = readSource("ui/event/EventEntryScreen.kt")
         val formBlock = source.substringAfter("fun EventInputForm(")
             .substringBefore("private fun formatMinutesOfDay(")
-        val dateSection = "SongInkSection(\n            title = stringResource(R.string.event_entry_section_time)"
         val contentSection = "SongInkSection(\n            title = stringResource(R.string.event_entry_section_content)"
         val reminderSection = "SongInkSection(\n            title = stringResource(R.string.event_entry_section_reminder)"
+        val contentBlock = formBlock.substringAfter(contentSection).substringBefore(reminderSection)
 
-        assertTrue(formBlock.indexOf(dateSection) < formBlock.indexOf(contentSection))
         assertTrue(formBlock.indexOf(contentSection) < formBlock.indexOf(reminderSection))
-
-        val dateBlock = formBlock.substringAfter(dateSection).substringBefore(contentSection)
-        assertTrue(dateBlock.contains("SongInkDateRow("))
-        assertTrue(dateBlock.contains("value = dateString"))
-        assertTrue(dateBlock.contains("contentDescription = stringResource(R.string.field_date)"))
-        assertFalse(dateBlock.contains("label = stringResource(R.string.field_date)"))
-        assertFalse(dateBlock.contains("label = stringResource(R.string.field_repeat)"))
-
-        val dateRow = source.substringAfter("private fun SongInkDateRow(")
-            .substringBefore("@Composable\nprivate fun SongInkChoiceRow(")
-        assertTrue(source.contains("private fun SongInkDateRow("))
-        assertTrue(dateRow.contains("style = MaterialTheme.typography.titleMedium"))
-        assertFalse(dateRow.contains("style = MaterialTheme.typography.bodyMedium"))
-
-        val reminderBlock = formBlock.substringAfter(reminderSection)
-            .substringBefore("SongInkSection(\n            title = stringResource(R.string.event_entry_section_appearance)")
-        assertTrue(reminderBlock.contains("label = stringResource(R.string.field_repeat)"))
-        assertTrue(reminderBlock.contains("label = stringResource(R.string.custom_remind_days_label)"))
-        assertTrue(reminderBlock.contains("label = stringResource(R.string.custom_reminder_time_label)"))
+        // 4.2: the date sits directly below the title so the keyboard never covers it.
+        assertTrue(contentBlock.indexOf("value = eventDetails.title,") < contentBlock.indexOf("label = stringResource(R.string.field_date)"))
+        assertTrue(contentBlock.indexOf("label = stringResource(R.string.field_date)") < contentBlock.indexOf("label = stringResource(R.string.field_category)"))
+        assertTrue(contentBlock.contains("value = dateString"))
+        assertFalse(contentBlock.contains("label = stringResource(R.string.field_repeat)"))
+        assertTrue(formBlock.substringAfter(reminderSection).contains("label = stringResource(R.string.field_repeat)"))
     }
 
     @Test
@@ -228,52 +215,35 @@ class SongUiSourceConsistencyTest {
     }
 
     @Test
-    fun homeTopBarKeepsOverflowAndSettingsWhileSearchLivesInsideOverflow() {
+    fun homeTopBarOffersSearchToolsAndSettingsDirectly() {
         val source = readSource("ui/home/HomeScreen.kt")
         val actionsBlock = source.substringAfter("actions = {")
             .substringBefore("colors = TopAppBarDefaults")
         val menuBlock = source.substringAfter("private fun HomeOverflowPanel(")
-            .substringBefore("@Composable\nprivate fun TimelineActionTileGrid")
+            .substringBefore("@Composable\nprivate fun HomeSearchField")
 
         assertTrue(actionsBlock.contains("InlineActionIconButton("))
+        assertTrue(actionsBlock.contains("icon = SongLineIconKind.Search"))
+        assertTrue(actionsBlock.contains("R.string.home_search_open"))
         assertTrue(actionsBlock.contains("HomeOverflowActionMenu("))
         assertTrue(actionsBlock.contains("contentDescription = stringResource(R.string.settings_title)"))
         assertTrue(actionsBlock.contains("navigateToSettings()"))
-        assertFalse(actionsBlock.contains("icon = SongLineIconKind.Search"))
-        assertFalse(actionsBlock.contains("HomeTimelineActionMenu("))
-        assertFalse(actionsBlock.contains("icon = Icons.Outlined.Tune"))
-        assertFalse(actionsBlock.contains("icon = Icons.AutoMirrored.Outlined.Sort"))
         assertFalse(actionsBlock.contains("icon = Icons.Outlined.Settings"))
-
-        assertTrue(menuBlock.contains("HomeOverflowSearchField("))
-        assertTrue(menuBlock.contains("searchQuery = searchQuery"))
-        assertTrue(menuBlock.contains("onSearchQueryChange = onSearchQueryChange"))
+        assertFalse(menuBlock.contains("HomeSearchField("))
         assertFalse(menuBlock.contains("label = stringResource(R.string.settings_title)"))
     }
 
     @Test
-    fun homeOverflowSearchSitsAtBottomWithStableAccessibleHeight() {
+    fun homeOverflowOptionsKeepStableAccessibleHeight() {
         val source = readSource("ui/home/HomeScreen.kt")
-        val menuBlock = source.substringAfter("private fun HomeOverflowPanel(")
-            .substringBefore("@Composable\nprivate fun HomeOverflowSearchField")
-        val searchBlock = source.substringAfter("private fun HomeOverflowSearchField(")
-            .substringBefore("private data class TimelineActionTileSpec")
         val optionBlock = source.substringAfter("private fun SongActionOptionTile(")
-            .substringBefore("@Composable\nprivate fun EmptyState")
+            .substringBefore("@Composable\ninternal fun InlineActionIconButton")
         val slipBlock = source.substringAfter("private fun SongActionSlip(")
             .substringBefore("@Composable\nprivate fun SongActionSlipFoldDecoration")
 
-        val searchIndex = menuBlock.indexOf("HomeOverflowSearchField(")
-        val sortIndex = menuBlock.indexOf("HomeMenuSectionLabel(text = stringResource(R.string.sort_menu))")
-
-        assertTrue(searchIndex > sortIndex)
-        assertTrue(searchBlock.contains(".height(48.dp)"))
-        assertFalse(searchBlock.contains(".heightIn(min = HomeOverflowActionItemHeight)"))
         assertTrue(optionBlock.contains(".heightIn(min = HomeOverflowActionItemHeight)"))
-        assertTrue(menuBlock.contains("footer = {"))
-        assertTrue(slipBlock.contains("footer: (@Composable ColumnScope.() -> Unit)? = null"))
-        assertTrue(slipBlock.contains(".weight(1f, fill = false)"))
-        assertFalse(searchBlock.contains("OutlinedTextField("))
+        assertTrue(slipBlock.contains(".verticalScroll(rememberScrollState())"))
+        assertFalse(slipBlock.contains("OutlinedTextField("))
     }
 
     @Test
@@ -318,16 +288,15 @@ class SongUiSourceConsistencyTest {
     fun homeOverflowUsesPaperSlipInsteadOfSystemDropdownMenu() {
         val source = readSource("ui/home/HomeScreen.kt")
         val menuBlock = source.substringAfter("private fun HomeOverflowPanel(")
-            .substringBefore("@Composable\nprivate fun TimelineActionTileGrid")
+            .substringBefore("@Composable\nprivate fun HomeSearchField")
         val slipBlock = source.substringAfter("private fun SongActionSlip(")
             .substringBefore("@Composable\nprivate fun SongActionSlipFoldDecoration")
 
         assertTrue(source.contains("HomeOverflowPanel("))
         assertTrue(menuBlock.contains("SongActionSlip("))
-        assertTrue(menuBlock.contains("HomeOverflowSearchField("))
         assertTrue(menuBlock.contains("TimelineActionTileGrid("))
+        assertTrue(menuBlock.contains("categoryOptions()"))
         assertTrue(source.contains("SongActionSlipFoldDecoration("))
-        assertFalse(menuBlock.contains("SongActionSlipItem("))
         assertFalse(menuBlock.contains("DropdownMenu("))
         assertFalse(menuBlock.contains("DropdownMenuItem("))
         assertTrue(slipBlock.contains("backgroundColor = MaterialTheme.colorScheme.surface"))
@@ -351,7 +320,6 @@ class SongUiSourceConsistencyTest {
         val settingsSource = readSource("ui/settings/SettingsComponents.kt")
 
         assertFalse(homeSource.contains("home_custom_sort_hint"))
-        assertFalse(homeSource.contains("home_empty_subtitle"))
         assertFalse(eventEntrySource.contains("event_entry_template_summary"))
         assertFalse(eventEntrySource.contains("event_entry_section_content_summary"))
         assertFalse(eventEntrySource.contains("event_entry_section_time_summary"))
@@ -359,7 +327,8 @@ class SongUiSourceConsistencyTest {
         assertFalse(eventEntrySource.contains("event_entry_song_color_palette_hint"))
         assertFalse(eventEntrySource.contains("sync_to_schedule_summary"))
         assertFalse(settingsSource.contains("stringResource(category.descriptionRes)"))
-        assertFalse(settingsSource.contains("text = summary"))
+        // 4.2 shows current values (not instructions) under settings rows.
+        assertTrue(settingsSource.contains("summary = summaries[category]") || settingsSource.contains("summary: String? = null"))
     }
 
     @Test
@@ -420,7 +389,8 @@ class SongUiSourceConsistencyTest {
         assertTrue(rowBlock.contains("val calendarTimeLine"))
         assertTrue(rowBlock.contains("occurrence.eventState.event.repeatType"))
         assertTrue(rowBlock.contains("occurrence.eventState.event.remindEnabled"))
-        assertTrue(rowBlock.contains("formatLunarDateString(occurrence.date"))
+        // The lunar date now lives in each calendar cell and in the day header above the list.
+        assertTrue(source.contains("calendarLunarCellLabel(date)"))
         assertTrue("Calendar event details must remain readable at large text", timeLineBlock.contains("maxLines = 2"))
     }
 
@@ -502,14 +472,15 @@ class SongUiSourceConsistencyTest {
     fun widgetConfigUsesPreviewFirstSectionsAndSongSaveBar() {
         val settingsSource = readSource("ui/settings/WidgetSettingsContent.kt")
         val routeSource = readSource("widget/WidgetConfigActivity.kt")
+        val editor = settingsSource.substringAfter("fun WidgetConfigEditor(")
 
-        assertTrue(settingsSource.contains("WidgetConfigSection("))
-        assertTrue(settingsSource.contains("initiallyExpanded = true"))
+        assertTrue(editor.indexOf("WidgetConfigPreview(") < editor.indexOf("SongModeTabRow("))
         assertTrue(routeSource.contains("WidgetConfigSaveBar("))
         assertFalse(routeSource.contains("Button("))
     }
 
     private fun readSource(relative: String): String {
+        if (relative == "ui/home/HomeScreen.kt") return com.example.timeapk.HomeSourceFiles.combined()
         val direct = File("src/main/java/com/example/timeapk/$relative")
         if (direct.exists()) {
             return direct.readText(Charsets.UTF_8)
@@ -540,6 +511,7 @@ class SongUiSourceConsistencyTest {
             .filter { it.isFile && it.extension == "kt" }
             .joinToString("\n") { it.readText(Charsets.UTF_8) }
     }
+
 
     private fun String.countOccurrences(needle: String): Int {
         return Regex(Regex.escape(needle)).findAll(this).count()

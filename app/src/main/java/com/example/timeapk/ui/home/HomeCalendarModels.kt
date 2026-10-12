@@ -225,3 +225,31 @@ private fun lunarYearlyOccurrencesInRange(
         }
     }
 }
+
+/**
+ * 月历格第二行的农历短标签：传统节日 > 节气 > 初一显示月名 > 农历日。
+ * 仅中文界面显示；失败时返回 null。
+ */
+fun calendarLunarCellLabel(date: LocalDate): String? = try {
+    val solar = Solar.fromYmd(date.year, date.monthValue, date.dayOfMonth)
+    val lunar = solar.lunar
+    val festival = lunar.festivals.firstOrNull { it.length <= 3 }
+    val jieQi = lunar.jieQi.takeIf { it.isNotBlank() }
+    when {
+        festival != null -> festival
+        jieQi != null -> jieQi
+        lunar.day == 1 -> lunar.monthInChinese + "月"
+        else -> lunar.dayInChinese
+    }
+} catch (_: Throwable) {
+    null
+}
+
+/** 月历格中最多显示的分类色点数；超出部分以“+N”表示。 */
+const val CALENDAR_CELL_MAX_DOTS = 3
+
+fun calendarCellDotCategories(occurrences: List<CalendarEventOccurrence>): Pair<List<String>, Int> {
+    val categories = occurrences.map { it.eventState.event.category }
+    val shown = categories.take(CALENDAR_CELL_MAX_DOTS)
+    return shown to (categories.size - shown.size)
+}

@@ -48,6 +48,7 @@ class MainActivity : ComponentActivity() {
             val fontPreset by prefs.fontPresetFlow.collectAsState(initial = FONT_PRESET_NOTO_SERIF_SC)
             val appBaseFontScale by prefs.appBaseFontScaleFlow.collectAsState(initial = 1f)
             val reduceMotionEnabled by prefs.reduceMotionEnabledFlow.collectAsState(initial = false)
+            val dynamicColorEnabled by prefs.dynamicColorEnabledFlow.collectAsState(initial = false)
 
             SideEffect {
                 val systemReducedMotion = !ValueAnimator.areAnimatorsEnabled()
@@ -57,6 +58,7 @@ class MainActivity : ComponentActivity() {
             TimeAPKTheme(
                 themeMode = themeMode,
                 darkTheme = isSystemInDarkTheme(),
+                dynamicColor = dynamicColorEnabled,
                 fontPreset = fontPreset,
                 baseFontScale = appBaseFontScale,
                 customBackgroundHex = customBackgroundHex,

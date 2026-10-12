@@ -7,7 +7,7 @@ import java.io.File
 class HomeCalendarAccessibilityContractTest {
     @Test
     fun monthCalendarBuildsLocalizedFullDateAndStateDescriptionForEachDay() {
-        val homeSource = projectFile("app/src/main/java/com/example/timeapk/ui/home/HomeScreen.kt")
+        val homeSource = com.example.timeapk.HomeSourceFiles.combined()
         val baseStrings = projectFile("app/src/main/res/values/strings.xml")
         val englishStrings = projectFile("app/src/main/res/values-en/strings.xml")
         val chineseStrings = projectFile("app/src/main/res/values-zh/strings.xml")

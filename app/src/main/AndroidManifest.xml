@@ -8,18 +8,21 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Opt-in exact reminders. Auto-granted on API 31-32; user-granted on API 33+. Removed for Play. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
     <application
         android:name=".TimeApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
+        android:enableOnBackInvokedCallback="true"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@drawable/ic_launcher"
         android:supportsRtl="true"
         android:theme="@style/Theme.TimeAPK"
-        tools:targetApi="31">
+        tools:targetApi="33">
         <activity
             android:name=".MainActivity"
             android:clearTaskOnLaunch="true"
@@ -35,7 +38,19 @@
         <activity
             android:name=".widget.WidgetConfigActivity"
             android:exported="true"
-            android:theme="@style/Theme.TimeAPK" />
+            android:theme="@style/Theme.TimeAPK">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".widget.SingleEventWidgetConfigActivity"
+            android:exported="true"
+            android:theme="@style/Theme.TimeAPK">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -59,6 +74,17 @@
                 android:resource="@xml/countdown_widget_info" />
         </receiver>
         <receiver
+            android:name=".widget.SingleEventWidgetProvider"
+            android:exported="true"
+            android:label="@string/single_widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/single_event_widget_info" />
+        </receiver>
+        <receiver
             android:name=".widget.WidgetRefreshReceiver"
             android:enabled="true"
             android:exported="false">
@@ -72,8 +98,13 @@
                 <action android:name="android.intent.action.TIME_SET" />
                 <action android:name="android.intent.action.TIMEZONE_CHANGED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
             </intent-filter>
         </receiver>
+        <receiver
+            android:name=".notifications.ExactReminderAlarmReceiver"
+            android:enabled="true"
+            android:exported="false" />
         <service
             android:name=".widget.CountdownWidgetService"
             android:exported="false"

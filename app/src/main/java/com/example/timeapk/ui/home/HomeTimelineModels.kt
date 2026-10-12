@@ -33,12 +33,13 @@ fun buildHomeTimelineDigest(
     month: YearMonth = YearMonth.from(today),
     query: String = "",
     filterType: FilterType = FilterType.All,
-    pinnedEventIds: List<Int> = emptyList()
+    pinnedEventIds: List<Int> = emptyList(),
+    categoryFilter: String? = filterType.toCategoryId()
 ): HomeTimelineDigest {
     val filtered = events
         .filter { !it.isPast }
         .filter { it.nextOccurrenceDate >= today }
-        .filter { it.matchesFilter(filterType) }
+        .filter { it.matchesCategoryFilter(categoryFilter) }
         .filter { it.matchesQuery(query) }
 
     val todayItems = filterEventsForTimelineBucket(filtered, today, TimelineBucketType.Today, month)
@@ -96,15 +97,6 @@ fun filterEventsForTimelineBucket(
     }
 }
 
-private fun EventUiState.matchesFilter(filterType: FilterType): Boolean {
-    return when (filterType) {
-        FilterType.All -> true
-        FilterType.Birthday -> event.category == CATEGORY_BIRTHDAY
-        FilterType.Anniversary -> event.category == CATEGORY_ANNIVERSARY
-        FilterType.Other -> event.category == CATEGORY_OTHER
-    }
-}
-
 private fun EventUiState.matchesQuery(query: String): Boolean {
     val normalized = query.trim().lowercase()
     if (normalized.isBlank()) return true
@@ -151,4 +143,22 @@ private fun categoryPriority(category: String): Int {
 private fun pinnedPriority(eventId: Int, pinnedEventIds: List<Int>): Int {
     val index = pinnedEventIds.indexOf(eventId)
     return if (index >= 0) index else Int.MAX_VALUE
+}
+
+/**
+ * 首页“最近”横幅的事件：日期最近的未来（含今天）事件；同日时置顶优先，再按 id 稳定排序。
+ */
+internal fun pickNearestUpcomingEvent(
+    events: List<EventUiState>,
+    today: LocalDate,
+    pinnedEventIds: List<Int> = emptyList()
+): EventUiState? {
+    val pinned = pinnedEventIds.toSet()
+    return events
+        .filter { !it.isPast && !it.nextOccurrenceDate.isBefore(today) }
+        .minWithOrNull(
+            compareBy<EventUiState> { it.nextOccurrenceDate }
+                .thenBy { if (it.event.id in pinned) 0 else 1 }
+                .thenBy { it.event.id }
+        )
 }

@@ -14,6 +14,9 @@ import com.example.timeapk.TimeApplication
 import com.example.timeapk.data.CATEGORY_ANNIVERSARY
 import com.example.timeapk.data.CATEGORY_BIRTHDAY
 import com.example.timeapk.data.CATEGORY_OTHER
+import com.example.timeapk.data.isBuiltInCategory
+import com.example.timeapk.data.isCustomCategoryId
+import com.example.timeapk.data.resolveCategoryId
 import com.example.timeapk.data.DefaultEventReminderSettings
 import com.example.timeapk.data.Event
 import com.example.timeapk.data.EventRepository
@@ -137,13 +140,14 @@ internal fun buildNewEventDetails(
     defaultReminderSettings: DefaultEventReminderSettings,
     initialCategory: String? = null,
     nowMillis: Long = System.currentTimeMillis(),
-    zoneId: ZoneId = ZoneId.systemDefault()
+    zoneId: ZoneId = ZoneId.systemDefault(),
+    initialDateMillis: Long? = null
 ): EventDetails {
     val resolvedCategory = initialCategory
-        .takeIf { it in listOf(CATEGORY_BIRTHDAY, CATEGORY_ANNIVERSARY, CATEGORY_OTHER) }
+        .takeIf { it != null && (isBuiltInCategory(it) || isCustomCategoryId(it)) }
         ?: CATEGORY_OTHER
     return EventDetails(
-        date = Instant.ofEpochMilli(nowMillis)
+        date = initialDateMillis?.takeIf { isEventDateValid(it) } ?: Instant.ofEpochMilli(nowMillis)
             .atZone(zoneId)
             .toLocalDate()
             .atStartOfDay(ZoneOffset.UTC)
@@ -322,8 +326,10 @@ class EventEntryViewModel(
 
         val app = application as? TimeApplication
         val initialCategory = app?.initialCategoryForAdd
+        val initialDate = app?.initialDateForAdd
         if (app != null) {
             app.initialCategoryForAdd = null
+            app.initialDateForAdd = null
         }
 
         val defaultReminderSettings = try {
@@ -335,7 +341,8 @@ class EventEntryViewModel(
         }
         val newDetails = buildNewEventDetails(
             defaultReminderSettings = defaultReminderSettings,
-            initialCategory = initialCategory
+            initialCategory = initialCategory,
+            initialDateMillis = initialDate
         )
         _eventUiState.update {
             it.copy(
@@ -399,7 +406,10 @@ class EventEntryViewModel(
             ?: return SaveEventResult.Failure(R.string.save_event_failed)
 
         val persistedEvent = try {
+            val customCategoryIds = app.categoryRepository.getAllSnapshot().mapTo(mutableSetOf()) { it.id }
             var event = details.toEvent().sanitizedReminderConfig()
+            // A category deleted while this draft was open falls back to "other".
+            event = event.copy(category = resolveCategoryId(event.category, customCategoryIds))
             app.database.withTransaction {
                 if (event.id != 0) {
                     repository.updateEvent(event)
@@ -611,7 +621,8 @@ private fun EventDetails.hasSameEditableContent(other: EventDetails): Boolean {
         reminderTimeMinutesOfDay == other.reminderTimeMinutesOfDay &&
         remindEnabled == other.remindEnabled &&
         syncToScheduleEnabled == other.syncToScheduleEnabled &&
-        isLunar == other.isLunar
+        isLunar == other.isLunar &&
+        imagePath == other.imagePath
 }
 
 data class EventEntryUiState(
@@ -640,14 +651,15 @@ data class EventDetails(
     val lastScheduleSyncAt: Long? = null,
     val lastScheduleSyncError: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
-    val isLunar: Boolean = false
+    val isLunar: Boolean = false,
+    val imagePath: String? = null
 ) : Serializable
 
 fun EventDetails.toEvent(): Event = Event(
     id = id,
     title = title,
     date = date,
-    category = category.takeIf { it in listOf(CATEGORY_BIRTHDAY, CATEGORY_ANNIVERSARY, CATEGORY_OTHER) }
+    category = category.takeIf { isBuiltInCategory(it) || isCustomCategoryId(it) }
         ?: CATEGORY_OTHER,
     note = note,
     colorHex = colorHex,
@@ -661,7 +673,8 @@ fun EventDetails.toEvent(): Event = Event(
     lastScheduleSyncAt = lastScheduleSyncAt,
     lastScheduleSyncError = lastScheduleSyncError,
     createdAt = createdAt,
-    isLunar = isLunar
+    isLunar = isLunar,
+    imagePath = imagePath?.takeIf { com.example.timeapk.ui.common.EventImageStore.isValidFileName(it) }
 )
 
 fun Event.toEventDetails(): EventDetails = EventDetails(
@@ -681,5 +694,6 @@ fun Event.toEventDetails(): EventDetails = EventDetails(
     lastScheduleSyncAt = lastScheduleSyncAt,
     lastScheduleSyncError = lastScheduleSyncError,
     createdAt = createdAt,
-    isLunar = isLunar
+    isLunar = isLunar,
+    imagePath = imagePath
 )

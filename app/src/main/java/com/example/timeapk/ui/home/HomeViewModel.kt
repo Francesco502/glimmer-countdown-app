@@ -6,7 +6,10 @@ import androidx.lifecycle.viewModelScope
 import com.example.timeapk.data.CATEGORY_ANNIVERSARY
 import com.example.timeapk.data.CATEGORY_BIRTHDAY
 import com.example.timeapk.data.DEFAULT_MILESTONE_DAYS
+import com.example.timeapk.data.Category
+import com.example.timeapk.data.CategoryRepository
 import com.example.timeapk.data.Event
+import com.example.timeapk.data.isBuiltInCategory
 import com.example.timeapk.data.EventRepository
 import com.example.timeapk.data.REPEAT_NONE
 import com.example.timeapk.data.REPEAT_YEARLY
@@ -36,6 +39,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
@@ -458,7 +462,8 @@ data class EventUiState(
 class HomeViewModel(
     private val application: Application,
     private val repository: EventRepository,
-    private val userPrefs: UserPreferencesRepository
+    private val userPrefs: UserPreferencesRepository,
+    private val categoryRepository: CategoryRepository
 ) : AndroidViewModel(application) {
 
     private val _searchQuery = MutableStateFlow("")
@@ -471,9 +476,25 @@ class HomeViewModel(
 
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
-    val filterType: StateFlow<FilterType> = userPrefs.filterTypeFlow
-        .map { FilterType.entries.getOrNull(it) ?: FilterType.All }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), FilterType.All)
+    val customCategories: StateFlow<List<Category>> = categoryRepository.getAll()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** 当前分类筛选；null 表示全部。已删除的自定义分类自动视为全部。 */
+    val categoryFilter: StateFlow<String?> = combine(
+        userPrefs.filterCategoryIdFlow,
+        customCategories
+    ) { id, customs ->
+        id?.takeIf { isBuiltInCategory(it) || customs.any { custom -> custom.id == it } }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    private val nowMillis: StateFlow<Long> = minuteTickerFlow()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), System.currentTimeMillis())
+
+    /** 随分钟刷新的“今天”，跨过 0 点后界面自动更新。 */
+    val today: StateFlow<LocalDate> = nowMillis
+        .map { Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate() }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), LocalDate.now())
 
     val sortType: StateFlow<SortType> = userPrefs.sortTypeFlow
         .map { SortType.entries.getOrNull(it) ?: SortType.Custom }
@@ -486,7 +507,7 @@ class HomeViewModel(
         repository.getAllEvents(),
         userPrefs.customMilestonesFlow,
         smartMilestonesEnabled,
-        minuteTickerFlow()
+        nowMillis
     ) { events: List<Event>, milestones: List<Long>, smartEnabled: Boolean, nowMillis: Long ->
         events.map { it.toEventUiState(milestones, smartEnabled, Instant.ofEpochMilli(nowMillis)) }
     }.stateIn(
@@ -496,7 +517,7 @@ class HomeViewModel(
     )
 
     private data class FilterInput(
-        val filterType: FilterType,
+        val categoryFilter: String?,
         val sortType: SortType,
         val query: String
     )
@@ -507,12 +528,12 @@ class HomeViewModel(
     )
 
     private val filterInputFlow: Flow<FilterInput> = combine(
-        filterType,
+        categoryFilter,
         sortType,
         searchQuery
     ) { filter, sort, query ->
         FilterInput(
-            filterType = filter,
+            categoryFilter = filter,
             sortType = sort,
             query = query
         )
@@ -535,7 +556,7 @@ class HomeViewModel(
     ) { all, filterInput, orderInput ->
         buildHomeVisibleList(
             all = all,
-            filterType = filterInput.filterType,
+            categoryFilter = filterInput.categoryFilter,
             sortType = filterInput.sortType,
             query = filterInput.query,
             customEventOrderIds = orderInput.customEventOrderIds,
@@ -555,8 +576,19 @@ class HomeViewModel(
     }
 
     fun updateFilterType(type: FilterType) {
+        updateCategoryFilter(type.toCategoryId())
+    }
+
+    fun updateCategoryFilter(categoryId: String?) {
         viewModelScope.launch {
-            userPrefs.setFilterType(type.ordinal)
+            userPrefs.setFilterCategoryId(categoryId)
+        }
+    }
+
+    fun togglePinned(eventId: Int) {
+        viewModelScope.launch {
+            userPrefs.togglePinnedEventId(eventId)
+            WidgetUpdater.refreshCountdownWidgets(application)
         }
     }
 

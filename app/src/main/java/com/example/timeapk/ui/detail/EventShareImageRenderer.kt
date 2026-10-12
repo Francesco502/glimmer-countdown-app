@@ -10,6 +10,7 @@ import android.text.StaticLayout
 import android.text.TextPaint
 import android.text.TextUtils
 import androidx.core.graphics.createBitmap
+import androidx.core.graphics.withSave
 import androidx.core.graphics.withTranslation
 import androidx.compose.ui.graphics.toArgb
 
@@ -45,6 +46,9 @@ class EventShareImageRenderer {
             color = withAlpha(accent, 92)
             style = Paint.Style.STROKE
             strokeWidth = 2f
+        }
+        data.backgroundImage?.takeIf { !it.isRecycled }?.let { image ->
+            drawCardImage(canvas, image, RectF(54f, 54f, 1026f, 1296f))
         }
         canvas.drawRoundRect(RectF(54f, 54f, 1026f, 1296f), 20f, 20f, borderPaint)
 
@@ -121,6 +125,23 @@ class EventShareImageRenderer {
             .build()
         canvas.withTranslation(centerX - width / 2f, topY) {
             layout.draw(this)
+        }
+    }
+
+    /** 配图按居中裁切铺满卡片，低透明度保证文字对比度。 */
+    private fun drawCardImage(canvas: Canvas, image: Bitmap, bounds: RectF) {
+        val scale = maxOf(bounds.width() / image.width, bounds.height() / image.height)
+        val drawWidth = image.width * scale
+        val drawHeight = image.height * scale
+        val left = bounds.centerX() - drawWidth / 2f
+        val top = bounds.centerY() - drawHeight / 2f
+        val clip = android.graphics.Path().apply {
+            addRoundRect(bounds, 20f, 20f, android.graphics.Path.Direction.CW)
+        }
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply { alpha = 46 }
+        canvas.withSave {
+            clipPath(clip)
+            drawBitmap(image, null, RectF(left, top, left + drawWidth, top + drawHeight), paint)
         }
     }
 

@@ -47,34 +47,17 @@ class HomeInteractionPolicyTest {
             .substringBefore("    ) { innerPadding ->")
 
         assertTrue(fab.contains("if (emptyStateKind != HomeEmptyStateKind.FirstEvent)"))
-        assertTrue(fab.contains("Surface("))
-        assertTrue(fab.contains("onClick = navigateToItemEntry"))
+        assertTrue(fab.contains("HomeAddButton("))
+        assertTrue(fab.contains("else navigateToItemEntry"))
+        assertTrue(source.contains("private fun HomeAddButton("))
     }
 
 
     @Test
-    fun homeCardLongPressEditEnabled_isDisabledWhenCustomSorting() {
-        assertFalse(homeCardLongPressEditEnabled(SortType.Custom))
-    }
-
-    @Test
-    fun homeCardLongPressEditEnabled_isDisabledAcrossHomeSortModes() {
-        assertFalse(homeCardLongPressEditEnabled(SortType.ByDays))
-        assertFalse(homeCardLongPressEditEnabled(SortType.ByDate))
-    }
-
-    @Test
-    fun homeCardUsesTapOnlyInteraction_isDisabledAcrossHomeSortModes() {
-        assertFalse(homeCardUsesTapOnlyInteraction(SortType.Custom))
-        assertFalse(homeCardUsesTapOnlyInteraction(SortType.ByDays))
-        assertFalse(homeCardUsesTapOnlyInteraction(SortType.ByDate))
-    }
-
-    @Test
-    fun homeCardTapNavigationEnabled_isEnabledAcrossHomeSortModes() {
-        assertTrue(homeCardTapNavigationEnabled(SortType.Custom))
-        assertTrue(homeCardTapNavigationEnabled(SortType.ByDays))
-        assertTrue(homeCardTapNavigationEnabled(SortType.ByDate))
+    fun homeCardLongPressOpensMenuOnlyWhenItDoesNotStartDragging() {
+        assertFalse(homeCardLongPressMenuEnabled(SortType.Custom))
+        assertTrue(homeCardLongPressMenuEnabled(SortType.ByDays))
+        assertTrue(homeCardLongPressMenuEnabled(SortType.ByDate))
     }
 
     @Test
@@ -93,10 +76,13 @@ class HomeInteractionPolicyTest {
     }
 
     @Test
-    fun homeUsesListLevelReorderDetection_isDisabledBecauseRowsOwnLongPressDrag() {
-        assertFalse(homeUsesListLevelReorderDetection(SortType.Custom))
-        assertFalse(homeUsesListLevelReorderDetection(SortType.ByDays))
-        assertFalse(homeUsesListLevelReorderDetection(SortType.ByDate))
+    fun rowsOwnLongPressDragAndTheListOnlyHostsTheReorderState() {
+        val source = readSource("ui/home/HomeScreen.kt")
+        val listBlock = source.substringAfter("LazyColumn(\n                                    state = reorderState.listState")
+            .substringBefore("items(orderedList")
+
+        assertTrue(listBlock.contains("Modifier.reorderable(reorderState)"))
+        assertFalse(listBlock.contains("detectReorderAfterLongPress"))
     }
 
     @Test
@@ -104,7 +90,7 @@ class HomeInteractionPolicyTest {
         val source = readSource("ui/home/HomeScreen.kt")
         val itemBlock = source
             .substringAfter("items(orderedList")
-            .substringBefore("AnimatedVisibility(")
+            .substringBefore("// Compose 1.6's Popup handles legacy Back key events.")
 
         assertFalse(itemBlock.contains("Modifier.padding(end = 48.dp)"))
         assertFalse(itemBlock.contains("R.string.cd_reorder_event"))
@@ -128,7 +114,7 @@ class HomeInteractionPolicyTest {
     fun homeListItemUsesCompactWidgetStyle() {
         val source = readSource("ui/home/HomeScreen.kt")
         val listItemSource = source
-            .substringAfter("private fun EventListItem(")
+            .substringAfter("internal fun EventListItem(")
             .substringBefore("private fun CompactEventTime(")
 
         assertTrue(source.contains("CompactEventTime"))
@@ -142,7 +128,7 @@ class HomeInteractionPolicyTest {
         val source = readSource("ui/home/HomeScreen.kt")
         val cardSource = source
             .substringAfter("fun EventCard(")
-            .substringBefore("private fun EventListItem(")
+            .substringBefore("internal fun EventListItem(")
 
         assertTrue(cardSource.contains("val cardAuxiliaryLine = buildList"))
         assertTrue(cardSource.contains("eventState.event.category"))
@@ -157,7 +143,7 @@ class HomeInteractionPolicyTest {
         val source = readSource("ui/home/HomeScreen.kt")
         val cardSource = source
             .substringAfter("fun EventCard(")
-            .substringBefore("private fun EventListItem(")
+            .substringBefore("internal fun EventListItem(")
 
         assertTrue(cardSource.contains("val titleMaxLines = homeCardTitleMaxLines(LocalDensity.current.fontScale)"))
         assertTrue(cardSource.contains("maxLines = if (stacked) maxOf(2, titleMaxLines) else titleMaxLines"))
@@ -168,8 +154,8 @@ class HomeInteractionPolicyTest {
     fun eventColorTextUsesSharedDarkThemeContrastPolicyInCardAndListModes() {
         val source = readSource("ui/home/HomeScreen.kt")
         val cardSource = source.substringAfter("fun EventCard(")
-            .substringBefore("private fun EventListItem(")
-        val listSource = source.substringAfter("private fun EventListItem(")
+            .substringBefore("internal fun EventListItem(")
+        val listSource = source.substringAfter("internal fun EventListItem(")
             .substringBefore("private fun CompactEventTime(")
 
         assertTrue(cardSource.contains("HomeEventColorPolicy.ensureTextContrast("))
@@ -190,7 +176,7 @@ class HomeInteractionPolicyTest {
     fun homeTimeToggleTargetsExposeAccessibleButtonSemantics() {
         val source = readSource("ui/home/HomeScreen.kt")
         val cardSource = source.substringAfter("fun EventCard(")
-            .substringBefore("private fun EventListItem(")
+            .substringBefore("internal fun EventListItem(")
         val compactTimeSource = source.substringAfter("private fun CompactEventTime(")
             .substringBefore("@OptIn(ExperimentalFoundationApi::class)")
 
@@ -216,6 +202,15 @@ class HomeInteractionPolicyTest {
     }
 
     private fun readSource(relative: String): String {
+        // 4.2 split the home screen into three files; contract checks read them in order.
+        if (relative == "ui/home/HomeScreen.kt") {
+            return listOf("HomeScreen.kt", "HomeEventCards.kt", "HomeMonthCalendar.kt")
+                .joinToString("\n") { readSingleSource("ui/home/$it") }
+        }
+        return readSingleSource(relative)
+    }
+
+    private fun readSingleSource(relative: String): String {
         val direct = File("src/main/java/com/example/timeapk/$relative")
         if (direct.exists()) {
             return direct.readText(Charsets.UTF_8)

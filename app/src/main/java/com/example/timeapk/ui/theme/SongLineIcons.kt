@@ -129,15 +129,9 @@ private fun DrawScope.drawSongLineIcon(
 
     when (kind) {
         SongLineIconKind.Search -> {
-            path {
-                moveTo(7.2f * unit, 12.2f * unit)
-                cubicTo(7.2f * unit, 7.8f * unit, 10.1f * unit, 5.6f * unit, 13f * unit, 6.4f * unit)
-                cubicTo(16.2f * unit, 7.3f * unit, 17.6f * unit, 10.8f * unit, 15.6f * unit, 14f * unit)
-                cubicTo(13.4f * unit, 17.2f * unit, 8.2f * unit, 16.3f * unit, 7.2f * unit, 12.2f * unit)
-            }
-            line(12.8f, 15.8f, 11.2f, 20f)
-            line(9.2f, 12f, 16.2f, 12f)
-            line(10.1f, 9.1f, 15.2f, 14.2f)
+            // A plain magnifier: it is a primary top-bar action and must read instantly.
+            circle(10.6f, 10.6f, 5.8f)
+            line(14.9f, 14.9f, 19.4f, 19.4f)
         }
         SongLineIconKind.More -> {
             path {
