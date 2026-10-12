@@ -24,8 +24,14 @@ class SystemBarContrastTest {
     }
 
     @Test
-    fun lightCustomBackgroundUsesDarkIconsEvenInDarkMode() {
-        verifyIcons(themeMode = 2, background = "#FFFFFF", darkIcons = true)
+    fun lightCustomBackgroundUsesDarkIconsInLightMode() {
+        verifyIcons(themeMode = 1, background = "#FFFFFF", darkIcons = true)
+    }
+
+    @Test
+    fun lightCustomBackgroundIsDarkenedInDarkModeAndUsesLightIcons() {
+        // 4.2 adapts custom colours for dark mode; icons follow the adapted background.
+        verifyIcons(themeMode = 2, background = "#FFFFFF", darkIcons = false)
     }
 
     private fun verifyIcons(themeMode: Int, background: String, darkIcons: Boolean) {

@@ -14,6 +14,7 @@ import com.example.timeapk.R
 import com.example.timeapk.TimeApplication
 import com.example.timeapk.data.CATEGORY_OTHER
 import com.example.timeapk.data.Event
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -31,10 +32,14 @@ class EventEditRecreationTest {
 
     private lateinit var app: TimeApplication
     private var eventId = 0
+    private var originalBanner = true
 
     @Before
     fun seedEditableEvent() = runBlocking {
         app = composeRule.activity.application as TimeApplication
+        // The Up next banner repeats the nearest title; keep one node per event.
+        originalBanner = app.userPrefs.homeNearestBannerEnabledFlow.first()
+        app.userPrefs.setHomeNearestBannerEnabled(false)
         val date = LocalDate.now().plusDays(7)
             .atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
         eventId = app.repository.insertEvent(
@@ -53,6 +58,7 @@ class EventEditRecreationTest {
         if (eventId != 0) {
             app.repository.getEvent(eventId)?.let { app.repository.deleteEvent(it) }
         }
+        app.userPrefs.setHomeNearestBannerEnabled(originalBanner)
     }
 
     @Test

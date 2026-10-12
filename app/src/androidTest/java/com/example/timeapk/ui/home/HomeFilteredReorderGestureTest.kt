@@ -59,6 +59,7 @@ class HomeFilteredReorderGestureTest {
     private var originalSort = 0
     private var originalFilter = 0
     private var originalDisplayMode = 0
+    private var originalBanner = true
     private var originalOrder = emptyList<Int>()
     private val additionalDragIds = mutableListOf<Int>()
 
@@ -69,6 +70,9 @@ class HomeFilteredReorderGestureTest {
         originalFilter = app.userPrefs.filterTypeFlow.first()
         originalDisplayMode = app.userPrefs.homeDisplayModeFlow.first()
         originalOrder = app.userPrefs.customEventOrderFlow.first()
+        originalBanner = app.userPrefs.homeNearestBannerEnabledFlow.first()
+        // The Up next banner repeats the nearest title; keep one node per event.
+        app.userPrefs.setHomeNearestBannerEnabled(false)
 
         val today = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
         dragAId = app.repository.insertEvent(testEvent("E2EDrag-A", today, 30L)).toInt()
@@ -90,6 +94,7 @@ class HomeFilteredReorderGestureTest {
         app.userPrefs.setSortType(originalSort)
         app.userPrefs.setFilterType(originalFilter)
         app.userPrefs.setHomeDisplayMode(originalDisplayMode)
+        app.userPrefs.setHomeNearestBannerEnabled(originalBanner)
     }
 
     @Test
@@ -214,10 +219,13 @@ class HomeFilteredReorderGestureTest {
     @Test
     fun backClosesTheToolsPopupWithoutLeavingHome() {
         val homeToolsDescription = composeRule.activity.getString(R.string.home_tools_action)
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithText("E2EDrag-A").fetchSemanticsNodes().size == 1
+        }
         composeRule.onNodeWithContentDescription(homeToolsDescription).performClick()
-        composeRule.onNode(hasSetTextAction()).assertExists()
+        composeRule.waitUntil(timeoutMillis = 5_000) { popupOpen() }
         Espresso.pressBack()
-        composeRule.onNode(hasSetTextAction()).assertDoesNotExist()
+        composeRule.waitUntil(timeoutMillis = 5_000) { !popupOpen() }
         composeRule.onNodeWithText("E2EDrag-A").assertExists()
     }
 
@@ -269,17 +277,18 @@ class HomeFilteredReorderGestureTest {
             throw failure
         }
         composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isEmpty()
+            composeRule.mainClock.advanceTimeByFrame()
+            !popupOpen()
         }
-        composeRule.onNodeWithContentDescription(homeToolsDescription).performClick()
+        // 4.2 moves search into the top bar; it stays open while the subset is shown.
+        val searchOpenDescription = composeRule.activity.getString(R.string.home_search_open)
+        composeRule.onNodeWithContentDescription(searchOpenDescription).performClick()
         composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.mainClock.advanceTimeByFrame()
             composeRule.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().size == 1
         }
         composeRule.onNode(hasSetTextAction()).performTextReplacement("E2EDrag")
-        composeRule.onNodeWithContentDescription(homeToolsDescription).performClick()
-        composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isEmpty()
-        }
+        Espresso.closeSoftKeyboard()
         composeRule.waitUntil(timeoutMillis = 5_000) {
             ViewCompat.getRootWindowInsets(composeRule.activity.window.decorView)
                 ?.isVisible(WindowInsetsCompat.Type.ime()) != true
@@ -294,6 +303,10 @@ class HomeFilteredReorderGestureTest {
             composeRule.onNodeWithText(title).assertIsDisplayed()
         }
     }
+
+    /** The tools panel is a popup window, which adds a second semantics root. */
+    private fun popupOpen(): Boolean =
+        composeRule.onAllNodes(isRoot()).fetchSemanticsNodes().size > 1
 
     private fun beginLongPressDrag(title: String) {
         composeRule.onNodeWithText(title).performTouchInput { down(center) }
