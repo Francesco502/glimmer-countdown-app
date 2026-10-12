@@ -50,7 +50,6 @@
     <string name="filter_all">All</string>
     <string name="sort_by_days">By days left</string>
     <string name="sort_by_date">By target date</string>
-    <string name="sort_by_created">Custom order</string>
     <string name="sort_menu">Sort</string>
     <string name="display_mode_card">Cards</string>
     <string name="display_mode_list">List</string>
@@ -62,17 +61,13 @@
         <item quantity="one">%1$d event</item>
         <item quantity="other">%1$d events</item>
     </plurals>
-    <string name="home_density_title">Home info</string>
     <string name="home_density_compact">Compact</string>
     <string name="home_density_detailed">Detailed</string>
     <string name="home_density_compact_summary"></string>
     <string name="home_density_detailed_summary"></string>
     <string name="settings_display_section_language_title">Language</string>
-    <string name="settings_display_section_language_summary"></string>
     <string name="settings_display_section_home_title">Home display</string>
-    <string name="settings_display_section_home_summary"></string>
     <string name="settings_display_section_date_title">Date format</string>
-    <string name="settings_display_section_date_summary"></string>
 
     <!-- Repeat -->
     <string name="repeat_none">None</string>
@@ -128,11 +123,6 @@
     <string name="reminder_hour_preset_format">%1$d:00</string>
     <string name="reminder_time_hour">Hour</string>
     <string name="reminder_time_minute">Minute</string>
-    <string name="reminder_time_6">6:00</string>
-    <string name="reminder_time_8">8:00</string>
-    <string name="reminder_time_9">9:00</string>
-    <string name="reminder_time_12">12:00</string>
-    <string name="reminder_time_18">18:00</string>
     <string name="sync_to_schedule">Sync to system schedule</string>
     <plurals name="schedule_reminder_title_format">
         <item quantity="one">%2$d day until \"%1$s\"</item>
@@ -144,7 +134,6 @@
     <string name="category_birthday">Birthday</string>
     <string name="category_anniversary">Anniversary</string>
     <string name="category_other">Other</string>
-    <string name="category_custom">Custom</string>
 
     <!-- Search -->
     <string name="search_hint">Search title, category, note</string>
@@ -182,22 +171,21 @@
     <string name="field_note">Note</string>
     <string name="cd_event_color_option">Card color %1$s</string>
     <string name="cd_no_event_color">No card color</string>
-    <string name="button_save_event">Commit</string>
-    <string name="date_picker_ok">Choose</string>
+    <string name="button_save_event">Save</string>
+    <string name="date_picker_ok">OK</string>
     <string name="date_picker_cancel">Cancel</string>
 
     <!-- Detail -->
     <string name="detail_title">Event detail</string>
     <string name="button_edit">Edit</string>
-    <string name="button_delete">Remove</string>
+    <string name="button_delete">Delete</string>
     <string name="button_pin">Pin</string>
     <string name="button_unpin">Unpin</string>
     <string name="button_share">Share</string>
-    <string name="delete_confirm_title">Remove event</string>
-    <string name="delete_confirm_message">Remove \"%1$s\" from the scroll?</string>
-    <string name="delete_confirm_ok">Remove</string>
+    <string name="delete_confirm_title">Delete event</string>
+    <string name="delete_confirm_message">Delete \"%1$s\"? You can undo from the message that follows.</string>
+    <string name="delete_confirm_ok">Delete</string>
     <string name="delete_confirm_cancel">Cancel</string>
-    <string name="event_deleted">Removed from the scroll</string>
     <string name="action_undo">Undo</string>
     <string name="delete_in_progress">Deleting…</string>
     <string name="calendar_cleanup_blocked">Could not clean up the system calendar event. Restore calendar permission and try again.</string>
@@ -213,7 +201,6 @@
 
     <!-- Content descriptions -->
     <string name="cd_add_event">Add event</string>
-    <string name="date_format_title">Date format</string>
     <string name="date_format_dot">2025.01.01</string>
     <string name="date_format_dash">2025‐01‐01</string>
     <string name="cd_edit">Edit</string>
@@ -223,18 +210,18 @@
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
-    <string name="settings_about_version">About · Version %1$s</string>
+    <string name="settings_about_version">Version %1$s</string>
     <string name="settings_check_update">Check for updates</string>
     <string name="settings_updates_managed_by_store">Updates are managed by the app store</string>
     <string name="update_latest">Already up to date</string>
-    <string name="update_error">Update search did not settle.</string>
+    <string name="update_error">Could not check for updates. Try again later.</string>
     <string name="update_new_title">New version %1$s available</string>
     <string name="update_download_install">Download and install</string>
     <string name="update_later">Later</string>
     <string name="update_release_notes">Release notes</string>
     <string name="update_downloading">Downloading…</string>
     <string name="settings_check_update_loading">Checking…</string>
-    <string name="update_download_failed">Could not retrieve the update</string>
+    <string name="update_download_failed">Could not finish the download. Try again later.</string>
     <string name="update_open_browser">Open in browser</string>
     <string name="theme_title">Theme</string>
     <string name="theme_follow_system">Follow system</string>
@@ -248,10 +235,9 @@
     <string name="custom_color_reset">Reset to default</string>
     <string name="custom_color_pick">Pick</string>
     <string name="custom_color_hex_hint">#RRGGBB</string>
-    <string name="event_entry_section_content">Title and category</string>
-    <string name="event_entry_section_time">Date</string>
+    <string name="event_entry_section_content">Title and date</string>
     <string name="event_entry_section_reminder">Repeat and reminder</string>
-    <string name="event_entry_section_appearance">Palette</string>
+    <string name="event_entry_section_appearance">Appearance</string>
     <string name="event_entry_custom_color_advanced">Advanced custom color</string>
     <string name="event_entry_custom_color_active">Custom color: %1$s</string>
     <string name="song_color_ink">Ink</string>
@@ -290,7 +276,6 @@
     <string name="font_zcool_xiaowei_desc"></string>
     <string name="settings_font_picker_title">Choose font</string>
     <string name="settings_font_preview_text">Time leaves a glimmer 123</string>
-    <string name="language_title">Language</string>
     <string name="language_zh">Chinese</string>
     <string name="language_en">English</string>
     <string name="settings_category_display_title">Display &amp; language</string>
@@ -302,16 +287,9 @@
     <!-- Reminder notifications -->
     <string name="notification_channel_name">Countdown reminders</string>
     <string name="milestone_notification_channel_name">Milestone reminders</string>
-    <string name="notification_today">Today!</string>
     <plurals name="notification_days_left">
         <item quantity="one">%1$d day left</item>
         <item quantity="other">%1$d days left</item>
-    </plurals>
-    <string name="notification_title_prefix">Countdown reminder</string>
-    <string name="milestone_notification_title_prefix">Milestone reminder</string>
-    <plurals name="milestone_notification_content">
-        <item quantity="one">%2$d day until %1$s</item>
-        <item quantity="other">%2$d days until %1$s</item>
     </plurals>
 
     <string name="settings_milestone_remind_title">Milestone reminder</string>
@@ -321,10 +299,6 @@
     <string name="settings_default_event_remind_days_title">Days ahead</string>
     <string name="settings_default_event_remind_time_title">Reminder time</string>
     <string name="settings_milestone_remind_days_title">Days ahead</string>
-    <string name="settings_milestone_remind_days_1">1 day before</string>
-    <string name="settings_milestone_remind_days_3">3 days before</string>
-    <string name="settings_milestone_remind_days_7">7 days before</string>
-    <string name="settings_milestone_remind_days_14">14 days before</string>
     <string name="settings_schedule_sync_summary"></string>
     <string name="settings_schedule_target_calendar_title">Target calendar</string>
     <string name="settings_schedule_calendar_auto">Auto-select writable calendar</string>
@@ -394,7 +368,6 @@
     <string name="action_apply">Apply</string>
     <string name="custom_remind_days_label">Reminder lead time</string>
     <string name="custom_reminder_time_label">Reminder time</string>
-    <string name="custom_reminder_time_invalid">Time format: 08:30 or 0830</string>
     <string name="settings_reminder_custom_days_label">Custom lead time</string>
     <string name="settings_reminder_custom_days_hint">Enter 0–3650 days</string>
     <string name="schedule_milestone_reminder_title_today_format">%1$s: %2$s is today</string>
@@ -407,7 +380,6 @@
     <string name="save_event_partial_warning_no_writable_calendar">Committed; no writable device calendar, so sync paused.</string>
     <string name="import_completed_detailed">Settled: found %1$d, placed %2$d, repeats %3$d, unfinished %4$d, notices %5$d</string>
     <string name="settings_milestone_remind_time_title">Milestone reminder time</string>
-    <string name="settings_milestone_remind_time_hint">08:30</string>
     <string name="display_mode_calendar">Calendar</string>
     <string name="calendar_prev_month">Previous month</string>
     <string name="calendar_next_month">Next month</string>
@@ -425,7 +397,7 @@
     <string name="custom_color_contrast_error">Low contrast. Choose a clearer color pair.</string>
     <string name="settings_reduce_motion_title">Reduce motion</string>
     <string name="settings_reduce_motion_summary"></string>
-    <string name="settings_song_sound_title">Quiet chime</string>
+    <string name="settings_song_sound_title">Sound effects</string>
     <string name="settings_song_sound_summary"></string>
     <string name="ganzhi_year_format">Ganzhi %1$s</string>
     <string name="calendar_month_title_pattern">MMM yyyy</string>
@@ -440,13 +412,11 @@
     <string name="settings_entry_appearance_desc"></string>
     <string name="settings_entry_widget_desc"></string>
     <string name="settings_entry_display_desc"></string>
-    <string name="settings_milestone_entry_title">Milestones &amp; reminders</string>
+    <string name="settings_milestone_entry_title">Reminders and calendar</string>
     <string name="settings_entry_milestone_desc"></string>
     <string name="settings_entry_data_desc"></string>
     <string name="settings_about_entry_title">About &amp; updates</string>
     <string name="settings_entry_about_desc"></string>
-    <string name="settings_section_theme_summary"></string>
-    <string name="settings_section_color_summary"></string>
     <string name="settings_section_font_summary">Font: %1$s</string>
     <string name="settings_typography_scale_title">Text size and reading density</string>
     <string name="settings_section_default_reminder_title">New-event default reminder</string>
@@ -478,30 +448,19 @@
     <string name="widget_config_save">Save widget</string>
     <string name="widget_config_defaults_title">Default configuration</string>
     <string name="widget_config_layer_preview">Preview</string>
-    <string name="widget_config_layer_display">Display</string>
-    <string name="widget_config_display">Text and layout</string>
     <string name="widget_config_layer_appearance">Appearance</string>
-    <string name="widget_config_appearance_group">Style and border</string>
     <string name="widget_config_layer_content">Content</string>
-    <string name="widget_config_content_group">Scope and order</string>
     <string name="widget_config_preview_event_primary">Spring gathering</string>
     <string name="widget_config_preview_value_primary">12d</string>
     <string name="widget_config_preview_event_secondary">Lunar birthday</string>
     <string name="widget_config_preview_event_secondary_plain">Birthday</string>
     <string name="widget_config_preview_value_secondary">Today</string>
-    <string name="widget_config_width_cells">Preview width</string>
-    <string name="widget_config_height_cells">Preview height</string>
-    <string name="widget_config_size_preview_guidance">These controls only adjust the preview proportions. Resize the actual widget from your launcher.</string>
-    <plurals name="widget_config_cell_count">
-        <item quantity="one">%1$d cell</item>
-        <item quantity="other">%1$d cells</item>
-    </plurals>
     <string name="widget_config_size_summary">%1$dx%2$d</string>
     <string name="widget_config_appearance">Background style</string>
     <string name="widget_config_appearance_system">Follow system</string>
     <string name="widget_config_appearance_solid">Paper</string>
-    <string name="widget_config_appearance_translucent">Ink line</string>
-    <string name="widget_config_appearance_transparent">Transparent ink</string>
+    <string name="widget_config_appearance_translucent">Frosted glass</string>
+    <string name="widget_config_appearance_transparent">Transparent</string>
     <string name="widget_config_appearance_celadon">Celadon</string>
     <string name="widget_config_appearance_seal">Cinnabar seal</string>
     <string name="widget_config_opacity">Background opacity</string>
@@ -527,7 +486,7 @@
     <string name="widget_config_corner_medium">Medium</string>
     <string name="widget_config_corner_large">Large</string>
     <string name="widget_config_contrast">Text contrast</string>
-    <string name="widget_config_contrast_auto_summary">Auto text</string>
+    <string name="widget_config_contrast_auto_summary">Text color: auto</string>
     <string name="widget_config_contrast_light">Light text</string>
     <string name="widget_config_contrast_dark">Dark text</string>
     <string name="widget_config_show_lunar_prefix">Show lunar prefix</string>
@@ -566,7 +525,7 @@
     <string name="home_move_up">Move up</string>
     <string name="home_move_down">Move down</string>
     <string name="home_reordering">Reordering</string>
-    <string name="home_reorder_hint">Hold and drag to reorder, or use Move up and Move down</string>
+    <string name="home_reorder_hint">Long-press a card and drag to reorder</string>
     <string name="widget_save_failed">Could not save widget. Try again.</string>
     <string name="widget_load_failed">Could not load widget settings. Try again.</string>
     <string name="reminder_status_detail_calendar_permission">Grant calendar read and write permissions, then try again.</string>
@@ -582,4 +541,127 @@
         <item quantity="other">hours</item>
     </plurals>
     <string name="event_draft_recovery_failed">The editing draft could not be saved or restored. Check storage space; saved events are still available.</string>
+    <!-- 4.2 update -->
+    <string name="update_error_version_unrecognized">The new version number is not recognized. Check the release page.</string>
+    <string name="update_error_invalid_release">The release information is incomplete. Check the release page.</string>
+    <string name="update_download_progress">Downloading %1$d%%</string>
+    <string name="update_download_progress_unknown">Downloading %1$s</string>
+    <string name="update_install_permission_title">Allow app installs</string>
+    <string name="update_install_permission_message">To install the update, allow this app to install unknown apps in system settings. Come back here afterwards and the download and install will continue.</string>
+    <string name="update_install_permission_open">Open settings</string>
+    <string name="update_cancel">Cancel</string>
+    <string name="about_source_code">Source code</string>
+    <string name="about_feedback">Feedback</string>
+    <string name="about_feedback_desc">Report issues or ideas on GitHub Issues</string>
+    <string name="about_licenses">Open source licenses</string>
+    <string name="about_licenses_fonts">Bundled fonts are modified from Noto Serif SC / ZCOOL XiaoWei, SIL OFL 1.1</string>
+    <string name="about_licenses_close">Close</string>
+    <!-- 4.2 reminders -->
+    <string name="notification_text_today">Today</string>
+    <string name="notification_text_join_format">%1$s · %2$s</string>
+    <string name="notification_date_pattern">EEE, MMM d</string>
+    <string name="notification_action_view">View</string>
+    <plurals name="notification_milestone_elapsed">
+        <item quantity="one">%1$d day so far</item>
+        <item quantity="other">%1$d days so far</item>
+    </plurals>
+    <plurals name="notification_milestone_mark">
+        <item quantity="one">%1$d-day mark</item>
+        <item quantity="other">%1$d-day mark</item>
+    </plurals>
+    <plurals name="notification_group_summary">
+        <item quantity="one">%1$d reminder</item>
+        <item quantity="other">%1$d reminders</item>
+    </plurals>
+    <string name="settings_exact_reminder_title">Exact reminders</string>
+    <string name="settings_exact_reminder_summary">Deliver reminders at the exact time you set. May use slightly more battery.</string>
+    <string name="settings_exact_reminder_status_active">Status: exact reminders are on</string>
+    <string name="settings_exact_reminder_status_off">Status: off, reminders may arrive a few minutes late</string>
+    <string name="settings_exact_reminder_status_permission_needed">Status: allow \"Alarms &amp; reminders\" to use this</string>
+    <string name="settings_exact_reminder_open_settings">Allow</string>
+    <!-- 4.2 home & entry -->
+    <string name="sort_custom">Custom order</string>
+    <string name="home_search_open">Search</string>
+    <string name="home_search_close">Close search</string>
+    <string name="cd_add_event_on_date">Add event on the selected date</string>
+    <string name="home_time_toggle_hint">Tap the number on a card to switch between days, date span and the next milestone</string>
+    <string name="home_hint_dismiss">Got it</string>
+    <string name="home_today_seal">Today</string>
+    <string name="home_nearest_label">Up next</string>
+    <string name="home_pinned">Pinned</string>
+    <string name="home_empty_subtitle">Add a birthday, an anniversary or a day you are looking forward to, and Glimmer will count it for you.</string>
+    <string name="calendar_back_to_today">Today</string>
+    <string name="event_deleted_named">Deleted \"%1$s\"</string>
+    <string name="detail_label_format">%1$s:</string>
+    <string name="two_pane_placeholder">Select an event on the left to see its details</string>
+    <string name="repeat_more">More</string>
+    <string name="category_add_new">New category</string>
+    <string name="category_create">Create</string>
+    <string name="category_name_hint">Category name</string>
+    <string name="event_entry_image_label">Image</string>
+    <string name="event_entry_image_add">Add image</string>
+    <string name="event_entry_image_replace">Replace</string>
+    <string name="event_entry_image_remove">Remove image</string>
+    <string name="event_entry_image_failed">Could not read that image. Try another one.</string>
+    <!-- 4.2 widgets -->
+    <string name="widget_list_description">A list of your upcoming days</string>
+    <string name="single_widget_label">Glimmer · One day</string>
+    <string name="single_widget_description">Shows one day as a large countdown</string>
+    <string name="single_widget_config_title">Choose a day to show</string>
+    <string name="single_widget_follow_nearest">Follow the next upcoming day</string>
+    <string name="single_widget_follow_nearest_desc">Always shows the nearest future event</string>
+    <string name="single_widget_preview_number">12</string>
+    <!-- 4.2 settings -->
+    <string name="settings_dynamic_color_title">Use wallpaper colors</string>
+    <string name="settings_dynamic_color_summary">Follows the system wallpaper palette. Custom colors are paused while this is on.</string>
+    <string name="settings_dynamic_color_short">Wallpaper colors</string>
+    <string name="settings_custom_colors_dynamic_note">Wallpaper colors are on, so custom colors are paused</string>
+    <string name="settings_value_default">Default</string>
+    <plurals name="settings_custom_colors_count">
+        <item quantity="one">%1$d custom color</item>
+        <item quantity="other">%1$d custom colors</item>
+    </plurals>
+    <string name="settings_motion_sound_title">Motion and sound</string>
+    <string name="settings_nearest_banner_title">Show the Up next banner</string>
+    <string name="settings_nearest_banner_summary">Highlights the nearest day at the top of the card view</string>
+    <string name="settings_categories_title">Categories</string>
+    <string name="settings_entry_categories_desc"></string>
+    <string name="settings_categories_summary_none">Built-in categories only</string>
+    <plurals name="settings_categories_summary_count">
+        <item quantity="one">%1$d custom category</item>
+        <item quantity="other">%1$d custom categories</item>
+    </plurals>
+    <string name="settings_categories_builtin">Built-in</string>
+    <string name="settings_categories_builtin_badge">Built-in</string>
+    <string name="settings_categories_custom">Custom</string>
+    <string name="settings_categories_empty">No custom categories yet.</string>
+    <string name="settings_categories_note">Tap a category to rename it or change its color. Deleting a category moves its events to Other.</string>
+    <string name="settings_widget_summary_none">No widgets on the home screen</string>
+    <plurals name="settings_widget_summary_count">
+        <item quantity="one">%1$d widget added</item>
+        <item quantity="other">%1$d widgets added</item>
+    </plurals>
+    <string name="settings_reminder_summary_on">New events remind by default</string>
+    <string name="settings_reminder_summary_off">New events have no reminder by default</string>
+    <string name="settings_data_summary">JSON / CSV / Remember Days</string>
+    <string name="category_edit_title">Edit category</string>
+    <string name="category_save">Save</string>
+    <string name="category_delete_title">Delete category</string>
+    <string name="category_delete_message_empty">Delete the category “%1$s”?</string>
+    <plurals name="category_delete_message">
+        <item quantity="one">Delete the category “%1$s”? Its %2$d event moves to Other.</item>
+        <item quantity="other">Delete the category “%1$s”? Its %2$d events move to Other.</item>
+    </plurals>
+    <string name="category_deleted">Deleted the category “%1$s”</string>
+    <string name="settings_appearance_entry_title">Theme and motion</string>
+    <!-- 4.2 widget settings -->
+    <string name="widget_config_apply_to_all_confirm">Existing list widgets will switch to the current default settings and lose their own settings.</string>
+    <string name="widget_config_reset_confirm">This widget will go back to the default settings and lose its own settings.</string>
+    <string name="widget_config_opacity_unavailable">This background does not support transparency.</string>
+    <string name="widget_config_preview_size">Preview size</string>
+    <string name="widget_config_preview_size_note">Only changes the preview above. Resize the real widget by long-pressing it on the home screen.</string>
+    <string name="widget_config_single_widget_title">Single-day widget %1$d</string>
+    <string name="widget_config_preview_event_third">Winter solstice</string>
+    <string name="widget_config_preview_value_third">68d</string>
 </resources>
+

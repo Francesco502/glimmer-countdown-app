@@ -53,6 +53,7 @@ import com.example.timeapk.ui.theme.SongLineIcon
 import com.example.timeapk.ui.theme.SongLineIconKind
 import com.example.timeapk.ui.theme.SongSettingMark
 import com.example.timeapk.ui.theme.SongSettingMarkKind
+import com.example.timeapk.ui.theme.SongSwitchVisual
 import com.example.timeapk.ui.theme.normalizeOpaqueThemeHex
 
 enum class SettingsCategory(
@@ -61,7 +62,7 @@ enum class SettingsCategory(
     val mark: SongSettingMarkKind
 ) {
     APPEARANCE(
-        R.string.theme_title,
+        R.string.settings_appearance_entry_title,
         R.string.settings_entry_appearance_desc,
         SongSettingMarkKind.Appearance
     ),
@@ -74,6 +75,11 @@ enum class SettingsCategory(
         R.string.settings_category_display_title,
         R.string.settings_entry_display_desc,
         SongSettingMarkKind.Display
+    ),
+    CATEGORIES(
+        R.string.settings_categories_title,
+        R.string.settings_entry_categories_desc,
+        SongSettingMarkKind.Data
     ),
     MILESTONE(
         R.string.settings_milestone_entry_title,
@@ -96,7 +102,8 @@ enum class SettingsCategory(
 fun SettingsCategoryRow(
     category: SettingsCategory,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    summary: String? = null
 ) {
     val (pressModifier, interactionSource) = rememberPressScale()
     Row(
@@ -108,14 +115,14 @@ fun SettingsCategoryRow(
                 indication = LocalIndication.current,
                 onClick = onClick
             )
-            .padding(horizontal = 2.dp, vertical = 18.dp),
+            .padding(horizontal = 2.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         SongSettingMark(
             kind = category.mark,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.82f),
-            size = 18.dp
+            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.86f),
+            size = SongDesignTokens.IconDefault.dp
         )
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
@@ -125,6 +132,16 @@ fun SettingsCategoryRow(
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1
             )
+            if (!summary.isNullOrBlank()) {
+                Text(
+                    text = summary,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
         }
         SongLineIcon(
             kind = SongLineIconKind.ChevronRight,
@@ -136,6 +153,51 @@ fun SettingsCategoryRow(
 }
 
 
+
+/** 标题 + 说明 + 开关的一行；整行可点，开关只承担视觉。 */
+@Composable
+fun SettingsSwitchRow(
+    title: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    summary: String? = null,
+    enabled: Boolean = true
+) {
+    val stateDescriptionText = stringResource(if (checked) R.string.toggle_on else R.string.toggle_off)
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .toggleable(
+                value = checked,
+                enabled = enabled,
+                role = Role.Switch,
+                onValueChange = onCheckedChange
+            )
+            .semantics(mergeDescendants = true) { stateDescription = stateDescriptionText }
+            .padding(vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (!summary.isNullOrBlank()) {
+                Text(
+                    text = summary,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        SongSwitchVisual(checked = checked, enabled = enabled)
+    }
+}
 
 @Composable
 fun SettingsPressableRow(
@@ -185,27 +247,10 @@ fun SongToggle(
         modifier = modifier
             .heightIn(min = 44.dp)
             .then(semanticsModifier)
-            .border(
-                width = SongDesignTokens.BorderWidth.dp,
-                color = if (checked) {
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-                } else {
-                    MaterialTheme.colorScheme.onSurface.copy(alpha = SongDesignTokens.BorderAlphaSoft)
-                },
-                shape = RoundedCornerShape(SongDesignTokens.RadiusXs.dp)
-            )
-            .padding(horizontal = 12.dp, vertical = 4.dp),
+            .padding(horizontal = 4.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = stateDescriptionText,
-            style = MaterialTheme.typography.bodyLarge,
-            color = if (checked) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-            }
-        )
+        SongSwitchVisual(checked = checked)
     }
 }
 

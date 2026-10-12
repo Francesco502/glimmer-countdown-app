@@ -28,15 +28,15 @@ class SettingsSelectionSemanticsContractTest {
             .substringBefore("private fun formatRemindDaysBefore")
         val datePicker = datePickerSource.substringAfter("fun SongDateWheelPickerDialog(")
             .substringBefore("private fun DatePartField")
-        val legacySettings = settingsSource.substringAfter("fun LegacyDisplaySettingsContent(")
-            .substringBefore("@Composable\nfun DisplaySettingsContent")
+        val displaySettings = settingsSource.substringAfter("fun DisplaySettingsContent(")
+            .substringBefore("@Composable\nprivate fun SettingsReminderTimePickerWheels")
         val reminderLeadTimeRow = settingsSource.substringAfter("private fun ReminderLeadTimePresetRow(")
             .substringBefore("@Composable\nfun DataSettingsContent")
 
         assertTrue(inkChoiceRow.contains(".selectableGroup()"))
         assertTrue(reminderPresetRow.contains(".selectableGroup()"))
         assertTrue(datePicker.contains(".selectableGroup()"))
-        assertTrue(legacySettings.countOccurrences(".selectableGroup()") >= 2)
+        assertTrue(displaySettings.countOccurrences("SettingsRadioGroup {") >= 2)
         assertTrue(reminderLeadTimeRow.contains(".selectableGroup()"))
     }
 
@@ -77,8 +77,8 @@ class SettingsSelectionSemanticsContractTest {
 
         val radioRowCalls = settingsSource.countOccurrences("SettingsRadioRow(")
         val explicitGroups = settingsSource.countOccurrences("SettingsRadioGroup")
-        assertTrue(radioRowCalls == 12)
-        assertTrue(explicitGroups == 9)
+        assertTrue(radioRowCalls == 7)
+        assertTrue(explicitGroups == 6)
         assertTrue(componentSource.contains("fun SettingsRadioGroup("))
         assertTrue(componentSource.contains(".selectableGroup()"))
     }
@@ -92,8 +92,8 @@ class SettingsSelectionSemanticsContractTest {
         val englishStrings = readProjectFile("app/src/main/res/values-en/strings.xml")
 
         assertTrue(presetRow.contains(".selectableGroup()"))
-        assertTrue(settingsSource.countOccurrences("R.string.settings_reminder_custom_days_label") >= 3)
-        assertTrue(settingsSource.countOccurrences("R.string.settings_reminder_custom_days_hint") >= 3)
+        assertTrue(settingsSource.countOccurrences("R.string.settings_reminder_custom_days_label") >= 2)
+        assertTrue(settingsSource.countOccurrences("R.string.settings_reminder_custom_days_hint") >= 2)
         assertTrue(baseStrings.contains("name=\"settings_reminder_custom_days_label\""))
         assertTrue(baseStrings.contains("输入 0–3650 天"))
         assertTrue(englishStrings.contains("name=\"settings_reminder_custom_days_label\""))

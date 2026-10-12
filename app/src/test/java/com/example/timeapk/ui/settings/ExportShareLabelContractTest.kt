@@ -32,7 +32,7 @@ class ExportShareLabelContractTest {
             assertTrue(shareAction.contains("type = \"text/plain\""))
             assertTrue(shareAction.contains("putExtra(Intent.EXTRA_TEXT"))
         }
-        assertTrue(jsonShare.contains("toJsonString()"))
+        assertTrue(jsonShare.contains("toJsonString(app.categoryRepository.getAllSnapshot())"))
         assertTrue(csvShare.contains("toCsvString()"))
         assertTrue(jsonFile.contains("saveJsonLauncher.launch"))
         assertTrue(csvFile.contains("saveCsvLauncher.launch"))

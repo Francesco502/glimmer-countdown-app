@@ -1,5 +1,6 @@
 package com.example.timeapk.ui.settings
 
+import androidx.core.net.toUri
 import android.Manifest
 import android.app.Activity
 import android.content.Context
@@ -101,7 +102,8 @@ import kotlin.math.roundToInt
 private data class PendingImportPreview(
     val parseResult: BackupParseResult,
     val importableEvents: List<Event>,
-    val existingDuplicateCount: Int
+    val existingDuplicateCount: Int,
+    val newCategories: List<com.example.timeapk.data.Category> = emptyList()
 ) {
     val totalSkippedDuplicates: Int
         get() = parseResult.skippedDuplicateCount + existingDuplicateCount
@@ -128,19 +130,10 @@ fun ClassicalToggle(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
                 role = Role.Switch
                 this.stateDescription = stateDescription
             }
-            .border(
-                width = 0.5.dp,
-                color = if (checked) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurface.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaSoft),
-                shape = RoundedCornerShape(2.dp)
-            )
-            .padding(horizontal = 12.dp, vertical = 4.dp),
+            .padding(horizontal = 4.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = stateDescription,
-            style = MaterialTheme.typography.bodyLarge,
-            color = if (checked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-        )
+        com.example.timeapk.ui.theme.SongSwitchVisual(checked = checked)
     }
 }
 
@@ -169,6 +162,9 @@ fun AppearanceSettingsContent(
     val customOnBackgroundHex by prefs.customOnBackgroundHexFlow.collectAsState(initial = null)
     val fontPreset by prefs.fontPresetFlow.collectAsState(initial = 4)
     val appBaseFontScale by prefs.appBaseFontScaleFlow.collectAsState(initial = 1f)
+    val dynamicColorEnabled by prefs.dynamicColorEnabledFlow.collectAsState(initial = false)
+    val reduceMotionEnabled by prefs.reduceMotionEnabledFlow.collectAsState(initial = false)
+    val songSoundEnabled by prefs.songSoundEnabledFlow.collectAsState(initial = false)
     var appBaseFontScaleDraft by remember(appBaseFontScale) { mutableStateOf(appBaseFontScale) }
     var colorPickerKey by remember { mutableStateOf<String?>(null) }
     var showFontPresetDialog by remember { mutableStateOf(false) }
@@ -209,7 +205,7 @@ fun AppearanceSettingsContent(
         }
         SettingsExpandableSection(
             title = stringResource(R.string.theme_title),
-            summary = stringResource(R.string.settings_section_theme_summary),
+            summary = stringResource(themeModeLabelRes(themeMode)),
             initiallyExpanded = true
         ) {
             SettingsRadioGroup {
@@ -229,11 +225,26 @@ fun AppearanceSettingsContent(
                     )
                 }
             }
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = SongDesignTokens.BorderAlphaSoft))
+                SettingsSwitchRow(
+                    title = stringResource(R.string.settings_dynamic_color_title),
+                    summary = stringResource(R.string.settings_dynamic_color_summary),
+                    checked = dynamicColorEnabled,
+                    onCheckedChange = { enabled -> scope.launch { prefs.setDynamicColorEnabled(enabled) } }
+                )
+            }
         }
 
+        val customColorCount = listOf(customBackgroundHex, customSurfaceHex, customPrimaryHex, customOnBackgroundHex)
+            .count { !it.isNullOrBlank() }
         SettingsExpandableSection(
             title = stringResource(R.string.custom_colors_title),
-            summary = stringResource(R.string.settings_section_color_summary)
+            summary = when {
+                dynamicColorEnabled -> stringResource(R.string.settings_custom_colors_dynamic_note)
+                customColorCount == 0 -> stringResource(R.string.settings_value_default)
+                else -> pluralStringResource(R.plurals.settings_custom_colors_count, customColorCount, customColorCount)
+            }
         ) {
             CustomColorRow(
                 label = stringResource(R.string.custom_color_background),
@@ -449,7 +460,35 @@ fun AppearanceSettingsContent(
                 Text(stringResource(R.string.settings_font_scale_reset))
             }
         }
+
+        SettingsExpandableSection(
+            title = stringResource(R.string.settings_motion_sound_title),
+            summary = listOfNotNull(
+                stringResource(R.string.settings_reduce_motion_title).takeIf { reduceMotionEnabled },
+                stringResource(R.string.settings_song_sound_title).takeIf { songSoundEnabled }
+            ).joinToString(" · ").ifEmpty { stringResource(R.string.settings_value_default) }
+        ) {
+            SettingsSwitchRow(
+                title = stringResource(R.string.settings_reduce_motion_title),
+                summary = stringResource(R.string.settings_reduce_motion_summary),
+                checked = reduceMotionEnabled,
+                onCheckedChange = { scope.launch { prefs.setReduceMotionEnabled(it) } }
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = SongDesignTokens.BorderAlphaSoft))
+            SettingsSwitchRow(
+                title = stringResource(R.string.settings_song_sound_title),
+                summary = stringResource(R.string.settings_song_sound_summary),
+                checked = songSoundEnabled,
+                onCheckedChange = { scope.launch { prefs.setSongSoundEnabled(it) } }
+            )
+        }
     }
+}
+
+internal fun themeModeLabelRes(themeMode: Int): Int = when (themeMode) {
+    THEME_LIGHT -> R.string.theme_light
+    THEME_DARK -> R.string.theme_dark
+    else -> R.string.theme_follow_system
 }
 
 @Composable
@@ -499,7 +538,7 @@ private fun FontPresetPickerDialog(
 }
 
 @Composable
-private fun fontPresetTitle(preset: Int): String {
+internal fun fontPresetTitle(preset: Int): String {
     return stringResource(
         when (preset) {
             FONT_PRESET_NOTO_SERIF_SC -> R.string.font_noto_serif_sc
@@ -551,480 +590,6 @@ private fun SettingsTrailingSupportText(text: String) {
 }
 
 @Composable
-fun LegacyDisplaySettingsContent(
-    modifier: Modifier = Modifier
-) {
-    val context = LocalContext.current
-    val app = context.applicationContext as? TimeApplication
-    if (app == null) return
-    val prefs = app.userPrefs
-    val scope = rememberCoroutineScope()
-    val activity = context.findActivity()
-
-    val languageMode by prefs.languageModeFlow.collectAsState(initial = LANG_ZH)
-    val showHours by prefs.showHoursFlow.collectAsState(initial = true)
-    val homeDensityMode by prefs.homeDensityModeFlow.collectAsState(initial = 1)
-    val showMilestone by prefs.showMilestoneFlow.collectAsState(initial = true)
-    val reduceMotionEnabled by prefs.reduceMotionEnabledFlow.collectAsState(initial = false)
-    val songSoundEnabled by prefs.songSoundEnabledFlow.collectAsState(initial = false)
-    val milestoneRemindEnabled by prefs.milestoneRemindEnabledFlow.collectAsState(initial = false)
-    val milestoneRemindDaysAhead by prefs.milestoneRemindDaysAheadFlow.collectAsState(initial = 7)
-    val milestoneRemindTimeMinutesOfDay by prefs.milestoneRemindTimeMinutesOfDayFlow.collectAsState(initial = 480)
-    val smartMilestonesEnabled by prefs.smartMilestonesEnabledFlow.collectAsState(initial = true)
-    val customMilestones by prefs.customMilestonesFlow.collectAsState(initial = DEFAULT_MILESTONE_DAYS)
-    val dateFormatMode by prefs.dateFormatModeFlow.collectAsState(initial = 0)
-    var newMilestoneInput by remember { mutableStateOf("") }
-    var customMilestoneRemindDaysInput by remember { mutableStateOf(milestoneRemindDaysAhead.toString()) }
-    var customMilestoneRemindTimeInput by remember { mutableStateOf(formatMinutesOfDay(milestoneRemindTimeMinutesOfDay)) }
-    var customMilestoneRemindTimeError by remember { mutableStateOf(false) }
-
-    LaunchedEffect(milestoneRemindDaysAhead) {
-        customMilestoneRemindDaysInput = milestoneRemindDaysAhead.toString()
-    }
-    LaunchedEffect(milestoneRemindTimeMinutesOfDay) {
-        customMilestoneRemindTimeInput = formatMinutesOfDay(milestoneRemindTimeMinutesOfDay)
-        customMilestoneRemindTimeError = false
-    }
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
-            .padding(24.dp)
-    ) {
-        // Language Section
-        SettingsGroupHeader(title = stringResource(R.string.language_title))
-        
-        SettingsRadioGroup {
-            listOf(
-                LANG_ZH to stringResource(R.string.language_zh),
-                LANG_EN to stringResource(R.string.language_en)
-            ).forEach { (value, label) ->
-                SettingsRadioRow(
-                    label = label,
-                    selected = languageMode == value,
-                    onClick = {
-                        scope.launch {
-                            prefs.setLanguageMode(value)
-                            withContext(Dispatchers.Main) { activity?.recreate() }
-                        }
-                    }
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
-            }
-        }
-
-        // Display Section
-        SettingsGroupHeader(
-            title = stringResource(R.string.settings_show_hours),
-            modifier = Modifier.padding(top = 20.dp)
-        )
-        
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = stringResource(R.string.settings_show_hours),
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.weight(1f),
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            ClassicalToggle(
-                checked = showHours,
-                onCheckedChange = { scope.launch { prefs.setShowHours(it) } }
-            )
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.settings_reduce_motion_title),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                SettingsSupportText(text = stringResource(R.string.settings_reduce_motion_summary))
-            }
-            ClassicalToggle(
-                checked = reduceMotionEnabled,
-                onCheckedChange = { scope.launch { prefs.setReduceMotionEnabled(it) } }
-            )
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.settings_song_sound_title),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                SettingsSupportText(text = stringResource(R.string.settings_song_sound_summary))
-            }
-            ClassicalToggle(
-                checked = songSoundEnabled,
-                onCheckedChange = { scope.launch { prefs.setSongSoundEnabled(it) } }
-            )
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
-
-        Text(
-            text = stringResource(R.string.home_density_title),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(top = 12.dp, bottom = 8.dp)
-        )
-        SettingsRadioGroup {
-            SettingsRadioRow(
-                label = stringResource(R.string.home_density_compact),
-                selected = homeDensityMode == 0,
-                onClick = { scope.launch { prefs.setHomeDensityMode(0) } },
-                supportingText = stringResource(R.string.home_density_compact_summary)
-            )
-            SettingsRadioRow(
-                label = stringResource(R.string.home_density_detailed),
-                selected = homeDensityMode == 1,
-                onClick = { scope.launch { prefs.setHomeDensityMode(1) } },
-                supportingText = stringResource(R.string.home_density_detailed_summary)
-            )
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.settings_smart_milestones_title),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                SettingsSupportText(text = stringResource(R.string.settings_smart_milestones_summary))
-            }
-            ClassicalToggle(
-                checked = smartMilestonesEnabled,
-                onCheckedChange = {
-                    scope.launch {
-                        prefs.setSmartMilestonesEnabled(it)
-                        rescheduleMilestoneReminders(app)
-                    }
-                }
-            )
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = stringResource(R.string.settings_show_milestone),
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.weight(1f),
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            ClassicalToggle(
-                checked = showMilestone,
-                onCheckedChange = { scope.launch { prefs.setShowMilestone(it) } }
-            )
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.settings_milestone_remind_title),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                SettingsSupportText(text = stringResource(R.string.settings_milestone_remind_summary))
-            }
-            ClassicalToggle(
-                checked = milestoneRemindEnabled,
-                onCheckedChange = {
-                    scope.launch {
-                        prefs.setMilestoneRemindEnabled(it)
-                        rescheduleMilestoneReminders(app)
-                    }
-                }
-            )
-        }
-        if (milestoneRemindEnabled) {
-            Text(
-                text = stringResource(R.string.settings_milestone_remind_days_title),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
-            )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .selectableGroup(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                listOf(1 to R.string.settings_milestone_remind_days_1,
-                    3 to R.string.settings_milestone_remind_days_3,
-                    7 to R.string.settings_milestone_remind_days_7,
-                    14 to R.string.settings_milestone_remind_days_14).forEach { (days, resId) ->
-                    SongFilterChip(
-                        selected = milestoneRemindDaysAhead == days,
-                        onClick = {
-                            scope.launch {
-                                prefs.setMilestoneRemindDaysAhead(days)
-                                rescheduleMilestoneReminders(app)
-                            }
-                        },
-                        label = stringResource(resId)
-                    )
-                }
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedTextField(
-                    value = customMilestoneRemindDaysInput,
-                    onValueChange = {
-                        customMilestoneRemindDaysInput = it.filter { c -> c.isDigit() }
-                    },
-                    label = { Text(stringResource(R.string.settings_reminder_custom_days_label)) },
-                    placeholder = { Text(stringResource(R.string.settings_reminder_custom_days_hint)) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(4.dp)
-                )
-                OutlinedButton(
-                    onClick = {
-                        val parsed = customMilestoneRemindDaysInput.toIntOrNull() ?: return@OutlinedButton
-                        scope.launch {
-                            prefs.setMilestoneRemindDaysAhead(parsed)
-                            rescheduleMilestoneReminders(app)
-                        }
-                    },
-                    enabled = customMilestoneRemindDaysInput.isNotBlank(),
-                    shape = RoundedCornerShape(4.dp)
-                ) {
-                    Text(stringResource(R.string.action_apply))
-                }
-            }
-            Text(
-                text = stringResource(R.string.settings_milestone_remind_time_title),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
-            )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .selectableGroup()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                listOf(
-                    stringResource(R.string.reminder_time_6) to 360,
-                    stringResource(R.string.reminder_time_8) to 480,
-                    stringResource(R.string.reminder_time_9) to 540,
-                    stringResource(R.string.reminder_time_12) to 720,
-                    stringResource(R.string.reminder_time_18) to 1080
-                ).forEach { (label, minutes) ->
-                    SongFilterChip(
-                        selected = milestoneRemindTimeMinutesOfDay == minutes,
-                        onClick = {
-                            scope.launch {
-                                prefs.setMilestoneRemindTimeMinutesOfDay(minutes)
-                                rescheduleMilestoneReminders(app)
-                            }
-                        },
-                        label = label
-                    )
-                }
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedTextField(
-                    value = customMilestoneRemindTimeInput,
-                    onValueChange = {
-                        customMilestoneRemindTimeInput = it.filter { c -> c.isDigit() || c == ':' }.take(5)
-                        customMilestoneRemindTimeError = false
-                    },
-                    label = { Text(stringResource(R.string.settings_milestone_remind_time_hint)) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    isError = customMilestoneRemindTimeError,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(4.dp)
-                )
-                OutlinedButton(
-                    onClick = {
-                        val parsed = parseReminderTimeInput(customMilestoneRemindTimeInput)
-                        if (parsed == null) {
-                            customMilestoneRemindTimeError = true
-                        } else {
-                            scope.launch {
-                                customMilestoneRemindTimeError = false
-                                prefs.setMilestoneRemindTimeMinutesOfDay(parsed)
-                                rescheduleMilestoneReminders(app)
-                            }
-                        }
-                    },
-                    enabled = customMilestoneRemindTimeInput.isNotBlank(),
-                    shape = RoundedCornerShape(4.dp)
-                ) {
-                    Text(stringResource(R.string.action_apply))
-                }
-            }
-            if (customMilestoneRemindTimeError) {
-                Text(
-                    text = stringResource(R.string.custom_reminder_time_invalid),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
-
-        Text(
-            text = stringResource(R.string.settings_custom_milestones_title),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(top = 12.dp, bottom = 8.dp)
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            OutlinedTextField(
-                value = newMilestoneInput,
-                onValueChange = { newMilestoneInput = it.filter { c -> c.isDigit() } },
-                placeholder = { Text(stringResource(R.string.settings_custom_milestones_add_hint)) },
-                modifier = Modifier.weight(1f)
-            )
-            OutlinedButton(
-                onClick = {
-                    val v = newMilestoneInput.trim().toLongOrNull()
-                    if (v != null && v > 0) {
-                        scope.launch {
-                            prefs.setCustomMilestones(customMilestones + v)
-                            newMilestoneInput = ""
-                            rescheduleMilestoneReminders(app)
-                        }
-                    }
-                }
-            ) {
-                Text(stringResource(R.string.settings_custom_milestones_add))
-            }
-        }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp)
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            customMilestones.forEach { days ->
-                Row(
-                    modifier = Modifier
-                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(SongDesignTokens.StandardRadius.dp))
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(
-                        text = "$days",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    IconButton(
-                        onClick = {
-                            scope.launch {
-                                prefs.setCustomMilestones(customMilestones.filter { it != days })
-                                rescheduleMilestoneReminders(app)
-                            }
-                        },
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        SongLineIcon(
-                            kind = SongLineIconKind.Delete,
-                            contentDescription = stringResource(R.string.cd_delete_custom_milestone, days),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            size = 16.dp
-                        )
-                    }
-                }
-            }
-        }
-        OutlinedButton(
-            onClick = {
-                scope.launch {
-                    prefs.setCustomMilestones(DEFAULT_MILESTONE_DAYS)
-                    rescheduleMilestoneReminders(app)
-                }
-            },
-            modifier = Modifier.padding(top = 8.dp)
-        ) {
-            Text(stringResource(R.string.settings_custom_milestones_restore))
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong), modifier = Modifier.padding(top = 12.dp))
-
-        Text(
-            text = stringResource(R.string.date_format_title),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(top = 12.dp, bottom = 8.dp)
-        )
-        SettingsRadioGroup {
-            SettingsRadioRow(
-                label = stringResource(R.string.date_format_dot),
-                selected = dateFormatMode == 0,
-                onClick = { scope.launch { prefs.setDateFormatMode(0) } }
-            )
-            SettingsRadioRow(
-                label = stringResource(R.string.date_format_dash),
-                selected = dateFormatMode == 1,
-                onClick = { scope.launch { prefs.setDateFormatMode(1) } }
-            )
-        }
-    }
-}
-
-@Composable
 fun DisplaySettingsContent(
     modifier: Modifier = Modifier
 ) {
@@ -1038,8 +603,7 @@ fun DisplaySettingsContent(
     val languageMode by prefs.languageModeFlow.collectAsState(initial = LANG_ZH)
     val showHours by prefs.showHoursFlow.collectAsState(initial = true)
     val homeDensityMode by prefs.homeDensityModeFlow.collectAsState(initial = 1)
-    val reduceMotionEnabled by prefs.reduceMotionEnabledFlow.collectAsState(initial = false)
-    val songSoundEnabled by prefs.songSoundEnabledFlow.collectAsState(initial = false)
+    val nearestBannerEnabled by prefs.homeNearestBannerEnabledFlow.collectAsState(initial = true)
     val dateFormatMode by prefs.dateFormatModeFlow.collectAsState(initial = 0)
 
     Column(
@@ -1050,7 +614,7 @@ fun DisplaySettingsContent(
     ) {
         SettingsExpandableSection(
             title = stringResource(R.string.settings_display_section_language_title),
-            summary = stringResource(R.string.settings_display_section_language_summary),
+            summary = stringResource(if (languageMode == LANG_EN) R.string.language_en else R.string.language_zh),
             initiallyExpanded = true
         ) {
             SettingsRadioGroup {
@@ -1074,7 +638,7 @@ fun DisplaySettingsContent(
 
         SettingsExpandableSection(
             title = stringResource(R.string.settings_display_section_home_title),
-            summary = stringResource(R.string.settings_display_section_home_summary)
+            summary = stringResource(if (homeDensityMode == 0) R.string.home_density_compact else R.string.home_density_detailed)
         ) {
             Row(
                 modifier = Modifier
@@ -1096,48 +660,12 @@ fun DisplaySettingsContent(
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.settings_reduce_motion_title),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    SettingsSupportText(text = stringResource(R.string.settings_reduce_motion_summary))
-                }
-                ClassicalToggle(
-                    checked = reduceMotionEnabled,
-                    onCheckedChange = { scope.launch { prefs.setReduceMotionEnabled(it) } }
-                )
-            }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.settings_song_sound_title),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    SettingsSupportText(text = stringResource(R.string.settings_song_sound_summary))
-                }
-                ClassicalToggle(
-                    checked = songSoundEnabled,
-                    onCheckedChange = { scope.launch { prefs.setSongSoundEnabled(it) } }
-                )
-            }
+            SettingsSwitchRow(
+                title = stringResource(R.string.settings_nearest_banner_title),
+                summary = stringResource(R.string.settings_nearest_banner_summary),
+                checked = nearestBannerEnabled,
+                onCheckedChange = { scope.launch { prefs.setHomeNearestBannerEnabled(it) } }
+            )
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
 
             SettingsRadioGroup {
@@ -1157,7 +685,7 @@ fun DisplaySettingsContent(
 
         SettingsExpandableSection(
             title = stringResource(R.string.settings_display_section_date_title),
-            summary = stringResource(R.string.settings_display_section_date_summary)
+            summary = stringResource(if (dateFormatMode == 1) R.string.date_format_dash else R.string.date_format_dot)
         ) {
             SettingsRadioGroup {
                 listOf(
@@ -1512,6 +1040,7 @@ fun MilestoneSettingsContent(
                 modifier = Modifier.padding(top = 8.dp)
             )
         }
+        ExactReminderSettingRow()
         }
 
         SettingsExpandableSection(
@@ -2119,14 +1648,21 @@ fun DataSettingsContent(
             return null
         }
         val existingEvents = repository.getAllEventsSnapshot()
-        val duplicateFilter = filterExistingDuplicateEvents(
+        val categoryResolution = com.example.timeapk.data.resolveImportedCategories(
             events = parseResult.events,
+            drafts = parseResult.categoryDrafts,
+            existing = app.categoryRepository.getAllSnapshot()
+        )
+        val duplicateFilter = filterExistingDuplicateEvents(
+            events = categoryResolution.events,
             existingEvents = existingEvents
         )
+        val usedCategoryIds = duplicateFilter.importableEvents.mapTo(mutableSetOf()) { it.category }
         return PendingImportPreview(
             parseResult = parseResult,
             importableEvents = duplicateFilter.importableEvents,
-            existingDuplicateCount = duplicateFilter.existingDuplicateCount
+            existingDuplicateCount = duplicateFilter.existingDuplicateCount,
+            newCategories = categoryResolution.newCategories.filter { it.id in usedCategoryIds }
         )
     }
 
@@ -2342,6 +1878,7 @@ fun DataSettingsContent(
                                         importTotal = freshPreview.importableEvents.size
                                     }
                                     val executionResult = withContext(Dispatchers.IO) {
+                                        app.categoryRepository.insertAll(freshPreview.newCategories)
                                         importEvents(freshPreview.importableEvents)
                                     }
                                     withContext(Dispatchers.Main) {
@@ -2383,7 +1920,7 @@ fun DataSettingsContent(
             onClick = {
                 scope.launch {
                     val events = repository.getAllEventsSnapshot()
-                    val json = events.toJsonString()
+                    val json = events.toJsonString(app.categoryRepository.getAllSnapshot())
                     context.startActivity(
                         Intent(Intent.ACTION_SEND).apply {
                             type = "text/plain"
@@ -2399,7 +1936,8 @@ fun DataSettingsContent(
             label = stringResource(R.string.export_events_file),
             onClick = {
                 scope.launch {
-                    pendingExportText = repository.getAllEventsSnapshot().toJsonString()
+                    pendingExportText = repository.getAllEventsSnapshot()
+                        .toJsonString(app.categoryRepository.getAllSnapshot())
                     saveJsonLauncher.launch("timeapk-events.json")
                 }
             }
@@ -2478,10 +2016,14 @@ fun AboutSettingsContent(
     if (app == null) return
     val scope = rememberCoroutineScope()
     val directApkUpdatesEnabled = BuildConfig.DIRECT_APK_UPDATES_ENABLED
-    
+
     var updateResult by remember { mutableStateOf<CheckUpdateResult?>(null) }
     var updateCheckInProgress by remember { mutableStateOf(false) }
     var updateDownloading by remember { mutableStateOf(false) }
+    var downloadProgress by remember { mutableStateOf<com.example.timeapk.update.DownloadProgress?>(null) }
+    var showInstallPermissionDialog by remember { mutableStateOf(false) }
+    var installAfterPermissionGrant by remember { mutableStateOf(false) }
+    var showLicensesDialog by remember { mutableStateOf(false) }
 
     fun startUpdateCheck() {
         if (updateCheckInProgress) return
@@ -2505,7 +2047,15 @@ fun AboutSettingsContent(
             updateResult = result
             when {
                 result.checkFailed -> snackbarHostState.showSnackbar(
-                    context.getString(R.string.update_error),
+                    context.getString(
+                        when (result.failureKind) {
+                            com.example.timeapk.update.UpdateFailureKind.VERSION_UNRECOGNIZED ->
+                                R.string.update_error_version_unrecognized
+                            com.example.timeapk.update.UpdateFailureKind.INVALID_RELEASE ->
+                                R.string.update_error_invalid_release
+                            else -> R.string.update_error
+                        }
+                    ),
                     withDismissAction = true
                 )
                 !result.hasUpdate -> snackbarHostState.showSnackbar(
@@ -2516,10 +2066,48 @@ fun AboutSettingsContent(
         }
     }
 
+    fun startDownloadAndInstall(url: String) {
+        if (updateDownloading) return
+        // Ask for "install unknown apps" before downloading so the flow can continue on return.
+        if (!UpdateInstaller.canRequestPackageInstalls(context)) {
+            showInstallPermissionDialog = true
+            return
+        }
+        updateDownloading = true
+        downloadProgress = null
+        scope.launch {
+            try {
+                val ok = UpdateInstaller.downloadAndInstall(context, url) { progress ->
+                    scope.launch { downloadProgress = progress }
+                }
+                updateResult = null
+                if (!ok) snackbarHostState.showSnackbar(context.getString(R.string.update_download_failed))
+            } finally {
+                updateDownloading = false
+                downloadProgress = null
+            }
+        }
+    }
+
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME && installAfterPermissionGrant) {
+                installAfterPermissionGrant = false
+                val url = updateResult?.downloadUrl
+                if (url != null && UpdateInstaller.canRequestPackageInstalls(context)) {
+                    startDownloadAndInstall(url)
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     if (directApkUpdatesEnabled) updateResult?.takeIf { it.hasUpdate }?.let { result ->
         SongFormDialog(
             title = context.getString(R.string.update_new_title, result.versionName ?: ""),
-            onDismissRequest = { updateResult = null },
+            onDismissRequest = { if (!updateDownloading) updateResult = null },
             content = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     result.releaseNotes?.takeIf { it.isNotBlank() }?.let { notes ->
@@ -2528,20 +2116,21 @@ fun AboutSettingsContent(
                             style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.primary
                         )
-                        Text(
-                            notes,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                        ReleaseNotesText(notes)
+                    }
+                    if (updateDownloading) {
+                        UpdateDownloadProgressSection(downloadProgress)
                     }
                 }
             },
             buttons = {
-                result.downloadUrl?.takeIf { directApkUpdatesEnabled }?.let { url ->
+                if (directApkUpdatesEnabled) {
+                    val releasePageUrl = result.releasePageUrl ?: "$GLIMMER_SOURCE_URL/releases"
                     SongDialogButton(
                         text = context.getString(R.string.update_open_browser),
+                        enabled = !updateDownloading,
                         onClick = {
-                            UpdateInstaller.openDownloadPageInBrowser(context, url)
+                            UpdateInstaller.openReleasePageInBrowser(context, releasePageUrl)
                             updateResult = null
                         }
                     )
@@ -2549,6 +2138,7 @@ fun AboutSettingsContent(
                 }
                 SongDialogButton(
                     text = context.getString(R.string.update_later),
+                    enabled = !updateDownloading,
                     onClick = { updateResult = null }
                 )
                 if (directApkUpdatesEnabled) {
@@ -2556,25 +2146,57 @@ fun AboutSettingsContent(
                     SongDialogButton(
                         text = if (updateDownloading) context.getString(R.string.update_downloading)
                         else context.getString(R.string.update_download_install),
-                        enabled = !updateDownloading,
+                        enabled = !updateDownloading && result.downloadUrl != null,
                         onClick = {
-                            if (updateDownloading) return@SongDialogButton
-                            val url = result.downloadUrl
-                            if (url != null) {
-                                updateDownloading = true
-                                scope.launch {
-                                    try {
-                                        val ok = UpdateInstaller.downloadAndInstall(context, url)
-                                        updateResult = null
-                                        if (!ok) snackbarHostState.showSnackbar(context.getString(R.string.update_download_failed))
-                                    } finally { updateDownloading = false }
-                                }
-                            }
+                            result.downloadUrl?.let { url -> startDownloadAndInstall(url) }
                         }
                     )
                 }
             }
         )
+    }
+
+    if (showInstallPermissionDialog) {
+        SongFormDialog(
+            title = stringResource(R.string.update_install_permission_title),
+            onDismissRequest = { showInstallPermissionDialog = false },
+            content = {
+                Text(
+                    stringResource(R.string.update_install_permission_message),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            },
+            buttons = {
+                SongDialogButton(
+                    text = stringResource(R.string.update_cancel),
+                    onClick = { showInstallPermissionDialog = false }
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                SongDialogButton(
+                    text = stringResource(R.string.update_install_permission_open),
+                    onClick = {
+                        showInstallPermissionDialog = false
+                        installAfterPermissionGrant = true
+                        UpdateInstaller.openUnknownAppSourcesSettings(context)
+                    }
+                )
+            }
+        )
+    }
+
+    if (showLicensesDialog) {
+        FontLicensesDialog(context = context, onDismissRequest = { showLicensesDialog = false })
+    }
+
+    fun openExternalPage(url: String) {
+        try {
+            context.startActivity(
+                Intent(Intent.ACTION_VIEW, url.toUri()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+        } catch (_: android.content.ActivityNotFoundException) {
+            scope.launch { snackbarHostState.showSnackbar(url, withDismissAction = true) }
+        }
     }
 
     Column(
@@ -2583,8 +2205,7 @@ fun AboutSettingsContent(
             .verticalScroll(rememberScrollState())
             .padding(24.dp)
     ) {
-        SettingsGroupHeader(title = stringResource(R.string.settings_about_entry_title))
-        
+        // The sub-screen top bar already shows the page title; no duplicate header here.
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -2598,7 +2219,7 @@ fun AboutSettingsContent(
             )
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
-        
+
         if (directApkUpdatesEnabled) {
             SettingsActionRow(
                 label = stringResource(R.string.settings_check_update),
@@ -2618,23 +2239,29 @@ fun AboutSettingsContent(
             )
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
+
+        SettingsActionRow(
+            label = stringResource(R.string.about_source_code),
+            supportingText = GLIMMER_SOURCE_URL.removePrefix("https://"),
+            onClick = { openExternalPage(GLIMMER_SOURCE_URL) }
+        )
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
+
+        SettingsActionRow(
+            label = stringResource(R.string.about_feedback),
+            supportingText = stringResource(R.string.about_feedback_desc),
+            onClick = { openExternalPage(GLIMMER_ISSUES_URL) }
+        )
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
+
+        SettingsActionRow(
+            label = stringResource(R.string.about_licenses),
+            supportingText = stringResource(R.string.about_licenses_fonts),
+            onClick = { showLicensesDialog = true }
+        )
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 private fun formatMinutesOfDay(minutesOfDay: Int): String {
     val safe = sanitizeReminderTimeMinutesOfDay(minutesOfDay)

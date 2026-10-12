@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -119,6 +120,10 @@ fun SettingsScreen(
                 SettingsCategory.DISPLAY -> DisplaySettingsContent(
                     modifier = baseModifier
                 )
+                SettingsCategory.CATEGORIES -> CategoryManagementContent(
+                    snackbarHostState = snackbarHostState,
+                    modifier = baseModifier
+                )
                 SettingsCategory.MILESTONE -> MilestoneSettingsContent(
                     modifier = baseModifier
                 )
@@ -141,15 +146,19 @@ fun SettingsCategoryList(
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier.padding(horizontal = 20.dp, vertical = 18.dp),
+        modifier = modifier
+            .widthIn(max = com.example.timeapk.ui.theme.SongDesignTokens.ContentMaxWidth.dp)
+            .padding(horizontal = 20.dp, vertical = 18.dp),
         verticalArrangement = Arrangement.Top
     ) {
+        val summaries = rememberSettingsCategorySummaries()
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
         SettingsCategory.entries.forEach { category ->
             SettingsCategoryRow(
                 category = category,
                 onClick = { onCategoryClick(category) },
-                modifier = Modifier
+                modifier = Modifier,
+                summary = summaries[category]
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.24f))
         }

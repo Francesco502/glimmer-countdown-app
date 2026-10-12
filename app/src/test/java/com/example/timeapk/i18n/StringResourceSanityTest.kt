@@ -95,66 +95,32 @@ class StringResourceSanityTest {
     }
 
     @Test
-    fun zhCopyAvoidsHardEngineeringToneForSongAestheticSurfaces() {
+    fun zhFunctionalCopyIsPlainWhileDisplayCopyKeepsSongTone() {
         val defaultText = readResourceText("values/strings.xml")
         val zhText = readResourceText("values-zh/strings.xml")
         val enText = readResourceText("values-en/strings.xml")
-        val reminderSource = readSourceText("ui/reminder/ReminderStatusModels.kt")
 
+        // 4.2 review decision: buttons and prompts say plainly what they do...
         listOf(defaultText, zhText).forEach { text ->
-            assertFalse(text.contains(">保存失败，请重试。<"))
-            assertFalse(text.contains(">文件保存失败<"))
-            assertFalse(text.contains(">事件已删除<"))
-            assertFalse(text.contains(">删除<"))
-            assertFalse(text.contains(">打开设置<"))
+            assertTrue(text.contains("<string name=\"button_save_event\">保存</string>"))
+            assertTrue(text.contains("<string name=\"button_delete\">删除</string>"))
+            assertTrue(text.contains("<string name=\"share_send_image\">分享</string>"))
+            assertTrue(text.contains("<string name=\"permission_dialog_button_open_settings\">去设置</string>"))
+            assertFalse(text.contains(">落笔<"))
+            assertFalse(text.contains(">唤起分享<"))
+            assertFalse(text.contains(">移去<"))
+            assertFalse(text.contains("探寻新章"))
             assertFalse(text.contains("先定事件气质"))
-            assertFalse(text.contains("落笔补充细节"))
             assertFalse(text.contains("以纸笺行书写"))
-            assertFalse(text.contains("控制首页"))
-            assertFalse(text.contains("高级入口"))
-            assertFalse(text.contains("检查更新失败"))
-            assertFalse(text.contains("下载失败"))
-            assertFalse(text.contains("系统日程同步失败"))
-            assertFalse(text.contains("事件不存在或已删除"))
-            assertFalse(text.contains("删除 %1\$d 天节点"))
-            assertFalse(text.contains("请查看权限与日历账户"))
-            assertFalse(text.contains("请输入 24 小时制时间"))
-            assertFalse(text.contains("例如 2026/02/28"))
-            assertFalse(text.contains("你可以前往系统设置"))
-            assertFalse(text.contains("当前系统已关闭"))
-            assertFalse(text.contains("当前无法访问日历"))
-            assertFalse(text.contains("当前内容尚未保存，离开此页后修改将丢失"))
-            assertFalse(text.contains("粘贴 JSON，或导入 JSON"))
-            assertFalse(text.contains("请导入 JSON"))
-            assertFalse(text.contains("HH:mm（例如"))
-            assertFalse(text.contains("当前自定义色"))
-            assertFalse(text.contains("当前 %1\$d%%"))
-            assertFalse(text.contains("当前：%1\$s"))
-            assertFalse(text.contains("前往权限页"))
-            assertFalse(text.contains("添加天数，如"))
+            // ...while display surfaces keep the Song voice.
+            assertTrue(text.contains("<string name=\"days_today_label\">正当此时</string>"))
+            assertTrue(text.contains("<string name=\"home_empty_title\">空空如也，待录佳期</string>"))
+            assertTrue(text.contains("<string name=\"share_card_title\">分享笺</string>"))
         }
-        assertFalse(enText.contains("Save failed"))
-        assertFalse(enText.contains("Download failed"))
-        assertFalse(enText.contains("System schedule sync failed"))
-        assertFalse(enText.contains("Delete event"))
-        assertFalse(enText.contains("Event deleted"))
+        assertTrue(enText.contains("<string name=\"button_delete\">Delete</string>"))
         assertFalse(enText.contains("Choose the event tone first"))
-        assertFalse(enText.contains("fill in the details"))
-        assertFalse(enText.contains("Control home density"))
-        assertFalse(enText.contains("Please wait and try again"))
-        assertFalse(enText.contains("Open system settings"))
-        assertFalse(enText.contains("Enter a valid date, for example"))
-        assertFalse(enText.contains("Use 24-hour time, e.g."))
-        assertFalse(enText.contains("Paste JSON, or import JSON"))
-        assertFalse(enText.contains("This file could not be recognized. Import JSON"))
-        assertFalse(enText.contains("You have unsaved edits. Leave this page"))
-        assertFalse(enText.contains("Current custom color"))
-        assertFalse(enText.contains("Current: %1\$s"))
-        assertFalse(enText.contains("Add days, e.g."))
-        assertTrue(defaultText.contains("落笔未成"))
-        assertTrue(zhText.contains("落笔未成"))
-        assertTrue(reminderSource.contains("scheduleSyncDisplayDetail("))
-        assertFalse(reminderSource.contains("detail = event.lastScheduleSyncError"))
+        assertTrue(enText.contains("<string name=\"milestone_label_prefix\">Next milestone: %1\$s</string>"))
+        assertTrue(enText.contains("<string name=\"milestone_7\">Day 7</string>"))
     }
 
     @Test
@@ -181,7 +147,7 @@ class StringResourceSanityTest {
 
         listOf(defaultText, zhText).forEach { xml ->
             assertTrue(xml.contains("<string name=\"settings_schedule_calendar_no_writable\">手机系统日历里暂无可写日历；先在系统日历中添加账户或日历。</string>"))
-            assertTrue(xml.contains("<string name=\"save_event_partial_warning_no_writable_calendar\">已落笔；手机系统日历里暂无可写日历，未入系统日程。</string>"))
+            assertTrue(xml.contains("<string name=\"save_event_partial_warning_no_writable_calendar\">已保存；手机系统日历里暂无可写日历，未写入系统日程。</string>"))
             assertTrue(xml.contains("<string name=\"reminder_status_no_writable_calendar\">手机系统日历里暂无可写日历</string>"))
         }
         assertTrue(enText.contains("<string name=\"settings_schedule_calendar_no_writable\">No writable device calendar is available. Add an account or calendar in the system Calendar app.</string>"))
@@ -194,19 +160,15 @@ class StringResourceSanityTest {
         val defaultText = readResourceText("values/strings.xml")
         val zhText = readResourceText("values-zh/strings.xml")
         val enText = readResourceText("values-en/strings.xml")
-        val zhGuidance = "<string name=\"widget_config_size_preview_guidance\">这里只调整预览比例，不会改变桌面小组件的实际尺寸。实际尺寸请在桌面拖动小组件边框调整。</string>"
-        val enGuidance = "<string name=\"widget_config_size_preview_guidance\">These controls only adjust the preview proportions. Resize the actual widget from your launcher.</string>"
 
+        // 4.2 merged width/height into a single preview-size choice with the same caveat.
         listOf(defaultText, zhText).forEach { xml ->
-            assertTrue(xml.contains("<string name=\"widget_config_width_cells\">预览宽度</string>"))
-            assertTrue(xml.contains("<string name=\"widget_config_height_cells\">预览高度</string>"))
-            assertTrue(xml.contains(zhGuidance))
-            assertFalse(xml.contains("<string name=\"widget_config_width_cells\">宽度</string>"))
-            assertFalse(xml.contains("<string name=\"widget_config_height_cells\">高度</string>"))
+            assertTrue(xml.contains("<string name=\"widget_config_preview_size\">预览尺寸</string>"))
+            assertTrue(xml.contains("只影响上方预览的比例；桌面上的实际大小请长按小组件拖动边框调整。"))
+            assertFalse(xml.contains("name=\"widget_config_width_cells\""))
         }
-        assertTrue(enText.contains("<string name=\"widget_config_width_cells\">Preview width</string>"))
-        assertTrue(enText.contains("<string name=\"widget_config_height_cells\">Preview height</string>"))
-        assertTrue(enText.contains(enGuidance))
+        assertTrue(enText.contains("<string name=\"widget_config_preview_size\">Preview size</string>"))
+        assertTrue(enText.contains("Resize the real widget by long-pressing it on the home screen."))
     }
 
     @Test

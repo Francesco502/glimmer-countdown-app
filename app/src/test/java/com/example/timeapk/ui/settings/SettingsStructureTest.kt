@@ -11,7 +11,7 @@ class SettingsStructureTest {
         val source = readSource("ui/settings/SettingsSubScreens.kt")
         val appearance = source.substringBetween(
             "fun AppearanceSettingsContent(",
-            "@Composable\nfun LegacyDisplaySettingsContent"
+            "@Composable\nprivate fun FontPresetPickerDialog"
         )
 
         assertTrue(appearance.countOccurrences("SettingsExpandableSection(") >= 4)
