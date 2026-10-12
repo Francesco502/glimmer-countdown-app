@@ -38,20 +38,20 @@ class ReleaseReadinessTest {
     }
 
     @Test
-    fun versionConfigTargets41Release() {
+    fun versionConfigTargets42Release() {
         val properties = Properties().apply {
             rootGradlePropertiesFile().inputStream().use(::load)
         }
 
-        assertEquals("24", properties.getProperty("VERSION_CODE"))
-        assertEquals("4.1", properties.getProperty("VERSION_NAME"))
+        assertEquals("25", properties.getProperty("VERSION_CODE"))
+        assertEquals("4.2", properties.getProperty("VERSION_NAME"))
 
         val buildFile = appBuildGradleFile().readText(Charsets.UTF_8)
-        assertTrue(buildFile.contains("versionCode = versionCodeOverride ?: 24"))
-        assertTrue(buildFile.contains("versionName = versionNameOverride ?: \"4.1\""))
-        assertTrue(buildFile.contains("val versionNameForApk = versionNameOverride ?: \"4.1\""))
+        assertTrue(buildFile.contains("versionCode = versionCodeOverride ?: 25"))
+        assertTrue(buildFile.contains("versionName = versionNameOverride ?: \"4.2\""))
+        assertTrue(buildFile.contains("val versionNameForApk = versionNameOverride ?: \"4.2\""))
         assertTrue(buildFile.contains("applicationIdSuffix = \".play\""))
-        assertFalse("Play must keep the shared 4.1 versionName", buildFile.contains("versionNameSuffix"))
+        assertFalse("Play must keep the shared 4.2 versionName", buildFile.contains("versionNameSuffix"))
     }
 
     @Test
@@ -370,9 +370,10 @@ class ReleaseReadinessTest {
     fun songTypographyUsesBundledNotoSerifFont() {
         val source = mainSource("ui/theme/Type.kt").readText(Charsets.UTF_8)
 
-        assertTrue(source.contains("R.font.noto_serif_sc"))
-        assertTrue(fontResource("noto_serif_sc.ttf").isFile)
-        assertTrue(fontResource("zcool_xiaowei_regular.ttf").isFile)
+        assertTrue(source.contains("R.font.glimmer_serif"))
+        bundledFontFiles.forEach { assertTrue(fontResource(it).isFile) }
+        assertFalse(fontResourcePath("noto_serif_sc.ttf").exists())
+        assertFalse(fontResourcePath("zcool_xiaowei_regular.ttf").exists())
         assertFalse(fontResourcePath("noto_sans_sc.ttf").exists())
         assertTrue(source.contains("Font("))
         assertFalse(source.contains("If a licensed Song-style font is bundled later"))
@@ -380,14 +381,11 @@ class ReleaseReadinessTest {
 
     @Test
     fun bundledFontResourcesStayWithinReleaseBudget() {
-        val fontBytes = listOf(
-            fontResource("noto_serif_sc.ttf"),
-            fontResource("zcool_xiaowei_regular.ttf")
-        ).sumOf { it.length() }
+        val fontBytes = bundledFontFiles.map(::fontResource).sumOf { it.length() }
 
         assertTrue(
             "Bundled font resources are too large: $fontBytes bytes",
-            fontBytes <= 32_000_000
+            fontBytes <= 8_000_000
         )
     }
 
@@ -421,7 +419,7 @@ class ReleaseReadinessTest {
     fun aboutScreenHidesManualUpdateCheckForPlayChannel() {
         val source = mainSource("ui/settings/SettingsSubScreens.kt").readText(Charsets.UTF_8)
         val about = source.substringAfter("fun AboutSettingsContent(")
-        val controls = about.substringAfter("SettingsGroupHeader(title = stringResource(R.string.settings_about_entry_title))")
+        val controls = about.substringAfter("text = stringResource(R.string.settings_about_version")
 
         assertTrue(about.contains("fun startUpdateCheck()"))
         assertTrue(controls.contains("if (directApkUpdatesEnabled)"))
@@ -618,6 +616,11 @@ class ReleaseReadinessTest {
     private fun mainSourceRoot(): File {
         return existingFile("src/main/java/com/example/timeapk", "app/src/main/java/com/example/timeapk")
     }
+
+    private val bundledFontFiles = listOf(
+        "glimmer_serif.ttf",
+        "glimmer_xiaowei_regular.ttf"
+    )
 
     private fun fontResource(name: String): File {
         return fontResourcePath(name).takeIf(File::exists) ?: error("Missing font resource: $name")
