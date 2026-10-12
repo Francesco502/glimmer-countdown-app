@@ -39,6 +39,27 @@ class ReminderWorkerDeliveryPolicyTest {
         assertTrue(source.contains("REMINDER_DELIVERY_REPAIR_REASON"))
     }
 
+    @Test
+    fun renamedEventNotificationUsesLatestTitleNotScheduledTitle() {
+        val renamed = com.example.timeapk.data.Event(
+            id = 3,
+            title = "妈妈生日",
+            date = 0L,
+            category = com.example.timeapk.data.CATEGORY_BIRTHDAY,
+            remindEnabled = true
+        )
+
+        val decision = ReminderNotificationTextPolicy.decide(
+            latest = renamed,
+            lookupFailed = false,
+            fallbackTitle = "OSDraft-old",
+            reminderStillEnabled = { it.remindEnabled }
+        ) as ReminderDeliveryDecision.Deliver
+
+        assertEquals("妈妈生日", decision.title)
+        assertTrue(source("notifications/ReminderWorker.kt").contains("fallbackTitle = title"))
+    }
+
     private fun source(relative: String): String = listOf(
         File("src/main/java/com/example/timeapk/$relative"),
         File("app/src/main/java/com/example/timeapk/$relative")

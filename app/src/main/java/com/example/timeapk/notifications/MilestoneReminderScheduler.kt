@@ -166,10 +166,12 @@ fun cancelMilestoneReminders(context: android.content.Context, eventId: Int) {
     val wm = WorkManager.getInstance(context)
     wm.cancelUniqueWork("$MILESTONE_WORK_PREFIX$eventId")
     wm.cancelAllWorkByTag("${MILESTONE_REMIND_TAG}_$eventId")
+    ExactReminderAlarms.cancel(context, ExactAlarmKind.MILESTONE_REMINDER, eventId)
 }
 
 fun cancelAllMilestoneReminders(context: android.content.Context) {
     WorkManager.getInstance(context).cancelAllWorkByTag(MILESTONE_REMIND_TAG)
+    ExactReminderAlarms.cancelAllMilestones(context)
 }
 
 internal fun shouldClearCalendarBeforeMilestoneSync(
@@ -356,19 +358,31 @@ private suspend fun scheduleMilestoneReminderForEvent(
         MilestoneReminderWorker.KEY_TITLE to event.title,
         MilestoneReminderWorker.KEY_EVENT_ID to event.id,
         MilestoneReminderWorker.KEY_MILESTONE_LABEL to milestoneLabel,
-        MilestoneReminderWorker.KEY_DAYS_LEFT to remindDaysAhead
+        MilestoneReminderWorker.KEY_DAYS_LEFT to remindDaysAhead,
+        MilestoneReminderWorker.KEY_MILESTONE_VALUE to plan.milestoneValue,
+        MilestoneReminderWorker.KEY_MILESTONE_YEARS to (plan.milestoneYears ?: 0)
     )
-    val request = OneTimeWorkRequestBuilder<MilestoneReminderWorker>()
-        .setInitialDelay(delayMillis, TimeUnit.MILLISECONDS)
-        .setInputData(data)
-        .addTag(MILESTONE_REMIND_TAG)
-        .addTag("${MILESTONE_REMIND_TAG}_${event.id}")
-        .build()
-    WorkManager.getInstance(context).enqueueUniqueWork(
-        "$MILESTONE_WORK_PREFIX${event.id}",
-        ExistingWorkPolicy.REPLACE,
-        request
-    )
+    val armedExact = ExactReminderAlarms.currentPath(context) == ReminderDeliveryPath.EXACT_ALARM &&
+        ExactReminderAlarms.schedule(
+            context = context,
+            kind = ExactAlarmKind.MILESTONE_REMINDER,
+            eventId = event.id,
+            triggerAtMillis = plan.remindAtMillis,
+            payload = data
+        )
+    if (!armedExact) {
+        val request = OneTimeWorkRequestBuilder<MilestoneReminderWorker>()
+            .setInitialDelay(delayMillis, TimeUnit.MILLISECONDS)
+            .setInputData(data)
+            .addTag(MILESTONE_REMIND_TAG)
+            .addTag("${MILESTONE_REMIND_TAG}_${event.id}")
+            .build()
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            "$MILESTONE_WORK_PREFIX${event.id}",
+            ExistingWorkPolicy.REPLACE,
+            request
+        )
+    }
 
     var milestoneScheduleResult: ScheduleSyncManager.MilestoneScheduleSyncResult? = null
     if (event.syncToScheduleEnabled) {

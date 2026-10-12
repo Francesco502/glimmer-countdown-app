@@ -66,7 +66,9 @@ class RescheduleAllWorker(
                     milestoneRemindDaysAhead.toString(),
                     milestoneRemindTime.toString(),
                     smartMilestonesEnabled.toString(),
-                    customMilestones.sorted().joinToString(",")
+                    customMilestones.sorted().joinToString(","),
+                    // Revoking exact alarms sends no broadcast; a path change forces a full rebuild.
+                    ExactReminderAlarms.currentPath(applicationContext).name
                 ).joinToString("|")
             )
             val eventFingerprints = events.associate { event -> event.id to fingerprintEvent(event) }

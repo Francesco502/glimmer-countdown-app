@@ -131,6 +131,20 @@ fun Context.openAppDetailsSettings() {
     launchExternalSettingsIntent(intent)
 }
 
+/** Opens the system "Alarms & reminders" page (API 31+), falling back to app details. */
+@SuppressLint("InlinedApi")
+fun Context.openExactAlarmSettings() {
+    val opened = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && runCatching {
+        launchExternalSettingsIntent(
+            Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.fromParts("package", packageName, null))
+        )
+        true
+    }.getOrDefault(false)
+    if (!opened) {
+        runCatching { openAppDetailsSettings() }
+    }
+}
+
 fun Context.openSystemSyncSettings() {
     val syncIntent = Intent(Settings.ACTION_SYNC_SETTINGS)
     val fallbackIntent = Intent(Settings.ACTION_SETTINGS)
