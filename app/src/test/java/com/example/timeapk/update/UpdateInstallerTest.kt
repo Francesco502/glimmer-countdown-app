@@ -48,6 +48,21 @@ class UpdateInstallerTest {
     }
 
     @Test
+    fun progressIsDeterminateWithKnownLengthAndIndeterminateOtherwise() = runBlocking {
+        val bytes = ByteArray(200 * 1024) { it.toByte() }
+        val known = mutableListOf<DownloadProgress>()
+        writeDownloadedApk(ByteArrayInputStream(bytes), previousApk(), bytes.size.toLong()) { known += it }
+        assertEquals(0f, known.first().fraction)
+        assertEquals(1f, known.last().fraction)
+        assertTrue(known.zipWithNext().all { (a, b) -> a.bytesRead <= b.bytesRead })
+
+        val unknown = mutableListOf<DownloadProgress>()
+        writeDownloadedApk(ByteArrayInputStream(bytes), previousApk(), -1L) { unknown += it }
+        assertTrue(unknown.all { it.fraction == null })
+        assertTrue(unknown.last().bytesRead > 0L)
+    }
+
+    @Test
     fun invalidOrIncompleteDownloadKeepsPreviousApkAndRemovesPartialFile() {
         val bytes = "new complete APK".toByteArray()
         listOf(

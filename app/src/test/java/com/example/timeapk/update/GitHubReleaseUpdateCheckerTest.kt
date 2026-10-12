@@ -198,7 +198,7 @@ class GitHubReleaseUpdateCheckerTest {
 
         assertTrue(source.contains("val rawTag = json.opt(\"tag_name\")"))
         assertTrue(source.contains("require(rawTag is String)"))
-        assertTrue(source.indexOf("require(rawTag is String)") < source.indexOf("normalizeReleaseVersion(rawTag)"))
+        assertTrue(source.indexOf("require(rawTag is String)") < source.indexOf("parseReleaseVersion(rawTag)"))
     }
 
     @Test

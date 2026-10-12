@@ -19,13 +19,17 @@ data class ReleaseFetchResult(
 )
 
 private data class ParsedReleaseInfo(
-    val tagName: String,
+    val version: ReleaseVersion?,
     val releaseNotes: String? = null,
+    val releasePageUrl: String? = null,
     val assets: List<ReleaseAsset>
 )
 
 internal const val EXPECTED_DIRECT_APK_ERROR =
     "Expected Direct APK asset is missing or ambiguous"
+
+internal const val UNRECOGNIZED_VERSION_ERROR =
+    "Release version format is not recognized"
 
 /**
  * 通过 GitHub API 获取仓库最新 Release，与当前 [BuildConfig.VERSION_NAME] 比较，
@@ -41,6 +45,9 @@ class GitHubReleaseUpdateChecker(
 
     private val latestReleaseUrl
         get() = "https://api.github.com/repos/$owner/$repo/releases/latest"
+
+    private val releasesPageUrl
+        get() = "https://github.com/$owner/$repo/releases/latest"
 
     private val defaultClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
@@ -78,25 +85,37 @@ class GitHubReleaseUpdateChecker(
                 return@withContext CheckUpdateResult(
                     hasUpdate = false,
                     checkFailed = true,
-                    errorMessage = release.errorMessage ?: "Release fetch failed"
+                    errorMessage = release.errorMessage ?: "Release fetch failed",
+                    failureKind = UpdateFailureKind.NETWORK
                 )
             }
             val releaseInfo = parseReleaseInfo(release.responseBody)
-            val tagName = releaseInfo.tagName
-            if (!isVersionNewer(tagName, installedVersionName)) {
+            val remoteVersion = releaseInfo.version
+            val installedVersion = parseReleaseVersion(installedVersionName)
+            if (remoteVersion == null || installedVersion == null) {
+                return@withContext CheckUpdateResult(
+                    hasUpdate = false,
+                    checkFailed = true,
+                    errorMessage = UNRECOGNIZED_VERSION_ERROR,
+                    failureKind = UpdateFailureKind.VERSION_UNRECOGNIZED
+                )
+            }
+            if (remoteVersion <= installedVersion) {
                 return@withContext CheckUpdateResult(hasUpdate = false)
             }
-            val downloadUrl = selectDirectApkAsset(releaseInfo.tagName, releaseInfo.assets)?.downloadUrl
+            val downloadUrl = selectDirectApkAsset(remoteVersion, releaseInfo.assets)?.downloadUrl
                 ?: return@withContext CheckUpdateResult(
                     hasUpdate = false,
                     checkFailed = true,
-                    errorMessage = EXPECTED_DIRECT_APK_ERROR
+                    errorMessage = EXPECTED_DIRECT_APK_ERROR,
+                    failureKind = UpdateFailureKind.INVALID_RELEASE
                 )
             CheckUpdateResult(
                 hasUpdate = true,
-                versionName = tagName,
+                versionName = remoteVersion.displayName,
                 downloadUrl = downloadUrl,
-                releaseNotes = releaseInfo.releaseNotes
+                releaseNotes = releaseInfo.releaseNotes,
+                releasePageUrl = releaseInfo.releasePageUrl ?: releasesPageUrl
             )
         } catch (cancelled: CancellationException) {
             throw cancelled
@@ -105,33 +124,22 @@ class GitHubReleaseUpdateChecker(
             CheckUpdateResult(
                 hasUpdate = false,
                 checkFailed = true,
-                errorMessage = e.message
+                errorMessage = e.message ?: e.javaClass.simpleName,
+                failureKind = if (e is java.io.IOException) {
+                    UpdateFailureKind.NETWORK
+                } else {
+                    UpdateFailureKind.INVALID_RELEASE
+                }
             )
         }
     }
-
-    /**
-     * 比较远程版本 remote 是否大于当前版本 current（如 "1.1" > "1.0"）。
-     */
-    private fun isVersionNewer(remote: String, current: String): Boolean {
-        val r = parseVersionSegments(remote)
-        val c = parseVersionSegments(normalizeReleaseVersion(current))
-        for (i in 0 until maxOf(r.size, c.size)) {
-            val rn = r.getOrElse(i) { 0 }
-            val cn = c.getOrElse(i) { 0 }
-            if (rn != cn) return rn > cn
-        }
-        return false
-    }
-
-    private fun parseVersionSegments(version: String): List<Int> =
-        version.split(".").map(String::toInt)
 
     private fun parseReleaseInfo(responseBody: String): ParsedReleaseInfo {
         val json = JSONObject(responseBody)
         val rawTag = json.opt("tag_name")
         require(rawTag is String) { "Release tag must be a string" }
-        val tagName = normalizeReleaseVersion(rawTag)
+        // Unparseable tags become an explicit VERSION_UNRECOGNIZED result, never an exception.
+        val version = parseReleaseVersion(rawTag)
         val assetsJson = when {
             !json.has("assets") -> JSONArray()
             json.isNull("assets") -> throw IllegalArgumentException("Release assets must be an array")
@@ -151,9 +159,17 @@ class GitHubReleaseUpdateChecker(
             }
         }
         return ParsedReleaseInfo(
-            tagName = tagName,
+            version = version,
             releaseNotes = json.optString("body").trim().ifBlank { null },
+            releasePageUrl = parseReleasePageUrl(json),
             assets = assets
         )
+    }
+
+    /** Only an https GitHub page is accepted for the browser; anything else falls back. */
+    private fun parseReleasePageUrl(json: JSONObject): String? {
+        val raw = json.opt("html_url") as? String ?: return null
+        val url = raw.trim()
+        return url.takeIf { it.startsWith("https://github.com/") }
     }
 }

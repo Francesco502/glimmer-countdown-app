@@ -24,11 +24,24 @@ internal fun expectedDirectApkName(remoteVersion: String): String {
     return "glimmer-countdown-${normalizedVersion.replace('.', '-')}.apk"
 }
 
+/** Asset name for a parsed (possibly prerelease) version, mirroring the build's apkBaseName. */
+internal fun expectedDirectApkName(version: ReleaseVersion): String =
+    "glimmer-countdown-${version.displayName.replace('.', '-')}.apk"
+
 internal fun selectDirectApkAsset(
     remoteVersion: String,
     assets: List<ReleaseAsset>
+): ReleaseAsset? = selectDirectApkAssetNamed(expectedDirectApkName(remoteVersion), assets)
+
+internal fun selectDirectApkAsset(
+    version: ReleaseVersion,
+    assets: List<ReleaseAsset>
+): ReleaseAsset? = selectDirectApkAssetNamed(expectedDirectApkName(version), assets)
+
+private fun selectDirectApkAssetNamed(
+    expectedName: String,
+    assets: List<ReleaseAsset>
 ): ReleaseAsset? {
-    val expectedName = expectedDirectApkName(remoteVersion)
     val exactMatches = assets.filter { it.name == expectedName }
     return exactMatches.singleOrNull()?.takeIf { it.downloadUrl.isNotBlank() }
 }
