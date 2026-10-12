@@ -577,7 +577,7 @@ class Smoke:
         self.stage = "pages-04-settings-root"
         self.tap(self.seek("Settings entry", lambda tree: tree.action(settings)))
         capture(self.stage, lambda tree: tree.contains(settings) and tree.action(widget) is not None and
-                tree.action(("Theme", "主题")) is not None and tree.action(("Export / Import", "导出 / 导入")) is not None)
+                tree.action(("Theme and motion", "主题与动效", "Theme", "主题")) is not None and tree.action(("Export / Import", "导出 / 导入")) is not None)
         self.tap(self.seek("Widget settings entry", lambda tree: tree.action(widget)))
         self.stage = "pages-05-widget-default-preview"
         tree = self.seek("widget default configuration", lambda tree: tree if
