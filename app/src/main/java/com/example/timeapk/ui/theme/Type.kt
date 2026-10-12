@@ -1,9 +1,11 @@
 package com.example.timeapk.ui.theme
 
 import androidx.compose.material3.Typography
+import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
@@ -11,15 +13,24 @@ import com.example.timeapk.R
 
 private fun scaleSp(value: Int, scale: Float): TextUnit = (value * scale).sp
 
+// glimmer_serif.ttf is a single variable font (wght 200-900); each declared weight
+// pins its wght axis explicitly so rendering matches the weight Compose selects.
+@OptIn(ExperimentalTextApi::class)
+private fun glimmerSerif(weight: FontWeight) = Font(
+    R.font.glimmer_serif,
+    weight = weight,
+    variationSettings = FontVariation.Settings(FontVariation.weight(weight.weight))
+)
+
 private val SongSerifFontFamily = FontFamily(
-    Font(R.font.noto_serif_sc, weight = FontWeight.Light),
-    Font(R.font.noto_serif_sc, weight = FontWeight.Normal),
-    Font(R.font.noto_serif_sc, weight = FontWeight.Medium),
-    Font(R.font.noto_serif_sc, weight = FontWeight.SemiBold)
+    glimmerSerif(FontWeight.Light),
+    glimmerSerif(FontWeight.Normal),
+    glimmerSerif(FontWeight.Medium),
+    glimmerSerif(FontWeight.SemiBold)
 )
 
 private val ZcoolXiaoWeiFontFamily = FontFamily(
-    Font(R.font.zcool_xiaowei_regular, weight = FontWeight.Normal)
+    Font(R.font.glimmer_xiaowei_regular, weight = FontWeight.Normal)
 )
 
 fun typographyForFontPreset(preset: Int, baseScale: Float = 1f): Typography {

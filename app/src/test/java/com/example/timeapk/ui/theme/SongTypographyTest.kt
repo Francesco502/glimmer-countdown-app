@@ -19,8 +19,9 @@ class SongTypographyTest {
         val source = readSource("ui/theme/Type.kt")
         val presetSource = readSource("ui/theme/FontPresets.kt")
 
-        assertTrue(source.contains("R.font.noto_serif_sc"))
-        assertTrue(source.contains("R.font.zcool_xiaowei_regular"))
+        assertTrue(source.contains("R.font.glimmer_serif"))
+        assertTrue(source.contains("R.font.glimmer_xiaowei_regular"))
+        assertTrue(source.contains("FontVariation.weight("))
         assertTrue(source.contains("FontFamily.SansSerif"))
         assertTrue(source.contains("FONT_PRESET_NOTO_SERIF_SC"))
         assertTrue(source.contains("FONT_PRESET_SYSTEM_SANS"))

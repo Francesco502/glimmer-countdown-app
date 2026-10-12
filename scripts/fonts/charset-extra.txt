@@ -1,0 +1,28 @@
+# Extra characters always kept in the Glimmer font subsets (in addition to GB2312,
+# the Unicode ranges in subset-fonts.py, all values*/strings.xml text and CJK
+# characters hard-coded in Kotlin sources). Whitespace is ignored; lines starting
+# with # are comments.
+
+# Digits and Chinese numerals
+0123456789 〇零一二三四五六七八九十百千万亿两廿卅卌
+
+# Lunar months and days
+正二三四五六七八九十冬腊 闰 初 月 日 年 大 小 朔 望 晦
+
+# Heavenly stems / earthly branches / zodiac
+甲乙丙丁戊己庚辛壬癸
+子丑寅卯辰巳午未申酉戌亥
+鼠牛虎兔龙蛇马羊猴鸡狗猪
+
+# 24 solar terms
+立春雨水惊蛰春分清明谷雨立夏小满芒种夏至小暑大暑
+立秋处暑白露秋分寒露霜降立冬小雪大雪冬至小寒大寒
+
+# Week and time words
+周星期礼拜天今明昨后前时分秒点刻 正当此时 已经 还有 距离 倒数 纪念
+
+# Common festivals
+元旦春节元宵端午七夕中秋重阳除夕清明腊八寒食上巳中元下元
+
+# Common traditional forms for lunar/festival text
+臘閏節氣陰曆農曆歲時鐘點週禮紀念離還經後
