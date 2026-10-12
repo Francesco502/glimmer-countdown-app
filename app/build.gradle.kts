@@ -150,11 +150,13 @@ android {
         create("direct") {
             dimension = "channel"
             buildConfigField("boolean", "DIRECT_APK_UPDATES_ENABLED", "true")
+            buildConfigField("boolean", "EXACT_REMINDERS_SUPPORTED", "true")
         }
         create("play") {
             dimension = "channel"
             applicationIdSuffix = ".play"
             buildConfigField("boolean", "DIRECT_APK_UPDATES_ENABLED", "false")
+            buildConfigField("boolean", "EXACT_REMINDERS_SUPPORTED", "false")
         }
     }
 
@@ -236,6 +238,7 @@ dependencies {
 
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.work:work-runtime-ktx:2.9.0")
+    implementation("androidx.exifinterface:exifinterface:1.3.7")
     implementation("androidx.datastore:datastore-preferences:1.0.0")
     implementation("com.squareup.okhttp3:okhttp:5.3.2")
     implementation("cn.6tail:lunar:1.7.7")

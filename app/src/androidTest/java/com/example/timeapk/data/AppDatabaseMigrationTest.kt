@@ -160,6 +160,55 @@ class AppDatabaseMigrationTest {
         migratedDb.close()
     }
 
+    @Test
+    fun migrate10To11_addsCategoriesTableAndImageColumnWithoutTouchingRows() {
+        val dbName = "migration-test-v10-to-v11"
+
+        helper.createDatabase(dbName, 10).apply {
+            execSQL(
+                """
+                INSERT INTO events (
+                    id, title, date, category, note, colorHex, repeatType,
+                    remindDaysBefore, reminderTimeMinutesOfDay, remindEnabled,
+                    syncToScheduleEnabled, scheduleEventId, targetCalendarId,
+                    lastScheduleSyncAt, lastScheduleSyncError, createdAt, isLunar
+                ) VALUES (
+                    3, 'Anniversary', 1704067200000, 'anniversary', 'note', '#457080', 'yearly',
+                    1, 540, 1,
+                    0, NULL, NULL,
+                    NULL, NULL, 1704067200000, 1
+                )
+                """.trimIndent()
+            )
+            close()
+        }
+
+        val migratedDb = helper.runMigrationsAndValidate(
+            dbName,
+            11,
+            true,
+            AppDatabase.MIGRATION_10_11_FOR_TEST
+        )
+
+        assertTrue(columnNamesOf(migratedDb, "events").contains("imagePath"))
+        assertEquals(
+            setOf("id", "name", "colorHex", "sortOrder", "createdAt"),
+            columnNamesOf(migratedDb, "categories")
+        )
+        migratedDb.query("SELECT title, category, isLunar, imagePath FROM events WHERE id = 3").use { cursor ->
+            assertEquals(true, cursor.moveToFirst())
+            assertEquals("Anniversary", cursor.getString(0))
+            assertEquals("anniversary", cursor.getString(1))
+            assertEquals(1, cursor.getInt(2))
+            assertTrue(cursor.isNull(3))
+        }
+        migratedDb.query("SELECT COUNT(*) FROM categories").use { cursor ->
+            assertEquals(true, cursor.moveToFirst())
+            assertEquals(0, cursor.getInt(0))
+        }
+        migratedDb.close()
+    }
+
     private fun columnNamesOf(db: SupportSQLiteDatabase, tableName: String): Set<String> {
         val result = linkedSetOf<String>()
         db.query("PRAGMA table_info($tableName)").use { cursor ->

@@ -6,15 +6,22 @@ import com.example.timeapk.ui.utils.nextOccurrenceDate
 import org.json.JSONArray
 import org.json.JSONObject
 
-fun List<Event>.toJsonString(): String {
+fun List<Event>.toJsonString(categories: List<Category> = emptyList()): String {
+    val categoriesById = categories.associateBy { it.id }
     val arr = JSONArray()
     for (e in this) {
+        val customCategory = categoriesById[e.category]
         arr.put(
             JSONObject().apply {
                 put("id", e.id)
                 put("title", e.title)
                 put("date", e.date)
                 put("category", e.category)
+                if (customCategory != null) {
+                    // 自定义分类随事件导出名称与颜色，导入时按名称合并。
+                    put("categoryName", customCategory.name)
+                    put("categoryColorHex", customCategory.colorHex ?: JSONObject.NULL)
+                }
                 put("note", e.note)
                 put("colorHex", e.colorHex ?: JSONObject.NULL)
                 put("repeatType", e.repeatType)
@@ -30,13 +37,21 @@ fun List<Event>.toJsonString(): String {
     return arr.toString()
 }
 
-data class ParseResult(val events: List<Event>, val errorCount: Int)
+/** 备份中声明的自定义分类：原 id → 名称与颜色。 */
+data class ImportedCategoryDraft(val name: String, val colorHex: String?)
+
+data class ParseResult(
+    val events: List<Event>,
+    val errorCount: Int,
+    val categoryDrafts: Map<String, ImportedCategoryDraft> = emptyMap()
+)
 
 private const val MIN_EVENT_DATE_MILLIS = -2208988800000L
 private val VALID_CATEGORIES = setOf(CATEGORY_BIRTHDAY, CATEGORY_ANNIVERSARY, CATEGORY_OTHER)
 
 fun parseEventsFromJson(json: String): ParseResult {
     val list = mutableListOf<Event>()
+    val drafts = linkedMapOf<String, ImportedCategoryDraft>()
     var errorCount = 0
     try {
         val arr = JSONArray(json)
@@ -48,8 +63,12 @@ fun parseEventsFromJson(json: String): ParseResult {
                 val date = o.requiredLong("date").also {
                     require(it >= MIN_EVENT_DATE_MILLIS) { "Date before 1900" }
                 }
-                val category = o.requiredString("category").also {
-                    require(it in VALID_CATEGORIES) { "Unknown category" }
+                val category = o.requiredString("category")
+                if (category !in VALID_CATEGORIES) {
+                    require(isCustomCategoryId(category)) { "Unknown category" }
+                    val name = normalizeCategoryName(o.requiredString("categoryName"))
+                    require(name.isNotEmpty()) { "Empty category name" }
+                    drafts.putIfAbsent(category, ImportedCategoryDraft(name, o.optionalNullableString("categoryColorHex")))
                 }
                 list.add(
                     Event(
@@ -79,7 +98,56 @@ fun parseEventsFromJson(json: String): ParseResult {
     } catch (_: Exception) {
         return ParseResult(emptyList(), -1)
     }
-    return ParseResult(list, errorCount)
+    return ParseResult(list, errorCount, drafts)
+}
+
+data class ImportCategoryResolution(
+    val events: List<Event>,
+    val newCategories: List<Category>
+)
+
+/**
+ * 把备份里的自定义分类合并到本机：同名（忽略大小写）复用已有分类，否则新建。
+ * 无对应声明的未知分类回落为“其他”。
+ */
+fun resolveImportedCategories(
+    events: List<Event>,
+    drafts: Map<String, ImportedCategoryDraft>,
+    existing: List<Category>,
+    newId: () -> String = ::newCustomCategoryId,
+    nowMillis: Long = System.currentTimeMillis()
+): ImportCategoryResolution {
+    val existingIds = existing.mapTo(mutableSetOf()) { it.id }
+    val byName = existing.associateBy { it.name.lowercase() }.toMutableMap()
+    var nextOrder = (existing.maxOfOrNull { it.sortOrder } ?: -1) + 1
+    val created = mutableListOf<Category>()
+    val idMap = mutableMapOf<String, String>()
+    drafts.forEach { (sourceId, draft) ->
+        val match = byName[draft.name.lowercase()]
+        val targetId = when {
+            match != null -> match.id
+            else -> {
+                val category = Category(
+                    id = newId(),
+                    name = draft.name,
+                    colorHex = draft.colorHex,
+                    sortOrder = nextOrder++,
+                    createdAt = nowMillis
+                )
+                created += category
+                byName[draft.name.lowercase()] = category
+                category.id
+            }
+        }
+        idMap[sourceId] = targetId
+    }
+    val knownIds = existingIds + created.map { it.id }
+    val remapped = events.map { event ->
+        val mapped = idMap[event.category] ?: event.category
+        val resolved = resolveCategoryId(mapped, knownIds)
+        if (resolved == event.category) event else event.copy(category = resolved)
+    }
+    return ImportCategoryResolution(remapped, created)
 }
 
 private fun JSONObject.requiredString(name: String): String =

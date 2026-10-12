@@ -7,9 +7,10 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [Event::class], version = 10, exportSchema = true)
+@Database(entities = [Event::class, Category::class], version = 11, exportSchema = true)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun eventDao(): EventDao
+    abstract fun categoryDao(): CategoryDao
 
     companion object {
         private val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -200,10 +201,27 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE events_new RENAME TO events")
             }
         }
+        private val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE events ADD COLUMN imagePath TEXT")
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS categories (
+                        id TEXT PRIMARY KEY NOT NULL,
+                        name TEXT NOT NULL,
+                        colorHex TEXT,
+                        sortOrder INTEGER NOT NULL,
+                        createdAt INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
         internal val MIGRATION_6_7_FOR_TEST: Migration = MIGRATION_6_7
         internal val MIGRATION_7_8_FOR_TEST: Migration = MIGRATION_7_8
         internal val MIGRATION_8_9_FOR_TEST: Migration = MIGRATION_8_9
         internal val MIGRATION_9_10_FOR_TEST: Migration = MIGRATION_9_10
+        internal val MIGRATION_10_11_FOR_TEST: Migration = MIGRATION_10_11
 
         @Volatile
         private var Instance: AppDatabase? = null
@@ -220,7 +238,8 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_6_7,
                         MIGRATION_7_8,
                         MIGRATION_8_9,
-                        MIGRATION_9_10
+                        MIGRATION_9_10,
+                        MIGRATION_10_11
                     )
                     .build()
                     .also { Instance = it }

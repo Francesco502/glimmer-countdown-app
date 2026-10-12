@@ -54,6 +54,23 @@ private val REDUCE_MOTION_ENABLED = booleanPreferencesKey("reduce_motion_enabled
 private val SONG_SOUND_ENABLED = booleanPreferencesKey("song_sound_enabled")
 private val SCHEDULE_TARGET_CALENDAR_ID = longPreferencesKey("schedule_target_calendar_id")
 private val SCHEDULE_USE_RRULE_SYNC = booleanPreferencesKey("schedule_use_rrule_sync")
+private val EXACT_REMINDERS_ENABLED = booleanPreferencesKey("exact_reminders_enabled")
+private val FILTER_CATEGORY_ID = stringPreferencesKey("filter_category_id")
+private val HOME_NEAREST_BANNER_ENABLED = booleanPreferencesKey("home_nearest_banner_enabled")
+private val HOME_REORDER_HINT_SEEN = booleanPreferencesKey("home_reorder_hint_seen")
+private val HOME_TIME_TOGGLE_HINT_SEEN = booleanPreferencesKey("home_time_toggle_hint_seen")
+private val DYNAMIC_COLOR_ENABLED = booleanPreferencesKey("dynamic_color_enabled")
+
+/** 旧版整数筛选（0 全部 / 1 生日 / 2 纪念日 / 3 其他）映射为分类 id；null 表示全部。 */
+internal fun resolveFilterCategoryId(storedId: String?, legacyFilterType: Int?): String? {
+    if (storedId != null) return storedId.takeIf { it.isNotBlank() }
+    return when (legacyFilterType) {
+        1 -> CATEGORY_BIRTHDAY
+        2 -> CATEGORY_ANNIVERSARY
+        3 -> CATEGORY_OTHER
+        else -> null
+    }
+}
 
 private const val APP_BASE_FONT_SCALE_MIN = 0.85f
 private const val APP_BASE_FONT_SCALE_MAX = 1.30f
@@ -128,6 +145,37 @@ internal fun encodePinnedEventIds(ids: List<Int>): String = JSONArray(ids.distin
 class UserPreferencesRepository(private val context: Context) {
     val themeModeFlow: Flow<Int> = context.dataStore.data.map { it[THEME_MODE] ?: THEME_FOLLOW_SYSTEM }
     val filterTypeFlow: Flow<Int> = context.dataStore.data.map { it[FILTER_TYPE] ?: 0 }
+    val filterCategoryIdFlow: Flow<String?> = context.dataStore.data.map {
+        resolveFilterCategoryId(it[FILTER_CATEGORY_ID], it[FILTER_TYPE])
+    }
+    val homeNearestBannerEnabledFlow: Flow<Boolean> =
+        context.dataStore.data.map { it[HOME_NEAREST_BANNER_ENABLED] ?: true }
+    val homeReorderHintSeenFlow: Flow<Boolean> =
+        context.dataStore.data.map { it[HOME_REORDER_HINT_SEEN] ?: false }
+    val homeTimeToggleHintSeenFlow: Flow<Boolean> =
+        context.dataStore.data.map { it[HOME_TIME_TOGGLE_HINT_SEEN] ?: false }
+    val dynamicColorEnabledFlow: Flow<Boolean> =
+        context.dataStore.data.map { it[DYNAMIC_COLOR_ENABLED] ?: false }
+
+    suspend fun setFilterCategoryId(id: String?) {
+        context.dataStore.edit { it[FILTER_CATEGORY_ID] = id.orEmpty() }
+    }
+
+    suspend fun setHomeNearestBannerEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[HOME_NEAREST_BANNER_ENABLED] = enabled }
+    }
+
+    suspend fun markHomeReorderHintSeen() {
+        context.dataStore.edit { it[HOME_REORDER_HINT_SEEN] = true }
+    }
+
+    suspend fun markHomeTimeToggleHintSeen() {
+        context.dataStore.edit { it[HOME_TIME_TOGGLE_HINT_SEEN] = true }
+    }
+
+    suspend fun setDynamicColorEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[DYNAMIC_COLOR_ENABLED] = enabled }
+    }
     val sortTypeFlow: Flow<Int> = context.dataStore.data.map { prefs ->
         resolveHomeSortPreference(
             storedSortType = prefs[SORT_TYPE],
@@ -342,6 +390,16 @@ class UserPreferencesRepository(private val context: Context) {
         val list = days.filter { it > 0 }.distinct().sorted()
         val json = JSONArray(list).toString()
         context.dataStore.edit { it[CUSTOM_MILESTONES_JSON] = json }
+    }
+
+    /** Opt-in exact alarm delivery (direct channel only). Default off. */
+    val exactRemindersEnabledFlow: Flow<Boolean> =
+        context.dataStore.data.map { it[EXACT_REMINDERS_ENABLED] ?: false }
+
+    suspend fun setExactRemindersEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[EXACT_REMINDERS_ENABLED] = enabled }
+        // Schedulers run synchronously from many call sites; they read this mirror instead of DataStore.
+        com.example.timeapk.notifications.ExactReminderPreferenceMirror.setEnabled(context, enabled)
     }
 
     suspend fun setMilestoneRemindEnabled(enabled: Boolean) {

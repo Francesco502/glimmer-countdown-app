@@ -43,7 +43,8 @@ data class BackupParseResult(
     val recognizedCount: Int,
     val parseErrorCount: Int,
     val skippedDuplicateCount: Int,
-    val failure: BackupParseFailure?
+    val failure: BackupParseFailure?,
+    val categoryDrafts: Map<String, ImportedCategoryDraft> = emptyMap()
 )
 
 data class ExistingDuplicateFilterResult(
@@ -88,7 +89,8 @@ fun parseEventsFromBackupBytesDetailed(bytes: ByteArray): BackupParseResult {
             recognizedCount = recognizedCount,
             parseErrorCount = jsonResult.errorCount,
             skippedDuplicateCount = 0,
-            failure = if (jsonResult.events.isEmpty()) BackupParseFailure.NO_EVENTS_FOUND else null
+            failure = if (jsonResult.events.isEmpty()) BackupParseFailure.NO_EVENTS_FOUND else null,
+            categoryDrafts = jsonResult.categoryDrafts
         )
     }
 
