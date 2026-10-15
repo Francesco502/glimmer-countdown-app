@@ -441,7 +441,8 @@ class Smoke:
             raise SmokeFailure("Upgrade requires installed baseline 4.2/25, got " + repr(before))
 
         nonce = uuid.uuid4().hex[:12]
-        title, note = "UpgradeEvent-" + nonce, "UpgradeNote-" + nonce
+        # Each legacy-IME prefix needs a native UI dump; keep the nonce with short labels.
+        title, note = "UE-" + nonce, "UN-" + nonce
         self.evidence.update(title=title, note=note,
                              baseline_input="baseline only: each ASCII character confirmed against its complete UI prefix",
                              baseline_input_character_count=len(title) + len(note))
