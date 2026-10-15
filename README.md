@@ -2,17 +2,25 @@
 
 拾光是一款面向 Android 的倒数日、生日与纪念日应用。它把日子整理成安静的纸笺、月历和桌面小组件，让重要时刻能被看见，也能被系统提醒与日历同步照顾到。
 
-`4.2.1` 候选（`versionCode=26`，2026-10-15）修复桌面小组件夜间模式的自动文字颜色。发布门、实际验证与剩余限制见 [4.2.1 发布检查清单](docs/RELEASE_CHECKLIST.md)。[v4.2](docs/releases/v4.2-checklist.md)、[v4.1 历史清单](docs/releases/v4.1-checklist.md) 与 [v4.0 历史清单](docs/releases/v4.0-checklist.md) 保留各版证据，不作为本版通过记录。
+`4.2.1` 已发布（`versionCode=26`，2026-10-15）修复桌面小组件夜间模式的自动文字颜色。发布门、实际验证与剩余限制见 [4.2.1 发布检查清单](docs/RELEASE_CHECKLIST.md)。[v4.2](docs/releases/v4.2-checklist.md)、[v4.1 历史清单](docs/releases/v4.1-checklist.md) 与 [v4.0 历史清单](docs/releases/v4.0-checklist.md) 保留各版证据，不作为本版通过记录。
 
 **唯一正式发布渠道：GitHub Release。** 4.2.1 的唯一官方资产为 Direct APK `glimmer-countdown-4-2-1.apk`，沿用正式签名，可保留数据覆盖升级。Play flavor 仅保留用于兼容性与开发回归。
 
-最新公开版本为 `4.2`：[下载 v4.2 APK](https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v4.2)
+最新公开版本为 `4.2.1`：[下载 v4.2.1 APK](https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v4.2.1)
 
 ## 4.2.1 小组件修复
 
 - 自动文字颜色随夜间背景同步切换；从手动颜色切回自动后立即更新。
 - 列表、空状态与单事件小组件使用同一颜色更新逻辑。
 - 手动选择的浅色文字或深色文字保持固定。
+
+## 4.2.1 桌面小组件实测
+
+最终正式 APK 在 API36 模拟器的 Pixel Launcher 中实际绑定列表与单日小组件，完成日间→夜间→日间切换。安装后读回的 APK 与公开资产 SHA-256 一致；这是模拟器证据，实体手机未测。原图与来源见[截图记录](docs/screenshots/4.2.1/README.md)。
+
+| 日间 | 夜间 |
+|---|---|
+| <img src="docs/screenshots/4.2.1/launcher-light.png" width="260" alt="拾光4.2.1模拟器桌面小组件日间颜色"> | <img src="docs/screenshots/4.2.1/launcher-dark.png" width="260" alt="拾光4.2.1模拟器桌面小组件夜间颜色"> |
 
 ## 历史界面预览（v4.2）
 
@@ -91,8 +99,8 @@
 
 - `versionName`: `4.2.1`
 - `versionCode`: `26`
-- 发布状态：候选 / 未发布
-- Direct APK 目标文件名：`glimmer-countdown-4-2-1.apk`
+- 发布状态：已发布
+- Direct APK 正式资产文件名：`glimmer-countdown-4-2-1.apk`
 
 ## 构建与运行
 
@@ -123,12 +131,12 @@
 - `testDirectDebugUnitTest`
 - `compileDirectDebugAndroidTestKotlin`
 - `lintDirectDebug lintDirectRelease lintVitalDirectRelease`
-- `assembleDirectRelease`，或按[发布指引](docs/release_and_update_guide.md#三构建命令)从最终 tag 的 CI 未签名 Release 工件在本机完成正式签名
+- `assembleDirectRelease`，或按[发布指引](docs/release_and_update_guide.md)从最终 tag 的 CI 未签名 Release 工件在本机完成正式签名
 - Direct release APK 正式证书、精确证书指纹与 SHA-256 验证
-- Direct release APK 的模拟器安装 / v4.2→v4.2.1 升级、性能与更新 smoke；物理手机安装、提醒、日历与 Launcher 验收按评审决定不安排，记录为未执行
-- GitHub Release 只保留 `glimmer-countdown-4-2.apk`，并完成公开下载复验、线上重装、更新检查与关键链路 smoke
+- Direct release APK 的模拟器安装 / v4.2→v4.2.1 升级、性能与更新 smoke；物理手机安装、提醒、日历与 Launcher 验收本版未执行，模拟器结果不作为真机证明
+- GitHub Release 只保留 `glimmer-countdown-4-2-1.apk`，并完成公开下载复验、线上重装、更新检查与关键链路 smoke
 
-本版最终标签 CI、正式签名与 API26/31/36 升级和公开包复验待完成，实际结果记录在发布检查清单。
+本版最终标签 CI、正式签名、API26/31/36 升级与恢复、公开下载和发布后公开包三平台复验全部通过；API36 应用实际显示“已是最新版本”。13张新鲜原图与证据范围见当前发布检查清单。
 
 publisher 会拒绝脏工作区或未指向 exact tag 的 `HEAD`，并核对输出元数据与 APK 的真实包名、版本、权限和非调试状态。发布流程禁止移动已推送的 tag 或覆盖已发布 Release，GitHub Release 仅上传 exact Direct APK。
 

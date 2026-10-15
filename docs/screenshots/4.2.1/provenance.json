@@ -1,0 +1,101 @@
+{
+  "version": "4.2.1",
+  "versionCode": 26,
+  "apkSource": "e532c3333e10148c5771906fd2996adb53735104",
+  "driverSource": "d3c5ff9b1f196f4598c27816d61414eb05fe58ce",
+  "apkSha256": "21563bc13a72be41d0f6cb21e8db136bcafd20bcf7c94a6390fd53e085cd896c",
+  "publicQaRun": 38742224120,
+  "images": [
+    {
+      "file": "home.png",
+      "source": ".tmp/public-qa-38742224120/signed-apk-qa-api36-d3c5ff9b1f196f4598c27816d61414eb05fe58ce/runtime-restore/pages-01-home-cards.png",
+      "sha256": "9aa1a855ffd8073a46acb8ba72d7dbefe26d521d9f3b3c1859284fd4f21fc0c4",
+      "scope": "public APK MainActivity/MediaStore/chooser",
+      "visuallyReviewed": true
+    },
+    {
+      "file": "calendar.png",
+      "source": ".tmp/public-qa-38742224120/signed-apk-qa-api36-d3c5ff9b1f196f4598c27816d61414eb05fe58ce/runtime-restore/pages-02-calendar.png",
+      "sha256": "c00638ee85b3bfa09a8cc7823323556827641785efba0cb6a608e544c1733eab",
+      "scope": "public APK MainActivity/MediaStore/chooser",
+      "visuallyReviewed": true
+    },
+    {
+      "file": "detail.png",
+      "source": ".tmp/public-qa-38742224120/signed-apk-qa-api36-d3c5ff9b1f196f4598c27816d61414eb05fe58ce/runtime-restore/pages-03-event-detail.png",
+      "sha256": "7848341e72db10b04f088a253090bad917447d540cb4906bab567c17e391b628",
+      "scope": "public APK MainActivity/MediaStore/chooser",
+      "visuallyReviewed": true
+    },
+    {
+      "file": "settings.png",
+      "source": ".tmp/public-qa-38742224120/signed-apk-qa-api36-d3c5ff9b1f196f4598c27816d61414eb05fe58ce/runtime-restore/pages-04-settings-root.png",
+      "sha256": "39df08a040a94470822564eba81d5d867904e5b3c5726d61fde3d49cd079de90",
+      "scope": "public APK MainActivity/MediaStore/chooser",
+      "visuallyReviewed": true
+    },
+    {
+      "file": "widget-preview.png",
+      "source": ".tmp/public-qa-38742224120/signed-apk-qa-api36-d3c5ff9b1f196f4598c27816d61414eb05fe58ce/runtime-restore/pages-05-widget-default-preview.png",
+      "sha256": "c04f5add11b1c1a087c51b4c5f6f313c806a0783c45020ff2b8abcf0c16e4d93",
+      "scope": "public APK MainActivity/MediaStore/chooser",
+      "visuallyReviewed": true
+    },
+    {
+      "file": "share-preview.png",
+      "source": ".tmp/public-qa-38742224120/signed-apk-qa-api36-d3c5ff9b1f196f4598c27816d61414eb05fe58ce/runtime-restore/share-01-preview.png",
+      "sha256": "d94e90076589b387fdb977548758f7273f13a2de598866b2f1a70289503455ac",
+      "scope": "public APK MainActivity/MediaStore/chooser",
+      "visuallyReviewed": true
+    },
+    {
+      "file": "share-saved.png",
+      "source": ".tmp/public-qa-38742224120/signed-apk-qa-api36-d3c5ff9b1f196f4598c27816d61414eb05fe58ce/runtime-restore/share-saved-image.png",
+      "sha256": "f3a2aa5ee314bb1efea1c4f68ea7707cdaa619bb1bf7d9f64944f24bad6ce658",
+      "scope": "public APK MainActivity/MediaStore/chooser",
+      "visuallyReviewed": true
+    },
+    {
+      "file": "share-chooser.png",
+      "source": ".tmp/public-qa-38742224120/signed-apk-qa-api36-d3c5ff9b1f196f4598c27816d61414eb05fe58ce/runtime-restore/share-04-chooser.png",
+      "sha256": "f16a7e45e1f17a9a44aab553022904f0d170fc2f3cd72683ff537f1b4af024b2",
+      "scope": "public APK MainActivity/MediaStore/chooser",
+      "visuallyReviewed": true
+    },
+    {
+      "file": "share-return.png",
+      "source": ".tmp/public-qa-38742224120/signed-apk-qa-api36-d3c5ff9b1f196f4598c27816d61414eb05fe58ce/runtime-restore/share-05-returned-detail.png",
+      "sha256": "2fc228036fb924710fcb2e0a7f06f6916bd65a03521f51c5bf19840b68ebf333",
+      "scope": "public APK MainActivity/MediaStore/chooser",
+      "visuallyReviewed": true
+    },
+    {
+      "file": "update-check.png",
+      "source": ".tmp/public-qa-38742224120/signed-apk-qa-api36-d3c5ff9b1f196f4598c27816d61414eb05fe58ce/runtime-restore/update-03-already-current.png",
+      "sha256": "843e1f218eac6e16cfdb4ca9d3300582295a7ef802e78541bcf8fb3048a4b6f4",
+      "scope": "public APK MainActivity/MediaStore/chooser",
+      "visuallyReviewed": true
+    },
+    {
+      "file": "launcher-light.png",
+      "source": ".tmp/finaltag-launcher-v421/widgets-light.png",
+      "sha256": "389607f299e23b87a049e66ff577571a512d729d11062bc93ed032b7993914e4",
+      "scope": "owned API36 Pixel Launcher, same final signed APK",
+      "visuallyReviewed": true
+    },
+    {
+      "file": "launcher-dark.png",
+      "source": ".tmp/finaltag-launcher-v421/widgets-dark.png",
+      "sha256": "6787a4f1eda82d33b04157f3e0e007c90950256a2e46d17dde54921dc46c12c6",
+      "scope": "owned API36 Pixel Launcher, same final signed APK",
+      "visuallyReviewed": true
+    },
+    {
+      "file": "launcher-returned-light.png",
+      "source": ".tmp/finaltag-launcher-v421/widgets-returned-light.png",
+      "sha256": "422ef1311da90072f995af3444f016a8bc4712f9dacaf14df1865da087cf9429",
+      "scope": "owned API36 Pixel Launcher, same final signed APK",
+      "visuallyReviewed": true
+    }
+  ]
+}

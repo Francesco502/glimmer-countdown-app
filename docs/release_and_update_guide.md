@@ -1,6 +1,6 @@
 # TimeAPK 发布与更新指引（4.2.1）
 
-当前版本为 4.2.1 / versionCode=26 候选，唯一官方资产为 Direct APK `glimmer-countdown-4-2-1.apk`。**唯一正式发布渠道：GitHub Release。** Play flavor 仅保留用于兼容性与开发回归。实际验证状态见 [发布检查清单](RELEASE_CHECKLIST.md)，上一公开版见 [v4.2 历史清单](releases/v4.2-checklist.md)。
+当前正式版本为 4.2.1 / versionCode=26，已于 2026-10-15 发布，唯一官方资产为 Direct APK `glimmer-countdown-4-2-1.apk`。**唯一正式发布渠道：GitHub Release。** Play flavor 仅保留用于兼容性与开发回归。实际验证状态见 [发布检查清单](RELEASE_CHECKLIST.md)，上一公开版见 [v4.2 历史清单](releases/v4.2-checklist.md)。
 
 ## 一、发布身份与凭据
 
@@ -50,4 +50,12 @@ Direct 包名为 `com.example.timeapk`，minSdk26 / targetSdk36；正式签名�
 
 无认证重新下载公开 APK，独立验签、哈希和包身份核对。运行公开包 API26/31/36 QA，API36 实际检查更新、分享保存与返回；清理本轮 owned QA draft 和发布锁，按结果补记 README / 检查清单，不移动最终 tag。
 
-实体手机、真实 Launcher 绑定和完整主题/字体/旋转/TalkBack、通知送达、系统日历与长期性能没有本轮通过证据。小组件原生视图回归与应用内预览只证明各自范围。
+实体手机及其 Launcher、完整主题/字体/旋转/TalkBack、通知送达、系统日历与长期性能没有本轮通过证据。小组件原生视图回归与应用内预览只证明各自范围。
+
+## 六、本版 APK 与 QA 驱动身份
+
+正式 APK 来自不可变 `v4.2.1` → `e532c3333e10148c5771906fd2996adb53735104` 的成功标签 CI [38735339024](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/38735339024)。签名包 QA 使用驱动提交 `d3c5ff9b1f196f4598c27816d61414eb05fe58ce`：仅将升级夹具固定标签缩短，仍保留12位随机标识、逐字符核对、全部字段/安装身份断言与原超时；应用源码和发布标签未改变。
+
+旧驱动 API36 的两次4分钟进程超时保留为失败；本地原驱动完整升级与恢复通过。新驱动三平台正式包 QA [38740578879](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/38740578879) 全部通过。公开包复验和原始证据见当前发布清单。API36 模拟器 Pixel Launcher 两种小组件的真实绑定、日夜双向切换已核验；这不代表实体手机验收。
+
+公开包 QA [38742224120](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/38742224120) 三平台全部成功，API36 实际显示“已是最新版本”。公开匿名下载、验签、资产哈希与身份一致；本轮 owned QA draft 和发布锁已独立确认清理。详见 [结构化记录](releases/v4.2.1-verification.json) 与 [原图记录](screenshots/4.2.1/README.md)。

@@ -1,0 +1,285 @@
+{
+  "version": "4.2.1",
+  "versionCode": 26,
+  "apkSource": {
+    "tag": "v4.2.1",
+    "commit": "e532c3333e10148c5771906fd2996adb53735104",
+    "tagObject": "51440e1875824a6c8d95fdaeff8a0d2fd812d020"
+  },
+  "qaDriver": {
+    "commit": "d3c5ff9b1f196f4598c27816d61414eb05fe58ce",
+    "changedFiles": [
+      "scripts/android-runtime-smoke.py"
+    ],
+    "fixtureCharactersBefore": 49,
+    "fixtureCharactersAfter": 30,
+    "nonceCharacters": 12,
+    "assertionsAndTimeoutsUnchanged": true
+  },
+  "apk": {
+    "name": "glimmer-countdown-4-2-1.apk",
+    "package": "com.example.timeapk",
+    "bytes": 12517434,
+    "sha256": "21563bc13a72be41d0f6cb21e8db136bcafd20bcf7c94a6390fd53e085cd896c",
+    "certSha256": "3b7cb426a82664f891c69511cc2505b67128c8503664639f297291da4ea903ca",
+    "minSdk": 26,
+    "targetSdk": 36,
+    "debuggable": false,
+    "signatureSchemes": [
+      "v2",
+      "v3"
+    ],
+    "zipalign16KiB": true
+  },
+  "tagCi": {
+    "source": "e532c3333e10148c5771906fd2996adb53735104",
+    "tag": "v4.2.1",
+    "ciRun": 38735339024,
+    "unsignedSha256": "6377766b1c3be84d7cf3a7ee55de8ae089f72eb4e7bf08f518955bbb8c2e78e7",
+    "unsignedBytes": 12496761,
+    "jvm": {
+      "Direct": 638,
+      "Play": 638
+    },
+    "native": 55,
+    "lintErrors": 0,
+    "runtimeSmoke": true
+  },
+  "candidateQa": {
+    "apkSource": "e532c3333e10148c5771906fd2996adb53735104",
+    "driverSource": "d3c5ff9b1f196f4598c27816d61414eb05fe58ce",
+    "runId": 38740578879,
+    "assetId": 643854026,
+    "apkSha256": "21563bc13a72be41d0f6cb21e8db136bcafd20bcf7c94a6390fd53e085cd896c",
+    "public": false,
+    "platforms": {
+      "26": {
+        "upgrade": true,
+        "restore": true,
+        "before": {
+          "versionName": "4.2",
+          "versionCode": "25",
+          "firstInstallTime": "2026-10-15 13:13:20",
+          "userId": "10077"
+        },
+        "after": {
+          "versionName": "4.2.1",
+          "versionCode": "26",
+          "firstInstallTime": "2026-10-15 13:13:20",
+          "userId": "10077"
+        },
+        "date": "2026.10.15"
+      },
+      "31": {
+        "upgrade": true,
+        "restore": true,
+        "before": {
+          "versionName": "4.2",
+          "versionCode": "25",
+          "firstInstallTime": "2026-10-15 13:13:01",
+          "userId": "10145"
+        },
+        "after": {
+          "versionName": "4.2.1",
+          "versionCode": "26",
+          "firstInstallTime": "2026-10-15 13:13:01",
+          "userId": "10145"
+        },
+        "date": "2026.10.15"
+      },
+      "36": {
+        "upgrade": true,
+        "restore": true,
+        "before": {
+          "versionName": "4.2",
+          "versionCode": "25",
+          "firstInstallTime": "2026-10-15 13:13:03",
+          "userId": "10216"
+        },
+        "after": {
+          "versionName": "4.2.1",
+          "versionCode": "26",
+          "firstInstallTime": "2026-10-15 13:13:03",
+          "userId": "10216"
+        },
+        "date": "2026.10.15"
+      }
+    }
+  },
+  "publicQa": {
+    "apkSource": "e532c3333e10148c5771906fd2996adb53735104",
+    "driverSource": "d3c5ff9b1f196f4598c27816d61414eb05fe58ce",
+    "runId": 38742224120,
+    "assetId": 643936757,
+    "apkSha256": "21563bc13a72be41d0f6cb21e8db136bcafd20bcf7c94a6390fd53e085cd896c",
+    "public": true,
+    "platforms": {
+      "26": {
+        "upgrade": true,
+        "restore": true,
+        "before": {
+          "versionName": "4.2",
+          "versionCode": "25",
+          "firstInstallTime": "2026-10-15 13:25:14",
+          "userId": "10077"
+        },
+        "after": {
+          "versionName": "4.2.1",
+          "versionCode": "26",
+          "firstInstallTime": "2026-10-15 13:25:14",
+          "userId": "10077"
+        },
+        "date": "2026.10.15"
+      },
+      "31": {
+        "upgrade": true,
+        "restore": true,
+        "before": {
+          "versionName": "4.2",
+          "versionCode": "25",
+          "firstInstallTime": "2026-10-15 13:24:40",
+          "userId": "10145"
+        },
+        "after": {
+          "versionName": "4.2.1",
+          "versionCode": "26",
+          "firstInstallTime": "2026-10-15 13:24:40",
+          "userId": "10145"
+        },
+        "date": "2026.10.15"
+      },
+      "36": {
+        "upgrade": true,
+        "restore": true,
+        "before": {
+          "versionName": "4.2",
+          "versionCode": "25",
+          "firstInstallTime": "2026-10-15 13:24:48",
+          "userId": "10216"
+        },
+        "after": {
+          "versionName": "4.2.1",
+          "versionCode": "26",
+          "firstInstallTime": "2026-10-15 13:24:48",
+          "userId": "10216"
+        },
+        "date": "2026.10.15"
+      }
+    }
+  },
+  "publicDownload": {
+    "releaseId": 413837859,
+    "assetId": 643936757,
+    "bytes": 12517434,
+    "signatureVerified": true,
+    "anonymous": true,
+    "zipalign16KiB": true,
+    "certSha256": "3b7cb426a82664f891c69511cc2505b67128c8503664639f297291da4ea903ca",
+    "sha256": "21563bc13a72be41d0f6cb21e8db136bcafd20bcf7c94a6390fd53e085cd896c",
+    "http": 200,
+    "apkSource": "e532c3333e10148c5771906fd2996adb53735104"
+  },
+  "cleanup": {
+    "checkedUtc": "2026-10-15T13:34:02.2293057Z",
+    "ownedQaDraftDeleted": true,
+    "previousTagUnchanged": true,
+    "releaseLockAbsent": true,
+    "releaseTagUnchanged": true,
+    "qaReleaseId": 413806189
+  },
+  "api26Native": {
+    "source": "e532c3333e10148c5771906fd2996adb53735104",
+    "serial": "emulator-5558",
+    "raw": "instrumentation-raw.txt",
+    "api": 26,
+    "scope": "Fresh final-tag debug native widget tests; not signed-release or physical-device evidence",
+    "skip": "automaticGlassColorsFollowHostModeAtApplyTime requires API31+",
+    "passed": 8,
+    "tag": "v4.2.1",
+    "apkSha256": "98261792625ff8c64e7004c23cdbace506fbe9e0109a5d9d6da674cf2bfb0925",
+    "avd": "glimmer-v421-api26",
+    "skipped": 1
+  },
+  "pixelLauncher": {
+    "ciRun": 38735339024,
+    "installedApkHashMatches": true,
+    "fontScale": "1.0",
+    "serial": "emulator-5556",
+    "images": [
+      {
+        "visuallyReviewed": true,
+        "state": "widgets-light",
+        "pngSha256": "389607f299e23b87a049e66ff577571a512d729d11062bc93ed032b7993914e4",
+        "xmlSha256": "d0fb1f61309e644f976efa43d86c3285f625c2cd3675f3667e0fb23cc45ddc27"
+      },
+      {
+        "visuallyReviewed": true,
+        "state": "widgets-dark",
+        "pngSha256": "6787a4f1eda82d33b04157f3e0e007c90950256a2e46d17dde54921dc46c12c6",
+        "xmlSha256": "3a665a00fc9f9464408fe98675dbc0c5500592514fd1f5eb2c9b3bb6198a81f3"
+      },
+      {
+        "visuallyReviewed": true,
+        "state": "widgets-returned-light",
+        "pngSha256": "422ef1311da90072f995af3444f016a8bc4712f9dacaf14df1865da087cf9429",
+        "xmlSha256": "3a665a00fc9f9464408fe98675dbc0c5500592514fd1f5eb2c9b3bb6198a81f3"
+      }
+    ],
+    "modeSequence": [
+      "day",
+      "night",
+      "day"
+    ],
+    "passed": true,
+    "density": "Physical density: 420",
+    "widgets": [
+      "list",
+      "single event"
+    ],
+    "host": "com.google.android.apps.nexuslauncher",
+    "tag": "v4.2.1",
+    "source": "e532c3333e10148c5771906fd2996adb53735104",
+    "scope": "Formal final-tag signed APK, actual Pixel Launcher widget binding on owned emulator; no physical-device claim",
+    "api": 36,
+    "apkSha256": "21563bc13a72be41d0f6cb21e8db136bcafd20bcf7c94a6390fd53e085cd896c"
+  },
+  "originalDriverLocalApi36": {
+    "apkSource": "e532c3333e10148c5771906fd2996adb53735104",
+    "driverSource": "e532c3333e10148c5771906fd2996adb53735104",
+    "apkSha256": "21563bc13a72be41d0f6cb21e8db136bcafd20bcf7c94a6390fd53e085cd896c",
+    "api": 36,
+    "upgrade": true,
+    "restore": true,
+    "share": true,
+    "pages": 5,
+    "scope": "Local owned Windows AVD, original final-tag driver with 49-character fixture; no physical-device or CI-pass claim"
+  },
+  "screenshots": "docs/screenshots/4.2.1/provenance.json",
+  "failedEvidence": [
+    {
+      "run": 38728734235,
+      "scope": "pretag CI",
+      "failure": "ADB disconnected during read-only IME query; retained failure"
+    },
+    {
+      "run": 38731226578,
+      "scope": "pretag CI",
+      "failure": "Existing import-preview node wait timed out; isolated unchanged test passed three times; retained failure"
+    },
+    {
+      "run": 38737659244,
+      "attempts": [
+        1,
+        2
+      ],
+      "scope": "original-driver signed QA",
+      "failure": "API36 exceeded outer four-minute upgrade-process budget; retained both failures"
+    }
+  ],
+  "limits": [
+    "No physical-device validation",
+    "API31 Launcher binding not separately exercised",
+    "No full font/language/size/rotation/TalkBack matrix",
+    "No physical notification/calendar or long-term performance claim"
+  ]
+}
