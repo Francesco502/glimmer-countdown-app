@@ -184,25 +184,30 @@ class WidgetOrderingRefreshArchitectureTest {
     }
 
     @Test
-    fun themeAdaptiveRemoteViewsDoNotOverwriteLayoutTextColors() {
+    fun themeAdaptiveRemoteViewsReapplyColorsWithoutFreezingTheAutomaticPalette() {
         val provider = mainSource("widget/CountdownAppWidgetProvider.kt").readText(Charsets.UTF_8)
         val service = mainSource("widget/CountdownWidgetService.kt").readText(Charsets.UTF_8)
+        val single = mainSource("widget/SingleEventWidgetProvider.kt").readText(Charsets.UTF_8)
+        val colorApplier = mainSource("widget/WidgetTextColors.kt").readText(Charsets.UTF_8)
         val providerBuilder = provider.substringAfter("internal fun buildWidgetRemoteViews(")
             .substringBefore("private fun resolveSizeBucket(")
         val rowBuilder = service.substringAfter("override fun getViewAt(position: Int)")
             .substringBefore("private fun dp(")
+        val singleBuilder = single.substringAfter("internal fun buildViews(")
+            .substringBefore("private fun openIntent(")
 
-        assertTrue(providerBuilder.contains("if (!renderStyle.useThemeTextColors)"))
-        assertTrue(
-            providerBuilder.substringAfter("if (!renderStyle.useThemeTextColors)")
-                .substringBefore("setTextViewTextSize")
-                .contains("setTextColor(R.id.widget_empty")
-        )
-        assertTrue(rowBuilder.contains("if (!renderStyle.useThemeTextColors)"))
-        val explicitColorBlock = rowBuilder.substringAfter("if (!renderStyle.useThemeTextColors)")
-            .substringBefore("setTextViewTextSize")
-        assertTrue(explicitColorBlock.contains("setTextColor(R.id.widget_item_title"))
-        assertTrue(explicitColorBlock.contains("setTextColor(R.id.widget_item_value"))
+        listOf(providerBuilder, rowBuilder, singleBuilder).forEach { builder ->
+            assertTrue(builder.contains("setWidgetTextColors("))
+            assertFalse(builder.contains("if (!renderStyle.useThemeTextColors)"))
+            assertFalse(builder.contains("if (!style.useThemeTextColors)"))
+        }
+        assertTrue(providerBuilder.contains("secondaryIds = intArrayOf(R.id.widget_empty)"))
+        assertTrue(rowBuilder.contains("primaryIds = intArrayOf(R.id.widget_item_title)"))
+        assertTrue(rowBuilder.contains("accentIds = intArrayOf(R.id.widget_item_value)"))
+        assertTrue(colorApplier.contains("Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && style.useThemeTextColors"))
+        assertTrue(colorApplier.contains("setColor(id, \"setTextColor\", colorResource)"))
+        assertTrue(colorApplier.contains("setColorInt(id, \"setTextColor\", light, dark)"))
+        assertTrue(colorApplier.contains("context.getColor(colorResource)"))
     }
 
     @Test

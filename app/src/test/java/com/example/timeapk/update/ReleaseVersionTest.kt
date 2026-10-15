@@ -13,6 +13,7 @@ class ReleaseVersionTest {
 
     @Test
     fun ordersReleaseAbovePrereleaseAboveOlder() {
+        assertTrue(v("4.2.1") > v("4.2"))
         assertTrue(v("4.2") > v("4.2-rc1"))
         assertTrue(v("4.2-rc1") > v("4.1"))
         assertTrue(v("4.2-rc2") > v("4.2-rc1"))
@@ -49,6 +50,7 @@ class ReleaseVersionTest {
 
     @Test
     fun prereleaseAssetNameMirrorsBuildApkBaseName() {
+        assertEquals("glimmer-countdown-4-2-1.apk", expectedDirectApkName(v("4.2.1")))
         assertEquals("glimmer-countdown-4-2-rc1.apk", expectedDirectApkName(v("v4.2-rc1")))
         assertEquals("glimmer-countdown-4-2.apk", expectedDirectApkName(v("4.2")))
     }

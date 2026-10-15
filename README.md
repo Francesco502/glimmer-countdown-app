@@ -1,16 +1,22 @@
-# 拾光（Glimmer）4.2
+# 拾光（Glimmer）4.2.1
 
 拾光是一款面向 Android 的倒数日、生日与纪念日应用。它把日子整理成安静的纸笺、月历和桌面小组件，让重要时刻能被看见，也能被系统提醒与日历同步照顾到。
 
-`4.2` 已发布（`versionCode=25`，2026-10-12）。发布门、实际验证与剩余限制见 [4.2 发布检查清单](docs/RELEASE_CHECKLIST.md)；设计与实施记录见 [4.2 设计文档](docs/superpowers/specs/2026-10-12-v4-2-experience-polish-design.md)。v4.1 与 v4.0 的发布证据保存在 [v4.1 历史清单](docs/releases/v4.1-checklist.md) 与 [v4.0 历史清单](docs/releases/v4.0-checklist.md)，不作为 4.2 的通过记录或豁免。
+`4.2.1` 候选（`versionCode=26`，2026-10-15）修复桌面小组件夜间模式的自动文字颜色。发布门、实际验证与剩余限制见 [4.2.1 发布检查清单](docs/RELEASE_CHECKLIST.md)。[v4.2](docs/releases/v4.2-checklist.md)、[v4.1 历史清单](docs/releases/v4.1-checklist.md) 与 [v4.0 历史清单](docs/releases/v4.0-checklist.md) 保留各版证据，不作为本版通过记录。
 
-**唯一正式发布渠道：GitHub Release。** 4.2 的唯一官方资产为 Direct APK `glimmer-countdown-4-2.apk`，复用 v4.0 / v4.1 正式签名，可覆盖升级。Play flavor 仅保留用于兼容性与开发回归，不是正式发布工件或阻断项。
+**唯一正式发布渠道：GitHub Release。** 4.2.1 的唯一官方资产为 Direct APK `glimmer-countdown-4-2-1.apk`，沿用正式签名，可保留数据覆盖升级。Play flavor 仅保留用于兼容性与开发回归。
 
 最新公开版本为 `4.2`：[下载 v4.2 APK](https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v4.2)
 
-## 4.2 模拟器界面
+## 4.2.1 小组件修复
 
-以下截图来自线上正式 APK，按同一最终候选与新鲜构建核验，绑定不可变 `v4.2` 标签。环境为 API36、1080×1920、字体1.0；事件为 QA 夹具，小组件截图是应用内预览。原图来源、哈希与验证范围见[截图记录](docs/screenshots/4.2/README.md)。
+- 自动文字颜色随夜间背景同步切换；从手动颜色切回自动后立即更新。
+- 列表、空状态与单事件小组件使用同一颜色更新逻辑。
+- 手动选择的浅色文字或深色文字保持固定。
+
+## 历史界面预览（v4.2）
+
+以下为 v4.2 历史截图，本轮不将这些截图视为发布证据。截图来自线上正式 APK，按同一最终候选与新鲜构建核验，绑定不可变 `v4.2` 标签。环境为 API36、1080×1920、字体1.0；事件为 QA 夹具，小组件截图是应用内预览。原图来源、哈希与验证范围见[截图记录](docs/screenshots/4.2/README.md)。
 
 | 首页 | 月历 |
 |---|---|
@@ -52,7 +58,7 @@
 |---|---|
 | <img src="docs/screenshots/4.0/settings.png" width="260" alt="拾光 4.0 设置页"> | <img src="docs/screenshots/4.0/widget-settings.png" width="260" alt="拾光 4.0 小组件设置页"> |
 
-## 4.2 体验更新
+## 4.2 体验更新（历史）
 
 - 自定义分类（新建、改名、改色、删除后事件归“其他”，随 JSON 导出导入）与事件配图（系统照片选择器，私有存储，不随 JSON 导出）。
 - 单事件大数字桌面小组件；列表小组件预览与桌面一致，设置分“外观 / 内容”两页，保留 1-5 格“预览宽度 / 预览高度”，覆盖已有配置前先确认；深色模式下磨砂玻璃转为深色。
@@ -61,7 +67,7 @@
 - 宽屏（≥840dp）列表与详情双栏、Android 12+ 跟随壁纸取色、Direct 渠道可选精确提醒、更新下载进度与安装权限引导。
 - 内置字体裁剪为子集并按 SIL OFL 1.1 改名为 Glimmer Serif / Glimmer Xiaowei，字体资源约 31MB → 7.8MB。
 
-完整变更见 [CHANGELOG.md](CHANGELOG.md)。本版按评审决定不安排实体手机验收；通知实际到达、精确提醒、物理设备日历、Launcher 小组件、相册选图与长期性能的物理验收记录为未执行。
+完整变更见 [CHANGELOG.md](CHANGELOG.md)。4.2 按当时评审决定不安排实体手机验收；通知实际到达、精确提醒、物理设备日历、Launcher 小组件、相册选图与长期性能的物理验收记录为未执行。
 
 ## v4.1 修复与优化（历史）
 
@@ -83,10 +89,10 @@
 
 ## 版本信息
 
-- `versionName`: `4.2`
-- `versionCode`: `25`
-- 发布状态：已发布（2026-10-12）
-- Direct APK 目标文件名：`glimmer-countdown-4-2.apk`
+- `versionName`: `4.2.1`
+- `versionCode`: `26`
+- 发布状态：候选 / 未发布
+- Direct APK 目标文件名：`glimmer-countdown-4-2-1.apk`
 
 ## 构建与运行
 
@@ -108,21 +114,21 @@
 
 默认产物路径：
 
-- `app/build/outputs/apk/direct/release/glimmer-countdown-4-2.apk`
+- `app/build/outputs/apk/direct/release/glimmer-countdown-4-2-1.apk`
 
 ## 发布与验证
 
-4.2 正式发布要求包含，实际结果以当前清单为准：
+4.2.1 正式发布要求包含，实际结果以当前清单为准：
 
 - `testDirectDebugUnitTest`
 - `compileDirectDebugAndroidTestKotlin`
 - `lintDirectDebug lintDirectRelease lintVitalDirectRelease`
 - `assembleDirectRelease`，或按[发布指引](docs/release_and_update_guide.md#三构建命令)从最终 tag 的 CI 未签名 Release 工件在本机完成正式签名
 - Direct release APK 正式证书、精确证书指纹与 SHA-256 验证
-- Direct release APK 的模拟器安装 / v4.1→v4.2 升级、性能与更新 smoke；物理手机安装、提醒、日历与 Launcher 验收按评审决定不安排，记录为未执行
+- Direct release APK 的模拟器安装 / v4.2→v4.2.1 升级、性能与更新 smoke；物理手机安装、提醒、日历与 Launcher 验收按评审决定不安排，记录为未执行
 - GitHub Release 只保留 `glimmer-countdown-4-2.apk`，并完成公开下载复验、线上重装、更新检查与关键链路 smoke
 
-2026-10-12 [最终标签 CI](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/38235651872)：Direct/Play JVM各638/638、原生51/51、publisher10/10、lint无error，R8新鲜构建通过。[最终正式签名QA](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/38238275647) 在API26/31/36全部通过v4.1→v4.2覆盖升级、精确数据保留与进程恢复；API36五页、真实相册保存和分享选择器返回通过。正式APK为12,513,338 bytes，SHA-256 `7fe9673e4b3a85f4152c1e5786f8a221779a95fc56578f9c93b660b4e9019e74`，公开下载独立验签通过。[线上安装与更新复验](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/38239618078) 三平台全部成功，API36实际更新检查显示已是最新版本；原始范围见[清单](docs/RELEASE_CHECKLIST.md)。APK源码与QA工具均为不可变标签 `f0937448efa02232d5c6b1d47c531d50cad0797e`。
+本版最终标签 CI、正式签名与 API26/31/36 升级和公开包复验待完成，实际结果记录在发布检查清单。
 
 publisher 会拒绝脏工作区或未指向 exact tag 的 `HEAD`，并核对输出元数据与 APK 的真实包名、版本、权限和非调试状态。发布流程禁止移动已推送的 tag 或覆盖已发布 Release，GitHub Release 仅上传 exact Direct APK。
 

@@ -83,13 +83,12 @@ class SingleEventWidgetProvider : AppWidgetProvider() {
             val layout = WidgetRenderPolicy.resolveSingleEventLayoutResId(config)
             return RemoteViews(context.packageName, layout).apply {
                 setInt(android.R.id.background, "setBackgroundResource", style.backgroundResId)
-                if (!style.useThemeTextColors) {
-                    setTextColor(R.id.single_label, style.secondaryTextColor)
-                    setTextColor(R.id.single_number, style.accentTextColor)
-                    setTextColor(R.id.single_unit, style.primaryTextColor)
-                    setTextColor(R.id.single_title, style.primaryTextColor)
-                    setTextColor(R.id.single_date, style.secondaryTextColor)
-                }
+                setWidgetTextColors(
+                    context, style,
+                    primaryIds = intArrayOf(R.id.single_unit, R.id.single_title),
+                    secondaryIds = intArrayOf(R.id.single_label, R.id.single_date),
+                    accentIds = intArrayOf(R.id.single_number)
+                )
                 val scale = config.fontScale
                 setTextViewTextSize(
                     R.id.single_number,

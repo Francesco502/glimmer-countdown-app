@@ -2,15 +2,22 @@ package com.example.timeapk.widget
 
 import com.example.timeapk.R
 
+internal data class WidgetTextColors(val primary: Int, val secondary: Int, val accent: Int)
+
 internal data class WidgetRenderStyle(
     val rootLayoutResId: Int,
     val backgroundResId: Int,
     val itemLayoutResId: Int,
     val useThemeTextColors: Boolean,
-    val primaryTextColor: Int,
-    val secondaryTextColor: Int,
-    val accentTextColor: Int
+    val lightTextColors: WidgetTextColors,
+    val darkTextColors: WidgetTextColors,
+    val isDark: Boolean
 ) {
+    private val textColors get() = if (isDark) darkTextColors else lightTextColors
+    val primaryTextColor get() = textColors.primary
+    val secondaryTextColor get() = textColors.secondary
+    val accentTextColor get() = textColors.accent
+
     val cacheKey: String
         get() = listOf(
             rootLayoutResId,
@@ -40,15 +47,14 @@ internal object WidgetRenderPolicy {
     fun resolve(config: WidgetConfig, theme: WidgetThemeSnapshot): WidgetRenderStyle {
         val clean = config.sanitize()
         val useLightText = resolveUseLightText(clean, theme)
-        val colors = resolveTextColors(clean, useLightText)
         return WidgetRenderStyle(
             rootLayoutResId = resolveRootLayoutResId(clean),
             backgroundResId = resolveBackgroundResId(clean),
             itemLayoutResId = resolveItemLayoutResId(clean, useLightText, theme.isDark),
             useThemeTextColors = resolveUseThemeTextColors(clean),
-            primaryTextColor = colors.primary,
-            secondaryTextColor = colors.secondary,
-            accentTextColor = colors.accent
+            lightTextColors = resolveTextColors(clean, resolveUseLightText(clean, theme.copy(isDark = false))),
+            darkTextColors = resolveTextColors(clean, resolveUseLightText(clean, theme.copy(isDark = true))),
+            isDark = theme.isDark
         )
     }
 
@@ -158,30 +164,24 @@ internal object WidgetRenderPolicy {
         }
     }
 
-    private data class TextColors(
-        val primary: Int,
-        val secondary: Int,
-        val accent: Int
-    )
-
-    private fun resolveTextColors(config: WidgetConfig, useLightText: Boolean): TextColors {
+    private fun resolveTextColors(config: WidgetConfig, useLightText: Boolean): WidgetTextColors {
         return when {
-            config.appearancePreset == APPEARANCE_SEAL -> TextColors(
+            config.appearancePreset == APPEARANCE_SEAL -> WidgetTextColors(
                 primary = PaperText,
                 secondary = PaperSecondary,
                 accent = GoldAccent
             )
-            isMilkyGlassSurface(config) && !useLightText -> TextColors(
+            isMilkyGlassSurface(config) && !useLightText -> WidgetTextColors(
                 primary = NativeGlassText,
                 secondary = NativeGlassSecondary,
                 accent = NativeGlassAccent
             )
-            useLightText -> TextColors(
+            useLightText -> WidgetTextColors(
                 primary = DarkText,
                 secondary = DarkSecondary,
                 accent = GoldAccent
             )
-            else -> TextColors(
+            else -> WidgetTextColors(
                 primary = InkText,
                 secondary = InkSecondary,
                 accent = SealAccent
