@@ -61,6 +61,8 @@
 
 最终 tag CI、未签名原始 metadata / 哈希、正式签名 receipt、三平台 QA、公开下载复验将在完成后按实际结果补记。
 
+标签前 CI [38728734235](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/38728734235) 的 JVM、lint、R8 与 API36 原生55项全部通过；后续 runtime smoke 在只读 `dumpsys input_method` 时发生 ADB transport 断线（返回255，随后暂时 offline 并恢复），整体 run 保留为失败。现已为这项只读查询增加三次有界重试，2项标准库自检验证重连及持续失败仍会报错；完整 CI 待复验。输入、保存与字段断言未放宽。
+
 ## 六、发布动作
 
 用户已于 2026-10-15 授权更新版本、完成现有验证流程并发布 GitHub Release。

@@ -38,6 +38,9 @@ jobs:
         shell: pwsh
         run: ./scripts/tests/publish-release-mock-harness.ps1 -Scenario all
 
+      - name: Test runtime smoke read recovery
+        run: python3 -m unittest discover -s scripts/tests -p 'test_*.py'
+
       - name: Test, lint, and build debug channels
         run: >-
           ./gradlew --no-daemon --no-parallel --no-build-cache --rerun-tasks

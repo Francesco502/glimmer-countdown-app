@@ -247,8 +247,18 @@ class Smoke:
     def tap_action(self, key):
         self.tap(self.seek(key, lambda tree: tree.action(LABELS[key])))
 
+    def input_method_state(self):
+        # ADB can reconnect while streaming the large IME diagnostic snapshot.
+        for attempt in range(3):
+            try:
+                return self.text("shell", "dumpsys", "input_method")
+            except SmokeFailure:
+                if attempt == 2:
+                    raise
+                self.run("wait-for-device", timeout=15)
+
     def hide_keyboard(self):
-        state = self.text("shell", "dumpsys", "input_method")
+        state = self.input_method_state()
         if re.search(r"\bmInputShown=true\b", state):
             self.run("shell", "input", "keyevent", "BACK")
             time.sleep(0.4)
@@ -274,7 +284,7 @@ class Smoke:
             # PRETAG API36 sent its first U before the cold IME input view
             # started; the log records a 2500 ms IME event timeout and UU.
             def input_ready():
-                state = self.text("shell", "dumpsys", "input_method")
+                state = self.input_method_state()
                 return all(re.search(r"\b" + flag + r"=true\b", state) for flag in (
                     "mInputShown", "mInputViewStarted", "mIsInputViewShown"))
 
