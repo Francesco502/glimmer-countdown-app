@@ -31,6 +31,7 @@ import com.example.timeapk.ui.utils.nextOccurrenceDate
 import com.example.timeapk.ui.utils.previousOccurrenceDate
 import com.nlf.calendar.Solar
 import com.example.timeapk.widget.WidgetUpdater
+import com.example.timeapk.ui.common.EventImageStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -634,21 +635,30 @@ class HomeViewModel(
         }
     }
 
-    suspend fun deleteEvent(event: Event): DeleteEventResult = deleteEventRecoverably(
-        event = event,
-        nowMillis = System::currentTimeMillis,
-        cleanup = { target ->
-            ScheduleSyncManager.removeManagedCalendarEntries(
-                context = application,
-                event = target
-            )
-        },
-        update = repository::updateEvent,
-        cancelReminder = { target -> cancelReminder(application, target.id) },
-        cancelMilestones = { target -> cancelMilestoneReminders(application, target.id) },
-        delete = repository::deleteEvent,
-        refreshWidgets = { WidgetUpdater.refreshCountdownWidgets(application) }
-    )
+    suspend fun deleteEvent(event: Event): DeleteEventResult {
+        EventImageStore.replaceDraftReferences(application, "undo-${event.id}", setOfNotNull(event.imagePath))
+        val result = deleteEventRecoverably(
+            event = event,
+            nowMillis = System::currentTimeMillis,
+            cleanup = { target ->
+                ScheduleSyncManager.removeManagedCalendarEntries(
+                    context = application,
+                    event = target
+                )
+            },
+            update = repository::updateEvent,
+            cancelReminder = { target -> cancelReminder(application, target.id) },
+            cancelMilestones = { target -> cancelMilestoneReminders(application, target.id) },
+            delete = repository::deleteEvent,
+            refreshWidgets = { WidgetUpdater.refreshCountdownWidgets(application) }
+        )
+        if (result != DeleteEventResult.Deleted) finishDeletionUndo(event)
+        return result
+    }
+
+    fun finishDeletionUndo(event: Event) {
+        EventImageStore.replaceDraftReferences(application, "undo-${event.id}", emptySet())
+    }
 
     fun restoreEvent(event: Event) {
         viewModelScope.launch {
@@ -701,6 +711,8 @@ class HomeViewModel(
                 throw cancelled
             } catch (_: Exception) {
                 // Ignore duplicate key or persistence failures during restore.
+            } finally {
+                finishDeletionUndo(event)
             }
         }
     }

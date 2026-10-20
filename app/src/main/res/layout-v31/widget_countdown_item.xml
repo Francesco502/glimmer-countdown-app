@@ -28,7 +28,6 @@
         android:ellipsize="end"
         android:gravity="end"
         android:includeFontPadding="false"
-        android:maxEms="10"
         android:maxLines="1"
         android:textColor="?attr/widgetTextAccentColor"
         android:textSize="11sp"

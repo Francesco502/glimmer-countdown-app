@@ -1,4 +1,5 @@
 import importlib.util
+import json
 from pathlib import Path
 import unittest
 
@@ -46,6 +47,38 @@ class InputMethodRecoveryTest(unittest.TestCase):
         with self.assertRaisesRegex(smoke_module.SmokeFailure, "offline"):
             smoke.input_method_state()
         self.assertEqual(5, len(calls))
+
+
+class ShareMediaCompatibilityTest(unittest.TestCase):
+    def test_modern_android_requires_published_media_and_expected_location(self):
+        row = {"mime_type": "image/png", "relative_path": "Pictures/TimeAPK/", "is_pending": "1"}
+        self.assertFalse(smoke_module.share_media_published(row))
+        row["is_pending"] = "0"
+        self.assertTrue(smoke_module.share_media_published(row))
+        row["relative_path"] = "Pictures/Other"
+        with self.assertRaises(smoke_module.SmokeFailure):
+            smoke_module.share_media_published(row)
+
+
+class UpgradeVersionTest(unittest.TestCase):
+    def test_upgrade_requires_421_baseline_and_422_candidate(self):
+        self.assertEqual(("4.2.1", "26"), smoke_module.UPGRADE_BASELINE)
+        self.assertEqual(("4.2.2", "27"), smoke_module.UPGRADE_CANDIDATE)
+        for expected in (smoke_module.UPGRADE_BASELINE, smoke_module.UPGRADE_CANDIDATE):
+            smoke_module.require_version(dict(versionName=expected[0], versionCode=expected[1]), expected)
+        for name, code in (("4.2", "25"), ("4.2.1", "26"), ("4.2.2", "26"), ("4.2.1", "27")):
+            with self.subTest(name=name, code=code), self.assertRaises(smoke_module.SmokeFailure):
+                smoke_module.require_version(dict(versionName=name, versionCode=code), smoke_module.UPGRADE_CANDIDATE)
+
+    def test_workflow_pins_the_published_421_baseline(self):
+        root = Path(__file__).resolve().parents[2]
+        workflow = (root / ".github/workflows/android-apk-qa.yml").read_text(encoding="utf-8")
+        verification = json.loads((root / "docs/releases/v4.2.1-verification.json").read_text(encoding="utf-8"))
+        self.assertIn("verify_apk baseline 4.2.1 26", workflow)
+        self.assertIn("verify_apk candidate 4.2.2 27", workflow)
+        self.assertIn("releases/download/v4.2.1/glimmer-countdown-4-2-1.apk", workflow)
+        self.assertIn(verification["apk"]["sha256"], workflow)
+        self.assertIn(str(verification["apk"]["bytes"]), workflow)
 
 
 if __name__ == "__main__":

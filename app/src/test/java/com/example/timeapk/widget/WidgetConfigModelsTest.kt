@@ -21,6 +21,8 @@ class WidgetConfigModelsTest {
         assertEquals(DENSITY_STANDARD, config.densityMode)
         assertEquals(CONTENT_ALL, config.contentScope)
         assertEquals(SORT_HOME, config.sortMode)
+        assertEquals(DISPLAY_POLICY_AUTO, config.displayPolicy)
+        assertEquals(2, config.version)
         assertTrue(config.showLunarPrefix)
     }
 
@@ -39,6 +41,7 @@ class WidgetConfigModelsTest {
               "densityMode": 99,
               "contentScope": 99,
               "sortMode": 99,
+              "displayPolicy": 99,
               "showLunarPrefix": false,
               "contrastMode": 99,
               "fontScale": 99
@@ -58,6 +61,7 @@ class WidgetConfigModelsTest {
         assertEquals(DENSITY_STANDARD, sanitized.densityMode)
         assertEquals(CONTENT_ALL, sanitized.contentScope)
         assertEquals(SORT_HOME, sanitized.sortMode)
+        assertEquals(DISPLAY_POLICY_AUTO, sanitized.displayPolicy)
         assertEquals(CONTRAST_AUTO, sanitized.contrastMode)
         assertEquals(1.60f, sanitized.fontScale, 0.01f)
         assertFalse(sanitized.showLunarPrefix)
@@ -86,6 +90,7 @@ class WidgetConfigModelsTest {
               "densityMode": $DENSITY_COMPACT,
               "contentScope": $CONTENT_PINNED,
               "sortMode": $SORT_NEAREST_FIRST,
+              "displayPolicy": $DISPLAY_POLICY_FOLLOW_APP,
               "showLunarPrefix": false,
               "contrastMode": $CONTRAST_LIGHT_TEXT,
               "fontScale": 1.25
@@ -121,6 +126,45 @@ class WidgetConfigModelsTest {
         val wide = WidgetConfig.fromJson("""{"widthCells":5,"heightCells":2}""")
 
         assertNotEquals(square.cacheKey, wide.cacheKey)
+    }
+
+    @Test
+    fun legacyConfig_upgradesToAutoAndRetainsAppearance() {
+        val upgraded = WidgetConfig.fromJson("""{"version":1,"appearancePreset":$APPEARANCE_SEAL,"fontScale":1.25}""")
+
+        assertEquals(2, upgraded.version)
+        assertEquals(DISPLAY_POLICY_AUTO, upgraded.displayPolicy)
+        assertEquals(APPEARANCE_SEAL, upgraded.appearancePreset)
+        assertEquals(1.25f, upgraded.fontScale, 0.001f)
+    }
+
+    @Test
+    fun versionOneInstanceUpgradePreservesEveryFieldAndSurvivesVersionTwoSave() {
+        val legacy = """{"version":1,"widthCells":3,"heightCells":2,"appearancePreset":5,"backgroundOpacityPercent":50,"borderMode":2,"cornerMode":3,"densityMode":0,"contentScope":3,"sortMode":2,"showLunarPrefix":false,"contrastMode":1,"fontScale":1.6}"""
+        val expected = WidgetConfig(
+            widthCells = 3, heightCells = 2, appearancePreset = APPEARANCE_SEAL,
+            backgroundOpacityPercent = 50, borderMode = BORDER_OFF, cornerMode = CORNER_LARGE,
+            densityMode = DENSITY_COMPACT, contentScope = CONTENT_BIRTHDAY, sortMode = SORT_NEAREST_FIRST,
+            showLunarPrefix = false, contrastMode = CONTRAST_LIGHT_TEXT, fontScale = 1.6f
+        )
+        val instances = decodeWidgetInstanceConfigs("""{"101":$legacy,"202":{"version":1,"displayPolicy":99}}""")
+        assertEquals(expected, instances[101])
+        assertEquals(DISPLAY_POLICY_AUTO, instances.getValue(202).displayPolicy)
+        val edited = instances + (101 to expected.copy(displayPolicy = DISPLAY_POLICY_FOLLOW_APP))
+        val restored = decodeWidgetInstanceConfigs(encodeWidgetInstanceConfigs(edited))
+        assertEquals(edited, restored)
+        assertEquals(DISPLAY_POLICY_AUTO, restored.getValue(202).displayPolicy)
+        assertEquals(expected, WidgetConfig.fromJson(expected.toJson()))
+    }
+
+    @Test
+    fun displayPolicies_roundTripAndInvalidateRemoteCollectionCache() {
+        val configs = listOf(DISPLAY_POLICY_AUTO, DISPLAY_POLICY_FOLLOW_APP, DISPLAY_POLICY_COUNTDOWN)
+            .map { WidgetConfig.default().copy(displayPolicy = it) }
+
+        assertEquals(configs, configs.map { WidgetConfig.fromJson(it.toJson()) })
+        assertEquals(3, configs.map { it.cacheKey }.distinct().size)
+        assertEquals(DISPLAY_POLICY_AUTO, WidgetConfig.fromJson("""{"displayPolicy":-1}""").displayPolicy)
     }
 
     @Test

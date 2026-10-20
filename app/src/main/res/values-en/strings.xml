@@ -452,7 +452,6 @@
     <string name="widget_config_layer_content">Content</string>
     <string name="widget_config_preview_event_primary">Spring gathering</string>
     <string name="widget_config_preview_value_primary">12d</string>
-    <string name="widget_config_preview_event_secondary">Lunar birthday</string>
     <string name="widget_config_preview_event_secondary_plain">Birthday</string>
     <string name="widget_config_preview_value_secondary">Today</string>
     <string name="widget_config_size_summary">%1$dx%2$d</string>
@@ -661,7 +660,22 @@
     <string name="widget_config_preview_size">Preview size</string>
     <string name="widget_config_preview_size_note">Only changes the preview above. Resize the real widget by long-pressing it on the home screen.</string>
     <string name="widget_config_single_widget_title">Single-day widget %1$d</string>
-    <string name="widget_config_preview_event_third">Winter solstice</string>
-    <string name="widget_config_preview_value_third">68d</string>
+    <string name="widget_birthday_today">Birthday today</string>
+    <plurals name="widget_birthday_until_days">
+        <item quantity="one">%1$s day until next birthday</item>
+        <item quantity="other">%1$s days until next birthday</item>
+    </plurals>
+    <string name="widget_birthday_until_compact">Birthday in %1$sd</string>
+    <string name="widget_past_days_short">%1$sd ago</string>
+    <string name="widget_until_days_short">In %1$sd</string>
+    <string name="widget_config_display_policy">Display mode</string>
+    <string name="widget_config_display_auto">Automatic</string>
+    <string name="widget_config_display_follow_app">Follow app</string>
+    <string name="widget_config_display_countdown">Countdown</string>
+    <string name="widget_config_display_policy_help">Automatic counts down repeating birthdays and keeps other event settings. Follow app uses the display setting saved on the event detail page. Countdown shows days to the next occurrence, or elapsed days for a completed one-time event.</string>
+    <string name="widget_preview_loading">Loading widget preview…</string>
+    <string name="widget_preview_load_failed">Preview unavailable. Retry</string>
+    <string name="single_widget_refresh_failed">Configuration saved. Widget refresh failed; retry refresh.</string>
+    <string name="widget_config_retry_refresh">Retry refresh</string>
 </resources>
 

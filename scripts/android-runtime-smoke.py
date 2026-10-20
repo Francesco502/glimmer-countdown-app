@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Host-driven draft recovery, or 4.2-to-4.2.1 upgrade with --upgrade-apk.
+"""Host-driven draft recovery, or 4.2.1-to-4.2.2 upgrade with --upgrade-apk.
 
 This terminates a real background process through ActivityManager while retaining
 its task. It does not claim natural low-memory-killer or physical-device coverage.
@@ -21,6 +21,8 @@ import xml.etree.ElementTree as ET
 
 PACKAGE = "com.example.timeapk"
 COMPONENT = PACKAGE + "/.MainActivity"
+UPGRADE_BASELINE = ("4.2.1", "26")
+UPGRADE_CANDIDATE = ("4.2.2", "27")
 LABELS = {
     "add": ("Add event", "Record your first event", "添加事件", "记录第一个日期"),
     "new": ("New event", "新建事件"),
@@ -37,6 +39,20 @@ LABELS = {
 
 class SmokeFailure(RuntimeError):
     pass
+
+
+def require_version(identity, expected):
+    if (identity["versionName"], identity["versionCode"]) != expected:
+        raise SmokeFailure("Expected package " + "/".join(expected) + ", got " + repr(identity))
+
+
+def share_media_published(row):
+    if row.get("is_pending") != "0":
+        return False
+    location_matches = row.get("relative_path", "").strip("/") == "Pictures/TimeAPK"
+    if row.get("mime_type") != "image/png" or not location_matches:
+        raise SmokeFailure("Saved image MIME or location differs: " + repr(row))
+    return True
 
 
 def bounds(node):
@@ -421,7 +437,8 @@ class Smoke:
         return next(iter(values))
 
     def upgrade(self, apk):
-        self.evidence["scenario"] = "saved-event-4.2-to-4.2.1-in-place-upgrade"
+        self.evidence["scenario"] = "saved-event-4.2.1-to-4.2.2-in-place-upgrade"
+        self.evidence["launcher_widget_upgrade"] = "not_executed; separate launcher acceptance required"
         apk = Path(apk).resolve()
         if not apk.is_file():
             raise SmokeFailure("Upgrade APK does not exist: " + str(apk))
@@ -437,8 +454,7 @@ class Smoke:
         before = package_identity(self.text("shell", "dumpsys", "package", PACKAGE,
                                             destination=self.output / "before-package.txt"))
         self.evidence["package_before"] = before
-        if (before["versionName"], before["versionCode"]) != ("4.2", "25"):
-            raise SmokeFailure("Upgrade requires installed baseline 4.2/25, got " + repr(before))
+        require_version(before, UPGRADE_BASELINE)
 
         nonce = uuid.uuid4().hex[:12]
         # Each legacy-IME prefix needs a native UI dump; keep the nonce with short labels.
@@ -477,8 +493,7 @@ class Smoke:
         after = package_identity(self.text("shell", "dumpsys", "package", PACKAGE,
                                            destination=self.output / "after-package.txt"))
         self.evidence["package_after"] = after
-        if (after["versionName"], after["versionCode"]) != ("4.2.1", "26"):
-            raise SmokeFailure("Upgrade did not install 4.2.1/26: " + repr(after))
+        require_version(after, UPGRADE_CANDIDATE)
         for key in ("firstInstallTime", "userId"):
             if after[key] != before[key]:
                 raise SmokeFailure("In-place upgrade changed " + key)
@@ -501,14 +516,16 @@ class Smoke:
         self.hide_keyboard()
         self.tap_action("back")
         self.evidence["passed"] = True
-        self.evidence["scope"] = "One saved synthetic event upgraded from 4.2/25 to 4.2.1/26 with unchanged firstInstallTime/userId and title/note/displayed date; caller verifies APK signature separately; no baseline process-recovery or physical-device claim."
+        self.evidence["scope"] = "One saved synthetic event upgraded from 4.2.1/26 to 4.2.2/27 with unchanged firstInstallTime/userId and title/note/displayed date; caller verifies APK signature separately; launcher widget/config migration, baseline process-recovery and physical-device acceptance are separate, not implied."
 
     def capture_pages(self, title):
         self.stage = "pages-00-package"
         identity = package_identity(self.text("shell", "dumpsys", "package", PACKAGE,
                                                destination=self.output / "pages-installed-package.txt"))
-        if (identity["versionName"], identity["versionCode"]) != ("4.2.1", "26"):
-            raise SmokeFailure("Page capture requires installed 4.2.1/26: " + repr(identity))
+        # Both source CI and the current signed-upgrade path must capture 4.2.2.
+        expected = self.evidence.get("package_after") or {"versionName": "4.2.2", "versionCode": "27"}
+        if (identity["versionName"], identity["versionCode"]) != (expected["versionName"], expected["versionCode"]):
+            raise SmokeFailure("Page capture package does not match the expected build: " + repr(identity))
         self.evidence.update(pages_package=identity, pages_title=title, captured_pages=[],
                              pages_scope="Five actual MainActivity pages: home cards, calendar, the unique saved event detail, settings root, and app-internal widget default configuration preview; no Launcher widget binding claim.")
 
@@ -607,9 +624,11 @@ class Smoke:
         safe_title = re.sub(r"[^A-Za-z0-9\u4e00-\u9fa5_-]+", "-", title).strip("-")[:28] or "event"
         name = "timeapk-" + safe_title + ".png"
         media = "content://media/external/images/media"
+        api = int(self.text("shell", "getprop", "ro.build.version.sdk").strip())
+        legacy_file = "/sdcard/Android/data/" + PACKAGE + "/files/Pictures/TimeAPK/" + name
         self.evidence["share_check"] = {
             "passed": False, "title": title, "display_name": name,
-            "scope": "Actual MainActivity save to MediaStore and raw PNG verification; system chooser opened and cancelled; no recipient selection, URI-read or delivery claim.",
+            "scope": "Actual MainActivity save and raw PNG verification; API 29+ MediaStore, older systems app external pictures; system chooser opened and cancelled; no recipient selection, URI-read or delivery claim.",
         }
 
         def media_rows():
@@ -639,7 +658,9 @@ class Smoke:
             return str(Path(self.last_xml).relative_to(self.output)) if tree.contains(saved) else None
 
         self.stage = "share-00-media-before"
-        before_ids = {row["_id"] for row in media_rows()}
+        before_ids = {row["_id"] for row in media_rows()} if api >= 29 else set()
+        if api < 29 and self.text("shell", "test -e '" + legacy_file + "' && echo exists || echo absent").strip() != "absent":
+            raise SmokeFailure("Legacy share output already exists before this save action")
         self.stage = "share-01-preview"
         self.tap(self.seek("detail Share", lambda tree: tree.action(share)))
         self.seek("rendered share dialog", dialog_ready)
@@ -648,13 +669,14 @@ class Smoke:
         self.tap(self.seek("Save image", lambda tree: tree.action(save)))
 
         def published_image():
+            if api < 29:
+                exists = self.text("shell", "test -s '" + legacy_file + "' && echo exists || echo absent")
+                return {"_data": legacy_file} if exists.strip() == "exists" else None
             rows = [row for row in media_rows() if row["_id"] not in before_ids]
             if len(rows) > 1:
                 raise SmokeFailure("One save action created multiple MediaStore images")
-            if rows and rows[0].get("is_pending") == "0":
+            if rows and share_media_published(rows[0]):
                 row = rows[0]
-                if row.get("mime_type") != "image/png" or row.get("relative_path", "").strip("/") != "Pictures/TimeAPK":
-                    raise SmokeFailure("Saved image MIME or location differs: " + repr(row))
                 return row
             return None
 
@@ -667,16 +689,19 @@ class Smoke:
         tree = self.checkpoint("share-03-saved-detail")
         feedback_xml = save_feedback(tree) or feedback_xml
         row = self.wait("new published share image", published_image, timeout=20)
-        uri = media + "/" + row["_id"]
+        uri = media + "/" + row["_id"] if api >= 29 else "file://" + legacy_file
         image_path = self.output / "share-saved-image.png"
-        data = self.run("exec-out", "content", "read", "--uri", uri, destination=image_path)
+        data = (self.run("exec-out", "content", "read", "--uri", uri, destination=image_path)
+                if api >= 29 else self.run("exec-out", "cat", legacy_file, destination=image_path))
         if len(data) < 33 or not data.startswith(b"\x89PNG\r\n\x1a\n") or data[12:16] != b"IHDR" or not data.endswith(b"\x00\x00\x00\x00IEND\xaeB`\x82"):
             raise SmokeFailure("Saved MediaStore image is not a complete PNG")
         dimensions = (int.from_bytes(data[16:20], "big"), int.from_bytes(data[20:24], "big"))
         if dimensions != (1080, 1350) or not image_path.is_file():
             raise SmokeFailure("Saved share image dimensions differ: " + repr(dimensions))
         self.evidence["share_check"].update(
-            source="MediaStore row created by this UI save action", saved_uri=uri, media_row=row,
+            source=("MediaStore row created by this UI save action" if api >= 29
+                    else "New app external pictures file created by this UI save action"),
+            saved_uri=uri, media_row=row,
             saved_png=image_path.name, bytes=len(data), sha256=hashlib.sha256(data).hexdigest(),
             width=dimensions[0], height=dimensions[1], feedback_observed=feedback_xml is not None,
             feedback_xml=feedback_xml,
@@ -720,8 +745,7 @@ class Smoke:
         self.stage = "update-01-open-about"
         package_file = self.output / "update-installed-package.txt"
         identity = package_identity(self.text("shell", "dumpsys", "package", PACKAGE, destination=package_file))
-        if (identity["versionName"], identity["versionCode"]) != ("4.2.1", "26"):
-            raise SmokeFailure("Published-update check requires installed 4.2.1/26: " + repr(identity))
+        require_version(identity, UPGRADE_CANDIDATE)
         tree = self.tree()
         if tree.contains(("Widget settings", "小组件设置")) and tree.contains(("Default configuration", "默认配置")):
             self.tap_action("back")
@@ -795,7 +819,7 @@ def main():
     parser.add_argument("--adb", required=True)
     parser.add_argument("--serial", required=True)
     parser.add_argument("--output", required=True)
-    parser.add_argument("--upgrade-apk", help="Upgrade installed 4.2/25 to this caller-verified signed 4.2.1/26 APK")
+    parser.add_argument("--upgrade-apk", help="Upgrade installed 4.2.1/26 to this caller-verified signed 4.2.2/27 APK")
     parser.add_argument("--capture-pages", action="store_true", help="After success, capture five MainActivity pages for manual review")
     parser.add_argument("--check-update", action="store_true", help="After success, require the published Direct-app update UI to confirm Already up to date")
     args = parser.parse_args()

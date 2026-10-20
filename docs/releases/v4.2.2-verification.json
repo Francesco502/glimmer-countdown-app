@@ -1,0 +1,104 @@
+{
+  "version": "4.2.2",
+  "versionCode": 27,
+  "status": "release_validation_in_progress",
+  "candidateSource": {
+    "commit": "0b548dc6b3f9f916076dd0f38d3dc6e4b11fd6f1",
+    "pullRequest": "https://github.com/Francesco502/glimmer-countdown-app/pull/5",
+    "localSnapshotMatches": null,
+    "filesCompared": 57,
+    "comparisonScope": "All changed implementation, resources, test, workflow and build configuration files; later release documentation is outside the tested commit.",
+    "ciMergeCommit": null
+  },
+  "localValidation": {
+    "directUnitTests": {
+      "tests": 667,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "playUnitTests": {
+      "tests": 667,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "lintIssues": {
+      "directDebug": 0,
+      "directRelease": 0,
+      "playRelease": 0
+    },
+    "androidTestCompilation": {
+      "directDebug": "passed",
+      "playDebug": "passed"
+    },
+    "pythonTests": {
+      "tests": 5,
+      "failures": 0
+    },
+    "log": ".tmp/v422-fixes/final-verification.log"
+  },
+  "cloudValidation": {
+    "api36": "in_progress",
+    "run": "https://github.com/Francesco502/glimmer-countdown-app/actions/runs/39456977540",
+    "api31": "in_progress",
+    "api26": "in_progress"
+  },
+  "remainingReleaseGates": {
+    "formalSignedApk": "not_started",
+    "signed421To422Upgrade": "not_executed",
+    "realLauncherWidgetUpgrade": "not_executed",
+    "systemImageBackupRestore": "not_executed",
+    "publicRelease": "not_started"
+  },
+  "scope": "Local unit tests and lint do not establish device, Launcher, system restore, or signed-upgrade success. Cloud results must be inspected before changing these statuses.",
+  "followupValidation": {
+    "androidTestCompilation": "Direct and Play passed",
+    "lintDirectDebug": "passed",
+    "log": ".tmp/v422-release/ime-compat-verification.log"
+  },
+  "previousCloudRun": {
+    "api31": "passed: 70 native tests and runtime smoke",
+    "run": "https://github.com/Francesco502/glimmer-countdown-app/actions/runs/39449095794",
+    "api26": "failed: calendar permission API, edit Back timing, visible text width assertion and legacy MediaStore query",
+    "api36": "superseded before completion",
+    "scope": "Historical run of ad60d92; not approval for the follow-up candidate"
+  },
+  "secondCloudRun": {
+    "commit": "bf0fefef48a9c4b5775c4c6c65a8b18a94d29959",
+    "scope": "JUnit XML counts are authoritative; console progress counts differ.",
+    "run": "https://github.com/Francesco502/glimmer-countdown-app/actions/runs/39451253927",
+    "api36": "unit tests, lint and debug build passed; later steps superseded by follow-up",
+    "api26": {
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1,
+      "runtimeSmoke": "failed: script waited for MediaStore row instead of legacy app pictures file",
+      "nativeTests": 66,
+      "evidence": ".tmp/v422-release/api26-followup"
+    },
+    "api31": "passed"
+  },
+  "thirdCloudRun": {
+    "run": "https://github.com/Francesco502/glimmer-countdown-app/actions/runs/39453317391",
+    "api26": "passed",
+    "api31": "passed",
+    "api36": "failed: legacy Espresso closeSoftKeyboard timeout; native birthday, language and migration checks passed, runtime smoke and unsigned build passed",
+    "api26Evidence": {
+      "shareFileVerification": "passed",
+      "artifactId": 12280315610,
+      "failures": 0,
+      "runtimeSmoke": "passed",
+      "tests": 66,
+      "skipped": 1,
+      "errors": 0,
+      "localDirectory": ".tmp/v422-release/api26-final"
+    },
+    "api31Evidence": {
+      "consoleTests": 70,
+      "artifactId": 12279279552,
+      "shareFileVerification": "passed",
+      "runtimeSmoke": "passed"
+    }
+  }
+}

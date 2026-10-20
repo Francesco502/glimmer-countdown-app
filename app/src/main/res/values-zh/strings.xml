@@ -401,7 +401,6 @@
     <string name="widget_config_layer_content">内容</string>
     <string name="widget_config_preview_event_primary">春日小聚</string>
     <string name="widget_config_preview_value_primary">12天</string>
-    <string name="widget_config_preview_event_secondary">农·生辰</string>
     <string name="widget_config_preview_event_secondary_plain">生辰</string>
     <string name="widget_config_preview_value_secondary">今天</string>
     <string name="widget_config_size_summary">%1$dx%2$d</string>
@@ -601,7 +600,21 @@
     <string name="widget_config_preview_size">预览尺寸</string>
     <string name="widget_config_preview_size_note">只影响上方预览的比例；桌面上的实际大小请长按小组件拖动边框调整。</string>
     <string name="widget_config_single_widget_title">单事件小组件 %1$d</string>
-    <string name="widget_config_preview_event_third">冬至</string>
-    <string name="widget_config_preview_value_third">68天</string>
+    <string name="widget_birthday_today">今天生日</string>
+    <plurals name="widget_birthday_until_days">
+        <item quantity="other">距下次生日还有 %1$s 天</item>
+    </plurals>
+    <string name="widget_birthday_until_compact">生日余%1$s天</string>
+    <string name="widget_past_days_short">已%1$s天</string>
+    <string name="widget_until_days_short">余%1$s天</string>
+    <string name="widget_config_display_policy">显示方式</string>
+    <string name="widget_config_display_auto">自动</string>
+    <string name="widget_config_display_follow_app">跟随应用</string>
+    <string name="widget_config_display_countdown">倒计时</string>
+    <string name="widget_config_display_policy_help">自动：重复生日显示下次生日倒计时，其他事件沿用原设置。跟随应用：使用事件详情页的显示设置。倒计时：显示距下次发生的天数，已结束的单次事件显示已过天数。</string>
+    <string name="widget_preview_loading">正在加载小组件预览…</string>
+    <string name="widget_preview_load_failed">预览加载失败，请重试</string>
+    <string name="single_widget_refresh_failed">配置已保存，小组件刷新失败，请重试刷新</string>
+    <string name="widget_config_retry_refresh">重试刷新</string>
 </resources>
 

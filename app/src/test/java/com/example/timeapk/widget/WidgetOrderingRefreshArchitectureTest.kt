@@ -191,8 +191,7 @@ class WidgetOrderingRefreshArchitectureTest {
         val colorApplier = mainSource("widget/WidgetTextColors.kt").readText(Charsets.UTF_8)
         val providerBuilder = provider.substringAfter("internal fun buildWidgetRemoteViews(")
             .substringBefore("private fun resolveSizeBucket(")
-        val rowBuilder = service.substringAfter("override fun getViewAt(position: Int)")
-            .substringBefore("private fun dp(")
+        val rowBuilder = service.substringAfter("internal fun buildWidgetItemRemoteViews(")
         val singleBuilder = single.substringAfter("internal fun buildViews(")
             .substringBefore("private fun openIntent(")
 

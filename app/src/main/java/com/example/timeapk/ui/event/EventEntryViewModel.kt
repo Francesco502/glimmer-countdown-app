@@ -39,6 +39,7 @@ import com.example.timeapk.ui.home.calendarCleanupRequired
 import com.example.timeapk.ui.home.eventAfterCleanupAttempt
 import com.example.timeapk.notifications.eventAfterScheduleSyncAttempt
 import com.example.timeapk.widget.WidgetUpdater
+import com.example.timeapk.ui.common.EventImageStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -167,10 +168,16 @@ class EventEntryViewModel(
     private val userPreferencesRepository: UserPreferencesRepository,
     private val savedStateHandle: SavedStateHandle = SavedStateHandle()
 ) : AndroidViewModel(application) {
+    private val imageDraftOwner = savedStateHandle.get<String>("eventImageDraftOwner")
+        ?.takeIf { Regex("^draft-[0-9a-f-]{36}$").matches(it) }
+        ?: "draft-${UUID.randomUUID()}"
+    private var protectedImageReferences: Set<String>? = null
     private var draftFileId: String? = null
     private var hasRestoredDraft = false
     private val _draftRecoveryError = MutableStateFlow(false)
     val draftRecoveryError: StateFlow<Boolean> = _draftRecoveryError.asStateFlow()
+    private val _imageProtectionError = MutableStateFlow(false)
+    val imageProtectionError: StateFlow<Boolean> = _imageProtectionError.asStateFlow()
     private val _eventUiState = MutableStateFlow(restoreDraftSnapshot() ?: EventEntryUiState())
     val eventUiState: StateFlow<EventEntryUiState> = _eventUiState.asStateFlow()
     private var preparedEventKey: PreparedEventKey? = if (hasRestoredDraft && savedStateHandle.contains("preparedEventId")) {
@@ -182,7 +189,18 @@ class EventEntryViewModel(
     val saveResult: StateFlow<SaveEventResult?> = _saveResult.asStateFlow()
 
     init {
+        savedStateHandle["eventImageDraftOwner"] = imageDraftOwner
+        if (!protectDraftImages(_eventUiState.value)) _draftRecoveryError.value = true
         savedStateHandle.setSavedStateProvider(DRAFT_SNAPSHOT_KEY) { saveDraftSnapshot() }
+    }
+
+    private fun protectDraftImages(state: EventEntryUiState): Boolean {
+        val names = setOfNotNull(state.eventDetails.imagePath, state.initialEventDetails.imagePath)
+        if (names.isEmpty()) return true
+        if (protectedImageReferences?.containsAll(names) == true) return true
+        val retained = EventImageStore.retainDraftReferences(application, imageDraftOwner, names)
+        if (retained) protectedImageReferences = protectedImageReferences.orEmpty() + names
+        return retained
     }
 
     private fun draftFile(id: String): File {
@@ -225,6 +243,7 @@ class EventEntryViewModel(
 
     private fun saveDraftSnapshot(): Bundle {
         return try {
+            check(protectDraftImages(_eventUiState.value)) { "Unable to protect draft images" }
             val bytes = object : ByteArrayOutputStream() {
                 override fun write(value: Int) {
                     check(count < DRAFT_FILE_LIMIT_BYTES) { "Editor draft exceeds the recovery size limit" }
@@ -288,13 +307,22 @@ class EventEntryViewModel(
         _draftRecoveryError.value = false
     }
 
+    fun consumeImageProtectionError() {
+        _imageProtectionError.value = false
+    }
+
     override fun onCleared() {
         // Rotation retains this VM; process death does not call onCleared.
         // A cleared navigation entry has genuinely finished editing.
+        var draftRemoved = true
         draftFileId?.let { id ->
-            runCatching { AtomicFile(draftFile(id)).delete() }
-                .onFailure { Log.w(TAG, "Unable to remove finished editor draft", it) }
+            draftRemoved = runCatching {
+                val file = draftFile(id)
+                AtomicFile(file).delete()
+                !file.exists()
+            }.onFailure { Log.w(TAG, "Unable to remove finished editor draft", it) }.getOrDefault(false)
         }
+        if (draftRemoved) EventImageStore.replaceDraftReferences(application, imageDraftOwner, emptySet())
         super.onCleared()
     }
 
@@ -309,6 +337,13 @@ class EventEntryViewModel(
 
     fun updateUiState(eventDetails: EventDetails) {
         if (_isSaving.value || _saveResult.value != null) return
+        val next = _eventUiState.value.copy(eventDetails = eventDetails, isEntryValid = validateInput(eventDetails))
+        val previousNames = setOfNotNull(_eventUiState.value.eventDetails.imagePath, _eventUiState.value.initialEventDetails.imagePath)
+        val nextNames = setOfNotNull(next.eventDetails.imagePath, next.initialEventDetails.imagePath)
+        if (!previousNames.containsAll(nextNames) && !protectDraftImages(next)) {
+            _imageProtectionError.value = true
+            return
+        }
         _eventUiState.update {
             it.copy(eventDetails = eventDetails, isEntryValid = validateInput(eventDetails))
         }
@@ -344,6 +379,7 @@ class EventEntryViewModel(
             initialCategory = initialCategory,
             initialDateMillis = initialDate
         )
+        protectDraftImages(EventEntryUiState(eventDetails = newDetails, initialEventDetails = newDetails))
         _eventUiState.update {
             it.copy(
                 eventDetails = newDetails,
@@ -359,6 +395,9 @@ class EventEntryViewModel(
         val event = repository.getEvent(id)
         if (event != null) {
             val loadedDetails = event.toEventDetails()
+            if (!protectDraftImages(EventEntryUiState(eventDetails = loadedDetails, initialEventDetails = loadedDetails))) {
+                _draftRecoveryError.value = true
+            }
             _eventUiState.update {
                 it.copy(
                     eventDetails = loadedDetails,
@@ -580,6 +619,9 @@ class EventEntryViewModel(
         }
 
         val savedDetails = updatedEvent.toEventDetails()
+        if (!protectDraftImages(EventEntryUiState(eventDetails = savedDetails, initialEventDetails = savedDetails))) {
+            _draftRecoveryError.value = true
+        }
         _eventUiState.update {
             it.copy(
                 eventDetails = savedDetails,

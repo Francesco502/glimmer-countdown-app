@@ -32,7 +32,6 @@
         android:ellipsize="end"
         android:gravity="end"
         android:includeFontPadding="false"
-        android:maxEms="10"
         android:maxLines="1"
         android:shadowColor="#99000000"
         android:shadowDx="0.0"

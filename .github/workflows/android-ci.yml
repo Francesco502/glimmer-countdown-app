@@ -16,8 +16,15 @@ concurrency:
 
 jobs:
   verify:
+    name: Android API ${{ matrix.api }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [26, 31, 36]
+    env:
+      API_LEVEL: ${{ matrix.api }}
     steps:
       - name: Check out source
         uses: actions/checkout@v6
@@ -42,6 +49,7 @@ jobs:
         run: python3 -m unittest discover -s scripts/tests -p 'test_*.py'
 
       - name: Test, lint, and build debug channels
+        if: matrix.api == 36
         run: >-
           ./gradlew --no-daemon --no-parallel --no-build-cache --rerun-tasks
           testDirectDebugUnitTest
@@ -58,7 +66,7 @@ jobs:
           assembleDirectDebugAndroidTest
 
       - name: Build unsigned optimized Direct APK for signing
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.api == 36 }}
         timeout-minutes: 20
         shell: bash
         run: |
@@ -75,7 +83,7 @@ jobs:
           sha256sum "$apk_file" > "$report_dir/apk-sha256.txt"
           cp "$apk_dir/output-metadata.json" "$report_dir/original-output-metadata.json"
 
-      - name: Run Android regression tests on API 36
+      - name: Run Android regression tests on API ${{ matrix.api }}
         if: ${{ !cancelled() }}
         timeout-minutes: 35
         shell: bash
@@ -90,7 +98,7 @@ jobs:
           adb="$sdk_root/platform-tools/adb"
           serial=emulator-5554
           emulator_pid=''
-          export ANDROID_AVD_HOME="$RUNNER_TEMP/glimmer-ci-avd"
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/glimmer-ci-avd-$API_LEVEL"
           mkdir -p "$ANDROID_AVD_HOME"
 
           cleanup() {
@@ -124,13 +132,13 @@ jobs:
           sudo chmod a+rw /dev/kvm
           free -m > "$report_dir/host-memory.txt"
           printf 'y\n%.0s' {1..20} | timeout 600 "$sdkmanager" --install \
-            "platform-tools" "emulator" "system-images;android-36;google_apis;x86_64" \
+            "platform-tools" "emulator" "system-images;android-$API_LEVEL;google_apis;x86_64" \
             > "$report_dir/sdkmanager.txt" 2>&1
           "$emulator" -accel-check > "$report_dir/acceleration.txt" 2>&1
-          printf 'no\n' | "$avdmanager" create avd --force --name glimmer_ci_api36 \
-            --package "system-images;android-36;google_apis;x86_64" --device pixel \
+          printf 'no\n' | "$avdmanager" create avd --force --name "glimmer_ci_api$API_LEVEL" \
+            --package "system-images;android-$API_LEVEL;google_apis;x86_64" --device pixel \
             > "$report_dir/avdmanager.txt" 2>&1
-          "$emulator" -avd glimmer_ci_api36 -port 5554 -no-window -no-audio \
+          "$emulator" -avd "glimmer_ci_api$API_LEVEL" -port 5554 -no-window -no-audio \
             -no-boot-anim -no-snapshot -gpu swiftshader -accel on -cores 2 -memory 2048 \
             > "$report_dir/emulator.txt" 2>&1 &
           emulator_pid=$!
@@ -151,6 +159,7 @@ jobs:
             echo 'Emulator boot timed out after 240 seconds.' >&2
             exit 1
           fi
+          [[ "$(timeout 5 "$adb" -s "$serial" shell getprop ro.build.version.sdk | tr -d '\r')" == "$API_LEVEL" ]]
           "$adb" -s "$serial" shell input keyevent 82
           "$adb" -s "$serial" shell settings put global window_animation_scale 0
           "$adb" -s "$serial" shell settings put global transition_animation_scale 0
@@ -183,7 +192,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: android-verification-${{ github.sha }}
+          name: android-verification-api${{ matrix.api }}-${{ github.sha }}
           retention-days: 7
           path: |
             app/build/reports/

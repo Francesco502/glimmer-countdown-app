@@ -1,7 +1,12 @@
 package com.example.timeapk.widget
 
 import android.content.Context
+import android.graphics.Paint
+import android.graphics.Typeface
+import android.text.TextPaint
+import android.util.TypedValue
 import com.example.timeapk.R
+import com.example.timeapk.data.CATEGORY_BIRTHDAY
 import com.example.timeapk.data.REPEAT_NONE
 import com.example.timeapk.ui.home.EventUiState
 import com.example.timeapk.ui.home.pickNearestUpcomingEvent
@@ -49,7 +54,9 @@ internal object SingleEventWidgetPolicy {
                 eventId = state.event.id,
                 title = state.event.title,
                 label = "",
-                number = context.getString(R.string.widget_today_compact),
+                number = context.getString(
+                    if (state.event.category == CATEGORY_BIRTHDAY) R.string.widget_birthday_today else R.string.widget_today_compact
+                ),
                 unit = "",
                 dateText = dateText,
                 isToday = true
@@ -77,6 +84,29 @@ internal object SingleEventWidgetPolicy {
         widthDp < 120 || heightDp < 100 -> 30f
         widthDp < 200 -> 40f
         else -> 48f
+    }
+
+    fun todayTextSp(context: Context, text: String, widthDp: Int, heightDp: Int, fontScale: Float): Float {
+        val resources = context.resources
+        val metrics = resources.displayMetrics
+        val availableWidth = (
+            TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, widthDp.toFloat(), metrics) -
+                2 * resources.getDimension(R.dimen.widget_single_padding)
+            ).coerceAtLeast(1f)
+        val paint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.SERIF }
+        fun fits(sizeSp: Float): Boolean {
+            paint.textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, sizeSp, metrics)
+            return paint.measureText(text) <= availableWidth - 1f
+        }
+        val maximum = numberTextSp(widthDp, heightDp) * fontScale
+        if (fits(maximum)) return maximum
+        var low = 0f
+        var high = maximum
+        repeat(12) {
+            val candidate = (low + high) / 2
+            if (fits(candidate)) low = candidate else high = candidate
+        }
+        return low.coerceAtLeast(1f)
     }
 
     fun showsDate(widthDp: Int, heightDp: Int): Boolean = widthDp >= 120 && heightDp >= 100

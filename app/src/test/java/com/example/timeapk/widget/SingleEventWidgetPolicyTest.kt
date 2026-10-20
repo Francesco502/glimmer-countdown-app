@@ -5,7 +5,6 @@ import com.example.timeapk.data.Event
 import com.example.timeapk.ui.home.EventUiState
 import com.example.timeapk.ui.settings.WidgetPreviewSizes
 import com.example.timeapk.ui.settings.widgetAppearanceSupportsOpacity
-import com.example.timeapk.ui.settings.widgetPreviewRowCount
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -74,8 +73,6 @@ class SingleEventWidgetPolicyTest {
         assertTrue(widgetAppearanceSupportsOpacity(APPEARANCE_TRANSLUCENT))
         assertFalse(widgetAppearanceSupportsOpacity(APPEARANCE_SEAL))
         assertFalse(widgetAppearanceSupportsOpacity(APPEARANCE_SOLID))
-        assertEquals(4, widgetPreviewRowCount(2))
-        assertEquals(1, widgetPreviewRowCount(0))
         assertTrue((2 to 2) in WidgetPreviewSizes)
     }
 }

@@ -4,4 +4,5 @@
     <include domain="database" path="event_database-wal" />
     <include domain="database" path="event_database-shm" />
     <include domain="file" path="datastore/" />
+    <include domain="file" path="event_images/" />
 </full-backup-content>

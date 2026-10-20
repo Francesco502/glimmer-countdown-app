@@ -41,7 +41,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.timeapk.ui.AppViewModelProvider
-import com.example.timeapk.ui.common.EventImageStore
 import com.example.timeapk.ui.common.LocalCustomCategories
 import com.example.timeapk.ui.common.WindowWidthClass
 import com.example.timeapk.ui.common.windowWidthClassFor
@@ -87,11 +86,6 @@ fun TimeApp(
             onOpenEventIdConsumed()
         }
     }
-    LaunchedEffect(Unit) {
-        // 撤销窗口早已过去的配图（被删除事件遗留的文件）在启动时清理。
-        val referenced = app.repository.getAllEventsSnapshot().mapNotNullTo(mutableSetOf()) { it.imagePath }
-        EventImageStore.cleanupOrphans(app, referenced)
-    }
     val startDestination = Routes.Home
     CompositionLocalProvider(LocalCustomCategories provides customCategories) {
     NavHost(
@@ -136,14 +130,20 @@ fun TimeApp(
                     DeleteEventResult.Deleted -> {
                         if (selectedEventIdForDetail == deletedEvent.id) selectedEventIdForDetail = null
                         scope.launch {
-                            val result = homeSnackbarHostState.showSnackbar(
-                                message = String.format(deletedMessageTemplate, deletedEvent.title),
-                                actionLabel = undoLabel,
-                                withDismissAction = true,
-                                duration = SnackbarDuration.Short
-                            )
-                            if (result == SnackbarResult.ActionPerformed) {
-                                homeViewModel.restoreEvent(deletedEvent)
+                            var restoring = false
+                            try {
+                                val result = homeSnackbarHostState.showSnackbar(
+                                    message = String.format(deletedMessageTemplate, deletedEvent.title),
+                                    actionLabel = undoLabel,
+                                    withDismissAction = true,
+                                    duration = SnackbarDuration.Short
+                                )
+                                if (result == SnackbarResult.ActionPerformed) {
+                                    restoring = true
+                                    homeViewModel.restoreEvent(deletedEvent)
+                                }
+                            } finally {
+                                if (!restoring) homeViewModel.finishDeletionUndo(deletedEvent)
                             }
                         }
                         true

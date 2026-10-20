@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.exifinterface.media.ExifInterface
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.UUID
@@ -26,53 +27,103 @@ object EventImageStore {
     const val DIRECTORY = "event_images"
     const val EVENT_IMAGE_MAX_EDGE_PX = 1600
     private const val JPEG_QUALITY = 86
-    private val FILE_NAME_PATTERN = Regex("^[0-9a-f]{32}\\.jpg$")
+    private val imageRegistries = mutableMapOf<String, EventImageRegistry>()
 
     private val cache = object : LruCache<String, Bitmap>(12 * 1024 * 1024) {
         override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount
     }
 
-    fun isValidFileName(name: String?): Boolean = name != null && FILE_NAME_PATTERN.matches(name)
+    fun isValidFileName(name: String?): Boolean = EventImageRegistry.validName(name)
 
     fun directory(context: Context): File = File(context.filesDir, DIRECTORY)
 
     fun fileFor(context: Context, name: String): File? {
         if (!isValidFileName(name)) return null
-        return File(directory(context), name)
+        return runCatching {
+            val root = directory(context).canonicalFile
+            File(root, name).canonicalFile.takeIf { it.parentFile == root && it.name == name }
+        }.getOrNull()
     }
+
+    @Synchronized
+    private fun registry(context: Context): EventImageRegistry = imageRegistries.getOrPut(context.noBackupFilesDir.canonicalPath) {
+        EventImageRegistry(File(context.noBackupFilesDir, "event-image-lifecycle.properties"), directory(context))
+    }
+
+    internal fun replaceDraftReferences(context: Context, owner: String, names: Set<String>): Boolean =
+        runCatching { registry(context).replaceReferences(owner, names.filterTo(mutableSetOf(), ::isValidFileName)) }.getOrDefault(false)
+
+    internal fun retainDraftReferences(context: Context, owner: String, names: Set<String>): Boolean =
+        runCatching { registry(context).retainDraftReferences(owner, names.filterTo(mutableSetOf(), ::isValidFileName)) }.getOrDefault(false)
+
+    internal fun registerCleanupCandidate(context: Context, name: String?): Boolean =
+        isValidFileName(name) && runCatching {
+            registry(context).registerCandidate(requireNotNull(name))
+        }.getOrDefault(false)
+
+    internal fun releasePreviousUndoReferences(context: Context) {
+        runCatching { registry(context).releaseOwnersWithPrefix("undo-") }
+    }
+
+    internal suspend fun cleanupRegisteredImages(context: Context, referencedFiles: suspend () -> Set<String>): Boolean =
+        withContext(Dispatchers.IO) {
+            // Serialize reference release with the latest DB snapshot and deletion on an IO thread.
+            runCatching { registry(context).cleanup { runBlocking { referencedFiles() } } }.getOrDefault(false).also {
+                cache.evictAll()
+            }
+        }
 
     /** 读取并压缩所选图片，返回新文件名；失败返回 null。 */
     suspend fun importFromUri(context: Context, uri: Uri): String? = withContext(Dispatchers.IO) {
+        var decoded: Bitmap? = null
+        var scaled: Bitmap? = null
+        var temp: File? = null
+        var unpublishedTarget: File? = null
+        var imported = false
         try {
             val resolver = context.contentResolver
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) } ?: return@withContext null
+            val boundsStream = resolver.openInputStream(uri) ?: return@withContext null
+            boundsStream.use { BitmapFactory.decodeStream(it, null, bounds) }
             if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return@withContext null
             val options = BitmapFactory.Options().apply {
                 inSampleSize = sampleSizeFor(bounds.outWidth, bounds.outHeight, EVENT_IMAGE_MAX_EDGE_PX)
             }
-            val decoded = resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
+            val source = resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
                 ?: return@withContext null
+            decoded = source
             val orientation = resolver.openInputStream(uri)?.use {
                 ExifInterface(it).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
             } ?: ExifInterface.ORIENTATION_NORMAL
-            val scaled = scaleAndRotate(decoded, EVENT_IMAGE_MAX_EDGE_PX, orientation)
-            val dir = directory(context).apply { mkdirs() }
+            val result = scaleAndRotate(source, EVENT_IMAGE_MAX_EDGE_PX, orientation)
+            scaled = result
+            val dir = directory(context)
+            check(dir.isDirectory || dir.mkdirs())
             val name = UUID.randomUUID().toString().replace("-", "") + ".jpg"
             val target = File(dir, name)
-            val temp = File(dir, "$name.tmp")
-            temp.outputStream().use { out -> scaled.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, out) }
-            if (scaled !== decoded) scaled.recycle()
-            decoded.recycle()
-            if (!temp.renameTo(target)) {
-                temp.delete()
+            check(!target.exists())
+            val pending = File(dir, "$name.tmp")
+            temp = pending
+            pending.outputStream().use { out ->
+                check(result.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, out))
+                out.fd.sync()
+            }
+            if (!pending.renameTo(target)) {
                 return@withContext null
             }
+            unpublishedTarget = target
+            check(registerCleanupCandidate(context, name))
+            imported = true
             name
         } catch (_: Exception) {
             null
         } catch (_: OutOfMemoryError) {
             null
+        } finally {
+            if (!imported) unpublishedTarget?.delete()
+            temp?.delete()
+            if (scaled !== decoded) scaled?.recycle()
+            decoded?.recycle()
         }
     }
 
@@ -81,15 +132,6 @@ object EventImageStore {
         cache.evictAll()
         fileFor(context, name)?.delete()
     }
-
-    /** 删除不再被任何事件引用的配图（撤销删除窗口过后才清理，故只处理一天前的文件）。 */
-    suspend fun cleanupOrphans(context: Context, referenced: Set<String>, nowMillis: Long = System.currentTimeMillis()) =
-        withContext(Dispatchers.IO) {
-            directory(context).listFiles()?.forEach { file ->
-                val stale = nowMillis - file.lastModified() > 24L * 60 * 60 * 1000
-                if (stale && file.name !in referenced) file.delete()
-            }
-        }
 
     suspend fun loadBitmap(context: Context, name: String, maxEdgePx: Int): Bitmap? = withContext(Dispatchers.IO) {
         val key = "$name@$maxEdgePx"

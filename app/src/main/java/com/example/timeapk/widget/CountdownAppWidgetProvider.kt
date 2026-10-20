@@ -117,6 +117,7 @@ class CountdownAppWidgetProvider : AppWidgetProvider() {
                 setInt(android.R.id.background, "setBackgroundResource", renderStyle.backgroundResId)
                 setWidgetTextColors(context, renderStyle, secondaryIds = intArrayOf(R.id.widget_empty))
                 setTextViewTextSize(R.id.widget_empty, TypedValue.COMPLEX_UNIT_SP, textStyle.emptyTextSp)
+                setTextViewText(R.id.widget_empty, widgetLanguageContext(context).getString(R.string.home_empty_title))
                 if (attachRemoteAdapter) {
                     setWidgetListRemoteAdapter(
                         createRemoteAdapterIntent(context, appWidgetId, sizeBucket, config, themeSnapshot)

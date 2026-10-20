@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
-private val Context.widgetConfigDataStore: DataStore<Preferences> by preferencesDataStore(
+internal val Context.widgetConfigDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "widget_preferences"
 )
 
