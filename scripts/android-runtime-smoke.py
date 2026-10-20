@@ -46,16 +46,10 @@ def require_version(identity, expected):
         raise SmokeFailure("Expected package " + "/".join(expected) + ", got " + repr(identity))
 
 
-def share_media_columns(api):
-    return "_id:_display_name:mime_type:" + ("relative_path:is_pending" if api >= 29 else "_data")
-
-
-def share_media_published(row, api, name):
-    if api >= 29 and row.get("is_pending") != "0":
+def share_media_published(row):
+    if row.get("is_pending") != "0":
         return False
-    expected_legacy = "/Android/data/" + PACKAGE + "/files/Pictures/TimeAPK/" + name
-    location_matches = (row.get("relative_path", "").strip("/") == "Pictures/TimeAPK"
-                        if api >= 29 else row.get("_data", "").endswith(expected_legacy))
+    location_matches = row.get("relative_path", "").strip("/") == "Pictures/TimeAPK"
     if row.get("mime_type") != "image/png" or not location_matches:
         raise SmokeFailure("Saved image MIME or location differs: " + repr(row))
     return True
@@ -631,16 +625,17 @@ class Smoke:
         name = "timeapk-" + safe_title + ".png"
         media = "content://media/external/images/media"
         api = int(self.text("shell", "getprop", "ro.build.version.sdk").strip())
+        legacy_file = "/sdcard/Android/data/" + PACKAGE + "/files/Pictures/TimeAPK/" + name
         self.evidence["share_check"] = {
             "passed": False, "title": title, "display_name": name,
-            "scope": "Actual MainActivity save to MediaStore and raw PNG verification; system chooser opened and cancelled; no recipient selection, URI-read or delivery claim.",
+            "scope": "Actual MainActivity save and raw PNG verification; API 29+ MediaStore, older systems app external pictures; system chooser opened and cancelled; no recipient selection, URI-read or delivery claim.",
         }
 
         def media_rows():
             # Filename characters are restricted above; retain SQL string quotes
             # across adb shell's argument joining without accepting arbitrary SQL.
             result = self.text("shell", "content", "query", "--uri", media,
-                               "--projection", share_media_columns(api),
+                               "--projection", "_id:_display_name:mime_type:relative_path:is_pending",
                                "--where", '"_display_name=\'' + name + '\'"')
             if result.strip() == "No result found.":
                 return []
@@ -663,7 +658,9 @@ class Smoke:
             return str(Path(self.last_xml).relative_to(self.output)) if tree.contains(saved) else None
 
         self.stage = "share-00-media-before"
-        before_ids = {row["_id"] for row in media_rows()}
+        before_ids = {row["_id"] for row in media_rows()} if api >= 29 else set()
+        if api < 29 and self.text("shell", "test -e '" + legacy_file + "' && echo exists || echo absent").strip() != "absent":
+            raise SmokeFailure("Legacy share output already exists before this save action")
         self.stage = "share-01-preview"
         self.tap(self.seek("detail Share", lambda tree: tree.action(share)))
         self.seek("rendered share dialog", dialog_ready)
@@ -672,10 +669,13 @@ class Smoke:
         self.tap(self.seek("Save image", lambda tree: tree.action(save)))
 
         def published_image():
+            if api < 29:
+                exists = self.text("shell", "test -s '" + legacy_file + "' && echo exists || echo absent")
+                return {"_data": legacy_file} if exists.strip() == "exists" else None
             rows = [row for row in media_rows() if row["_id"] not in before_ids]
             if len(rows) > 1:
                 raise SmokeFailure("One save action created multiple MediaStore images")
-            if rows and share_media_published(rows[0], api, name):
+            if rows and share_media_published(rows[0]):
                 row = rows[0]
                 return row
             return None
@@ -689,16 +689,19 @@ class Smoke:
         tree = self.checkpoint("share-03-saved-detail")
         feedback_xml = save_feedback(tree) or feedback_xml
         row = self.wait("new published share image", published_image, timeout=20)
-        uri = media + "/" + row["_id"]
+        uri = media + "/" + row["_id"] if api >= 29 else "file://" + legacy_file
         image_path = self.output / "share-saved-image.png"
-        data = self.run("exec-out", "content", "read", "--uri", uri, destination=image_path)
+        data = (self.run("exec-out", "content", "read", "--uri", uri, destination=image_path)
+                if api >= 29 else self.run("exec-out", "cat", legacy_file, destination=image_path))
         if len(data) < 33 or not data.startswith(b"\x89PNG\r\n\x1a\n") or data[12:16] != b"IHDR" or not data.endswith(b"\x00\x00\x00\x00IEND\xaeB`\x82"):
             raise SmokeFailure("Saved MediaStore image is not a complete PNG")
         dimensions = (int.from_bytes(data[16:20], "big"), int.from_bytes(data[20:24], "big"))
         if dimensions != (1080, 1350) or not image_path.is_file():
             raise SmokeFailure("Saved share image dimensions differ: " + repr(dimensions))
         self.evidence["share_check"].update(
-            source="MediaStore row created by this UI save action", saved_uri=uri, media_row=row,
+            source=("MediaStore row created by this UI save action" if api >= 29
+                    else "New app external pictures file created by this UI save action"),
+            saved_uri=uri, media_row=row,
             saved_png=image_path.name, bytes=len(data), sha256=hashlib.sha256(data).hexdigest(),
             width=dimensions[0], height=dimensions[1], feedback_observed=feedback_xml is not None,
             feedback_xml=feedback_xml,
