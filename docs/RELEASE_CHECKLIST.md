@@ -1,6 +1,6 @@
 # 发布检查清单（v4.2.2）
 
-**版本**：`4.2.2`（`versionCode=27`） **文档日期**：2026-10-21 **发布状态：候选 / 未发布**
+**版本**：`4.2.2`（`versionCode=27`） **文档日期**：2026-10-21 **发布状态：已发布**
 
 所有通过结果必须来自本版新鲜执行，并绑定源码 revision、构建、设备和原始报告。未知、未执行和失败不能勾选；APK 文件和设备安装包须互相对应。旧测试、旧截图和旧真机豁免均不延续到本版。
 
@@ -10,8 +10,8 @@
 
 - 源码 revision、标签、CI、APK 哈希及正式包 QA 见[结构化验证记录](releases/v4.2.2-verification.json)。
 - [x] 版本号和文件名已同步为 4.2.2 / 27。
-- [x] 本地 Direct / Play 单元测试各 667 项通过，三项 lint 报告零问题。
-- [ ] 最终不可变标签 CI 的双渠道单元测试、lint、API26/31/36 native、运行时检查、publisher 10/10 和新鲜 R8 构建全部通过。
+- [x] 本地 Direct / Play 单元测试各 667 项通过，早期本地三项 lint 报告零问题；最终云端每项有 1 条 OldTargetApi 警告、0 错误，以下方最终记录为准。
+- [x] 最终不可变标签 CI 的双渠道单元测试、lint、API26/31/36 native、运行时检查、publisher 10/10 和新鲜 R8 构建全部通过。
 
 ## 二、4.2.2 变更要求对照表
 
@@ -22,33 +22,41 @@
 | 小尺寸大字号、中英文及无障碍 | 实际 TextView 测量与语义断言 | 完整桌面矩阵未执行 |
 | 单事件配置与图片导入、清理 | JVM / native 故障与生命周期回归 | 系统图片备份恢复未执行 |
 
-细节及逐平台状态见[升级验收](releases/v4.2.2-upgrade-acceptance.md)。未执行项目作为公开限制保留，不标记通过；发布仍须完成最终标签 CI 和正式签名 APK 三平台升级 QA。
+细节及逐平台状态见[升级验收](releases/v4.2.2-upgrade-acceptance.md)。未执行项目作为公开限制保留，不标记通过；最终标签 CI 和正式签名 APK 三平台升级 QA 已完成。
 
 ## 三、正式签名
 
-- [ ] 最终标签工件的原始哈希、source-revision、output-metadata.json 已核对。
-- [ ] 使用原正式证书签名并独立验签，非 debug，包名及版本正确，16KiB 对齐通过。
+- [x] 最终标签工件的原始哈希、source-revision、output-metadata.json 已核对。
+- [x] 使用原正式证书签名并独立验签，非 debug，包名及版本正确，16KiB 对齐通过。
 - 正式证书 SHA-256：`3b7cb426a82664f891c69511cc2505b67128c8503664639f297291da4ea903ca`。
 
 ## 四、正式 APK 升级与运行
 
-- [ ] API26、31、36 从公开 4.2.1 / 26 覆盖升级到 4.2.2 / 27，事件、UID、首次安装时间保留。
-- [ ] 三平台 AMS 草稿恢复通过；API36 页面和分享流程通过。
+- [x] API26、31、36 从公开 4.2.1 / 26 覆盖升级到 4.2.2 / 27，事件、UID、首次安装时间保留。
+- [x] 三平台 AMS 草稿恢复通过；API36 页面和分享流程通过。
 - [ ] 真实 Launcher 旧绑定、完整日期/时区矩阵、系统图片备份恢复和实体手机：未执行。
 
 ## 五、发布凭据与说明
 
 - [x] 用户已授权继续发布，GitHub 账号及仓库写权限已核实。
-- [ ] 正式候选 QA 通过后运行现有 publisher；仅在子进程环境提供认证，密钥和令牌不进入仓库或日志。
-- [ ] 发布说明明确列出未执行验收，不沿用旧版设备证据。
+- [x] 正式候选 QA 通过后运行现有 publisher；仅在子进程环境提供认证，密钥和令牌不进入仓库或日志。
+- [x] 发布说明明确列出未执行验收，不沿用旧版设备证据。
 
 ## 六、发布动作
 
-- [ ] 工作区干净，HEAD、本地标签和远端标签解引用一致。
-- [ ] Release 仅含 `glimmer-countdown-4-2-2.apk`，正式版本，非 prerelease。
-- [ ] 公开匿名下载后的哈希、大小、证书与包身份一致。
-- [ ] 公开包三平台 QA 通过，API36 更新检查显示已是最新版本。
-- [ ] 本轮 owned QA draft 和发布锁已核实清理；更新发布后记录，不移动标签。
+- [x] 发布使用的独立工作区干净，HEAD、本地标签和远端标签解引用一致。
+- [x] Release 仅含 `glimmer-countdown-4-2-2.apk`，正式版本，非 prerelease。
+- [x] 公开匿名下载后的哈希、大小、证书与包身份一致。
+- [x] 公开包三平台 QA 通过，API36 更新检查显示已是最新版本。
+- [x] 本轮 owned QA draft 和发布锁已核实清理；更新发布后记录，不移动标签。
+
+## 本次发布证据
+
+最终标签 `fe6e0b254e42aad80dcf977b978f590c6e4fa503`；[标签 CI](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/39460606524)、[签名候选升级 QA](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/39463419090)、[公开 APK QA](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/39465087486) 全部通过。正式 APK 为 12,533,986 bytes，SHA-256 `87e55c8e43a2e3d6764755b7cb0a885524fd45323f9fb011c80be8dd1e328e4c`。
+
+真实 Launcher 旧绑定迁移、完整桌面日期/时区矩阵、系统图片备份恢复及实体手机检查仍未执行。三份最终云端 lint 报告各有 1 条 OldTargetApi 警告、0 错误；本版保留 targetSdk 36。
+
+[GitHub Release](https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v4.2.2)。公开匿名下载已核对哈希、大小、证书与包身份；临时 owned QA draft 与发布锁已清理。
 
 ## 历史记录（非发布门）
 

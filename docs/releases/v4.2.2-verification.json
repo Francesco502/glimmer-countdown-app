@@ -1,14 +1,14 @@
 {
   "version": "4.2.2",
   "versionCode": 27,
-  "status": "release_validation_in_progress",
+  "status": "published",
   "candidateSource": {
-    "commit": "0b548dc6b3f9f916076dd0f38d3dc6e4b11fd6f1",
+    "commit": "fe6e0b254e42aad80dcf977b978f590c6e4fa503",
     "pullRequest": "https://github.com/Francesco502/glimmer-countdown-app/pull/5",
-    "localSnapshotMatches": null,
-    "filesCompared": 57,
-    "comparisonScope": "All changed implementation, resources, test, workflow and build configuration files; later release documentation is outside the tested commit.",
-    "ciMergeCommit": null
+    "localSnapshotMatches": true,
+    "filesCompared": 354,
+    "comparisonScope": "Final immutable tag built and tested in CI; release worktree HEAD matched this tag before publisher. Post-publication documentation is a separate commit.",
+    "ciMergeCommit": "fe6e0b254e42aad80dcf977b978f590c6e4fa503"
   },
   "localValidation": {
     "directUnitTests": {
@@ -39,19 +39,73 @@
     "log": ".tmp/v422-fixes/final-verification.log"
   },
   "cloudValidation": {
-    "api36": "in_progress",
-    "run": "https://github.com/Francesco502/glimmer-countdown-app/actions/runs/39456977540",
-    "api31": "in_progress",
-    "api26": "in_progress"
+    "api26": "passed",
+    "run": "https://github.com/Francesco502/glimmer-countdown-app/actions/runs/39460606524",
+    "tag": "v4.2.2",
+    "api36": "passed",
+    "source": "fe6e0b254e42aad80dcf977b978f590c6e4fa503",
+    "api31": "passed",
+    "tagObject": "b11e2e0733808af9865a977ac64a25d941727148",
+    "nativeTests": {
+      "api26": {
+        "tests": 66,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 1,
+        "skipReason": "automaticGlassColorsFollowHostModeAtApplyTime requires API 31+"
+      },
+      "api31": {
+        "tests": 70,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "api36": {
+        "tests": 70,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "unitTests": {
+      "direct": 667,
+      "play": 667,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "lint": {
+      "directDebug": {
+        "errors": 0,
+        "warnings": 1
+      },
+      "directRelease": {
+        "errors": 0,
+        "warnings": 1
+      },
+      "playRelease": {
+        "errors": 0,
+        "warnings": 1
+      },
+      "warning": "OldTargetApi: targetSdk remains 36; SDK migration is outside this patch release. Local earlier reports had zero issues; these final cloud reports are authoritative."
+    },
+    "artifacts": {
+      "api26": 12283156778,
+      "api31": 12283960190,
+      "api36": 12283582607
+    },
+    "runtimeSmoke": "passed on all three APIs",
+    "publisherTests": "10/10 passed",
+    "pythonTests": "5/5 passed"
   },
   "remainingReleaseGates": {
-    "formalSignedApk": "not_started",
-    "signed421To422Upgrade": "not_executed",
+    "formalSignedApk": "passed",
+    "signed421To422Upgrade": "passed",
     "realLauncherWidgetUpgrade": "not_executed",
     "systemImageBackupRestore": "not_executed",
-    "publicRelease": "not_started"
+    "publicRelease": "published and public QA passed"
   },
-  "scope": "Local unit tests and lint do not establish device, Launcher, system restore, or signed-upgrade success. Cloud results must be inspected before changing these statuses.",
+  "scope": "Final tag CI, formal signed APK saved-event upgrade, AMS retained-task draft recovery and public release QA passed on API26/31/36. Real Launcher binding migration, full desktop/date/timezone matrix, system image backup restore and physical devices remain not executed. API36 checks app pages/share and published latest-version status.",
   "followupValidation": {
     "androidTestCompilation": "Direct and Play passed",
     "lintDirectDebug": "passed",
@@ -100,5 +154,84 @@
       "shareFileVerification": "passed",
       "runtimeSmoke": "passed"
     }
+  },
+  "preflightValidation": {
+    "api36": "passed",
+    "run": "https://github.com/Francesco502/glimmer-countdown-app/actions/runs/39456977540",
+    "api31": "passed",
+    "api26": "passed"
+  },
+  "signedApk": {
+    "certificate": "3b7cb426a82664f891c69511cc2505b67128c8503664639f297291da4ea903ca",
+    "unsignedSha256": "12a3e855295c62d1991a32926ba6262c37c9f1cebfa12fca6bbf5646cdf19faa",
+    "size": 12533986,
+    "sha256": "87e55c8e43a2e3d6764755b7cb0a885524fd45323f9fb011c80be8dd1e328e4c",
+    "file": "glimmer-countdown-4-2-2.apk",
+    "verification": "Formal certificate, package, version, non-debug manifest and 16 KiB zip alignment passed."
+  },
+  "signedCandidateQa": {
+    "run": "https://github.com/Francesco502/glimmer-countdown-app/actions/runs/39463419090",
+    "status": "passed",
+    "api26": "passed",
+    "api31": "passed",
+    "api36": "passed",
+    "artifacts": [
+      {
+        "id": 12284955103,
+        "name": "signed-apk-qa-api26-fe6e0b254e42aad80dcf977b978f590c6e4fa503"
+      },
+      {
+        "id": 12283673475,
+        "name": "signed-apk-qa-api31-fe6e0b254e42aad80dcf977b978f590c6e4fa503"
+      },
+      {
+        "id": 12283493944,
+        "name": "signed-apk-qa-api36-fe6e0b254e42aad80dcf977b978f590c6e4fa503"
+      }
+    ]
+  },
+  "publicRelease": {
+    "url": "https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v4.2.2",
+    "id": 418667240,
+    "assetId": 659972851,
+    "anonymousDownload": "verified SHA-256, size, certificate, package and version",
+    "qaRun": "https://github.com/Francesco502/glimmer-countdown-app/actions/runs/39465087486",
+    "api26": "passed",
+    "api31": "passed",
+    "api36": "passed including latest-version update state",
+    "ownedQaDraftDeleted": true,
+    "publisherLockRemoved": true,
+    "artifacts": [
+      {
+        "id": 12285480720,
+        "name": "signed-apk-qa-api26-fe6e0b254e42aad80dcf977b978f590c6e4fa503"
+      },
+      {
+        "id": 12285352458,
+        "name": "signed-apk-qa-api36-fe6e0b254e42aad80dcf977b978f590c6e4fa503"
+      },
+      {
+        "id": 12284587455,
+        "name": "signed-apk-qa-api31-fe6e0b254e42aad80dcf977b978f590c6e4fa503"
+      },
+      {
+        "id": 12283769278,
+        "name": "signed-apk-qa-api36-fe6e0b254e42aad80dcf977b978f590c6e4fa503"
+      }
+    ],
+    "runAttempt": 2
+  },
+  "publicQaInfrastructureFailure": {
+    "artifact": 12283769278,
+    "run": 39465087486,
+    "attempt": 1,
+    "cause": "SDK system image x86_64-36_r07.zip: Error on ZipFile unknown archive before emulator creation or APK install",
+    "job": 118774286902
+  },
+  "postPublicationDocumentationValidation": {
+    "test": "com.example.timeapk.release.ReleaseReadinessTest",
+    "result": "passed",
+    "log": ".tmp/v422-release/post-publication-doc-tests.log",
+    "scope": "Documentation-only changes after immutable-tag application tests and lint; release tag and APK unchanged."
   }
 }

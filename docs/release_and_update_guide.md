@@ -1,6 +1,6 @@
 # TimeAPK 发布与更新指引（4.2.2）
 
-本次候选版本为 4.2.2 / versionCode=27，尚未公开，唯一官方资产为 Direct APK `glimmer-countdown-4-2-2.apk`。**唯一正式发布渠道：GitHub Release。** Play flavor 仅保留用于兼容性与开发回归。实际验证状态见 [发布检查清单](RELEASE_CHECKLIST.md)，上一公开版见 [v4.2.1 历史清单](releases/v4.2.1-checklist.md)。
+本次公开版本为 4.2.2 / versionCode=27，已正式发布，唯一官方资产为 Direct APK `glimmer-countdown-4-2-2.apk`。**唯一正式发布渠道：GitHub Release。** Play flavor 仅保留用于兼容性与开发回归。实际验证状态见 [发布检查清单](RELEASE_CHECKLIST.md)，上一公开版见 [v4.2.1 历史清单](releases/v4.2.1-checklist.md)。
 
 ## 一、发布身份与凭据
 
