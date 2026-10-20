@@ -1,5 +1,6 @@
 package com.example.timeapk.ui.event
 
+import android.os.Build
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -77,7 +78,9 @@ class EventEditRecreationTest {
         composeRule.activityRule.scenario.recreate()
 
         composeRule.onNode(hasSetTextAction() and hasText(UPDATED_TITLE)).assertExists()
-        closeSoftKeyboard()
+        // Only legacy devices need this IME synchronization after recreation.
+        // Modern devices use Back below without Espresso's legacy result callback.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) closeSoftKeyboard()
         pressBack()
         composeRule.waitForIdle()
         // System Back may first dismiss the restored IME. Keep asserting the
