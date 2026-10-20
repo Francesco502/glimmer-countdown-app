@@ -1,12 +1,12 @@
-# 拾光（Glimmer）4.2.2（开发中）
+# 拾光（Glimmer）4.2.2（发布候选）
 
 拾光是一款面向 Android 的倒数日、生日与纪念日应用。它把日子整理成安静的纸笺、月历和桌面小组件，让重要时刻能被看见，也能被系统提醒与日历同步照顾到。
 
-当前源码为 `4.2.2 / versionCode=27`，尚未发布。开发内容和本轮验证状态见 [4.2.2 开发记录](docs/releases/v4.2.2-development.md)。以下正式发布、截图和签名证据属于 4.2.1，不证明 4.2.2 已通过设备验收。
+当前源码为 `4.2.2 / versionCode=27`，尚未发布。开发内容见 [4.2.2 开发记录](docs/releases/v4.2.2-development.md)，发布前状态见[验证记录](docs/releases/v4.2.2-verification.json)和[升级验收](docs/releases/v4.2.2-upgrade-acceptance.md)。以下正式发布、截图和签名证据属于 4.2.1，不证明 4.2.2 已通过设备验收。
 
 ## 拾光（Glimmer）4.2.1（当前公开版）
 
-`4.2.1` 已发布（`versionCode=26`，2026-10-15）修复桌面小组件夜间模式的自动文字颜色。发布门、实际验证与剩余限制见 [4.2.1 发布检查清单](docs/RELEASE_CHECKLIST.md)。[v4.2](docs/releases/v4.2-checklist.md)、[v4.1 历史清单](docs/releases/v4.1-checklist.md) 与 [v4.0 历史清单](docs/releases/v4.0-checklist.md) 保留各版证据，不作为本版通过记录。
+`4.2.1` 已发布（`versionCode=26`，2026-10-15）修复桌面小组件夜间模式的自动文字颜色。发布门、实际验证与剩余限制见 [4.2.1 发布检查清单](docs/releases/v4.2.1-checklist.md)。[v4.2](docs/releases/v4.2-checklist.md)、[v4.1 历史清单](docs/releases/v4.1-checklist.md) 与 [v4.0 历史清单](docs/releases/v4.0-checklist.md) 保留各版证据，不作为本版通过记录。
 
 **唯一正式发布渠道：GitHub Release。** 4.2.1 的唯一官方资产为 Direct APK `glimmer-countdown-4-2-1.apk`，沿用正式签名，可保留数据覆盖升级。Play flavor 仅保留用于兼容性与开发回归。
 
