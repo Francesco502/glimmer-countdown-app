@@ -7,6 +7,9 @@ import android.os.Binder
 import android.util.TypedValue
 import android.widget.RemoteViews
 import android.widget.RemoteViewsService
+import android.view.LayoutInflater
+import android.widget.TextView
+import android.widget.FrameLayout
 import com.example.timeapk.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -32,6 +35,7 @@ private class CountdownRemoteViewsFactory(
     )
 
     private val items = mutableListOf<WidgetRenderedItem>()
+    private var widthDp = 110
     private var textStyle: WidgetTextStyle = WidgetStylePolicy.resolve(widgetSizeBucket, 1f)
     private var renderStyle: WidgetRenderStyle = WidgetRenderPolicy.resolve(
         WidgetConfig.default(),
@@ -47,17 +51,20 @@ private class CountdownRemoteViewsFactory(
     override fun onDataSetChanged() {
         val identityToken = Binder.clearCallingIdentity()
         try {
-            val snapshot = runBlocking(Dispatchers.IO) {
-                WidgetContentResolver.load(
-                    context = context,
-                    appWidgetId = appWidgetId.takeIf { it != AppWidgetManager.INVALID_APPWIDGET_ID },
-                    sizeBucket = widgetSizeBucket
-                )
+            runBlocking(Dispatchers.IO) {
+                WidgetRefreshCoordinator.runLatestSnapshot {
+                    val snapshot = WidgetContentResolver.load(
+                        context = context,
+                        appWidgetId = appWidgetId.takeIf { it != AppWidgetManager.INVALID_APPWIDGET_ID },
+                        sizeBucket = widgetSizeBucket
+                    )
+                    items.clear()
+                    items.addAll(snapshot.items)
+                    textStyle = snapshot.textStyle
+                    renderStyle = snapshot.renderStyle
+                    widthDp = snapshot.widthDp
+                }
             }
-            items.clear()
-            items.addAll(snapshot.items)
-            textStyle = snapshot.textStyle
-            renderStyle = snapshot.renderStyle
         } finally {
             Binder.restoreCallingIdentity(identityToken)
         }
@@ -67,43 +74,63 @@ private class CountdownRemoteViewsFactory(
 
     override fun getViewAt(position: Int): RemoteViews? {
         val item = items.getOrNull(position) ?: return null
-
-        return RemoteViews(context.packageName, renderStyle.itemLayoutResId).apply {
-            setTextViewText(R.id.widget_item_title, item.title)
-            setTextViewText(R.id.widget_item_value, item.value)
-            setWidgetTextColors(
-                context, renderStyle,
-                primaryIds = intArrayOf(R.id.widget_item_title),
-                accentIds = intArrayOf(R.id.widget_item_value)
-            )
-            setTextViewTextSize(R.id.widget_item_title, TypedValue.COMPLEX_UNIT_SP, textStyle.titleSp)
-            setTextViewTextSize(R.id.widget_item_value, TypedValue.COMPLEX_UNIT_SP, textStyle.valueSp)
-            setViewPadding(
-                R.id.widget_item_root,
-                dp(textStyle.paddingHorizontalDp),
-                dp(textStyle.paddingVerticalDp),
-                dp(textStyle.paddingHorizontalDp),
-                dp(textStyle.paddingVerticalDp)
-            )
-            setInt(R.id.widget_item_value, "setMaxEms", textStyle.valueMaxEms)
-            setOnClickFillInIntent(
-                R.id.widget_item_root,
-                Intent().apply { putExtra("open_event_id", item.eventId) }
-            )
-        }
-    }
-
-    private fun dp(value: Int): Int {
-        val density = context.resources.displayMetrics.density
-        return (value * density).toInt()
+        return buildWidgetItemRemoteViews(context, item, textStyle, renderStyle, widthDp)
     }
 
     override fun getLoadingView(): RemoteViews? = null
 
-    override fun getViewTypeCount(): Int = 1
+    override fun getViewTypeCount(): Int = 2
 
     override fun getItemId(position: Int): Long =
         items.getOrNull(position)?.eventId?.toLong() ?: position.toLong()
 
     override fun hasStableIds(): Boolean = true
+}
+
+internal fun buildWidgetItemRemoteViews(
+    context: Context,
+    item: WidgetRenderedItem,
+    textStyle: WidgetTextStyle,
+    renderStyle: WidgetRenderStyle,
+    widthDp: Int = 110
+): RemoteViews {
+    fun dp(value: Int): Int = (value * context.resources.displayMetrics.density).toInt()
+
+    val row = LayoutInflater.from(context).inflate(renderStyle.itemLayoutResId, FrameLayout(context), false)
+    val valueView = row.findViewById<TextView>(R.id.widget_item_value)
+    valueView.setTextSize(TypedValue.COMPLEX_UNIT_SP, textStyle.valueSp)
+    val available = (dp(widthDp) - 2 * context.resources.getDimensionPixelSize(R.dimen.widget_content_padding) -
+        2 * dp(textStyle.paddingHorizontalDp)).coerceAtLeast(1)
+    val candidates = listOf(item.fullValue, item.compactValue, item.shortValue).distinct()
+    val fitted = WidgetValueFormatter.fitMeasuredValue(candidates, available.toFloat(), dp(4).toFloat()) {
+        valueView.paint.measureText(it)
+    }
+    val layout = if (!fitted.stacked) renderStyle.itemLayoutResId else when (renderStyle.itemLayoutResId) {
+        R.layout.widget_countdown_item_shadow_dark -> R.layout.widget_countdown_item_stacked_shadow_dark
+        R.layout.widget_countdown_item_shadow_light -> R.layout.widget_countdown_item_stacked_shadow_light
+        else -> R.layout.widget_countdown_item_stacked
+    }
+    return RemoteViews(context.packageName, layout).apply {
+        setTextViewText(R.id.widget_item_title, item.title)
+        setTextViewText(R.id.widget_item_value, fitted.text)
+        setContentDescription(R.id.widget_item_root, item.contentDescription)
+        setWidgetTextColors(
+            context, renderStyle,
+            primaryIds = intArrayOf(R.id.widget_item_title),
+            accentIds = intArrayOf(R.id.widget_item_value)
+        )
+        setTextViewTextSize(R.id.widget_item_title, TypedValue.COMPLEX_UNIT_SP, textStyle.titleSp)
+        setTextViewTextSize(R.id.widget_item_value, TypedValue.COMPLEX_UNIT_SP, textStyle.valueSp)
+        setViewPadding(
+            R.id.widget_item_root,
+            dp(textStyle.paddingHorizontalDp),
+            dp(textStyle.paddingVerticalDp),
+            dp(textStyle.paddingHorizontalDp),
+            dp(textStyle.paddingVerticalDp)
+        )
+        setOnClickFillInIntent(
+            R.id.widget_item_root,
+            Intent().apply { putExtra("open_event_id", item.eventId) }
+        )
+    }
 }

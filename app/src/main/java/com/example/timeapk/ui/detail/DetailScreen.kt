@@ -436,11 +436,9 @@ fun DetailScreen(
                 availableModes = availableModes,
                 mode = mode,
                 onTimeDisplayClick = {
-                    scope.launch {
-                        val nextModeIndex = (availableModes.indexOf(mode) + 1) % availableModes.size
-                        val nextMode = availableModes[nextModeIndex]
-                        prefs.setDateDeltaDisplayModeForEvent(eventState.event.id, nextMode)
-                    }
+                    val nextModeIndex = (availableModes.indexOf(mode) + 1) % availableModes.size
+                    val nextMode = availableModes[nextModeIndex]
+                    (context.applicationContext as TimeApplication).saveEventDisplayMode(eventState.event.id, nextMode)
                 }
             )
 

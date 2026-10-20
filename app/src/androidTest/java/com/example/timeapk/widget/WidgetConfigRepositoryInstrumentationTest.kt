@@ -8,6 +8,9 @@ import android.view.View
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.example.timeapk.R
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -17,6 +20,47 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class WidgetConfigRepositoryInstrumentationTest {
+    @Test
+    fun persistedVersionOneDefaultsAndInstancesMigrateWithoutChangingOtherFields() = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val store = context.widgetConfigDataStore
+        val defaultsKey = stringPreferencesKey("widget_default_config_json")
+        val instancesKey = stringPreferencesKey("widget_instance_configs_json")
+        val original = store.data.first()
+        val legacy = """{"version":1,"widthCells":3,"heightCells":2,"appearancePreset":5,"backgroundOpacityPercent":50,"borderMode":2,"cornerMode":3,"densityMode":0,"contentScope":3,"sortMode":2,"showLunarPrefix":false,"contrastMode":1,"fontScale":1.6}"""
+        try {
+            store.edit {
+                it[defaultsKey] = legacy
+                it[instancesKey] = """{"61001":$legacy,"61002":{"version":1,"appearancePreset":3,"displayPolicy":99}}"""
+            }
+            val repository = WidgetConfigRepository(context)
+            val expected = WidgetConfig(
+                widthCells = 3, heightCells = 2, appearancePreset = APPEARANCE_SEAL,
+                backgroundOpacityPercent = 50, borderMode = BORDER_OFF, cornerMode = CORNER_LARGE,
+                densityMode = DENSITY_COMPACT, contentScope = CONTENT_BIRTHDAY,
+                sortMode = SORT_NEAREST_FIRST, showLunarPrefix = false,
+                contrastMode = CONTRAST_LIGHT_TEXT, fontScale = 1.6f
+            )
+            assertEquals(expected, repository.getDefaultConfig())
+            assertEquals(expected, repository.getConfigForWidget(61001))
+            assertEquals(expected, repository.getConfigForWidget(61003))
+            assertEquals(DISPLAY_POLICY_AUTO, repository.getConfigForWidget(61002).displayPolicy)
+            repository.setConfigForWidget(61001, expected.copy(displayPolicy = DISPLAY_POLICY_FOLLOW_APP))
+            val reopened = WidgetConfigRepository(context)
+            assertEquals(DISPLAY_POLICY_FOLLOW_APP, reopened.getConfigForWidget(61001).displayPolicy)
+            assertEquals(DISPLAY_POLICY_AUTO, reopened.getConfigForWidget(61002).displayPolicy)
+            assertEquals(expected, reopened.getDefaultConfig())
+            reopened.removeConfigForWidget(61001)
+            assertEquals(expected, reopened.getConfigForWidget(61001))
+        } finally {
+            store.edit { prefs ->
+                listOf(defaultsKey, instancesKey).forEach { key ->
+                    original[key]?.let { prefs[key] = it } ?: prefs.remove(key)
+                }
+            }
+        }
+    }
+
     @Test
     fun widgetRootLayoutsExposeTopLevelLauncherBackground() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -129,12 +173,14 @@ class WidgetConfigRepositoryInstrumentationTest {
         val firstConfig = WidgetConfig.default().copy(
             appearancePreset = APPEARANCE_SEAL,
             contentScope = CONTENT_PINNED,
+            displayPolicy = DISPLAY_POLICY_FOLLOW_APP,
             sortMode = SORT_HOME
         )
         val secondConfig = WidgetConfig.default().copy(
             widthCells = 4,
             heightCells = 2,
             appearancePreset = APPEARANCE_TRANSPARENT,
+            displayPolicy = DISPLAY_POLICY_COUNTDOWN,
             sortMode = SORT_NEAREST_FIRST
         )
         val latestDefault = WidgetConfig.default().copy(

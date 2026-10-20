@@ -628,6 +628,7 @@ fun DisplaySettingsContent(
                         onClick = {
                             scope.launch {
                                 prefs.setLanguageMode(value)
+                                WidgetUpdater.refreshCountdownWidgets(context.applicationContext)
                                 withContext(Dispatchers.Main) { activity?.recreate() }
                             }
                         }

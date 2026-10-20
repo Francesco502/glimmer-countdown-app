@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Host-driven draft recovery, or 4.2-to-4.2.1 upgrade with --upgrade-apk.
+"""Host-driven draft recovery, or 4.2.1-to-4.2.2 upgrade with --upgrade-apk.
 
 This terminates a real background process through ActivityManager while retaining
 its task. It does not claim natural low-memory-killer or physical-device coverage.
@@ -21,6 +21,8 @@ import xml.etree.ElementTree as ET
 
 PACKAGE = "com.example.timeapk"
 COMPONENT = PACKAGE + "/.MainActivity"
+UPGRADE_BASELINE = ("4.2.1", "26")
+UPGRADE_CANDIDATE = ("4.2.2", "27")
 LABELS = {
     "add": ("Add event", "Record your first event", "添加事件", "记录第一个日期"),
     "new": ("New event", "新建事件"),
@@ -37,6 +39,11 @@ LABELS = {
 
 class SmokeFailure(RuntimeError):
     pass
+
+
+def require_version(identity, expected):
+    if (identity["versionName"], identity["versionCode"]) != expected:
+        raise SmokeFailure("Expected package " + "/".join(expected) + ", got " + repr(identity))
 
 
 def bounds(node):
@@ -421,7 +428,8 @@ class Smoke:
         return next(iter(values))
 
     def upgrade(self, apk):
-        self.evidence["scenario"] = "saved-event-4.2-to-4.2.1-in-place-upgrade"
+        self.evidence["scenario"] = "saved-event-4.2.1-to-4.2.2-in-place-upgrade"
+        self.evidence["launcher_widget_upgrade"] = "not_executed; separate launcher acceptance required"
         apk = Path(apk).resolve()
         if not apk.is_file():
             raise SmokeFailure("Upgrade APK does not exist: " + str(apk))
@@ -437,8 +445,7 @@ class Smoke:
         before = package_identity(self.text("shell", "dumpsys", "package", PACKAGE,
                                             destination=self.output / "before-package.txt"))
         self.evidence["package_before"] = before
-        if (before["versionName"], before["versionCode"]) != ("4.2", "25"):
-            raise SmokeFailure("Upgrade requires installed baseline 4.2/25, got " + repr(before))
+        require_version(before, UPGRADE_BASELINE)
 
         nonce = uuid.uuid4().hex[:12]
         # Each legacy-IME prefix needs a native UI dump; keep the nonce with short labels.
@@ -477,8 +484,7 @@ class Smoke:
         after = package_identity(self.text("shell", "dumpsys", "package", PACKAGE,
                                            destination=self.output / "after-package.txt"))
         self.evidence["package_after"] = after
-        if (after["versionName"], after["versionCode"]) != ("4.2.1", "26"):
-            raise SmokeFailure("Upgrade did not install 4.2.1/26: " + repr(after))
+        require_version(after, UPGRADE_CANDIDATE)
         for key in ("firstInstallTime", "userId"):
             if after[key] != before[key]:
                 raise SmokeFailure("In-place upgrade changed " + key)
@@ -501,14 +507,16 @@ class Smoke:
         self.hide_keyboard()
         self.tap_action("back")
         self.evidence["passed"] = True
-        self.evidence["scope"] = "One saved synthetic event upgraded from 4.2/25 to 4.2.1/26 with unchanged firstInstallTime/userId and title/note/displayed date; caller verifies APK signature separately; no baseline process-recovery or physical-device claim."
+        self.evidence["scope"] = "One saved synthetic event upgraded from 4.2.1/26 to 4.2.2/27 with unchanged firstInstallTime/userId and title/note/displayed date; caller verifies APK signature separately; launcher widget/config migration, baseline process-recovery and physical-device acceptance are separate, not implied."
 
     def capture_pages(self, title):
         self.stage = "pages-00-package"
         identity = package_identity(self.text("shell", "dumpsys", "package", PACKAGE,
                                                destination=self.output / "pages-installed-package.txt"))
-        if (identity["versionName"], identity["versionCode"]) != ("4.2.1", "26"):
-            raise SmokeFailure("Page capture requires installed 4.2.1/26: " + repr(identity))
+        # Both source CI and the current signed-upgrade path must capture 4.2.2.
+        expected = self.evidence.get("package_after") or {"versionName": "4.2.2", "versionCode": "27"}
+        if (identity["versionName"], identity["versionCode"]) != (expected["versionName"], expected["versionCode"]):
+            raise SmokeFailure("Page capture package does not match the expected build: " + repr(identity))
         self.evidence.update(pages_package=identity, pages_title=title, captured_pages=[],
                              pages_scope="Five actual MainActivity pages: home cards, calendar, the unique saved event detail, settings root, and app-internal widget default configuration preview; no Launcher widget binding claim.")
 
@@ -720,8 +728,7 @@ class Smoke:
         self.stage = "update-01-open-about"
         package_file = self.output / "update-installed-package.txt"
         identity = package_identity(self.text("shell", "dumpsys", "package", PACKAGE, destination=package_file))
-        if (identity["versionName"], identity["versionCode"]) != ("4.2.1", "26"):
-            raise SmokeFailure("Published-update check requires installed 4.2.1/26: " + repr(identity))
+        require_version(identity, UPGRADE_CANDIDATE)
         tree = self.tree()
         if tree.contains(("Widget settings", "小组件设置")) and tree.contains(("Default configuration", "默认配置")):
             self.tap_action("back")
@@ -795,7 +802,7 @@ def main():
     parser.add_argument("--adb", required=True)
     parser.add_argument("--serial", required=True)
     parser.add_argument("--output", required=True)
-    parser.add_argument("--upgrade-apk", help="Upgrade installed 4.2/25 to this caller-verified signed 4.2.1/26 APK")
+    parser.add_argument("--upgrade-apk", help="Upgrade installed 4.2.1/26 to this caller-verified signed 4.2.2/27 APK")
     parser.add_argument("--capture-pages", action="store_true", help="After success, capture five MainActivity pages for manual review")
     parser.add_argument("--check-update", action="store_true", help="After success, require the published Direct-app update UI to confirm Already up to date")
     args = parser.parse_args()

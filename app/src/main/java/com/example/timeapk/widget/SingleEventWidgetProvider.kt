@@ -46,6 +46,12 @@ class SingleEventWidgetProvider : AppWidgetProvider() {
         }
 
         internal suspend fun refresh(context: Context, appWidgetManager: AppWidgetManager, ids: IntArray) {
+            WidgetRefreshCoordinator.runLatestSnapshot {
+                refreshLatestSnapshot(context, appWidgetManager, ids)
+            }
+        }
+
+        private suspend fun refreshLatestSnapshot(context: Context, appWidgetManager: AppWidgetManager, ids: IntArray) {
             val app = context.applicationContext as? TimeApplication ?: return
             val prefs = app.userPrefs
             val milestones = prefs.customMilestonesFlow.first()
@@ -56,16 +62,17 @@ class SingleEventWidgetProvider : AppWidgetProvider() {
             val config = repository.getDefaultConfig().sanitize()
             val theme = WidgetThemeResolver.resolve(context)
             val today = LocalDate.now()
+            val localizedContext = widgetLanguageContext(context)
             ids.forEach { appWidgetId ->
                 val selection = repository.getSingleEventSelection(appWidgetId)
                 val target = SingleEventWidgetPolicy.resolveTarget(states, selection, today, pinned)
-                val text = target?.let { SingleEventWidgetPolicy.buildText(context, it) }
+                val text = target?.let { SingleEventWidgetPolicy.buildText(localizedContext, it) }
                 val options = appWidgetManager.getAppWidgetOptions(appWidgetId)
                 val widthDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 110)
                 val heightDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 110)
                 appWidgetManager.updateAppWidget(
                     appWidgetId,
-                    buildViews(context, appWidgetId, text, config, theme, widthDp, heightDp)
+                    buildViews(localizedContext, appWidgetId, text, config, theme, widthDp, heightDp)
                 )
             }
         }
@@ -93,20 +100,30 @@ class SingleEventWidgetProvider : AppWidgetProvider() {
                 setTextViewTextSize(
                     R.id.single_number,
                     TypedValue.COMPLEX_UNIT_SP,
-                    SingleEventWidgetPolicy.numberTextSp(widthDp, heightDp) * scale
+                    if (text?.isToday == true) {
+                        SingleEventWidgetPolicy.todayTextSp(context, text.number, widthDp, heightDp, scale)
+                    } else {
+                        SingleEventWidgetPolicy.numberTextSp(widthDp, heightDp) * scale
+                    }
                 )
                 setTextViewTextSize(R.id.single_title, TypedValue.COMPLEX_UNIT_SP, 14f * scale)
                 if (text == null) {
+                    setContentDescription(R.id.widget_root, context.getString(R.string.home_empty_title))
                     setTextViewText(R.id.single_label, "")
                     setTextViewText(R.id.single_number, "")
                     setTextViewText(R.id.single_unit, "")
                     setTextViewText(R.id.single_title, context.getString(R.string.home_empty_title))
                     setViewVisibility(R.id.single_date, View.GONE)
                 } else {
+                    setContentDescription(
+                        R.id.widget_root,
+                        "${text.title}, ${text.label} ${text.number} ${text.unit}, ${text.dateText}"
+                    )
                     setTextViewText(R.id.single_label, text.label)
                     setViewVisibility(R.id.single_label, if (text.label.isEmpty()) View.GONE else View.VISIBLE)
                     setTextViewText(R.id.single_number, text.number)
                     setTextViewText(R.id.single_unit, text.unit)
+                    setViewVisibility(R.id.single_unit, if (text.unit.isEmpty()) View.GONE else View.VISIBLE)
                     setTextViewText(R.id.single_title, text.title)
                     setTextViewText(R.id.single_date, text.dateText)
                     setViewVisibility(

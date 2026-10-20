@@ -1,17 +1,47 @@
 package com.example.timeapk.widget
 
-import com.example.timeapk.ui.utils.DisplayModes
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class WidgetValueFormatterTest {
+    @Test
+    fun measuredWidthKeepsHalfTheRowForTheTitle() {
+        val widths = mapOf("12 days until next birthday" to 180f, "Birthday in 12d" to 96f, "In 12d" to 36f)
+        val candidates = widths.keys.toList()
+        assertEquals(WidgetValueLayout("12 days until next birthday", false),
+            WidgetValueFormatter.fitMeasuredValue(candidates, 400f, 4f) { widths.getValue(it) })
+        assertEquals(WidgetValueLayout("In 12d", false),
+            WidgetValueFormatter.fitMeasuredValue(candidates, 100f, 4f) { widths.getValue(it) })
+    }
+
+    @Test
+    fun largeFontStacksInsteadOfHidingTitleOrClippingUnit() {
+        val widths = mapOf("距下次生日还有 12 天" to 180f, "生日余12天" to 80f, "余12天" to 50f)
+        assertEquals(WidgetValueLayout("余12天", true),
+            WidgetValueFormatter.fitMeasuredValue(widths.keys.toList(), 66f, 4f) { widths.getValue(it) })
+    }
+
+    @Test
+    fun extremeFontRetainsWholeTodayTextForWrapping() {
+        assertEquals(WidgetValueLayout("Birthday today", true),
+            WidgetValueFormatter.fitMeasuredValue(listOf("Birthday today"), 62f, 4f) { 180f })
+    }
+
+    @Test
+    fun equalCharacterCountsDoNotImplyEqualRenderedWidths() {
+        val wide = WidgetValueFormatter.fitMeasuredValue(listOf("今天生日"), 70f, 4f) { 64f }
+        val narrow = WidgetValueFormatter.fitMeasuredValue(listOf("Today"), 70f, 4f) { 30f }
+        assertEquals(true, wide.stacked)
+        assertEquals(false, narrow.stacked)
+    }
+
 
     @Test
     fun semanticValue_prefersTextWhenItFits() {
         val text = WidgetValueFormatter.semanticValueOrFallback(
             preferredText = "还有12天",
-            fallbackText = "12",
+            fallbackText = "余12天",
             maxChars = 8
         )
 
@@ -22,71 +52,34 @@ class WidgetValueFormatterTest {
     fun semanticValue_fallsBackWhenTextIsTooLong() {
         val text = WidgetValueFormatter.semanticValueOrFallback(
             preferredText = "已经1年2个月3天",
-            fallbackText = "-428",
+            fallbackText = "已428天",
             maxChars = 8
         )
 
-        assertEquals("-428", text)
+        assertEquals("已428天", text)
     }
 
     @Test
-    fun smallMode_todayAlwaysShowsZero() {
-        val text = WidgetValueFormatter.numericValueForSmall(
-            mode = DisplayModes.UNTIL_DAYS,
-            isPast = false,
-            isRepeating = false,
-            isToday = true,
-            daysElapsed = 0,
-            daysPassed = 0,
-            daysRemaining = 0,
-            daysLeft = 0
-        )
-        assertEquals("0", text)
+    fun semanticValue_blankFullTextKeepsSemanticFallback() {
+        assertEquals("In 12d", WidgetValueFormatter.semanticValueOrFallback("", "In 12d", 8))
     }
 
     @Test
-    fun smallMode_pastUsesNegativeNumber() {
-        val text = WidgetValueFormatter.numericValueForSmall(
-            mode = DisplayModes.PAST_DAYS,
-            isPast = true,
-            isRepeating = false,
-            isToday = false,
-            daysElapsed = 12,
-            daysPassed = 0,
-            daysRemaining = 0,
-            daysLeft = 0
-        )
-        assertEquals("-12", text)
+    fun dayCount_smallCountsRemainExact() {
+        assertEquals("12", WidgetValueFormatter.compactDayCount(12))
+        assertEquals("0", WidgetValueFormatter.compactDayCount(0))
     }
 
     @Test
-    fun smallMode_repeatingUsesDaysLeftForFuture() {
-        val text = WidgetValueFormatter.numericValueForSmall(
-            mode = DisplayModes.UNTIL_YMD,
-            isPast = false,
-            isRepeating = true,
-            isToday = false,
-            daysElapsed = 0,
-            daysPassed = 0,
-            daysRemaining = 99,
-            daysLeft = 7
-        )
-        assertEquals("7", text)
+    fun dayCount_largeCountsKeepMagnitudeWithoutTruncating() {
+        assertEquals("123m", WidgetValueFormatter.compactDayCount(123_456_789))
+        assertEquals("1b", WidgetValueFormatter.compactDayCount(1_000_000_000))
     }
 
     @Test
-    fun smallMode_largeNumbersAreCompactedWithinSixChars() {
-        val text = WidgetValueFormatter.numericValueForSmall(
-            mode = DisplayModes.UNTIL_DAYS,
-            isPast = false,
-            isRepeating = false,
-            isToday = false,
-            daysElapsed = 0,
-            daysPassed = 0,
-            daysRemaining = 123_456_789L,
-            daysLeft = 0
-        )
-        assertTrue(text.length <= 6)
-        assertTrue(text.endsWith("m") || text.endsWith("b") || text.endsWith("k"))
+    fun semanticValue_tinyBudgetStillKeepsDirectionAndUnit() {
+        val text = WidgetValueFormatter.semanticValueOrFallback("还有123,456天", "余123k天", 3)
+        assertTrue(text.startsWith("余"))
+        assertTrue(text.endsWith("天"))
     }
 }

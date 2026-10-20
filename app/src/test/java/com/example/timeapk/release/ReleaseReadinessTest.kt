@@ -38,20 +38,20 @@ class ReleaseReadinessTest {
     }
 
     @Test
-    fun versionConfigTargets421Release() {
+    fun versionConfigTargets422Development() {
         val properties = Properties().apply {
             rootGradlePropertiesFile().inputStream().use(::load)
         }
 
-        assertEquals("26", properties.getProperty("VERSION_CODE"))
-        assertEquals("4.2.1", properties.getProperty("VERSION_NAME"))
+        assertEquals("27", properties.getProperty("VERSION_CODE"))
+        assertEquals("4.2.2", properties.getProperty("VERSION_NAME"))
 
         val buildFile = appBuildGradleFile().readText(Charsets.UTF_8)
-        assertTrue(buildFile.contains("versionCode = versionCodeOverride ?: 26"))
-        assertTrue(buildFile.contains("versionName = versionNameOverride ?: \"4.2.1\""))
-        assertTrue(buildFile.contains("val versionNameForApk = versionNameOverride ?: \"4.2.1\""))
+        assertTrue(buildFile.contains("versionCode = versionCodeOverride ?: 27"))
+        assertTrue(buildFile.contains("versionName = versionNameOverride ?: \"4.2.2\""))
+        assertTrue(buildFile.contains("val versionNameForApk = versionNameOverride ?: \"4.2.2\""))
         assertTrue(buildFile.contains("applicationIdSuffix = \".play\""))
-        assertFalse("Play must keep the shared 4.2.1 versionName", buildFile.contains("versionNameSuffix"))
+        assertFalse("Play must keep the shared 4.2.2 versionName", buildFile.contains("versionNameSuffix"))
     }
 
     @Test
@@ -566,12 +566,13 @@ class ReleaseReadinessTest {
     }
 
     @Test
-    fun backupRulesIncludeRoomAndBothDataStoresForCloudAndTransfer() {
+    fun backupRulesIncludeRoomDataStoresAndEventImagesForCloudAndTransfer() {
         val expectedIncludes = listOf(
             "database" to "event_database",
             "database" to "event_database-wal",
             "database" to "event_database-shm",
-            "file" to "datastore/"
+            "file" to "datastore/",
+            "file" to "event_images/"
         )
         val documentBuilder = javax.xml.parsers.DocumentBuilderFactory
             .newInstance()

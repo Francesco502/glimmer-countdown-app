@@ -2,11 +2,17 @@ package com.example.timeapk.ui.settings
 
 import android.appwidget.AppWidgetManager
 import android.content.Intent
+import android.util.TypedValue
+import android.view.View
+import android.view.ViewGroup
+import android.widget.BaseAdapter
+import android.widget.FrameLayout
+import android.widget.ListView
+import android.widget.RemoteViews
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
@@ -40,6 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -47,6 +54,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -81,6 +89,9 @@ import com.example.timeapk.widget.CORNER_SYSTEM
 import com.example.timeapk.widget.DENSITY_COMFORTABLE
 import com.example.timeapk.widget.DENSITY_COMPACT
 import com.example.timeapk.widget.DENSITY_STANDARD
+import com.example.timeapk.widget.DISPLAY_POLICY_AUTO
+import com.example.timeapk.widget.DISPLAY_POLICY_FOLLOW_APP
+import com.example.timeapk.widget.DISPLAY_POLICY_COUNTDOWN
 import com.example.timeapk.widget.CountdownAppWidgetProvider
 import com.example.timeapk.widget.SORT_HOME
 import com.example.timeapk.widget.SORT_NEAREST_FIRST
@@ -88,9 +99,21 @@ import com.example.timeapk.widget.SORT_PINNED_FIRST
 import com.example.timeapk.widget.WidgetConfigActivity
 import com.example.timeapk.widget.WidgetConfig
 import com.example.timeapk.widget.WidgetConfigRepository
-import com.example.timeapk.widget.WidgetRenderPolicy
-import com.example.timeapk.widget.WidgetThemeSnapshot
+import com.example.timeapk.widget.WidgetContentResolver
+import com.example.timeapk.widget.WidgetContentSnapshot
+import com.example.timeapk.widget.WidgetSizeBucket
 import com.example.timeapk.widget.WidgetUpdater
+import com.example.timeapk.widget.widgetLanguageContext
+import com.example.timeapk.widget.buildWidgetItemRemoteViews
+import com.example.timeapk.widget.setWidgetTextColors
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
 @Composable
@@ -330,6 +353,22 @@ fun WidgetConfigEditor(
                 onSelected = { onConfigChange(config.copy(sortMode = it).sanitize()) }
             )
             WidgetOptionGroup(
+                title = stringResource(R.string.widget_config_display_policy),
+                options = listOf(
+                    DISPLAY_POLICY_AUTO to stringResource(R.string.widget_config_display_auto),
+                    DISPLAY_POLICY_FOLLOW_APP to stringResource(R.string.widget_config_display_follow_app),
+                    DISPLAY_POLICY_COUNTDOWN to stringResource(R.string.widget_config_display_countdown)
+                ),
+                selected = config.displayPolicy,
+                onSelected = { onConfigChange(config.copy(displayPolicy = it).sanitize()) }
+            )
+            Text(
+                text = stringResource(R.string.widget_config_display_policy_help),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 6.dp)
+            )
+            WidgetOptionGroup(
                 title = stringResource(R.string.widget_config_density),
                 options = listOf(
                     DENSITY_COMPACT to stringResource(R.string.widget_config_density_compact),
@@ -374,9 +413,6 @@ internal val WidgetPreviewSizes: List<Pair<Int, Int>> = listOf(
 /** 只有“跟随系统”与磨砂玻璃两种背景会随不透明度变化。 */
 internal fun widgetAppearanceSupportsOpacity(appearancePreset: Int): Boolean =
     appearancePreset == APPEARANCE_SYSTEM || appearancePreset == APPEARANCE_TRANSLUCENT
-
-/** 预览行数随高度格数增加（每格约两行），与桌面 RemoteViews 自上而下的排列一致。 */
-internal fun widgetPreviewRowCount(heightCells: Int): Int = (heightCells * 2).coerceIn(1, 6)
 
 @Composable
 private fun WidgetFontScaleControl(
@@ -574,212 +610,134 @@ private fun WidgetConfigPreview(
     config: WidgetConfig,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val app = context.applicationContext as TimeApplication
+    val configuration = LocalConfiguration.current
     val clean = config.sanitize()
-    val previewStyle = resolveWidgetPreviewStyle(clean, isSystemInDarkTheme())
-    val backgroundColor = Color(previewStyle.backgroundColorArgb)
-    val contentColor = Color(previewStyle.contentColorArgb)
-    val secondaryContentColor = Color(previewStyle.secondaryContentColorArgb)
-    val accentColor = Color(previewStyle.accentColorArgb)
-    val borderColor = Color(previewStyle.borderColorArgb)
-    val previewAspectRatio = clean.widthCells.toFloat() / clean.heightCells.toFloat()
-    val baseCellSize = 64.dp
-    val desiredPreviewWidth = baseCellSize * clean.widthCells.toFloat()
+    val previewAspectRatio = widgetPreviewDimensionDp(clean.widthCells).toFloat() /
+        widgetPreviewDimensionDp(clean.heightCells)
+    val desiredPreviewWidth = widgetPreviewDimensionDp(clean.widthCells).dp
     val maxPreviewHeight = 320.dp
-    val cornerRadius = resolveWidgetPreviewCornerRadiusDp(clean.cornerMode).dp
-    val contentPadding = if (clean.widthCells == 1) 8.dp else if (clean.heightCells == 1) 10.dp else 14.dp
-    val rowVerticalPadding = resolveWidgetPreviewRowVerticalPaddingDp(clean.densityMode).dp
+    val changes = remember(app) {
+        val prefs = app.userPrefs
+        combine(
+            listOf(
+                app.repository.getAllEvents().map { Unit },
+                prefs.customMilestonesFlow.map { Unit },
+                prefs.pinnedEventIdsFlow.map { Unit },
+                prefs.customEventOrderFlow.map { Unit },
+                prefs.sortTypeFlow.map { Unit },
+                prefs.dateDeltaDisplayModeFlow.map { Unit },
+                prefs.perEventDateDeltaDisplayModesFlow.map { Unit },
+                prefs.showMilestoneFlow.map { Unit },
+                prefs.smartMilestonesEnabledFlow.map { Unit },
+                flow {
+                    while (true) {
+                        emit(Unit)
+                        delay(60_000)
+                    }
+                }
+            )
+        ) { Unit }
+    }
+    var loadAttempt by remember { mutableStateOf(0) }
 
     BoxWithConstraints(
         modifier = modifier.fillMaxWidth(),
         contentAlignment = Alignment.Center
     ) {
-        val constrainedWidth = if (desiredPreviewWidth > maxWidth) maxWidth else desiredPreviewWidth
-        val heightFromWidth = constrainedWidth / previewAspectRatio
-        val previewHeight = if (heightFromWidth > maxPreviewHeight) maxPreviewHeight else heightFromWidth
-        val previewWidth = if (heightFromWidth > maxPreviewHeight) {
-            maxPreviewHeight * previewAspectRatio
-        } else {
-            constrainedWidth
-        }
-        Column(
-            modifier = Modifier
-                .width(previewWidth)
-                .height(previewHeight)
-                .background(backgroundColor, RoundedCornerShape(cornerRadius))
-                .border(0.5f.dp, borderColor, RoundedCornerShape(cornerRadius))
-                .padding(contentPadding),
-            verticalArrangement = if (clean.heightCells <= 1) {
-                Arrangement.Center
-            } else {
-                Arrangement.spacedBy(6.dp, Alignment.Top)
+        val constrainedWidth = minOf(desiredPreviewWidth, maxWidth)
+        val previewHeight = minOf(constrainedWidth / previewAspectRatio, maxPreviewHeight)
+        val previewWidth = minOf(constrainedWidth, previewHeight * previewAspectRatio)
+        val sizeBucket = resolveWidgetPreviewSizeBucket(previewWidth.value.roundToInt(), previewHeight.value.roundToInt())
+        var snapshot by remember { mutableStateOf<WidgetContentSnapshot?>(null) }
+        var loadFailed by remember { mutableStateOf(false) }
+        LaunchedEffect(clean, sizeBucket, previewWidth, configuration, loadAttempt) {
+            snapshot = null
+            loadFailed = false
+            try {
+                changes.collectLatest {
+                    snapshot = withContext(Dispatchers.IO) {
+                        WidgetContentResolver.load(
+                            context = context,
+                            appWidgetId = null,
+                            sizeBucket = sizeBucket,
+                            configOverride = clean,
+                            previewWidthDp = previewWidth.value.roundToInt()
+                        )
+                    }
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                snapshot = null
+                loadFailed = true
             }
-        ) {
-            val samples = listOf(
-                stringResource(R.string.widget_config_preview_event_primary) to
-                    stringResource(R.string.widget_config_preview_value_primary),
-                stringResource(resolveWidgetPreviewSecondaryTitleResId(clean.showLunarPrefix)) to
-                    stringResource(R.string.widget_config_preview_value_secondary),
-                stringResource(R.string.widget_config_preview_event_third) to
-                    stringResource(R.string.widget_config_preview_value_third)
-            )
-            repeat(widgetPreviewRowCount(clean.heightCells)) { index ->
-                val (title, value) = samples[index % samples.size]
-                WidgetPreviewRow(
-                    title = title,
-                    value = value,
-                    contentColor = if (index == 0) contentColor else secondaryContentColor,
-                    accentColor = if (index == 0) accentColor else accentColor.copy(alpha = 0.82f),
-                    compact = clean.widthCells <= 1,
-                    verticalPadding = rowVerticalPadding
+        }
+        val content = snapshot
+        if (content == null) {
+            Box(
+                modifier = Modifier.width(previewWidth).height(previewHeight),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = stringResource(
+                        if (loadFailed) R.string.widget_preview_load_failed else R.string.widget_preview_loading
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (loadFailed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = if (loadFailed) Modifier.clickable(role = Role.Button) { loadAttempt += 1 } else Modifier
                 )
             }
-        }
-    }
-}
-
-internal fun resolveWidgetPreviewCornerRadiusDp(cornerMode: Int): Int = when (cornerMode) {
-    CORNER_SMALL -> 10
-    CORNER_MEDIUM -> 18
-    CORNER_LARGE -> 30
-    else -> 22
-}
-
-internal fun resolveWidgetPreviewSecondaryTitleResId(showLunarPrefix: Boolean): Int =
-    if (showLunarPrefix) {
-        R.string.widget_config_preview_event_secondary
-    } else {
-        R.string.widget_config_preview_event_secondary_plain
-    }
-
-internal fun resolveWidgetPreviewRowVerticalPaddingDp(densityMode: Int): Int = when (densityMode) {
-    DENSITY_COMPACT -> 1
-    DENSITY_COMFORTABLE -> 5
-    else -> 3
-}
-
-internal data class WidgetPreviewStyle(
-    val backgroundColorArgb: Int,
-    val borderColorArgb: Int,
-    val contentColorArgb: Int,
-    val secondaryContentColorArgb: Int,
-    val accentColorArgb: Int
-)
-
-internal fun resolveWidgetPreviewStyle(
-    config: WidgetConfig,
-    isDark: Boolean
-): WidgetPreviewStyle {
-    val clean = config.sanitize()
-    val renderStyle = WidgetRenderPolicy.resolve(
-        clean,
-        WidgetThemeSnapshot(isDark = isDark, usesSystemPalette = true)
-    )
-    return WidgetPreviewStyle(
-        backgroundColorArgb = resolveWidgetPreviewBackgroundArgb(clean, isDark),
-        borderColorArgb = resolveWidgetPreviewBorderArgb(clean, isDark),
-        contentColorArgb = renderStyle.primaryTextColor,
-        secondaryContentColorArgb = renderStyle.secondaryTextColor,
-        accentColorArgb = renderStyle.accentTextColor
-    )
-}
-
-private fun resolveWidgetPreviewBackgroundArgb(config: WidgetConfig, isDark: Boolean): Int {
-    return when (config.appearancePreset) {
-        APPEARANCE_SEAL -> if (isDark) 0xFF86351C.toInt() else 0xFFAF4E31.toInt()
-        APPEARANCE_CELADON -> if (isDark) 0xD9272F2A.toInt() else 0xDDE8EEE6.toInt()
-        APPEARANCE_TRANSPARENT -> 0x00000000
-        APPEARANCE_TRANSLUCENT -> resolveWidgetPreviewGlassArgb(config.backgroundOpacityPercent, isDark)
-        APPEARANCE_SOLID -> if (isDark) 0xF21C1C1E.toInt() else 0xFFF5F3ED.toInt()
-        else -> when (config.backgroundOpacityPercent) {
-            0 -> 0x00000000
-            25, 50, 75 -> resolveWidgetPreviewGlassArgb(config.backgroundOpacityPercent, isDark)
-            else -> if (isDark) 0xFF1C1C1E.toInt() else 0xFFF5F3ED.toInt()
-        }
-    }
-}
-
-private fun resolveWidgetPreviewGlassArgb(opacityPercent: Int, isDark: Boolean): Int {
-    return if (isDark) {
-        when (opacityPercent) {
-            25 -> 0xA61C1C1E.toInt()
-            50 -> 0xBF1C1C1E.toInt()
-            else -> 0xD91C1C1E.toInt()
-        }
-    } else {
-        when (opacityPercent) {
-            25 -> 0xB3F1F3F0.toInt()
-            50 -> 0xC7F1F3F0.toInt()
-            else -> 0xDDF2F3F0.toInt()
-        }
-    }
-}
-
-private fun resolveWidgetPreviewBorderArgb(config: WidgetConfig, isDark: Boolean): Int {
-    if (config.borderMode == BORDER_OFF) return 0x00000000
-    return when (config.appearancePreset) {
-        APPEARANCE_SEAL -> if (isDark) 0x66F6D9A6 else 0x667A2F20
-        APPEARANCE_CELADON -> if (isDark) 0x665B8E79 else 0x66457080
-        APPEARANCE_TRANSPARENT -> 0x66FFFFFF
-        APPEARANCE_TRANSLUCENT -> if (isDark) 0x26FFFFFF else 0x1A202124
-        else -> if (config.backgroundOpacityPercent in 25..75) {
-            if (isDark) 0x26FFFFFF else 0x1A202124
-        } else if (isDark) {
-            0x52EDE8DD
         } else {
-            0x331F1F1F
-        }
-    }.toInt()
-}
-
-@Composable
-private fun WidgetPreviewRow(
-    title: String,
-    value: String,
-    contentColor: Color,
-    accentColor: Color,
-    compact: Boolean = false,
-    verticalPadding: androidx.compose.ui.unit.Dp = 0.dp
-) {
-    Row(
-        modifier = Modifier.padding(vertical = verticalPadding),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .width(3.dp)
-                .height(22.dp)
-                .background(accentColor, RoundedCornerShape(2.dp))
-        )
-        if (compact) {
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodySmall,
-                color = accentColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .padding(start = 6.dp)
-                    .weight(1f)
-            )
-        } else {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyMedium,
-                color = contentColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .padding(start = 8.dp)
-                    .weight(1f)
-            )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodyMedium,
-                color = accentColor,
-                maxLines = 1
+            AndroidView(
+                modifier = Modifier.width(previewWidth).height(previewHeight),
+                factory = { FrameLayout(it) },
+                update = { host ->
+                    if (host.tag != content) {
+                        host.tag = content
+                        host.removeAllViews()
+                        val root = buildWidgetPreviewView(host, content)
+                        host.addView(root, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+                    }
+                }
             )
         }
     }
+}
+
+// ponytail: Launcher cell sizes vary; use nominal dimensions until a specific host size is available.
+internal fun widgetPreviewDimensionDp(cells: Int): Int = 40 + 70 * cells.coerceIn(1, 4)
+
+internal fun resolveWidgetPreviewSizeBucket(widthDp: Int, heightDp: Int): Int =
+    WidgetSizeBucket.resolve(widthDp, widthDp, heightDp, heightDp)
+
+internal fun buildWidgetPreviewView(host: ViewGroup, snapshot: WidgetContentSnapshot): View {
+    val context = widgetLanguageContext(host.context)
+    val style = snapshot.renderStyle
+    val textStyle = snapshot.textStyle
+    val root = RemoteViews(context.packageName, style.rootLayoutResId).apply {
+        setInt(android.R.id.background, "setBackgroundResource", style.backgroundResId)
+        setWidgetTextColors(context, style, secondaryIds = intArrayOf(R.id.widget_empty))
+        setTextViewTextSize(R.id.widget_empty, TypedValue.COMPLEX_UNIT_SP, textStyle.emptyTextSp)
+        setTextViewText(R.id.widget_empty, context.getString(R.string.home_empty_title))
+    }.apply(context, host)
+    val list = root.findViewById<ListView>(R.id.widget_list)
+    list.emptyView = root.findViewById(R.id.widget_empty)
+    list.adapter = object : BaseAdapter() {
+        override fun getCount(): Int = snapshot.items.size
+        override fun getItem(position: Int) = snapshot.items[position]
+        override fun getItemId(position: Int): Long = getItem(position).eventId.toLong()
+        override fun hasStableIds(): Boolean = true
+        override fun isEnabled(position: Int): Boolean = false
+        override fun getView(position: Int, convertView: View?, parent: ViewGroup): View =
+            buildWidgetItemRemoteViews(context, getItem(position), textStyle, style, snapshot.widthDp).apply(context, parent).apply {
+                // A preview has no launcher binding or event-opening action.
+                setOnClickListener(null)
+                isClickable = false
+            }
+    }
+    return root
 }
 
 @Composable
@@ -881,7 +839,8 @@ private fun widgetConfigSummary(config: WidgetConfig): String {
         stringResource(R.string.widget_config_percent, config.backgroundOpacityPercent),
         stringResource(contrastLabelRes(config.contrastMode)),
         stringResource(densityLabelRes(config.densityMode)),
-        stringResource(sortLabelRes(config.sortMode))
+        stringResource(sortLabelRes(config.sortMode)),
+        stringResource(displayPolicyLabelRes(config.displayPolicy))
     ).joinToString(" / ")
 }
 
@@ -912,6 +871,12 @@ private fun sortLabelRes(value: Int): Int = when (value) {
     SORT_PINNED_FIRST -> R.string.widget_config_sort_pinned
     SORT_NEAREST_FIRST -> R.string.widget_config_sort_nearest
     else -> R.string.widget_config_sort_home
+}
+
+private fun displayPolicyLabelRes(value: Int): Int = when (value) {
+    DISPLAY_POLICY_FOLLOW_APP -> R.string.widget_config_display_follow_app
+    DISPLAY_POLICY_COUNTDOWN -> R.string.widget_config_display_countdown
+    else -> R.string.widget_config_display_auto
 }
 
 private fun contrastLabelRes(value: Int): Int = when (value) {

@@ -1,9 +1,28 @@
 package com.example.timeapk.widget
 
-import com.example.timeapk.ui.utils.DisplayModes
 import java.util.Locale
 
+internal data class WidgetValueLayout(val text: String, val stacked: Boolean)
+
 object WidgetValueFormatter {
+
+    internal fun fitMeasuredValue(
+        candidates: List<String>,
+        availableWidth: Float,
+        gap: Float,
+        measure: (String) -> Float
+    ): WidgetValueLayout {
+        require(candidates.isNotEmpty())
+        // Reserve half of the horizontal row for a readable title.
+        candidates.firstOrNull { measure(it) <= (availableWidth - gap) / 2f }?.let {
+            return WidgetValueLayout(it, stacked = false)
+        }
+        // The shortest semantic text may wrap, but must never lose direction or units.
+        return WidgetValueLayout(
+            candidates.firstOrNull { measure(it) <= availableWidth } ?: candidates.last(),
+            stacked = true
+        )
+    }
 
     fun semanticValueOrFallback(
         preferredText: String,
@@ -15,45 +34,20 @@ object WidgetValueFormatter {
         return if (visibleLength <= maxChars) preferredText else fallbackText
     }
 
-    fun numericValueForSmall(
-        mode: Int,
-        isPast: Boolean,
-        isRepeating: Boolean,
-        isToday: Boolean,
-        daysElapsed: Long,
-        daysPassed: Long,
-        daysRemaining: Long,
-        daysLeft: Long
-    ): String {
-        if (isToday) return "0"
-
-        val days = when (mode) {
-            DisplayModes.PAST_DAYS,
-            DisplayModes.PAST_YMD -> if (isRepeating) daysPassed else daysElapsed
-            DisplayModes.UNTIL_DAYS,
-            DisplayModes.UNTIL_YMD -> if (isRepeating) daysLeft else daysRemaining
-            else -> if (isPast) daysElapsed else daysRemaining
-        }
-        val signed = if (isPast) -days else days
-        return compactForSmallWidget(signed)
-    }
-
-    private fun compactForSmallWidget(value: Long): String {
-        val negative = value < 0
-        val absValue = kotlin.math.abs(value)
+    internal fun compactDayCount(value: Long): String {
+        val absValue = value.coerceAtLeast(0L)
         val compact = when {
             absValue < 100_000L -> absValue.toString()
             absValue < 1_000_000L -> "${absValue / 1_000L}k"
             absValue < 1_000_000_000L -> formatWithUnit(absValue, 1_000_000.0, "m")
             else -> formatWithUnit(absValue, 1_000_000_000.0, "b")
         }
-        val signed = if (negative) "-$compact" else compact
-        return if (signed.length <= 6) signed else signed.take(6)
+        return compact
     }
 
     private fun formatWithUnit(value: Long, base: Double, unit: String): String {
         val scaled = value / base
-        val text = if (scaled >= 10) scaled.toInt().toString() else String.format(Locale.US, "%.1f", scaled)
+        val text = if (scaled >= 10) scaled.toLong().toString() else String.format(Locale.US, "%.1f", scaled)
         val trimmed = text.removeSuffix(".0")
         return "$trimmed$unit"
     }

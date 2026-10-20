@@ -625,10 +625,9 @@ fun HomeScreen(
                                                     val nextModeIndex = (if (currentModeIndex != -1) currentModeIndex + 1 else 1) % availableModes.size
                                                     val nextMode = availableModes[nextModeIndex]
                                                     itemDisplayMode = nextMode
-                                                    scope.launch {
-                                                        prefs.setDateDeltaDisplayModeForEvent(eventState.event.id, nextMode)
-                                                        prefs.markHomeTimeToggleHintSeen()
-                                                    }
+                                                    (context.applicationContext as TimeApplication).saveEventDisplayMode(
+                                                        eventState.event.id, nextMode, markHomeHintSeen = true
+                                                    )
                                                 }
                                                 if (homeDisplayMode == 0) {
                                                     EventCard(

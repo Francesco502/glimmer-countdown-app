@@ -35,6 +35,10 @@ const val SORT_HOME = 0
 const val SORT_PINNED_FIRST = 1
 const val SORT_NEAREST_FIRST = 2
 
+const val DISPLAY_POLICY_AUTO = 0
+const val DISPLAY_POLICY_FOLLOW_APP = 1
+const val DISPLAY_POLICY_COUNTDOWN = 2
+
 const val CONTRAST_AUTO = 0
 const val CONTRAST_LIGHT_TEXT = 1
 const val CONTRAST_DARK_TEXT = 2
@@ -50,6 +54,7 @@ private const val FIELD_CORNER_MODE = "cornerMode"
 private const val FIELD_DENSITY_MODE = "densityMode"
 private const val FIELD_CONTENT_SCOPE = "contentScope"
 private const val FIELD_SORT_MODE = "sortMode"
+private const val FIELD_DISPLAY_POLICY = "displayPolicy"
 private const val FIELD_SHOW_LUNAR_PREFIX = "showLunarPrefix"
 private const val FIELD_CONTRAST_MODE = "contrastMode"
 private const val FIELD_FONT_SCALE = "fontScale"
@@ -65,6 +70,7 @@ data class WidgetConfig(
     val densityMode: Int = DENSITY_STANDARD,
     val contentScope: Int = CONTENT_ALL,
     val sortMode: Int = SORT_HOME,
+    val displayPolicy: Int = DISPLAY_POLICY_AUTO,
     val showLunarPrefix: Boolean = true,
     val contrastMode: Int = CONTRAST_AUTO,
     val fontScale: Float = 1.0f
@@ -73,7 +79,7 @@ data class WidgetConfig(
         get() = sizeTemplateForCells(widthCells, heightCells)
 
     companion object {
-        const val VERSION = 1
+        const val VERSION = 2
         private const val FONT_SCALE_MIN = 0.85f
         private const val FONT_SCALE_MAX = 1.60f
         private const val CELL_COUNT_MIN = 1
@@ -99,6 +105,7 @@ data class WidgetConfig(
                     densityMode = obj.optInt(FIELD_DENSITY_MODE, DENSITY_STANDARD),
                     contentScope = obj.optInt(FIELD_CONTENT_SCOPE, CONTENT_ALL),
                     sortMode = obj.optInt(FIELD_SORT_MODE, SORT_HOME),
+                    displayPolicy = obj.optInt(FIELD_DISPLAY_POLICY, DISPLAY_POLICY_AUTO),
                     showLunarPrefix = obj.optBoolean(FIELD_SHOW_LUNAR_PREFIX, true),
                     contrastMode = obj.optInt(FIELD_CONTRAST_MODE, CONTRAST_AUTO),
                     fontScale = obj.optDouble(FIELD_FONT_SCALE, 1.0).toFloat()
@@ -157,6 +164,12 @@ data class WidgetConfig(
                 SORT_NEAREST_FIRST,
                 fallback = SORT_HOME
             ),
+            displayPolicy = displayPolicy.sanitizeEnum(
+                DISPLAY_POLICY_AUTO,
+                DISPLAY_POLICY_FOLLOW_APP,
+                DISPLAY_POLICY_COUNTDOWN,
+                fallback = DISPLAY_POLICY_AUTO
+            ),
             contrastMode = contrastMode.sanitizeEnum(
                 CONTRAST_AUTO,
                 CONTRAST_LIGHT_TEXT,
@@ -180,6 +193,7 @@ data class WidgetConfig(
             .put(FIELD_DENSITY_MODE, clean.densityMode)
             .put(FIELD_CONTENT_SCOPE, clean.contentScope)
             .put(FIELD_SORT_MODE, clean.sortMode)
+            .put(FIELD_DISPLAY_POLICY, clean.displayPolicy)
             .put(FIELD_SHOW_LUNAR_PREFIX, clean.showLunarPrefix)
             .put(FIELD_CONTRAST_MODE, clean.contrastMode)
             .put(FIELD_FONT_SCALE, clean.fontScale.toDouble())
@@ -198,6 +212,7 @@ data class WidgetConfig(
             densityMode,
             contentScope,
             sortMode,
+            displayPolicy,
             showLunarPrefix,
             contrastMode,
             (fontScale * 100).toInt()

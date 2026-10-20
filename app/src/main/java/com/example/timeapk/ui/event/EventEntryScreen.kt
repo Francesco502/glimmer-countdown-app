@@ -153,6 +153,7 @@ fun EventEntryScreen(
     var isRequestingSave by remember { mutableStateOf(false) }
     val isPersisting by viewModel.isSaving.collectAsState()
     val draftRecoveryError by viewModel.draftRecoveryError.collectAsState()
+    val imageProtectionError by viewModel.imageProtectionError.collectAsState()
     val saveResult by viewModel.saveResult.collectAsState()
     val isSaving = isRequestingSave || isPersisting || saveResult != null ||
         pendingSaveAfterNotificationPermission || pendingSaveAfterCalendarPermission
@@ -161,6 +162,13 @@ fun EventEntryScreen(
         if (draftRecoveryError) {
             snackbarHostState.showSnackbar(context.getString(R.string.event_draft_recovery_failed))
             viewModel.consumeDraftRecoveryError()
+        }
+    }
+
+    LaunchedEffect(imageProtectionError) {
+        if (imageProtectionError) {
+            snackbarHostState.showSnackbar(context.getString(R.string.event_entry_image_failed))
+            viewModel.consumeImageProtectionError()
         }
     }
 
