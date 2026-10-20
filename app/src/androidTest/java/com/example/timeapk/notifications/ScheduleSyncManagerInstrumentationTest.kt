@@ -4,6 +4,8 @@ import android.Manifest
 import android.content.ContentUris
 import android.content.ContentValues
 import android.net.Uri
+import android.os.Build
+import android.os.ParcelFileDescriptor
 import android.provider.CalendarContract
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -30,10 +32,18 @@ class ScheduleSyncManagerInstrumentationTest {
         val accountName = "timeapk_connected_${System.currentTimeMillis()}"
         val calendarId: Long
 
-        instrumentation.uiAutomation.adoptShellPermissionIdentity(
-            Manifest.permission.READ_CALENDAR,
-            Manifest.permission.WRITE_CALENDAR
-        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            instrumentation.uiAutomation.adoptShellPermissionIdentity(
+                Manifest.permission.READ_CALENDAR,
+                Manifest.permission.WRITE_CALENDAR
+            )
+        } else {
+            for (permission in listOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR)) {
+                ParcelFileDescriptor.AutoCloseInputStream(
+                    instrumentation.uiAutomation.executeShellCommand("pm grant ${context.packageName} $permission")
+                ).use { it.readBytes() }
+            }
+        }
         try {
             calendarId = insertTemporaryCalendar(accountName)
             assertTrue(
@@ -130,7 +140,9 @@ class ScheduleSyncManagerInstrumentationTest {
             try {
                 deleteTemporaryCalendar(accountName)
             } finally {
-                instrumentation.uiAutomation.dropShellPermissionIdentity()
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    instrumentation.uiAutomation.dropShellPermissionIdentity()
+                }
             }
         }
     }

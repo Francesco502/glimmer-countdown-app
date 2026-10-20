@@ -46,6 +46,21 @@ def require_version(identity, expected):
         raise SmokeFailure("Expected package " + "/".join(expected) + ", got " + repr(identity))
 
 
+def share_media_columns(api):
+    return "_id:_display_name:mime_type:" + ("relative_path:is_pending" if api >= 29 else "_data")
+
+
+def share_media_published(row, api, name):
+    if api >= 29 and row.get("is_pending") != "0":
+        return False
+    expected_legacy = "/Android/data/" + PACKAGE + "/files/Pictures/TimeAPK/" + name
+    location_matches = (row.get("relative_path", "").strip("/") == "Pictures/TimeAPK"
+                        if api >= 29 else row.get("_data", "").endswith(expected_legacy))
+    if row.get("mime_type") != "image/png" or not location_matches:
+        raise SmokeFailure("Saved image MIME or location differs: " + repr(row))
+    return True
+
+
 def bounds(node):
     match = re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", node.get("bounds", ""))
     if match:
@@ -615,6 +630,7 @@ class Smoke:
         safe_title = re.sub(r"[^A-Za-z0-9\u4e00-\u9fa5_-]+", "-", title).strip("-")[:28] or "event"
         name = "timeapk-" + safe_title + ".png"
         media = "content://media/external/images/media"
+        api = int(self.text("shell", "getprop", "ro.build.version.sdk").strip())
         self.evidence["share_check"] = {
             "passed": False, "title": title, "display_name": name,
             "scope": "Actual MainActivity save to MediaStore and raw PNG verification; system chooser opened and cancelled; no recipient selection, URI-read or delivery claim.",
@@ -624,7 +640,7 @@ class Smoke:
             # Filename characters are restricted above; retain SQL string quotes
             # across adb shell's argument joining without accepting arbitrary SQL.
             result = self.text("shell", "content", "query", "--uri", media,
-                               "--projection", "_id:_display_name:mime_type:relative_path:is_pending",
+                               "--projection", share_media_columns(api),
                                "--where", '"_display_name=\'' + name + '\'"')
             if result.strip() == "No result found.":
                 return []
@@ -659,10 +675,8 @@ class Smoke:
             rows = [row for row in media_rows() if row["_id"] not in before_ids]
             if len(rows) > 1:
                 raise SmokeFailure("One save action created multiple MediaStore images")
-            if rows and rows[0].get("is_pending") == "0":
+            if rows and share_media_published(rows[0], api, name):
                 row = rows[0]
-                if row.get("mime_type") != "image/png" or row.get("relative_path", "").strip("/") != "Pictures/TimeAPK":
-                    raise SmokeFailure("Saved image MIME or location differs: " + repr(row))
                 return row
             return None
 

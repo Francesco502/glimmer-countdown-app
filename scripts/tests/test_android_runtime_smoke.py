@@ -49,6 +49,26 @@ class InputMethodRecoveryTest(unittest.TestCase):
         self.assertEqual(5, len(calls))
 
 
+class ShareMediaCompatibilityTest(unittest.TestCase):
+    def test_old_android_uses_legacy_columns_and_app_pictures_location(self):
+        self.assertEqual("_id:_display_name:mime_type:_data", smoke_module.share_media_columns(26))
+        row = {"mime_type": "image/png",
+               "_data": "/storage/emulated/0/Android/data/com.example.timeapk/files/Pictures/TimeAPK/test.png"}
+        self.assertTrue(smoke_module.share_media_published(row, 26, "test.png"))
+        with self.assertRaises(smoke_module.SmokeFailure):
+            smoke_module.share_media_published(row, 26, "different.png")
+
+    def test_modern_android_requires_published_media_and_expected_location(self):
+        self.assertIn("relative_path:is_pending", smoke_module.share_media_columns(31))
+        row = {"mime_type": "image/png", "relative_path": "Pictures/TimeAPK/", "is_pending": "1"}
+        self.assertFalse(smoke_module.share_media_published(row, 31, "test.png"))
+        row["is_pending"] = "0"
+        self.assertTrue(smoke_module.share_media_published(row, 31, "test.png"))
+        row["relative_path"] = "Pictures/Other"
+        with self.assertRaises(smoke_module.SmokeFailure):
+            smoke_module.share_media_published(row, 31, "test.png")
+
+
 class UpgradeVersionTest(unittest.TestCase):
     def test_upgrade_requires_421_baseline_and_422_candidate(self):
         self.assertEqual(("4.2.1", "26"), smoke_module.UPGRADE_BASELINE)

@@ -89,7 +89,13 @@ class WidgetBirthdayRenderingTest {
                                 assertEquals(value.text.length, value.layout.getLineEnd(value.layout.lineCount - 1))
                                 for (line in 0 until value.layout.lineCount) {
                                     assertEquals(0, value.layout.getEllipsisCount(line))
-                                    assertTrue(value.layout.getLineWidth(line) <= value.width + 1f)
+                                    // getLineWidth includes trailing wrap whitespace on older Android.
+                                    assertTrue(
+                                        "Visible value overflow: locale=$locale width=$width scale=$systemScale " +
+                                            "text=${value.text} line=$line max=${value.layout.getLineMax(line)} " +
+                                            "available=${value.width}",
+                                        value.layout.getLineMax(line) <= value.width + 1f
+                                    )
                                 }
                                 assertEquals(item.contentDescription, row.contentDescription)
                             }

@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.espresso.Espresso.pressBack
+import androidx.test.espresso.Espresso.closeSoftKeyboard
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.timeapk.MainActivity
 import com.example.timeapk.R
@@ -76,6 +77,7 @@ class EventEditRecreationTest {
         composeRule.activityRule.scenario.recreate()
 
         composeRule.onNode(hasSetTextAction() and hasText(UPDATED_TITLE)).assertExists()
+        closeSoftKeyboard()
         pressBack()
         composeRule.waitForIdle()
         // System Back may first dismiss the restored IME. Keep asserting the
