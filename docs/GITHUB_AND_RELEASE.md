@@ -1,6 +1,6 @@
 # GitHub 提交与发布流程（v4.2.3）
 
-本文记录 4.2.3 / versionCode=28 的发布流程。正在准备正式发布，实际结果见 [发布检查清单](RELEASE_CHECKLIST.md)；[v4.2 历史清单](releases/v4.2-checklist.md) 保留旧版已公开证据。
+本文记录 4.2.3 / versionCode=28 的发布流程。已完成正式发布，实际结果见 [发布检查清单](RELEASE_CHECKLIST.md)；[v4.2 历史清单](releases/v4.2-checklist.md) 保留旧版已公开证据。
 
 **唯一正式发布渠道：GitHub Release。** 唯一官方资产为 Direct APK `glimmer-countdown-4-2-3.apk`。Play flavor 仅保留用于兼容性与开发回归。
 

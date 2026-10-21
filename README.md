@@ -2,11 +2,11 @@
 
 拾光是一款面向 Android 的倒数日、生日与纪念日应用。它把日子整理成安静的纸笺、月历和桌面小组件，让重要时刻能被看见，也能被系统提醒与日历同步照顾到。
 
-当前源码为 `4.2.3 / versionCode=28`，修复列表小组件加载与新增保存时的锁等待，正在准备正式发布；见 [修复与验证记录](docs/releases/v4.2.3-development.md)。公开版本 `4.2.2 / versionCode=27` 已于 2026-10-21 发布，详见 [发布说明](docs/releases/v4.2.2-release-notes.md)、[4.2.2 历史清单](docs/releases/v4.2.2-checklist.md)和[升级验收](docs/releases/v4.2.2-upgrade-acceptance.md)。
+当前版本为 `4.2.3 / versionCode=28`，已于 2026-10-21 发布，修复 Android 16 上桌面列表小组件无内容和新增配置保存无反应的问题，可保留数据覆盖安装。见[发布检查清单](docs/RELEASE_CHECKLIST.md)和[修复与验证记录](docs/releases/v4.2.3-development.md)。
 
 **唯一正式发布渠道：GitHub Release。** 本版唯一官方资产为 Direct APK `glimmer-countdown-4-2-3.apk`，沿用正式签名，可保留数据覆盖升级。Play flavor 仅保留用于兼容性与开发回归。
 
-最新公开版本为 `4.2.2`：[下载 v4.2.2 APK](https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v4.2.2)
+最新公开版本为 `4.2.3`：[下载 v4.2.3 APK](https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v4.2.3)
 
 4.2.3 用户测试包已在 vivo X Fold3 Pro（Android 16 / OriginOS 6）覆盖安装通过，小组件显示和新增保存正常。最终发布构建、云端回归及下载复验以[本版检查清单](docs/RELEASE_CHECKLIST.md)为准。
 
@@ -107,7 +107,7 @@
 
 - 当前源码 `versionName`: `4.2.3`
 - 当前源码 `versionCode`: `28`
-- 发布状态：4.2.3 候选 / 未发布；当前公开版本为 4.2.2
+- 发布状态：已发布；当前公开版本为 4.2.3
 - 4.2.3 Direct Release 正式文件名：`glimmer-countdown-4-2-3.apk`
 
 ## 构建与运行
@@ -144,7 +144,7 @@
 - Direct release APK 的 API26/31/36 模拟器安装、v4.2.2→v4.2.3 保留事件升级、AMS 草稿恢复与 API36 页面、分享、更新 smoke；vivo X Fold3 Pro 覆盖安装、小组件显示与新增保存已获用户确认，其他设备及系统备份恢复未执行
 - GitHub Release 只保留 `glimmer-countdown-4-2-3.apk`，并完成公开下载复验、线上重装、更新检查与关键链路 smoke
 
-本版最终标签 CI、正式签名包 API26/31/36 升级与恢复、公开下载和发布后复验正在执行，未完成项目不能标记通过。原始报告、运行时截图与证据范围见当前发布检查清单；历史截图不作为本版证据。
+本版最终标签 CI、正式签名包 API26/31/36 升级与恢复、公开下载和发布后复验均通过；API36 应用内检查更新确认已是最新版本。原始报告、运行时截图与证据范围见当前发布检查清单；历史截图不作为本版证据。
 
 publisher 会拒绝脏工作区或未指向 exact tag 的 `HEAD`，并核对输出元数据与 APK 的真实包名、版本、权限和非调试状态。发布流程禁止移动已推送的 tag 或覆盖已发布 Release，GitHub Release 仅上传 exact Direct APK。
 
