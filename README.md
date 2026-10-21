@@ -1,20 +1,20 @@
-# 拾光（Glimmer）4.2.2
+# 拾光（Glimmer）4.2.3
 
 拾光是一款面向 Android 的倒数日、生日与纪念日应用。它把日子整理成安静的纸笺、月历和桌面小组件，让重要时刻能被看见，也能被系统提醒与日历同步照顾到。
 
-当前版本 `4.2.2 / versionCode=27` 已于 2026-10-21 发布，重点修复生日小组件默认倒计时、设置同步、独立显示方式、小尺寸大字号、语言一致性及旧配置迁移，并修复配图导入和保守清理。详见 [发布说明](docs/releases/v4.2.2-release-notes.md)、[发布检查清单](docs/RELEASE_CHECKLIST.md)和[升级验收](docs/releases/v4.2.2-upgrade-acceptance.md)。
+当前源码为 `4.2.3 / versionCode=28`，修复列表小组件加载与新增保存时的锁等待，正在准备正式发布；见 [修复与验证记录](docs/releases/v4.2.3-development.md)。公开版本 `4.2.2 / versionCode=27` 已于 2026-10-21 发布，详见 [发布说明](docs/releases/v4.2.2-release-notes.md)、[4.2.2 历史清单](docs/releases/v4.2.2-checklist.md)和[升级验收](docs/releases/v4.2.2-upgrade-acceptance.md)。
 
-**唯一正式发布渠道：GitHub Release。** 唯一官方资产为 Direct APK `glimmer-countdown-4-2-2.apk`，沿用正式签名，可保留数据覆盖升级。Play flavor 仅保留用于兼容性与开发回归。
+**唯一正式发布渠道：GitHub Release。** 本版唯一官方资产为 Direct APK `glimmer-countdown-4-2-3.apk`，沿用正式签名，可保留数据覆盖升级。Play flavor 仅保留用于兼容性与开发回归。
 
 最新公开版本为 `4.2.2`：[下载 v4.2.2 APK](https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v4.2.2)
 
-最终标签 `fe6e0b254e42aad80dcf977b978f590c6e4fa503`；[标签 CI](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/39460606524)、[签名候选升级 QA](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/39463419090)、[公开 APK QA](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/39465087486) 全部通过。正式 APK 为 12,533,986 bytes，SHA-256 `87e55c8e43a2e3d6764755b7cb0a885524fd45323f9fb011c80be8dd1e328e4c`。
+4.2.3 用户测试包已在 vivo X Fold3 Pro（Android 16 / OriginOS 6）覆盖安装通过，小组件显示和新增保存正常。最终发布构建、云端回归及下载复验以[本版检查清单](docs/RELEASE_CHECKLIST.md)为准。
 
-真实 Launcher 旧绑定迁移、完整桌面日期/时区矩阵、系统图片备份恢复及实体手机检查仍未执行。三份最终云端 lint 报告各有 1 条 OldTargetApi 警告、0 错误；本版保留 targetSdk 36。
+折叠屏切换、其他手机、完整桌面日期/时区矩阵及系统图片备份恢复尚未验收；本版保留 targetSdk 36。
 
 ## 4.2.1 历史版本与截图
 
-以下 4.2.1 截图和签名证据属于上一版本，不证明 4.2.2 已通过真实桌面验收。[4.2.1 历史清单](docs/releases/v4.2.1-checklist.md)、[v4.2 历史清单](docs/releases/v4.2-checklist.md)、[v4.1 历史清单](docs/releases/v4.1-checklist.md)与[v4.0 历史清单](docs/releases/v4.0-checklist.md)保留各版证据。
+以下 4.2.1 截图和签名证据属于历史版本，不作为 4.2.3 验收证据。[4.2.1 历史清单](docs/releases/v4.2.1-checklist.md)、[v4.2 历史清单](docs/releases/v4.2-checklist.md)、[v4.1 历史清单](docs/releases/v4.1-checklist.md)与[v4.0 历史清单](docs/releases/v4.0-checklist.md)保留各版证据。
 
 ## 4.2.1 小组件修复
 
@@ -105,10 +105,10 @@
 
 ## 版本信息
 
-- 当前源码 `versionName`: `4.2.2`
-- 当前源码 `versionCode`: `27`
-- 发布状态：已发布；当前公开版本为 4.2.2
-- 4.2.2 Direct Release 正式文件名：`glimmer-countdown-4-2-2.apk`
+- 当前源码 `versionName`: `4.2.3`
+- 当前源码 `versionCode`: `28`
+- 发布状态：4.2.3 候选 / 未发布；当前公开版本为 4.2.2
+- 4.2.3 Direct Release 正式文件名：`glimmer-countdown-4-2-3.apk`
 
 ## 构建与运行
 
@@ -130,21 +130,21 @@
 
 默认产物路径：
 
-- `app/build/outputs/apk/direct/release/glimmer-countdown-4-2-2.apk`
+- `app/build/outputs/apk/direct/release/glimmer-countdown-4-2-3.apk`
 
 ## 发布与验证
 
-4.2.2 正式发布要求包含，实际结果以当前清单为准：
+4.2.3 正式发布要求包含，实际结果以当前清单为准：
 
 - `testDirectDebugUnitTest testPlayDebugUnitTest`
 - `compileDirectDebugAndroidTestKotlin compilePlayDebugAndroidTestKotlin`
 - `lintDirectDebug lintDirectRelease lintPlayRelease lintVitalDirectRelease lintVitalPlayRelease`
 - `assembleDirectRelease`，或按[发布指引](docs/release_and_update_guide.md)从最终 tag 的 CI 未签名 Release 工件在本机完成正式签名
 - Direct release APK 正式证书、精确证书指纹与 SHA-256 验证
-- Direct release APK 的 API26/31/36 模拟器安装、v4.2.1→v4.2.2 保留事件升级、AMS 草稿恢复与 API36 页面、分享、更新 smoke；实体手机、真实 Launcher 旧绑定与系统备份恢复未执行
-- GitHub Release 只保留 `glimmer-countdown-4-2-2.apk`，并完成公开下载复验、线上重装、更新检查与关键链路 smoke
+- Direct release APK 的 API26/31/36 模拟器安装、v4.2.2→v4.2.3 保留事件升级、AMS 草稿恢复与 API36 页面、分享、更新 smoke；vivo X Fold3 Pro 覆盖安装、小组件显示与新增保存已获用户确认，其他设备及系统备份恢复未执行
+- GitHub Release 只保留 `glimmer-countdown-4-2-3.apk`，并完成公开下载复验、线上重装、更新检查与关键链路 smoke
 
-本版最终标签 CI、正式签名、API26/31/36 升级与恢复、公开下载和发布后公开包三平台复验全部通过；API36 应用实际显示“已是最新版本”。原始报告、运行时截图与证据范围见当前发布检查清单；历史截图不作为本版证据。
+本版最终标签 CI、正式签名包 API26/31/36 升级与恢复、公开下载和发布后复验正在执行，未完成项目不能标记通过。原始报告、运行时截图与证据范围见当前发布检查清单；历史截图不作为本版证据。
 
 publisher 会拒绝脏工作区或未指向 exact tag 的 `HEAD`，并核对输出元数据与 APK 的真实包名、版本、权限和非调试状态。发布流程禁止移动已推送的 tag 或覆盖已发布 Release，GitHub Release 仅上传 exact Direct APK。
 

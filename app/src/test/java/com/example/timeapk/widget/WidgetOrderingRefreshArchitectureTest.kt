@@ -8,6 +8,15 @@ import java.io.File
 
 class WidgetOrderingRefreshArchitectureTest {
     @Test
+    fun collectionCallbackNeverWaitsForThePublishingProviderLock() {
+        val service = mainSource("widget/CountdownWidgetService.kt").readText(Charsets.UTF_8)
+
+        assertFalse(service.contains("WidgetRefreshCoordinator.runLatestSnapshot"))
+        assertTrue(service.contains("Binder.clearCallingIdentity()"))
+        assertTrue(service.contains("Binder.restoreCallingIdentity(identityToken)"))
+    }
+
+    @Test
     fun clockChangeRefreshUsesNonExportedInternalReceiverWithOwnedAsyncLifetime() {
         val provider = mainSource("widget/CountdownAppWidgetProvider.kt").readText(Charsets.UTF_8)
         val internalReceiver = mainSource("widget/WidgetRefreshReceiver.kt").readText(Charsets.UTF_8)

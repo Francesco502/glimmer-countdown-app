@@ -20,7 +20,7 @@ class CountdownWidgetService : RemoteViewsService() {
     }
 }
 
-private class CountdownRemoteViewsFactory(
+internal class CountdownRemoteViewsFactory(
     private val context: Context,
     intent: Intent
 ) : RemoteViewsService.RemoteViewsFactory {
@@ -34,47 +34,38 @@ private class CountdownRemoteViewsFactory(
         AppWidgetManager.INVALID_APPWIDGET_ID
     )
 
-    private val items = mutableListOf<WidgetRenderedItem>()
-    private var widthDp = 110
-    private var textStyle: WidgetTextStyle = WidgetStylePolicy.resolve(widgetSizeBucket, 1f)
-    private var renderStyle: WidgetRenderStyle = WidgetRenderPolicy.resolve(
-        WidgetConfig.default(),
-        WidgetThemeResolver.resolve(context)
-    )
+    @Volatile
+    private var snapshot: WidgetContentSnapshot? = null
 
     override fun onCreate() = Unit
 
     override fun onDestroy() {
-        items.clear()
+        snapshot = null
     }
 
     override fun onDataSetChanged() {
         val identityToken = Binder.clearCallingIdentity()
         try {
             runBlocking(Dispatchers.IO) {
-                WidgetRefreshCoordinator.runLatestSnapshot {
-                    val snapshot = WidgetContentResolver.load(
-                        context = context,
-                        appWidgetId = appWidgetId.takeIf { it != AppWidgetManager.INVALID_APPWIDGET_ID },
-                        sizeBucket = widgetSizeBucket
-                    )
-                    items.clear()
-                    items.addAll(snapshot.items)
-                    textStyle = snapshot.textStyle
-                    renderStyle = snapshot.renderStyle
-                    widthDp = snapshot.widthDp
-                }
+                // Android can synchronously call this while updateAppWidget holds the provider
+                // refresh lock. Never acquire that lock here; publish the collection atomically.
+                snapshot = WidgetContentResolver.load(
+                    context = context,
+                    appWidgetId = appWidgetId.takeIf { it != AppWidgetManager.INVALID_APPWIDGET_ID },
+                    sizeBucket = widgetSizeBucket
+                )
             }
         } finally {
             Binder.restoreCallingIdentity(identityToken)
         }
     }
 
-    override fun getCount(): Int = items.size
+    override fun getCount(): Int = snapshot?.items?.size ?: 0
 
     override fun getViewAt(position: Int): RemoteViews? {
-        val item = items.getOrNull(position) ?: return null
-        return buildWidgetItemRemoteViews(context, item, textStyle, renderStyle, widthDp)
+        val current = snapshot ?: return null
+        val item = current.items.getOrNull(position) ?: return null
+        return buildWidgetItemRemoteViews(context, item, current.textStyle, current.renderStyle, current.widthDp)
     }
 
     override fun getLoadingView(): RemoteViews? = null
@@ -82,7 +73,7 @@ private class CountdownRemoteViewsFactory(
     override fun getViewTypeCount(): Int = 2
 
     override fun getItemId(position: Int): Long =
-        items.getOrNull(position)?.eventId?.toLong() ?: position.toLong()
+        snapshot?.items?.getOrNull(position)?.eventId?.toLong() ?: position.toLong()
 
     override fun hasStableIds(): Boolean = true
 }
