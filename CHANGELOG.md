@@ -12,7 +12,7 @@
 - 文字颜色默认使用“自适应”，随系统深浅色主题切换；保留已有手动选择，并修复朱印样式忽略“深色文字”的问题。
 - 列表、单事件与应用内预览共用背景渲染；沿用现有配置格式和正式签名，升级基线为公开 4.2.3 / 28。
 
-唯一正式发布渠道为 GitHub Release，Direct APK：`glimmer-countdown-4-2-4.apk`（4.2.4 / versionCode=29），沿用正式签名。验证范围见 [发布检查清单](docs/RELEASE_CHECKLIST.md)。本版按发布负责人决定以自动化检查作为发布条件；实体手机、折叠切换及完整桌面矩阵未验收，不将模拟器结果表述为真机通过。
+唯一正式发布渠道为 GitHub Release，Direct APK：`glimmer-countdown-4-2-4.apk`（4.2.4 / versionCode=29），沿用正式签名。验证范围见 [4.2.4 验证记录](https://github.com/Francesco502/glimmer-countdown-app/blob/main/docs/releases/v4.2.4-development.md)。本版按发布负责人决定以自动化检查作为发布条件；实体手机、折叠切换及完整桌面矩阵未验收，不将模拟器结果表述为真机通过。
 
 ## [4.2.3] - 2026-10-21
 

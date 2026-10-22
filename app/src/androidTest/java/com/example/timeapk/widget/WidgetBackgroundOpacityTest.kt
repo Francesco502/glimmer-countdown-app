@@ -6,11 +6,13 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.view.View
 import android.widget.FrameLayout
+import android.widget.ImageView
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.example.timeapk.R
 import com.example.timeapk.ui.settings.buildWidgetPreviewView
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import kotlin.math.roundToInt
@@ -30,7 +32,8 @@ class WidgetBackgroundOpacityTest {
                 val theme = WidgetThemeResolver.resolve(context)
                 listOf(APPEARANCE_SYSTEM, APPEARANCE_TRANSLUCENT).forEach { appearance ->
                     listOf(BORDER_AUTO, BORDER_ON, BORDER_OFF).forEach { border ->
-                        listOf(0, 1, 25, 37, 50, 68, 75, 99, 100).forEach { opacity ->
+                        val previousAlpha = IntArray(3) { -1 }
+                        (0..100).forEach { opacity ->
                             val config = WidgetConfig.default().copy(
                                 appearancePreset = appearance, backgroundOpacityPercent = opacity, borderMode = border
                             )
@@ -49,7 +52,13 @@ class WidgetBackgroundOpacityTest {
                                     )
                                 )
                             )
-                            roots.forEach { root ->
+                            roots.forEachIndexed { index, root ->
+                                val background = root.findViewById<ImageView>(R.id.widget_background_image)
+                                assertEquals(
+                                    if (opacity in 1..99) (opacity * 255.0 / 100).roundToInt() else 255,
+                                    background.imageAlpha
+                                )
+                                assertEquals(if (opacity in 1..99) View.VISIBLE else View.GONE, background.visibility)
                                 val content = root.findViewById<View>(R.id.widget_root)
                                 assertEquals(1f, content.alpha, 0f)
                                 content.visibility = View.INVISIBLE
@@ -60,12 +69,15 @@ class WidgetBackgroundOpacityTest {
                                 try {
                                     root.draw(Canvas(bitmap))
                                     listOf(40, 80, 120).forEach { y ->
-                                        assertEquals(
+                                        assertPixelAlpha(
                                             "dark=$isDark appearance=$appearance border=$border opacity=$opacity y=$y",
                                             (opacity * 255.0 / 100).roundToInt(),
                                             Color.alpha(bitmap.getPixel(80, y))
                                         )
                                     }
+                                    val centerAlpha = Color.alpha(bitmap.getPixel(80, 80))
+                                    assertTrue("Each 1% increment must change the rendered background", centerAlpha > previousAlpha[index])
+                                    previousAlpha[index] = centerAlpha
                                     assertEquals(1f, root.alpha, 0f)
                                 } finally {
                                     bitmap.recycle()
@@ -99,11 +111,26 @@ class WidgetBackgroundOpacityTest {
                 val bitmap = Bitmap.createBitmap(160, 160, Bitmap.Config.ARGB_8888)
                 try {
                     root.draw(Canvas(bitmap))
-                    assertEquals((opacity * 255.0 / 100).roundToInt(), Color.alpha(bitmap.getPixel(80, 80)))
+                    assertEquals(
+                        (opacity * 255.0 / 100).roundToInt(),
+                        root.findViewById<ImageView>(R.id.widget_background_image).imageAlpha
+                    )
+                    assertPixelAlpha(
+                        "Reapplied opacity=$opacity",
+                        (opacity * 255.0 / 100).roundToInt(),
+                        Color.alpha(bitmap.getPixel(80, 80))
+                    )
                 } finally {
                     bitmap.recycle()
                 }
             }
         }
+    }
+
+    private fun assertPixelAlpha(message: String, expected: Int, actual: Int) {
+        // GradientDrawable and software rasterization round alpha on older Android versions.
+        // Allow at most two 8-bit levels (0.8 percentage points), keeping both endpoints exact.
+        val tolerance = if (expected == 0 || expected == 255) 0.0 else 2.0
+        assertEquals(message, expected.toDouble(), actual.toDouble(), tolerance)
     }
 }
