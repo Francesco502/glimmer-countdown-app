@@ -1,0 +1,298 @@
+{
+  "version": "4.2.4",
+  "versionCode": 29,
+  "status": "published",
+  "source": {
+    "commit": "ec3c4885fd5b051bef103e32c233426d95ec4207",
+    "tag": "v4.2.4",
+    "tagObject": "dc3b7ccaed857bed1103c316ad32ffcc56daa05d",
+    "tagPushedAt": "2026-10-22T10:00:40.0193087Z",
+    "buildStartedAt": "2026-10-22T10:00:42.9706563Z",
+    "buildCompletedAt": "2026-10-22T10:04:43.8977607Z",
+    "cleanHeadAndTagMatch": true,
+    "files": 476,
+    "sourceManifestSha256": "d6286af0a925f787fbcd2481607f24d9263b37e450c98288ef42ab0abd3efd06",
+    "embeddedVersionControlMetadata": "generate_error_reason: NO_VALID_GIT_FOUND",
+    "scope": "Source provenance is established by clean worktree HEAD, matching immutable local/remote tag, post-tag fresh build log and source manifest. This worktree APK contains no embedded commit; that field is not treated as a successful source check."
+  },
+  "sourceCi": {
+    "run": 39756383558,
+    "source": "ec3c4885fd5b051bef103e32c233426d95ec4207",
+    "event": "push",
+    "branch": "main",
+    "status": "completed",
+    "conclusion": "success",
+    "url": "https://github.com/Francesco502/glimmer-countdown-app/actions/runs/39756383558",
+    "artifacts": [
+      {
+        "id": 12417541821,
+        "name": "android-verification-api36-ec3c4885fd5b051bef103e32c233426d95ec4207",
+        "digest": "sha256:ca71f3e7ab5ba6058d279f29ee2ff69b91e0c0d01e197a29595782d5c021c571",
+        "size": 69000060
+      },
+      {
+        "id": 12416806351,
+        "name": "android-verification-api31-ec3c4885fd5b051bef103e32c233426d95ec4207",
+        "digest": "sha256:d5594ec9ff6123d1b9e2384de3834cf3022a9043e733f916bfeb3e8cbea7e786",
+        "size": 30436488
+      },
+      {
+        "id": 12416347433,
+        "name": "android-verification-api26-ec3c4885fd5b051bef103e32c233426d95ec4207",
+        "digest": "sha256:9563c1e7d6a7d8ec1c0e517f2ff1bed0aabe596bad31d0e99f8c82c473577aa7",
+        "size": 29437206
+      }
+    ],
+    "scope": "Fresh main push CI on the exact commit subsequently tagged v4.2.4. Signed APK rebuilt after tag push.",
+    "unitTests": {
+      "Direct": {
+        "tests": 673,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "reports": 88
+      },
+      "Play": {
+        "tests": 673,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "reports": 88
+      }
+    },
+    "nativeTests": {
+      "26": {
+        "tests": 70,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 1,
+        "skippedTests": [
+          {
+            "name": "automaticGlassColorsFollowHostModeAtApplyTime",
+            "classname": "com.example.timeapk.widget.WidgetTextColorReapplyTest",
+            "time": "0.002"
+          }
+        ]
+      },
+      "31": {
+        "tests": 74,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "skippedTests": []
+      },
+      "36": {
+        "tests": 74,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "skippedTests": []
+      }
+    },
+    "widgetRegressions": "Pixel opacity for all 0-100 values, view reuse, continuous slider persistence and collection refresh passed on API26/31/36 without skips.",
+    "lint": {
+      "reports/lint-results-directDebug.xml": [
+        {
+          "id": "OldTargetApi",
+          "severity": "Warning"
+        }
+      ],
+      "reports/lint-results-directRelease.xml": [
+        {
+          "id": "OldTargetApi",
+          "severity": "Warning"
+        }
+      ],
+      "reports/lint-results-playRelease.xml": [
+        {
+          "id": "OldTargetApi",
+          "severity": "Warning"
+        }
+      ]
+    },
+    "pythonTests": "5/5 passed",
+    "publisherMock": "10/10 passed"
+  },
+  "signedApk": {
+    "name": "glimmer-countdown-4-2-4.apk",
+    "sha256": "5aa396a3028ca1dd75e75d6f847b2017a81520f700d8ea8227135596d7a6ea53",
+    "bytes": 12526321,
+    "certificateSha256": "3b7cb426a82664f891c69511cc2505b67128c8503664639f297291da4ea903ca",
+    "applicationId": "com.example.timeapk",
+    "minSdk": 26,
+    "targetSdk": 36,
+    "debuggable": false,
+    "singleSigner": true,
+    "alignment16KiB": true
+  },
+  "qa": {
+    "candidate": {
+      "run": "https://github.com/Francesco502/glimmer-countdown-app/actions/runs/39760546811",
+      "source": "ec3c4885fd5b051bef103e32c233426d95ec4207",
+      "reports": {
+        "26": {
+          "passed": true,
+          "archiveSha256": "6af3d0355a6f62fef9eda36ea92eea76375c32ccaa51208e21d006a2ce6cc8d5",
+          "assetId": 665437842,
+          "upgradeFrom": "4.2.3",
+          "upgradeTo": "4.2.4",
+          "eventAndInstallIdentityPreserved": true,
+          "amsDraftRestoration": true,
+          "mainActivityPagesAndShare": false,
+          "updateLatest": false
+        },
+        "31": {
+          "passed": true,
+          "archiveSha256": "ba9ad30508c27e63a6ef003cc1c60fecda675dfa8285a1d80bb345fe35e392b4",
+          "assetId": 665437842,
+          "upgradeFrom": "4.2.3",
+          "upgradeTo": "4.2.4",
+          "eventAndInstallIdentityPreserved": true,
+          "amsDraftRestoration": true,
+          "mainActivityPagesAndShare": false,
+          "updateLatest": false
+        },
+        "36": {
+          "passed": true,
+          "archiveSha256": "5e7d756b4d55e3e56657ce851908eda5bf077ef280c581bb0642aec832d9bacb",
+          "assetId": 665437842,
+          "upgradeFrom": "4.2.3",
+          "upgradeTo": "4.2.4",
+          "eventAndInstallIdentityPreserved": true,
+          "amsDraftRestoration": true,
+          "mainActivityPagesAndShare": true,
+          "updateLatest": false
+        }
+      },
+      "artifacts": [
+        {
+          "id": 12418067499,
+          "name": "signed-apk-qa-api36-ec3c4885fd5b051bef103e32c233426d95ec4207",
+          "digest": "sha256:5e7d756b4d55e3e56657ce851908eda5bf077ef280c581bb0642aec832d9bacb",
+          "size": 8404911
+        },
+        {
+          "id": 12417673290,
+          "name": "signed-apk-qa-api31-ec3c4885fd5b051bef103e32c233426d95ec4207",
+          "digest": "sha256:ba9ad30508c27e63a6ef003cc1c60fecda675dfa8285a1d80bb345fe35e392b4",
+          "size": 4255241
+        },
+        {
+          "id": 12417459561,
+          "name": "signed-apk-qa-api26-ec3c4885fd5b051bef103e32c233426d95ec4207",
+          "digest": "sha256:6af3d0355a6f62fef9eda36ea92eea76375c32ccaa51208e21d006a2ce6cc8d5",
+          "size": 2412190
+        }
+      ]
+    },
+    "public": {
+      "run": "https://github.com/Francesco502/glimmer-countdown-app/actions/runs/39762032271",
+      "source": "ec3c4885fd5b051bef103e32c233426d95ec4207",
+      "reports": {
+        "26": {
+          "passed": true,
+          "archiveSha256": "f5a3ce326e6782f22e9a493acbb3c51da4cf1dc3d70a44fed651c3f496a9aa88",
+          "assetId": 665465531,
+          "upgradeFrom": "4.2.3",
+          "upgradeTo": "4.2.4",
+          "eventAndInstallIdentityPreserved": true,
+          "amsDraftRestoration": true,
+          "mainActivityPagesAndShare": false,
+          "updateLatest": false
+        },
+        "31": {
+          "passed": true,
+          "archiveSha256": "9de2017739a8c19b6807dee585aff891193461a69691a218ce67590dccf4596a",
+          "assetId": 665465531,
+          "upgradeFrom": "4.2.3",
+          "upgradeTo": "4.2.4",
+          "eventAndInstallIdentityPreserved": true,
+          "amsDraftRestoration": true,
+          "mainActivityPagesAndShare": false,
+          "updateLatest": false
+        },
+        "36": {
+          "passed": true,
+          "archiveSha256": "86400e7c1727a75f005536c9e45cfc6a9a32cb338ab741f9d0b56f53ca6b94ea",
+          "assetId": 665465531,
+          "upgradeFrom": "4.2.3",
+          "upgradeTo": "4.2.4",
+          "eventAndInstallIdentityPreserved": true,
+          "amsDraftRestoration": true,
+          "mainActivityPagesAndShare": true,
+          "updateLatest": true
+        }
+      },
+      "artifacts": [
+        {
+          "id": 12419221487,
+          "name": "signed-apk-qa-api36-ec3c4885fd5b051bef103e32c233426d95ec4207",
+          "digest": "sha256:86400e7c1727a75f005536c9e45cfc6a9a32cb338ab741f9d0b56f53ca6b94ea",
+          "size": 8584904
+        },
+        {
+          "id": 12418652404,
+          "name": "signed-apk-qa-api26-ec3c4885fd5b051bef103e32c233426d95ec4207",
+          "digest": "sha256:f5a3ce326e6782f22e9a493acbb3c51da4cf1dc3d70a44fed651c3f496a9aa88",
+          "size": 2502035
+        },
+        {
+          "id": 12418252738,
+          "name": "signed-apk-qa-api31-ec3c4885fd5b051bef103e32c233426d95ec4207",
+          "digest": "sha256:9de2017739a8c19b6807dee585aff891193461a69691a218ce67590dccf4596a",
+          "size": 4111932
+        }
+      ]
+    }
+  },
+  "publication": {
+    "download": "https://github.com/Francesco502/glimmer-countdown-app/releases/download/v4.2.4/glimmer-countdown-4-2-4.apk",
+    "url": "https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v4.2.4",
+    "publishedAt": "2026-10-22T10:17:00Z",
+    "id": 420573534,
+    "assetId": 665465531,
+    "anonymousDownloadVerified": true,
+    "latestVerified": true,
+    "onlyExactDirectApkAsset": true,
+    "draft": false,
+    "prerelease": false,
+    "ownedQaDraftDeleted": true,
+    "releaseLockAbsent": true
+  },
+  "supersededFailedPreflight": {
+    "unpassedTests": 2,
+    "run": 39754200993,
+    "result": "API26/API31 pixel assertions failed on 8-bit quantization; API36 cancelled by superseding commit",
+    "source": "ae9f96e74bf5afe91eedadf33dd224d9417ffb8b"
+  },
+  "physicalDeviceDecision": "User authorized publication after automated checks pass; physical-device checks remain unexecuted.",
+  "notExecuted": [
+    "Physical-device acceptance, including vivo X Fold3 Pro / Android 16 / OriginOS 6",
+    "Current-release Launcher binding and existing widget/config migration acceptance",
+    "Fold transitions, other physical devices and full date/timezone desktop matrix",
+    "System picture backup/restore and long-running performance acceptance"
+  ],
+  "limits": [
+    "Native component and in-app preview results do not imply Launcher or physical-device acceptance.",
+    "Signed upgrade smoke covers one synthetic saved event and install identity.",
+    "Draft recovery covers AMS process termination with retained task, not natural low-memory killing or all save states.",
+    "Intermediate pixel alpha permits at most 2/255 rounding error; settings and both endpoints remain exact.",
+    "Text adaptation follows system light/dark theme, not local wallpaper pixels.",
+    "Post-publication documentation is committed separately without moving the release tag."
+  ],
+  "localEvidence": ".tmp/v424-release/",
+  "postPublicationDocumentTests": {
+    "Direct": {
+      "tests": 27,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "Play": {
+      "tests": 27,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  }
+}

@@ -1,6 +1,6 @@
 # TimeAPK 发布与更新指引（4.2.4）
 
-本次候选版本为 4.2.4 / versionCode=29，尚未发布；计划唯一官方资产为 Direct APK `glimmer-countdown-4-2-4.apk`。**唯一正式发布渠道：GitHub Release。** Play flavor 仅保留用于兼容性与开发回归。实际验证状态见 [发布检查清单](RELEASE_CHECKLIST.md)，当前公开版见 [v4.2.3 历史清单](releases/v4.2.3-checklist.md)。
+本次版本为 4.2.4 / versionCode=29，已于 2026-10-22 [正式发布](https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v4.2.4)；唯一官方资产为 Direct APK `glimmer-countdown-4-2-4.apk`。**唯一正式发布渠道：GitHub Release。** Play flavor 仅保留用于兼容性与开发回归。实际验证状态见 [发布检查清单](RELEASE_CHECKLIST.md)，上一公开版证据见 [v4.2.3 历史清单](releases/v4.2.3-checklist.md)。
 
 ## 一、发布身份与凭据
 
@@ -24,7 +24,7 @@ Direct 包名为 `com.example.timeapk`，minSdk26 / targetSdk36；正式签名�
 ./gradlew assembleDirectRelease
 ```
 
-最终 tag CI 须新鲜运行 JVM、API26/31/36 native、runtime smoke、publisher 隔离 10/10 以及 R8 / shrinkResources。正式签名可采用现有等价路径：
+最终 tag 对应提交的 CI 须新鲜运行 JVM、API26/31/36 native、runtime smoke、publisher 隔离 10/10 以及 R8 / shrinkResources。本版 CI 由 main 推送触发，标签随后固定到同一提交；正式 APK 已在推送标签后于本地干净 worktree 重新签名构建。密钥仅在本机时，也可采用现有等价路径：
 
 1. 在无密钥 CI 从最终 tag 执行 `packageDirectRelease -x validateReleaseSigning`，保留 revision、原始未签名 APK 哈希与原始 `output-metadata.json`。
 2. 下载后核对原始哈希和唯一 directRelease / 4.2.4 / 29 元数据。本机先 zipalign，再以环境密码输入调用原生 apksigner 正式签名；默认签名门不改，未签名文件不得发布。
@@ -54,6 +54,6 @@ Direct 包名为 `com.example.timeapk`，minSdk26 / targetSdk36；正式签名�
 
 ## 六、证据与未执行项
 
-本版证据以 [4.2.4 修复与验证记录](releases/v4.2.4-development.md)为准。vivo X Fold3 Pro / Android 16 / OriginOS 6 的覆盖升级、透明度和文字颜色验收待执行；系统图片备份恢复及其他设备矩阵未执行。准备阶段生成的本地候选包仅供验收，正式发布仍须按上述顺序从最终不可变标签重新构建。
+本版证据以 [4.2.4 修复与验证记录](releases/v4.2.4-development.md)为准。vivo X Fold3 Pro / Android 16 / OriginOS 6 的覆盖升级、透明度和文字颜色验收未执行；系统图片备份恢复及其他设备矩阵未执行。用户明确授权自动化通过后发布，真机不记为通过。准备阶段的本地候选未用于发布，公开 APK 来自最终不可变标签的新鲜构建。
 
 [4.2.3 历史清单](releases/v4.2.3-checklist.md)保留旧标签、签名包和公开 QA 证据，不作为 4.2.4 通过记录。

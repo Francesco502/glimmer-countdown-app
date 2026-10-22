@@ -2,13 +2,13 @@
 
 拾光是一款面向 Android 的倒数日、生日与纪念日应用。它把日子整理成安静的纸笺、月历和桌面小组件，让重要时刻能被看见，也能被系统提醒与日历同步照顾到。
 
-当前源码为 `4.2.4 / versionCode=29`，处于候选 / 未发布阶段。本版修复小组件背景透明度，增加 0–100 连续滑杆，文字颜色默认“自适应”，并修复朱印样式忽略手动深色文字的问题。见[发布检查清单](docs/RELEASE_CHECKLIST.md)和[修复与验证记录](docs/releases/v4.2.4-development.md)。
+当前版本为 `4.2.4 / versionCode=29`，已于 2026-10-22 正式发布。本版修复小组件背景透明度，增加 0–100 连续滑杆，文字颜色默认“自适应”，并修复朱印样式忽略手动深色文字的问题。见[发布检查清单](docs/RELEASE_CHECKLIST.md)和[修复与验证记录](docs/releases/v4.2.4-development.md)。
 
-**唯一正式发布渠道：GitHub Release。** 本版计划唯一官方资产为 Direct APK `glimmer-countdown-4-2-4.apk`，沿用正式签名。Play flavor 仅保留用于兼容性与开发回归。
+**唯一正式发布渠道：GitHub Release。** 本版唯一官方资产为 Direct APK `glimmer-countdown-4-2-4.apk`，沿用正式签名，可从 4.2.3 覆盖升级。Play flavor 仅保留用于兼容性与开发回归。
 
-最新公开版本为 `4.2.3`：[下载 v4.2.3 APK](https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v4.2.3)
+最新公开版本为 `4.2.4`：[下载 v4.2.4 APK](https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v4.2.4)
 
-4.2.4 的真机覆盖升级与桌面效果尚未验收。4.2.3 在 vivo X Fold3 Pro（Android 16 / OriginOS 6）的反馈保留在[历史清单](docs/releases/v4.2.3-checklist.md)，不作为本版通过证据。
+4.2.4 已通过 Android 8 / 12 / 16 模拟器源码回归与正式签名包覆盖升级检查。按本版用户授权，真机检查未执行，不作为发布前置条件；真机覆盖升级与桌面效果仍无通过记录。4.2.3 在 vivo X Fold3 Pro（Android 16 / OriginOS 6）的反馈保留在[历史清单](docs/releases/v4.2.3-checklist.md)，不作为本版通过证据。
 
 折叠屏切换、其他手机、完整桌面日期/时区矩阵及系统图片备份恢复尚未验收；本版保留 targetSdk 36。
 
