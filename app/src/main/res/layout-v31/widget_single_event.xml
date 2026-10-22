@@ -7,6 +7,8 @@
     android:clipToOutline="true"
     android:theme="@style/Theme.TimeAPK.Widget">
 
+    <include layout="@layout/widget_background_image" />
+
     <LinearLayout
         android:id="@+id/widget_root"
         android:layout_width="match_parent"

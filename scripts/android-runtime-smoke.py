@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Host-driven draft recovery, or 4.2.2-to-4.2.3 upgrade with --upgrade-apk.
+"""Host-driven draft recovery, or 4.2.3-to-4.2.4 upgrade with --upgrade-apk.
 
 This terminates a real background process through ActivityManager while retaining
 its task. It does not claim natural low-memory-killer or physical-device coverage.
@@ -21,8 +21,8 @@ import xml.etree.ElementTree as ET
 
 PACKAGE = "com.example.timeapk"
 COMPONENT = PACKAGE + "/.MainActivity"
-UPGRADE_BASELINE = ("4.2.2", "27")
-UPGRADE_CANDIDATE = ("4.2.3", "28")
+UPGRADE_BASELINE = ("4.2.3", "28")
+UPGRADE_CANDIDATE = ("4.2.4", "29")
 LABELS = {
     "add": ("Add event", "Record your first event", "添加事件", "记录第一个日期"),
     "new": ("New event", "新建事件"),
@@ -437,7 +437,7 @@ class Smoke:
         return next(iter(values))
 
     def upgrade(self, apk):
-        self.evidence["scenario"] = "saved-event-4.2.2-to-4.2.3-in-place-upgrade"
+        self.evidence["scenario"] = "saved-event-4.2.3-to-4.2.4-in-place-upgrade"
         self.evidence["launcher_widget_upgrade"] = "not_executed; separate launcher acceptance required"
         apk = Path(apk).resolve()
         if not apk.is_file():
@@ -516,14 +516,14 @@ class Smoke:
         self.hide_keyboard()
         self.tap_action("back")
         self.evidence["passed"] = True
-        self.evidence["scope"] = "One saved synthetic event upgraded from 4.2.2/27 to 4.2.3/28 with unchanged firstInstallTime/userId and title/note/displayed date; caller verifies APK signature separately; launcher widget/config migration, baseline process-recovery and physical-device acceptance are separate, not implied."
+        self.evidence["scope"] = "One saved synthetic event upgraded from 4.2.3/28 to 4.2.4/29 with unchanged firstInstallTime/userId and title/note/displayed date; caller verifies APK signature separately; launcher widget/config migration, baseline process-recovery and physical-device acceptance are separate, not implied."
 
     def capture_pages(self, title):
         self.stage = "pages-00-package"
         identity = package_identity(self.text("shell", "dumpsys", "package", PACKAGE,
                                                destination=self.output / "pages-installed-package.txt"))
-        # Both source CI and the current signed-upgrade path must capture 4.2.3.
-        expected = self.evidence.get("package_after") or {"versionName": "4.2.3", "versionCode": "28"}
+        # Both source CI and the current signed-upgrade path must capture 4.2.4.
+        expected = self.evidence.get("package_after") or {"versionName": "4.2.4", "versionCode": "29"}
         if (identity["versionName"], identity["versionCode"]) != (expected["versionName"], expected["versionCode"]):
             raise SmokeFailure("Page capture package does not match the expected build: " + repr(identity))
         self.evidence.update(pages_package=identity, pages_title=title, captured_pages=[],
@@ -819,7 +819,7 @@ def main():
     parser.add_argument("--adb", required=True)
     parser.add_argument("--serial", required=True)
     parser.add_argument("--output", required=True)
-    parser.add_argument("--upgrade-apk", help="Upgrade installed 4.2.2/27 to this caller-verified signed 4.2.3/28 APK")
+    parser.add_argument("--upgrade-apk", help="Upgrade installed 4.2.3/28 to this caller-verified signed 4.2.4/29 APK")
     parser.add_argument("--capture-pages", action="store_true", help="After success, capture five MainActivity pages for manual review")
     parser.add_argument("--check-update", action="store_true", help="After success, require the published Direct-app update UI to confirm Already up to date")
     args = parser.parse_args()

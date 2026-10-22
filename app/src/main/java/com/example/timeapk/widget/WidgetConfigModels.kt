@@ -136,7 +136,7 @@ data class WidgetConfig(
                 APPEARANCE_SEAL,
                 fallback = APPEARANCE_SYSTEM
             ),
-            backgroundOpacityPercent = sanitizeOpacity(backgroundOpacityPercent),
+            backgroundOpacityPercent = backgroundOpacityPercent.coerceIn(0, 100),
             borderMode = borderMode.sanitizeEnum(BORDER_AUTO, BORDER_ON, BORDER_OFF, fallback = BORDER_AUTO),
             cornerMode = cornerMode.sanitizeEnum(
                 CORNER_SYSTEM,
@@ -248,11 +248,6 @@ fun removeWidgetInstanceConfig(raw: String?, appWidgetId: Int): String {
 
 private fun Int.sanitizeEnum(vararg allowed: Int, fallback: Int): Int =
     if (this in allowed) this else fallback
-
-private fun sanitizeOpacity(value: Int): Int {
-    val allowed = listOf(0, 25, 50, 75, 100)
-    return allowed.firstOrNull { value <= it } ?: 100
-}
 
 private fun cellsForLegacySizeTemplate(sizeTemplate: Int): Pair<Int, Int> {
     return when (sizeTemplate) {

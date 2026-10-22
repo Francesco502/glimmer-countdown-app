@@ -7,6 +7,7 @@ internal data class WidgetTextColors(val primary: Int, val secondary: Int, val a
 internal data class WidgetRenderStyle(
     val rootLayoutResId: Int,
     val backgroundResId: Int,
+    val backgroundAlpha: Int,
     val itemLayoutResId: Int,
     val useThemeTextColors: Boolean,
     val lightTextColors: WidgetTextColors,
@@ -22,6 +23,7 @@ internal data class WidgetRenderStyle(
         get() = listOf(
             rootLayoutResId,
             backgroundResId,
+            backgroundAlpha,
             itemLayoutResId,
             if (useThemeTextColors) 1 else 0,
             primaryTextColor,
@@ -50,6 +52,11 @@ internal object WidgetRenderPolicy {
         return WidgetRenderStyle(
             rootLayoutResId = resolveRootLayoutResId(clean),
             backgroundResId = resolveBackgroundResId(clean),
+            backgroundAlpha = if (isMilkyGlassSurface(clean)) {
+                (clean.backgroundOpacityPercent * 255 + 50) / 100
+            } else {
+                255
+            },
             itemLayoutResId = resolveItemLayoutResId(clean, useLightText, theme.isDark),
             useThemeTextColors = resolveUseThemeTextColors(clean),
             lightTextColors = resolveTextColors(clean, resolveUseLightText(clean, theme.copy(isDark = false))),
@@ -61,7 +68,8 @@ internal object WidgetRenderPolicy {
     private fun resolveUseThemeTextColors(config: WidgetConfig): Boolean {
         if (config.contrastMode != CONTRAST_AUTO) return false
         return when (config.appearancePreset) {
-            APPEARANCE_SYSTEM -> config.backgroundOpacityPercent == 0 ||
+            APPEARANCE_SYSTEM,
+            APPEARANCE_TRANSLUCENT -> config.backgroundOpacityPercent == 0 ||
                 config.backgroundOpacityPercent == 100
             APPEARANCE_SOLID,
             APPEARANCE_TRANSPARENT,
@@ -101,7 +109,8 @@ internal object WidgetRenderPolicy {
 
     private fun isTransparentSurface(config: WidgetConfig): Boolean {
         return config.appearancePreset == APPEARANCE_TRANSPARENT ||
-            (config.appearancePreset == APPEARANCE_SYSTEM && config.backgroundOpacityPercent == 0)
+            ((config.appearancePreset == APPEARANCE_SYSTEM || config.appearancePreset == APPEARANCE_TRANSLUCENT) &&
+                config.backgroundOpacityPercent == 0)
     }
 
     private fun resolveBackgroundResId(config: WidgetConfig): Int {
@@ -112,7 +121,6 @@ internal object WidgetRenderPolicy {
             } else {
                 R.drawable.widget_background_solid
             }
-            APPEARANCE_TRANSLUCENT -> resolveTranslucentBackgroundResId(config, borderless)
             APPEARANCE_TRANSPARENT -> if (config.borderMode == BORDER_ON) {
                 R.drawable.widget_background_transparent_border
             } else {
@@ -128,33 +136,31 @@ internal object WidgetRenderPolicy {
             } else {
                 R.drawable.widget_background_seal
             }
-            else -> when (config.backgroundOpacityPercent) {
-                0 -> if (config.borderMode == BORDER_ON) {
-                    R.drawable.widget_background_transparent_border
-                } else {
-                    R.drawable.widget_background_transparent
-                }
-                25, 50, 75 -> resolveTranslucentBackgroundResId(config, borderless)
-                else -> if (borderless) {
-                    R.drawable.widget_background_borderless
-                } else {
-                    R.drawable.widget_background
-                }
-            }
+            else -> resolveOpacityBackgroundResId(config, borderless)
         }
     }
 
-    private fun resolveTranslucentBackgroundResId(config: WidgetConfig, borderless: Boolean): Int {
+    private fun resolveOpacityBackgroundResId(config: WidgetConfig, borderless: Boolean): Int {
         return when (config.backgroundOpacityPercent) {
-            25 -> if (borderless) {
+            0 -> if (config.borderMode == BORDER_ON) {
+                R.drawable.widget_background_transparent_border
+            } else {
+                R.drawable.widget_background_transparent
+            }
+            in 1..25 -> if (borderless) {
                 R.drawable.widget_background_translucent_25_borderless
             } else {
                 R.drawable.widget_background_translucent_25
             }
-            50 -> if (borderless) {
+            in 26..50 -> if (borderless) {
                 R.drawable.widget_background_translucent_50_borderless
             } else {
                 R.drawable.widget_background_translucent_50
+            }
+            100 -> if (borderless) {
+                R.drawable.widget_background_borderless
+            } else {
+                R.drawable.widget_background
             }
             else -> if (borderless) {
                 R.drawable.widget_background_translucent_borderless
@@ -166,7 +172,7 @@ internal object WidgetRenderPolicy {
 
     private fun resolveTextColors(config: WidgetConfig, useLightText: Boolean): WidgetTextColors {
         return when {
-            config.appearancePreset == APPEARANCE_SEAL -> WidgetTextColors(
+            config.appearancePreset == APPEARANCE_SEAL && useLightText -> WidgetTextColors(
                 primary = PaperText,
                 secondary = PaperSecondary,
                 accent = GoldAccent
@@ -199,13 +205,14 @@ internal object WidgetRenderPolicy {
     }
 
     private fun needsTextProtection(config: WidgetConfig, useLightText: Boolean, isDark: Boolean): Boolean {
-        // Glass is milky by day and deep by night: text matching that tone needs no shadow,
-        // a forced opposite text colour (light on milky, dark on deep) does.
-        if (isMilkyGlassSurface(config)) return useLightText != isDark
+        // Wallpaper shows through low-opacity glass; protect text in either theme.
+        if (isMilkyGlassSurface(config)) {
+            return config.backgroundOpacityPercent <= 50 || useLightText != isDark
+        }
         return when (config.appearancePreset) {
-            APPEARANCE_TRANSPARENT,
-            APPEARANCE_TRANSLUCENT -> true
-            APPEARANCE_SYSTEM -> config.backgroundOpacityPercent < 100
+            APPEARANCE_TRANSPARENT -> true
+            APPEARANCE_SYSTEM,
+            APPEARANCE_TRANSLUCENT -> config.backgroundOpacityPercent < 100
             else -> false
         }
     }
@@ -220,7 +227,7 @@ internal object WidgetRenderPolicy {
     }
 
     private fun isMilkyGlassSurface(config: WidgetConfig): Boolean {
-        return config.appearancePreset == APPEARANCE_TRANSLUCENT ||
-            (config.appearancePreset == APPEARANCE_SYSTEM && config.backgroundOpacityPercent in 25..75)
+        return (config.appearancePreset == APPEARANCE_TRANSLUCENT ||
+            config.appearancePreset == APPEARANCE_SYSTEM) && config.backgroundOpacityPercent in 1..99
     }
 }

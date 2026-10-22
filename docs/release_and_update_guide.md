@@ -1,10 +1,10 @@
-# TimeAPK 发布与更新指引（4.2.3）
+# TimeAPK 发布与更新指引（4.2.4）
 
-本次公开版本为 4.2.3 / versionCode=28，已正式发布，唯一官方资产为 Direct APK `glimmer-countdown-4-2-3.apk`。**唯一正式发布渠道：GitHub Release。** Play flavor 仅保留用于兼容性与开发回归。实际验证状态见 [发布检查清单](RELEASE_CHECKLIST.md)，上一公开版见 [v4.2.2 历史清单](releases/v4.2.2-checklist.md)。
+本次候选版本为 4.2.4 / versionCode=29，尚未发布；计划唯一官方资产为 Direct APK `glimmer-countdown-4-2-4.apk`。**唯一正式发布渠道：GitHub Release。** Play flavor 仅保留用于兼容性与开发回归。实际验证状态见 [发布检查清单](RELEASE_CHECKLIST.md)，当前公开版见 [v4.2.3 历史清单](releases/v4.2.3-checklist.md)。
 
 ## 一、发布身份与凭据
 
-Direct 包名为 `com.example.timeapk`，minSdk26 / targetSdk36；正式签名须与公开 v4.2.2 兼容。正式证书 SHA-256：`3b7cb426a82664f891c69511cc2505b67128c8503664639f297291da4ea903ca`。
+Direct 包名为 `com.example.timeapk`，minSdk26 / targetSdk36；正式签名须与公开 v4.2.3 兼容。正式证书 SHA-256：`3b7cb426a82664f891c69511cc2505b67128c8503664639f297291da4ea903ca`。
 
 既有 keystore 和配置只在本机使用，不进入 Git、日志或远端 runner。可用 `TIMEAPK_KEYSTORE_PROPERTIES` 指定配置；不要新建证书代替正式升级签名。
 
@@ -14,7 +14,7 @@ Direct 包名为 `com.example.timeapk`，minSdk26 / targetSdk36；正式签名�
 
 最终代码与发布文档已提交，且工作区干净 → 创建并推送不可变的 exact tag → 从该 tag 对应 commit 的工作树重新正式签名构建 → 验证签名、精确证书指纹与 SHA-256 → 准备安全凭据环境 → 运行发布脚本。
 
-使用最终发布 commit 创建 annotated `v4.2.3` tag；本地与远端 tag 解引用后的 commit 必须一致。禁止移动已推送 tag 或覆盖 published Release。不得复用旧构建产物，使用新构建目录或 `gradlew clean`，不能使用 `git clean`。
+使用最终发布 commit 创建 annotated `v4.2.4` tag；本地与远端 tag 解引用后的 commit 必须一致。禁止移动已推送 tag 或覆盖 published Release。不得复用旧构建产物，使用新构建目录或 `gradlew clean`，不能使用 `git clean`。
 
 ## 三、构建与 QA
 
@@ -27,22 +27,22 @@ Direct 包名为 `com.example.timeapk`，minSdk26 / targetSdk36；正式签名�
 最终 tag CI 须新鲜运行 JVM、API26/31/36 native、runtime smoke、publisher 隔离 10/10 以及 R8 / shrinkResources。正式签名可采用现有等价路径：
 
 1. 在无密钥 CI 从最终 tag 执行 `packageDirectRelease -x validateReleaseSigning`，保留 revision、原始未签名 APK 哈希与原始 `output-metadata.json`。
-2. 下载后核对原始哈希和唯一 directRelease / 4.2.3 / 28 元数据。本机先 zipalign，再以环境密码输入调用原生 apksigner 正式签名；默认签名门不改，未签名文件不得发布。
+2. 下载后核对原始哈希和唯一 directRelease / 4.2.4 / 29 元数据。本机先 zipalign，再以环境密码输入调用原生 apksigner 正式签名；默认签名门不改，未签名文件不得发布。
 3. 独立验证正式证书、单一签名者、签名方案、16KiB 对齐、非 debug、包名和 Direct 安装权限；记录正式 APK 大小 / SHA-256。
-4. 发布用 metadata 只将唯一 artifact 的 outputFile 改为 exact 名称；放入 `app/build/outputs/apk/direct/release/glimmer-countdown-4-2-3.apk`。
-5. 通过临时 owned QA draft 运行 `android-apk-qa.yml`：API26/31/36 从公开 v4.2.2 / 27 覆盖升级到 4.2.3 / 28，核对首次安装时间、UID、事件标题/备注/日期保留与 AMS 草稿恢复；API36 还检查页面和分享。
+4. 发布用 metadata 只将唯一 artifact 的 outputFile 改为 exact 名称；放入 `app/build/outputs/apk/direct/release/glimmer-countdown-4-2-4.apk`。
+5. 通过临时 owned QA draft 运行 `android-apk-qa.yml`：API26/31/36 从公开 v4.2.3 / 28 覆盖升级到 4.2.4 / 29，核对首次安装时间、UID、事件标题/备注/日期保留与 AMS 草稿恢复；API36 还检查页面和分享。
 
-升级基线固定为 `glimmer-countdown-4-2-2.apk`，12,533,986 bytes，SHA-256 `87e55c8e43a2e3d6764755b7cb0a885524fd45323f9fb011c80be8dd1e328e4c`。不能用 debug 或临时 QA 证书替代正式候选。
+升级基线固定为 `glimmer-countdown-4-2-3.apk`，12,521,441 bytes，SHA-256 `0b9bfdb6258dfddd60c2e1453401b9bf7b52742de8cbd6d999c94c91dcf8c01b`。不能用 debug 或临时 QA 证书替代正式候选。
 
 ## 四、GitHub Release
 
 工作区存在 tracked / untracked 改动时拒绝发布；HEAD 须精确等于最终 tag。签名与正式包 QA 通过后执行：
 
 ```powershell
-.\scripts\publish-release.ps1 -Tag v4.2.3 -ReleaseName v4.2.3
+.\scripts\publish-release.ps1 -Tag v4.2.4 -ReleaseName v4.2.4
 ```
 
-脚本从 CHANGELOG 的 4.2.3 小节取公开说明，通过 Git ref 锁串行发布；只创建/恢复带自身 ownership marker 的 draft。删除 owned draft 中的所有旧资产，再上传唯一 exact Direct APK。整个 Release 只保留唯一的 exact Direct APK，拒绝任何其他附件夹带；以 asset id、size、digest、下载 URL 和 MIME 绑定校验，并用最终 GET 验证公开非 prerelease 状态。
+脚本从 CHANGELOG 的 4.2.4 小节取公开说明，通过 Git ref 锁串行发布；只创建/恢复带自身 ownership marker 的 draft。删除 owned draft 中的所有旧资产，再上传唯一 exact Direct APK。整个 Release 只保留唯一的 exact Direct APK，拒绝任何其他附件夹带；以 asset id、size、digest、下载 URL 和 MIME 绑定校验，并用最终 GET 验证公开非 prerelease 状态。
 
 存在残留锁时先调查活跃发布者和远端 mutation，不随意删除。若超时造成结果未知，先读取权威状态，不盲目重复发布或覆盖已有 Release。
 
@@ -50,10 +50,10 @@ Direct 包名为 `com.example.timeapk`，minSdk26 / targetSdk36；正式签名�
 
 无认证重新下载公开 APK，独立验签、哈希和包身份核对。运行公开包 API26/31/36 QA，API36 实际检查更新、分享保存与返回；清理本轮 owned QA draft 和发布锁，按结果补记 README / 检查清单，不移动最终 tag。
 
-除用户确认的 vivo X Fold3 Pro 小组件修复外，完整主题/字体/旋转/TalkBack、通知送达、系统日历与长期性能没有本轮通过证据。小组件原生视图回归与应用内预览只证明各自范围。
+4.2.4 尚无真机通过证据。完整主题/字体/旋转/TalkBack、通知送达、系统日历与长期性能须按实际执行记录。小组件原生视图回归与应用内预览只证明各自范围。
 
 ## 六、证据与未执行项
 
-本版证据以 [4.2.3 修复与验证记录](releases/v4.2.3-development.md)为准。用户已确认 vivo X Fold3 Pro / Android 16 / OriginOS 6 覆盖安装、小组件显示与新增保存通过；系统图片备份恢复及其他设备矩阵未执行。
+本版证据以 [4.2.4 修复与验证记录](releases/v4.2.4-development.md)为准。vivo X Fold3 Pro / Android 16 / OriginOS 6 的覆盖升级、透明度和文字颜色验收待执行；系统图片备份恢复及其他设备矩阵未执行。准备阶段生成的本地候选包仅供验收，正式发布仍须按上述顺序从最终不可变标签重新构建。
 
-[4.2.2 历史清单](releases/v4.2.2-checklist.md)保留旧标签、签名包和公开 QA 证据，不作为 4.2.3 通过记录。
+[4.2.3 历史清单](releases/v4.2.3-checklist.md)保留旧标签、签名包和公开 QA 证据，不作为 4.2.4 通过记录。

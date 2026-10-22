@@ -202,8 +202,8 @@ class WidgetRenderPolicyTest {
         assertNotEquals(lightGlass.backgroundResId, mediumGlass.backgroundResId)
         assertNotEquals(mediumGlass.backgroundResId, denseGlass.backgroundResId)
         assertNotEquals(denseGlass.backgroundResId, solid.backgroundResId)
-        assertEquals(R.layout.widget_countdown_item, lightGlass.itemLayoutResId)
-        assertEquals(R.layout.widget_countdown_item, mediumGlass.itemLayoutResId)
+        assertEquals(R.layout.widget_countdown_item_shadow_light, lightGlass.itemLayoutResId)
+        assertEquals(R.layout.widget_countdown_item_shadow_light, mediumGlass.itemLayoutResId)
         assertEquals(R.layout.widget_countdown_item, denseGlass.itemLayoutResId)
         assertEquals(R.layout.widget_countdown_item, solid.itemLayoutResId)
     }
@@ -223,7 +223,7 @@ class WidgetRenderPolicyTest {
         assertEquals(0xFFEDE8DD.toInt(), glass.primaryTextColor)
         assertEquals(0xFFC8BBAA.toInt(), glass.secondaryTextColor)
         assertEquals(0xFFF6D9A6.toInt(), glass.accentTextColor)
-        assertEquals(R.layout.widget_countdown_item, glass.itemLayoutResId)
+        assertEquals(R.layout.widget_countdown_item_shadow_dark, glass.itemLayoutResId)
     }
 
     @Test
@@ -240,7 +240,7 @@ class WidgetRenderPolicyTest {
         assertEquals(0xFF202124.toInt(), glass.primaryTextColor)
         assertEquals(0xCC202124.toInt(), glass.secondaryTextColor)
         assertEquals(0xFFB45A4E.toInt(), glass.accentTextColor)
-        assertEquals(R.layout.widget_countdown_item, glass.itemLayoutResId)
+        assertEquals(R.layout.widget_countdown_item_shadow_light, glass.itemLayoutResId)
     }
 
     @Test
@@ -257,7 +257,70 @@ class WidgetRenderPolicyTest {
         assertEquals(R.drawable.widget_background_translucent_25, glass.backgroundResId)
         assertEquals(0xFFEDE8DD.toInt(), glass.primaryTextColor)
         assertEquals(0xFFF6D9A6.toInt(), glass.accentTextColor)
-        assertEquals(R.layout.widget_countdown_item, glass.itemLayoutResId)
+        assertEquals(R.layout.widget_countdown_item_shadow_dark, glass.itemLayoutResId)
+    }
+
+    @Test
+    fun resolve_everyIntermediateOpacityHasDistinctAlphaAndCacheKey() {
+        listOf(APPEARANCE_SYSTEM, APPEARANCE_TRANSLUCENT).forEach { appearance ->
+            listOf(false, true).forEach { isDark ->
+                val styles = (1..99).map { opacity ->
+                    WidgetRenderPolicy.resolve(
+                        WidgetConfig.default().copy(appearancePreset = appearance, backgroundOpacityPercent = opacity),
+                        WidgetThemeSnapshot(isDark, usesSystemPalette = true)
+                    ).also { style ->
+                        assertEquals((opacity * 255f / 100).toDouble(), style.backgroundAlpha.toDouble(), 0.5)
+                    }
+                }
+                assertEquals(99, styles.map { it.backgroundAlpha }.distinct().size)
+                assertEquals(99, styles.map { it.cacheKey }.distinct().size)
+            }
+        }
+    }
+
+    @Test
+    fun resolve_translucentOpacityEndpointsMatchTransparentAndSystemOpaqueSurfaces() {
+        listOf(false, true).forEach { isDark ->
+            val theme = WidgetThemeSnapshot(isDark, usesSystemPalette = true)
+            listOf(BORDER_AUTO, BORDER_ON, BORDER_OFF).forEach { borderMode ->
+                listOf(CORNER_SYSTEM, CORNER_SMALL, CORNER_MEDIUM, CORNER_LARGE).forEach { cornerMode ->
+                    val base = WidgetConfig.default().copy(borderMode = borderMode, cornerMode = cornerMode)
+                    listOf(0, 100).forEach { opacity ->
+                        val config = base.copy(
+                            appearancePreset = APPEARANCE_TRANSLUCENT,
+                            backgroundOpacityPercent = opacity
+                        )
+                        val expectedConfig = config.copy(appearancePreset = APPEARANCE_SYSTEM)
+                        assertEquals(
+                            WidgetRenderPolicy.resolve(expectedConfig, theme),
+                            WidgetRenderPolicy.resolve(config, theme)
+                        )
+                        assertEquals(
+                            WidgetRenderPolicy.resolveSingleEventLayoutResId(expectedConfig),
+                            WidgetRenderPolicy.resolveSingleEventLayoutResId(config)
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    fun resolve_lowOpacityGlassProtectsAdaptiveTextInBothThemes() {
+        listOf(APPEARANCE_SYSTEM, APPEARANCE_TRANSLUCENT).forEach { appearance ->
+            listOf(25, 50).forEach { opacity ->
+                listOf(false, true).forEach { isDark ->
+                    val style = WidgetRenderPolicy.resolve(
+                        WidgetConfig.default().copy(appearancePreset = appearance, backgroundOpacityPercent = opacity),
+                        WidgetThemeSnapshot(isDark, usesSystemPalette = true)
+                    )
+                    assertEquals(
+                        if (isDark) R.layout.widget_countdown_item_shadow_dark else R.layout.widget_countdown_item_shadow_light,
+                        style.itemLayoutResId
+                    )
+                }
+            }
+        }
     }
 
     @Test
@@ -299,6 +362,24 @@ class WidgetRenderPolicyTest {
         assertEquals(0xFFFFFBF5.toInt(), seal.primaryTextColor)
         assertEquals(0xFFEEDFD2.toInt(), seal.secondaryTextColor)
         assertEquals(0xFFF6D9A6.toInt(), seal.accentTextColor)
+    }
+
+    @Test
+    fun resolve_sealPresetRespectsManualDarkTextInBothThemes() {
+        listOf(false, true).forEach { isDark ->
+            val config = WidgetConfig.default().copy(appearancePreset = APPEARANCE_SEAL)
+            val theme = WidgetThemeSnapshot(isDark = isDark, usesSystemPalette = true)
+            val automatic = WidgetRenderPolicy.resolve(config, theme)
+            val manualDark = WidgetRenderPolicy.resolve(config.copy(contrastMode = CONTRAST_DARK_TEXT), theme)
+            val manualLight = WidgetRenderPolicy.resolve(config.copy(contrastMode = CONTRAST_LIGHT_TEXT), theme)
+
+            assertEquals(0xFF1F1F1F.toInt(), manualDark.primaryTextColor)
+            assertEquals(0xFF6A6256.toInt(), manualDark.secondaryTextColor)
+            assertEquals(0xFFAF4E31.toInt(), manualDark.accentTextColor)
+            assertFalse(manualDark.useThemeTextColors)
+            assertEquals(automatic.primaryTextColor, manualLight.primaryTextColor)
+            assertEquals(automatic.backgroundResId, manualDark.backgroundResId)
+        }
     }
 
     @Test

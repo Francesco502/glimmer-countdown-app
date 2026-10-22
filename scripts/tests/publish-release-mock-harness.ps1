@@ -506,6 +506,12 @@ exit 0
     $env:GLIMMER_RELEASE_CERT_SHA256 = $previousCertificate
     $env:GITHUB_TOKEN = $previousToken
     if (Test-Path $fixtureRoot) {
+        $cleanupPath = [System.IO.Path]::GetFullPath($fixtureRoot)
+        $tempParent = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd([char[]]@('/', '\'))
+        if ([System.IO.Path]::GetDirectoryName($cleanupPath) -ne $tempParent -or
+            [System.IO.Path]::GetFileName($cleanupPath) -notmatch '^glimmer-publisher-[a-z-]+-[0-9a-f]{32}$') {
+            throw "Refusing to remove a fixture outside the expected temporary directory"
+        }
         Remove-Item -LiteralPath $fixtureRoot -Recurse -Force
     }
 }

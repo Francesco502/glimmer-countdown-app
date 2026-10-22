@@ -463,6 +463,8 @@
     <string name="widget_config_appearance_celadon">Celadon</string>
     <string name="widget_config_appearance_seal">Cinnabar seal</string>
     <string name="widget_config_opacity">Background opacity</string>
+    <string name="widget_config_opacity_transparent" formatted="false">0% (transparent)</string>
+    <string name="widget_config_opacity_opaque" formatted="false">100% (opaque)</string>
     <string name="widget_config_percent">%1$d%%</string>
     <string name="widget_config_content_scope">Content</string>
     <string name="widget_config_content_all">All events</string>
@@ -484,8 +486,9 @@
     <string name="widget_config_corner_small">Small</string>
     <string name="widget_config_corner_medium">Medium</string>
     <string name="widget_config_corner_large">Large</string>
-    <string name="widget_config_contrast">Text contrast</string>
-    <string name="widget_config_contrast_auto_summary">Text color: auto</string>
+    <string name="widget_config_contrast">Text color</string>
+    <string name="widget_config_contrast_auto">Adaptive</string>
+    <string name="widget_config_contrast_auto_summary">Text color: adaptive</string>
     <string name="widget_config_contrast_light">Light text</string>
     <string name="widget_config_contrast_dark">Dark text</string>
     <string name="widget_config_show_lunar_prefix">Show lunar prefix</string>

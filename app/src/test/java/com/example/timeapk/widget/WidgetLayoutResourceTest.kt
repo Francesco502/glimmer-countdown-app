@@ -1,9 +1,12 @@
 package com.example.timeapk.widget
 
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
+import javax.xml.parsers.DocumentBuilderFactory
+import kotlin.math.roundToInt
 
 class WidgetLayoutResourceTest {
     @Test
@@ -22,19 +25,39 @@ class WidgetLayoutResourceTest {
     }
 
     @Test
-    fun translucentWidgetBackgrounds_useLayeredGlassTreatment() {
-        listOf(
-            "drawable/widget_background_translucent.xml",
-            "drawable-night/widget_background_translucent.xml",
-            "drawable/widget_background_translucent_25.xml",
-            "drawable-night/widget_background_translucent_25.xml",
-            "drawable/widget_background_translucent_50.xml",
-            "drawable-night/widget_background_translucent_50.xml"
-        ).forEach { relative ->
-            val background = readLayoutText(relative)
-
-            assertTrue("$relative should be a layered drawable", background.contains("<layer-list"))
-            assertTrue("$relative should include a glass highlight gradient", background.contains("<gradient"))
+    fun translucentWidgetBackgrounds_keepOpaqueFillsForRuntimeAlphaIncludingHighlights() {
+        val parser = DocumentBuilderFactory.newInstance().newDocumentBuilder()
+        listOf("drawable", "drawable-night").forEach { directory ->
+            listOf("", "_borderless").forEach { border ->
+                listOf(25, 50, 75).forEach { opacity ->
+                    val suffix = if (opacity == 75) "" else "_$opacity"
+                    val relative = "$directory/widget_background_translucent$suffix$border.xml"
+                    val document = parser.parse(readLayoutText(relative).byteInputStream())
+                    val shapes = document.getElementsByTagName("shape")
+                    // Runtime image alpha controls opacity; fills must not attenuate it again.
+                    listOf(0.0, 0.5, 1.0).forEach { position ->
+                        var alpha = 0.0
+                        for (index in 0 until shapes.length) {
+                            val shape = shapes.item(index) as org.w3c.dom.Element
+                            val gradient = shape.getElementsByTagName("gradient").item(0) as? org.w3c.dom.Element
+                            val solid = shape.getElementsByTagName("solid").item(0) as? org.w3c.dom.Element
+                            fun colorAlpha(color: String) = color.substring(1, 3).toInt(16) / 255.0
+                            val fillAlpha = if (gradient != null) {
+                                val start = colorAlpha(gradient.getAttribute("android:startColor"))
+                                val end = colorAlpha(gradient.getAttribute("android:endColor"))
+                                start + (end - start) * position
+                            } else {
+                                colorAlpha(requireNotNull(solid).getAttribute("android:color"))
+                            }
+                            alpha = fillAlpha + alpha * (1.0 - fillAlpha)
+                        }
+                        assertEquals(
+                            "$relative at $position", 255,
+                            (alpha * 255).roundToInt()
+                        )
+                    }
+                }
+            }
         }
     }
 
@@ -54,21 +77,6 @@ class WidgetLayoutResourceTest {
 
         assertTrue(providerInfo.contains("android:configure=\"com.example.timeapk.widget.WidgetConfigActivity\""))
         assertTrue(providerInfo.contains("android:widgetFeatures=\"reconfigurable\""))
-    }
-
-    @Test
-    fun twentyFivePercentGlass_isMilkyByDayAndDeepByNight() {
-        val lightGlass = readLayoutText("drawable/widget_background_translucent_25.xml")
-        val darkGlass = readLayoutText("drawable-night/widget_background_translucent_25.xml")
-
-        assertTrue(lightGlass.contains("#B3F1F3F0"))
-        assertTrue(lightGlass.contains("#1A202124"))
-        assertTrue(darkGlass.contains("#A61C1C1E"))
-        assertTrue(darkGlass.contains("#26FFFFFF"))
-        listOf(lightGlass, darkGlass).forEach { glass ->
-            assertFalse(glass.contains("#42F7F3EA"))
-            assertFalse(glass.contains("#59141618"))
-        }
     }
 
     @Test

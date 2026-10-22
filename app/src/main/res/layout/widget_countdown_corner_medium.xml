@@ -6,6 +6,8 @@
     android:background="@drawable/widget_background"
     android:theme="@style/Theme.TimeAPK.Widget.Corner.Medium">
 
+    <include layout="@layout/widget_background_image" />
+
     <FrameLayout
         android:id="@+id/widget_root"
         android:layout_width="match_parent"

@@ -22,8 +22,20 @@ class WidgetConfigModelsTest {
         assertEquals(CONTENT_ALL, config.contentScope)
         assertEquals(SORT_HOME, config.sortMode)
         assertEquals(DISPLAY_POLICY_AUTO, config.displayPolicy)
+        assertEquals(CONTRAST_AUTO, config.contrastMode)
         assertEquals(2, config.version)
         assertTrue(config.showLunarPrefix)
+    }
+
+    @Test
+    fun missingTextColorDefaultsToAdaptiveAndSavedManualChoicesArePreserved() {
+        listOf(null, "", "{}", "{\"version\":1}").forEach { raw ->
+            assertEquals(CONTRAST_AUTO, WidgetConfig.fromJson(raw).contrastMode)
+        }
+        listOf(CONTRAST_AUTO, CONTRAST_LIGHT_TEXT, CONTRAST_DARK_TEXT).forEach { mode ->
+            val config = WidgetConfig.default().copy(contrastMode = mode)
+            assertEquals(mode, WidgetConfig.fromJson(config.toJson()).contrastMode)
+        }
     }
 
     @Test
@@ -55,7 +67,7 @@ class WidgetConfigModelsTest {
         assertEquals(1, json.optInt("widthCells", -1))
         assertEquals(5, json.optInt("heightCells", -1))
         assertEquals(APPEARANCE_SYSTEM, sanitized.appearancePreset)
-        assertEquals(50, sanitized.backgroundOpacityPercent)
+        assertEquals(37, sanitized.backgroundOpacityPercent)
         assertEquals(BORDER_AUTO, sanitized.borderMode)
         assertEquals(CORNER_SYSTEM, sanitized.cornerMode)
         assertEquals(DENSITY_STANDARD, sanitized.densityMode)
@@ -65,6 +77,17 @@ class WidgetConfigModelsTest {
         assertEquals(CONTRAST_AUTO, sanitized.contrastMode)
         assertEquals(1.60f, sanitized.fontScale, 0.01f)
         assertFalse(sanitized.showLunarPrefix)
+    }
+
+    @Test
+    fun opacityPreservesEveryPercentThroughSaveAndClampsOnlyOutOfRangeValues() {
+        (0..100).forEach { percent ->
+            val config = WidgetConfig.default().copy(backgroundOpacityPercent = percent)
+            assertEquals(percent, config.sanitize().backgroundOpacityPercent)
+            assertEquals(percent, WidgetConfig.fromJson(config.toJson()).backgroundOpacityPercent)
+        }
+        assertEquals(0, WidgetConfig.default().copy(backgroundOpacityPercent = -1).sanitize().backgroundOpacityPercent)
+        assertEquals(100, WidgetConfig.default().copy(backgroundOpacityPercent = 101).sanitize().backgroundOpacityPercent)
     }
 
     @Test

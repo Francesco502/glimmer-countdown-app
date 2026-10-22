@@ -89,7 +89,7 @@ class SingleEventWidgetProvider : AppWidgetProvider() {
             val style = WidgetRenderPolicy.resolve(config, theme)
             val layout = WidgetRenderPolicy.resolveSingleEventLayoutResId(config)
             return RemoteViews(context.packageName, layout).apply {
-                setInt(android.R.id.background, "setBackgroundResource", style.backgroundResId)
+                setWidgetBackground(style)
                 setWidgetTextColors(
                     context, style,
                     primaryIds = intArrayOf(R.id.single_unit, R.id.single_title),

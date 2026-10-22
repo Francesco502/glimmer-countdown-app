@@ -50,6 +50,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
@@ -106,6 +107,7 @@ import com.example.timeapk.widget.WidgetUpdater
 import com.example.timeapk.widget.widgetLanguageContext
 import com.example.timeapk.widget.buildWidgetItemRemoteViews
 import com.example.timeapk.widget.setWidgetTextColors
+import com.example.timeapk.widget.setWidgetBackground
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -279,13 +281,9 @@ fun WidgetConfigEditor(
                 showSwatches = true
             )
             if (widgetAppearanceSupportsOpacity(config.appearancePreset)) {
-                WidgetOptionGroup(
-                    title = stringResource(R.string.widget_config_opacity),
-                    options = listOf(0, 25, 50, 75, 100).map {
-                        it to stringResource(R.string.widget_config_percent, it)
-                    },
-                    selected = config.backgroundOpacityPercent,
-                    onSelected = { onConfigChange(config.copy(backgroundOpacityPercent = it).sanitize()) }
+                WidgetOpacityControl(
+                    value = config.backgroundOpacityPercent,
+                    onValueChange = { onConfigChange(config.copy(backgroundOpacityPercent = it).sanitize()) }
                 )
             } else {
                 Text(
@@ -319,7 +317,7 @@ fun WidgetConfigEditor(
             WidgetOptionGroup(
                 title = stringResource(R.string.widget_config_contrast),
                 options = listOf(
-                    CONTRAST_AUTO to stringResource(R.string.widget_config_auto),
+                    CONTRAST_AUTO to stringResource(R.string.widget_config_contrast_auto),
                     CONTRAST_LIGHT_TEXT to stringResource(R.string.widget_config_contrast_light),
                     CONTRAST_DARK_TEXT to stringResource(R.string.widget_config_contrast_dark)
                 ),
@@ -413,6 +411,35 @@ internal val WidgetPreviewSizes: List<Pair<Int, Int>> = listOf(
 /** 只有“跟随系统”与磨砂玻璃两种背景会随不透明度变化。 */
 internal fun widgetAppearanceSupportsOpacity(appearancePreset: Int): Boolean =
     appearancePreset == APPEARANCE_SYSTEM || appearancePreset == APPEARANCE_TRANSLUCENT
+
+@Composable
+internal fun WidgetOpacityControl(value: Int, onValueChange: (Int) -> Unit) {
+    var draft by remember(value) { mutableStateOf(value.toFloat()) }
+    val label = stringResource(R.string.widget_config_opacity)
+    val percent = stringResource(R.string.widget_config_percent, draft.roundToInt())
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyLarge)
+        Text(percent, style = MaterialTheme.typography.bodyLarge)
+    }
+    Slider(
+        value = draft,
+        onValueChange = { draft = it.coerceIn(0f, 100f) },
+        valueRange = 0f..100f,
+        onValueChangeFinished = { onValueChange(draft.roundToInt()) },
+        modifier = Modifier.semantics {
+            contentDescription = label
+            stateDescription = percent
+        }
+    )
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(stringResource(R.string.widget_config_opacity_transparent), style = MaterialTheme.typography.bodySmall)
+        Text(stringResource(R.string.widget_config_opacity_opaque), style = MaterialTheme.typography.bodySmall)
+    }
+}
 
 @Composable
 private fun WidgetFontScaleControl(
@@ -717,7 +744,7 @@ internal fun buildWidgetPreviewView(host: ViewGroup, snapshot: WidgetContentSnap
     val style = snapshot.renderStyle
     val textStyle = snapshot.textStyle
     val root = RemoteViews(context.packageName, style.rootLayoutResId).apply {
-        setInt(android.R.id.background, "setBackgroundResource", style.backgroundResId)
+        setWidgetBackground(style)
         setWidgetTextColors(context, style, secondaryIds = intArrayOf(R.id.widget_empty))
         setTextViewTextSize(R.id.widget_empty, TypedValue.COMPLEX_UNIT_SP, textStyle.emptyTextSp)
         setTextViewText(R.id.widget_empty, context.getString(R.string.home_empty_title))
