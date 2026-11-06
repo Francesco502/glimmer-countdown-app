@@ -4,6 +4,7 @@ import android.os.Build
 import android.view.View
 import android.window.OnBackInvokedCallback
 import android.window.OnBackInvokedDispatcher
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.activity.compose.BackHandler
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedContent
@@ -16,7 +17,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.LocalOverscrollConfiguration
+import androidx.compose.foundation.LocalOverscrollFactory
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -102,29 +103,29 @@ fun HomeScreen(
     selectedEventId: Int? = null,
     viewModel: HomeViewModel = viewModel(factory = com.example.timeapk.ui.AppViewModelProvider.Factory)
 ) {
-    val homeUiState by viewModel.homeUiState.collectAsState()
-    val calendarUiState by viewModel.calendarUiState.collectAsState()
-    val unfilteredCalendarUiState by viewModel.unfilteredCalendarUiState.collectAsState()
+    val homeUiState by viewModel.homeUiState.collectAsStateWithLifecycle()
+    val calendarUiState by viewModel.calendarUiState.collectAsStateWithLifecycle()
+    val unfilteredCalendarUiState by viewModel.unfilteredCalendarUiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val prefs = (context.applicationContext as TimeApplication).userPrefs
-    val today by viewModel.today.collectAsState()
+    val today by viewModel.today.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
-    val categoryFilter by viewModel.categoryFilter.collectAsState()
-    val sortType by viewModel.sortType.collectAsState()
-    val searchQuery by viewModel.searchQuery.collectAsState()
-    val showHours by prefs.showHoursFlow.collectAsState(initial = true)
-    val showMilestone by prefs.showMilestoneFlow.collectAsState(initial = true)
-    val homeDensityMode by prefs.homeDensityModeFlow.collectAsState(initial = 1)
-    val dateFormatMode by prefs.dateFormatModeFlow.collectAsState(initial = 0)
+    val categoryFilter by viewModel.categoryFilter.collectAsStateWithLifecycle()
+    val sortType by viewModel.sortType.collectAsStateWithLifecycle()
+    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
+    val showHours by prefs.showHoursFlow.collectAsStateWithLifecycle(initialValue = true)
+    val showMilestone by prefs.showMilestoneFlow.collectAsStateWithLifecycle(initialValue = true)
+    val homeDensityMode by prefs.homeDensityModeFlow.collectAsStateWithLifecycle(initialValue = 1)
+    val dateFormatMode by prefs.dateFormatModeFlow.collectAsStateWithLifecycle(initialValue = 0)
     val dateFormatter = remember(dateFormatMode) { getDisplayDateFormatter(dateFormatMode) }
-    val dateDeltaDisplayMode by prefs.dateDeltaDisplayModeFlow.collectAsState(initial = 0)
-    val perEventDateDeltaModes by prefs.perEventDateDeltaDisplayModesFlow.collectAsState(initial = emptyMap())
-    val pinnedEventIds by prefs.pinnedEventIdsFlow.collectAsState(initial = emptyList())
-    val savedHomeDisplayMode by prefs.homeDisplayModeFlow.collectAsState(initial = 0)
-    val nearestBannerEnabled by prefs.homeNearestBannerEnabledFlow.collectAsState(initial = true)
+    val dateDeltaDisplayMode by prefs.dateDeltaDisplayModeFlow.collectAsStateWithLifecycle(initialValue = 0)
+    val perEventDateDeltaModes by prefs.perEventDateDeltaDisplayModesFlow.collectAsStateWithLifecycle(initialValue = emptyMap())
+    val pinnedEventIds by prefs.pinnedEventIdsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
+    val savedHomeDisplayMode by prefs.homeDisplayModeFlow.collectAsStateWithLifecycle(initialValue = 0)
+    val nearestBannerEnabled by prefs.homeNearestBannerEnabledFlow.collectAsStateWithLifecycle(initialValue = true)
     // Initial values hide one-time hints until the stored value arrives, so they never flash.
-    val reorderHintSeen by prefs.homeReorderHintSeenFlow.collectAsState(initial = true)
-    val timeToggleHintSeen by prefs.homeTimeToggleHintSeenFlow.collectAsState(initial = true)
+    val reorderHintSeen by prefs.homeReorderHintSeenFlow.collectAsStateWithLifecycle(initialValue = true)
+    val timeToggleHintSeen by prefs.homeTimeToggleHintSeenFlow.collectAsStateWithLifecycle(initialValue = true)
     val homeDisplayMode = savedHomeDisplayMode
     var showOverflowMenu by remember { mutableStateOf(false) }
     var timelineFocus by remember { mutableStateOf<TimelineBucketType?>(null) }
@@ -375,7 +376,7 @@ fun HomeScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = activeFilters.joinToString(" · "),
+                            text = activeFilters.joinToString(" 路 "),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 2,
@@ -522,7 +523,7 @@ fun HomeScreen(
                                 modifier = Modifier.fillMaxSize()
                             )
                         } else {
-                            CompositionLocalProvider(LocalOverscrollConfiguration provides null) {
+                            CompositionLocalProvider(LocalOverscrollFactory provides null) {
                                 LazyColumn(
                                     state = reorderState.listState,
                                     // Once long press starts reordering, its pointer must not be
@@ -539,15 +540,15 @@ fun HomeScreen(
                                     ),
                                     verticalArrangement = Arrangement.spacedBy(if (homeDisplayMode == 0) 12.dp else SongDesignTokens.PaddingList.dp)
                                 ) {
-                                    if (showNearestBanner && nearestEvent != null) {
+                                    nearestEvent?.takeIf { showNearestBanner }?.let { nearest ->
                                         item(key = NEAREST_BANNER_KEY) {
                                             NearestEventBanner(
-                                                eventState = nearestEvent,
+                                                eventState = nearest,
                                                 today = today,
                                                 dateFormatter = dateFormatter,
                                                 showHours = showHours,
-                                                pinned = nearestEvent.event.id in pinnedEventIds,
-                                                onClick = { navigateToDetail(nearestEvent.event.id) }
+                                                pinned = nearest.event.id in pinnedEventIds,
+                                                onClick = { navigateToDetail(nearest.event.id) }
                                             )
                                         }
                                     }
@@ -603,7 +604,7 @@ fun HomeScreen(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
                                                     .then(
-                                                        if (listInitialized) Modifier.animateItemPlacement(animationSpec = AnimationSpecs.springItemPlacement)
+                                                        if (listInitialized) Modifier.animateItem(placementSpec = AnimationSpecs.springItemPlacement)
                                                         else Modifier
                                                     )
                                                     .then(
@@ -997,7 +998,7 @@ private fun HomeSearchField(
         onValueChange = onSearchQueryChange,
         modifier = Modifier
             .fillMaxWidth()
-            .height(48.dp)
+            .heightIn(min = 48.dp)
             .focusRequester(focusRequester)
             .border(
                 BorderStroke(

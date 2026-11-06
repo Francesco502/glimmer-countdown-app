@@ -1,21 +1,29 @@
 package com.example.timeapk
 
 import android.app.Application
+import android.content.Context
 import android.content.res.Configuration
 import com.example.timeapk.data.AppDatabase
 import com.example.timeapk.data.CategoryRepository
 import com.example.timeapk.data.EventRepository
 import com.example.timeapk.data.UserPreferencesRepository
+import com.example.timeapk.notifications.ReminderNotificationDelivery
 import com.example.timeapk.notifications.RescheduleAllWorker
 import com.example.timeapk.update.UpdateChecker
 import com.example.timeapk.update.UpdateCheckerFactory
+import com.example.timeapk.update.UpdateDownloadState
+import com.example.timeapk.update.UpdateInstallOutcome
+import com.example.timeapk.update.UpdateInstaller
 import com.example.timeapk.widget.WidgetUpdater
 import com.example.timeapk.ui.common.EventImageStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class TimeApplication : Application() {
@@ -30,6 +38,43 @@ class TimeApplication : Application() {
     val userPrefs by lazy { UserPreferencesRepository(this) }
     internal val backupImportInProgress = MutableStateFlow(false)
     val updateChecker: UpdateChecker by lazy { UpdateCheckerFactory.create() }
+
+    private val _updateDownloadState = MutableStateFlow(UpdateDownloadState())
+    val updateDownloadState: StateFlow<UpdateDownloadState> = _updateDownloadState.asStateFlow()
+    @Volatile
+    private var pendingUpdateInstall = false
+
+    /** Starts (or joins) the single in-flight update download; survives leaving the About screen. */
+    fun startUpdateDownload(downloadUrl: String, expectedSha256: String?) {
+        if (_updateDownloadState.value.downloading) return
+        _updateDownloadState.value = UpdateDownloadState(downloading = true)
+        appScope.launch {
+            val outcome = UpdateInstaller.downloadAndInstall(
+                context = this@TimeApplication,
+                downloadUrl = downloadUrl,
+                expectedSha256 = expectedSha256
+            ) { progress ->
+                _updateDownloadState.value = _updateDownloadState.value.copy(progress = progress)
+            }
+            if (outcome == UpdateInstallOutcome.NEEDS_FOREGROUND) {
+                pendingUpdateInstall = true
+            }
+            _updateDownloadState.value = UpdateDownloadState(outcome = outcome)
+        }
+    }
+
+    /** Called from Activity.onResume: installs a verified APK that finished downloading in background. */
+    fun installPendingUpdate(context: Context) {
+        if (!pendingUpdateInstall) return
+        if (UpdateInstaller.installDownloadedApk(context)) {
+            pendingUpdateInstall = false
+        }
+    }
+
+    fun clearUpdateOutcome() {
+        if (_updateDownloadState.value.downloading) return
+        _updateDownloadState.value = UpdateDownloadState()
+    }
     var initialCategoryForAdd: String? = null
     /** 月历中选中的日期（UTC 零点毫秒），新建页读取一次后清空。 */
     var initialDateForAdd: Long? = null
@@ -51,7 +96,16 @@ class TimeApplication : Application() {
         super.onCreate()
         lastUiModeNight = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
         lastFontScale = resources.configuration.fontScale
-        RescheduleAllWorker.enqueue(this, "cold_start")
+        ReminderNotificationDelivery.ensureChannels(this)
+        LocaleUtils.syncMirrorFromSystem(this)
+        appScope.launch {
+            val systemMode = LocaleUtils.platformLocaleMode(this@TimeApplication)
+            if (systemMode != null && userPrefs.languageModeFlow.first() != systemMode) {
+                userPrefs.setLanguageMode(systemMode)
+            }
+        }
+        // Throttled: a reschedule already completed in the last 15 minutes is not repeated.
+        RescheduleAllWorker.enqueueColdStartIfStale(this)
         observeThemeModeChanges()
         // Finish owners from the previous process before any Activity can register a new undo.
         EventImageStore.releasePreviousUndoReferences(this)

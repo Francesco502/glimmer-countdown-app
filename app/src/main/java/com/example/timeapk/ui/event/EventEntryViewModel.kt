@@ -451,7 +451,11 @@ class EventEntryViewModel(
             event = event.copy(category = resolveCategoryId(event.category, customCategoryIds))
             app.database.withTransaction {
                 if (event.id != 0) {
-                    repository.updateEvent(event)
+                    // Only user-editable columns: calendar-sync fields are owned by background
+                    // workers, and a 0-row update means the event was deleted while editing.
+                    check(repository.updateEventUserFields(event)) { "Event no longer exists" }
+                    event = repository.getEvent(event.id)
+                        ?: error("Event disappeared after update")
                 } else {
                     val generatedId = repository.insertEvent(event)
                     event = event.copy(id = generatedId.toInt(), scheduleEventId = null)
@@ -461,7 +465,7 @@ class EventEntryViewModel(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Exception) {
-            return SaveEventResult.Failure(R.string.save_event_failed)
+            return SaveEventResult.Failure(R.string.save_event_missing)
         }
 
         // Publish the generated ID before external side effects can suspend.
@@ -539,7 +543,7 @@ class EventEntryViewModel(
 
         if (updatedEvent != persistedEvent) {
             try {
-                repository.updateEvent(updatedEvent)
+                repository.updateEventScheduleFields(updatedEvent)
             } catch (t: Exception) {
                 Log.w(TAG, "Failed to persist sync status for eventId=${updatedEvent.id}", t)
                 hasGenericSideEffectFailure = true
@@ -561,7 +565,7 @@ class EventEntryViewModel(
             if (milestoneUpdatedEvent != updatedEvent) {
                 updatedEvent = milestoneUpdatedEvent
                 try {
-                    repository.updateEvent(updatedEvent)
+                    repository.updateEventScheduleFields(updatedEvent)
                 } catch (t: Exception) {
                     Log.w(TAG, "Failed to persist milestone schedule status for eventId=${updatedEvent.id}", t)
                     hasGenericSideEffectFailure = true
@@ -596,7 +600,7 @@ class EventEntryViewModel(
                     scheduleSyncError = updatedEvent.lastScheduleSyncError
                     enqueueMilestoneScheduleRetry(application)
                     try {
-                        repository.updateEvent(updatedEvent)
+                        repository.updateEventScheduleFields(updatedEvent)
                     } catch (t: Exception) {
                         Log.w(TAG, "Failed to persist milestone cleanup status for eventId=${updatedEvent.id}", t)
                         hasGenericSideEffectFailure = true

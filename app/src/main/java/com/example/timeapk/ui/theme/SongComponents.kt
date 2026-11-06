@@ -1,4 +1,4 @@
-package com.example.timeapk.ui.theme
+﻿package com.example.timeapk.ui.theme
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -310,6 +311,7 @@ fun SongFilterChip(
     }
     Surface(
         modifier = modifier
+            .minimumInteractiveComponentSize()
             .defaultMinSize(minHeight = 32.dp)
             .then(
                 if (selectionRole != null) {

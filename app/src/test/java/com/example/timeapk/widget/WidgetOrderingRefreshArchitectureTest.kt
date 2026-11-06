@@ -37,9 +37,9 @@ class WidgetOrderingRefreshArchitectureTest {
         assertTrue(clockChangeBranch.contains("context.sendBroadcast"))
         assertTrue(receive.contains("ACTION_REFRESH_CLOCK_CHANGED"))
         assertTrue(receive.contains("if (action != ACTION_REFRESH_CLOCK_CHANGED)"))
-        assertTrue(receive.contains("launchRefresh("))
+        assertTrue(receive.contains("refreshNow("))
         assertTrue(receive.contains("goAsync()"))
-        assertTrue(receive.substringAfter("ACTION_REFRESH_CLOCK_CHANGED").contains("if (appWidgetIds.isEmpty()) return"))
+        assertTrue(receive.substringAfter("ACTION_REFRESH_CLOCK_CHANGED").contains("if (countdownIds.isNotEmpty())"))
         assertFalse(providerReceive.contains("ACTION_REFRESH_CLOCK_CHANGED"))
         assertFalse(providerReceive.contains("ACTION_REFRESH_DATE_BOUNDARY"))
         assertTrue(internalManifestReceiver.contains("android:exported=\"false\""))
@@ -65,10 +65,10 @@ class WidgetOrderingRefreshArchitectureTest {
         assertTrue(scheduler.contains("PendingIntent.FLAG_UPDATE_CURRENT"))
         assertTrue(scheduler.contains("PendingIntent.FLAG_IMMUTABLE"))
         assertTrue(scheduler.contains("AlarmManager.RTC_WAKEUP"))
+        assertTrue(scheduler.contains("setExactAndAllowWhileIdle"))
         assertTrue(scheduler.contains("setAndAllowWhileIdle"))
-        assertFalse(scheduler.contains("setExact"))
-        // 4.2: SCHEDULE_EXACT_ALARM exists only for opt-in exact event reminders (removed on Play);
-        // the widget date boundary must stay inexact and USE_EXACT_ALARM is never requested.
+        // 4.3: the widget boundary prefers an exact alarm when the user already granted exact
+        // reminders, and stays inexact otherwise. USE_EXACT_ALARM is still never requested.
         assertFalse(manifest.contains("android.permission.USE_EXACT_ALARM"))
         assertTrue(
             listOf(java.io.File("src/play/AndroidManifest.xml"), java.io.File("app/src/play/AndroidManifest.xml"))
@@ -88,7 +88,7 @@ class WidgetOrderingRefreshArchitectureTest {
             assertTrue("$callback must maintain the date-boundary alarm", section.contains("WidgetDateBoundaryScheduler"))
         }
         assertTrue(internalReceiver.contains("ACTION_REFRESH_DATE_BOUNDARY"))
-        assertTrue(internalReceiver.substringAfter("ACTION_REFRESH_DATE_BOUNDARY").contains("launchRefresh("))
+        assertTrue(internalReceiver.substringAfter("ACTION_REFRESH_DATE_BOUNDARY").contains("refreshNow("))
         assertTrue(internalReceiver.substringAfter("ACTION_REFRESH_DATE_BOUNDARY").contains("scheduleOrCancel("))
 
         listOf(

@@ -1,66 +1,66 @@
-# 发布检查清单（v4.2.4）
+# 发布检查清单（v4.3.0）
 
-**版本**：`4.2.4`（`versionCode=29`） **文档日期**：2026-10-22 **发布状态：已发布**
+**版本**：`4.3.0`（`versionCode=30`） **文档日期**：2026-11-06 **发布状态：候选 / 未发布**
 
 所有通过结果必须来自本版新鲜执行，并绑定源码 revision、构建、设备和原始报告。未知、未执行和失败不能勾选；APK 文件和设备安装包须互相对应。旧测试、旧截图和旧真机豁免均不延续到本版。
 
-**唯一正式发布渠道：GitHub Release。** 唯一官方资产为 Direct APK `glimmer-countdown-4-2-4.apk`。Play flavor 仅保留用于兼容性与开发回归。
+**唯一正式发布渠道：GitHub Release。** 唯一官方资产为 Direct APK `glimmer-countdown-4-3-0.apk`。Play flavor 仅保留用于兼容性与开发回归。
 
 ## 一、源码与构建
 
-- [x] 版本更新为 4.2.4 / 29；升级验证脚本固定公开 4.2.3 / 28 的正式 APK 哈希与大小。
-- [x] 本地 Direct / Play 各 673 项单元测试通过，零失败、零错误、零跳过；两渠道设备测试编译通过。
-- [x] Direct Debug、Direct Release、Play Release lint 零问题；两项 release vital 分析通过，无问题报告。
-- [x] 本版 Python 测试 5/5、publisher 隔离 mock 10/10。
-- [x] 最终标签对应提交的 CI：API26/31/36 native、运行时 smoke、双渠道 JVM、lint 及 R8 构建；[运行 39756383558](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/39756383558)。云端 lint 零错误，各报告保留 targetSdk 36 的 `OldTargetApi` 警告。
-- 本轮过程记录见 [4.2.4 修复记录](releases/v4.2.4-development.md)。本地工作区候选的检查不等于最终标签 CI 通过。
+- [ ] 版本更新为 4.3.0 / 30；升级验证脚本固定公开 4.2.4 / 29 的正式 APK 哈希与大小。
+- [ ] Direct / Play 单元测试通过，零失败、零错误、零跳过；两渠道设备测试编译通过。
+- [ ] Direct Debug、Direct Release、Play Release lint 零错误；release vital 分析通过。
+- [ ] Python 测试与 publisher 隔离 mock 全通过，未访问真实发布 API。
+- [ ] 最终标签对应提交的 CI：API26/31/36 native、运行时 smoke、双渠道 JVM、lint 及 R8 构建。
+- [ ] 本轮过程记录写入 `docs/releases/v4.3.0-development.md`，本地工作区候选不冒充最终标签 CI 通过。
 
-## 二、4.2.4 变更要求对照表
+## 二、4.3.0 变更要求对照表
 
-| 修复 | 自动回归 | 真机 / Launcher 验收（未执行） |
+| 变更 | 自动回归 | 真机 / Launcher 验收 |
 |---|---|---|
-| 背景实际不透明度与百分比不符 | 资源合成透明度、0–100 渲染策略与像素测试 | 待检查桌面背景 0 / 1 / 25 / 37 / 50 / 68 / 75 / 99 / 100% |
-| 五档选项改为连续滑杆 | 任意整数配置往返、连续 Slider 语义及端点保存 | 待检查拖动、松手更新、重新进入后保留 |
-| 半透明样式端点与预览、桌面不一致 | 列表、单事件、预览共用渲染，视图复用回归 | 待检查两类小组件与应用内预览 |
-| 默认自适应及朱印手动深色文字 | 默认/缺省值自适应、手动值保留、朱印深浅色回归 | 待检查日夜切换、自动和手动文字颜色 |
-| 4.2.3→4.2.4 升级 | smoke 版本与公开基线约束 | 待验证事件、旧配置与桌面绑定保留 |
+| 小组件跨天刷新（精确闹钟优先、单事件纳入 goAsync、前台补刷） | 刷新生命周期与源码契约测试 | 待检查：夜间跨天后桌面数字与空态 |
+| 自更新 SHA-256 校验与 GitHub 域名白名单 | 下载校验、摘要解析与失败分支单测 | 待检查：真实 Release 覆盖安装 |
+| 安装可靠性（应用级作用域、后台转前台安装） | 状态流与失败提示测试 | 待检查：下载中切后台再回来 |
+| JSON 导出提示不含配图 | i18n 与界面契约 | 待检查：导出/导入页文案 |
+| 详情页主题、卡片无障碍动作、浮层语义隔离 | 主题与语义源码契约 | 待检查：TalkBack 与强制深浅色 |
+| 编辑保存只写用户列、0 行失败提示 | 保存路径单测 | 待检查：编辑期间后台同步后保存 |
+| DataStore 损坏回退、导入事务、备份加密、孤儿图片回收 | JVM 单测 + 迁移测试 | 待检查：系统备份恢复与 24h 清理 |
+| Compose 1.10 / Material3 1.4 / AndroidX 升级 | 全量单测 + lint + R8 | 待检查：首页、月历、详情、设置全流程 |
+| Room v12 索引迁移 | MigrationTestHelper 11→12 | 待检查：4.2.4 覆盖升级后事件完整 |
+| `collectAsStateWithLifecycle` 与 Baseline Profile | 源码契约 + 构建 | 待检查：冷启动与滚动流畅度 |
 
 ## 三、正式签名
 
-- [x] 本地 4.2.4 候选包新鲜构建与验签、版本、非 debug、16KiB 对齐检查通过。
-- [x] 最终标签新鲜构建正式 APK 并独立验签；49 项任务实际执行，正式 APK 哈希另行记录，本地早期候选未用于发布。
+- [ ] 候选包新鲜构建并验签、核对版本、非 debug、16KiB 对齐。
+- [ ] 最终标签新鲜构建正式 APK 并独立验签。
 - 正式证书 SHA-256：`3b7cb426a82664f891c69511cc2505b67128c8503664639f297291da4ea903ca`。
+- [ ] 升级标签（v4.3.0）为 annotated、不可移动，发布后不复用旧产物。
 
 ## 四、正式 APK 升级与运行
 
-- [x] API26/31/36 从公开 4.2.3 / 28 覆盖升级，事件、UID/首次安装时间保留及 AMS 草稿恢复；[正式签名包 QA](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/39760546811)。
-- [ ] vivo X Fold3 Pro / Android 16 / OriginOS 6：覆盖安装、已有及新增小组件、透明度、日夜文字颜色。
-- [x] 原生新增像素测试与滑杆测试在 API26/31/36 均实际通过，包含 0–100 所有整数、日夜模式、列表 / 单事件 / 预览与设置保存。
-- [ ] 折叠屏切换、其他手机、完整日期/时区桌面矩阵及系统图片备份恢复。
+- [ ] API26/31/36 从公开 4.2.4 / 29 覆盖升级：事件、配图、分类、排序、UID/首次安装时间保留。
+- [ ] AMS 草稿恢复、编辑保存、分享保存与系统图片选择器在 API36 实际执行。
+- [ ] 通知权限与精确提醒开关在 API 33+ 的行为符合预期。
+- [ ] 小组件（列表与单事件）在 API36 Launcher 实际绑定；跨天与深色切换检查。
+- [ ] 物理设备（至少一台）完成：覆盖安装、小组件跨天、换机云备份恢复。
+- [ ] 未执行的设备矩阵保持未勾选，不以模拟器结果表述为真机通过。
 
 ## 五、发布凭据与说明
 
-- [x] 发布说明区分本地检查、设备验收与历史结果；4.2.3 发布证据已归档。
-- [x] 2026-10-22 用户明确授权自动化全部通过后正式发布；真机检查如实记为未执行，本版不以真机检查作为发布前置条件。
-- [x] 最终正式候选 QA 通过后准备有效发布凭据，且仅在子进程环境使用。
+- [ ] 发布说明区分本地检查、设备验收与历史结果；4.2.4 发布证据已归档。
+- [ ] 真机检查如未执行，须由发布负责人明确授权并如实记录，不记为通过。
+- [ ] 正式候选 QA 通过后再准备发布凭据，且仅在子进程环境使用。
 
 ## 六、发布动作
 
-- [x] 最终代码与发布准备文档提交，发布 worktree 干净；不可变 v4.2.4 标签的 HEAD、本地与远端解引用均为 `ec3c4885fd5b051bef103e32c233426d95ec4207`。
-- [x] 从最终标签新鲜构建、验签并完成正式包 QA 后运行现有 publisher。
-- [x] Release 仅含 `glimmer-countdown-4-2-4.apk`，公开正式版本，非 prerelease；见[发布页](https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v4.2.4)。
-- [x] 公开匿名下载核对哈希、大小、签名与包身份。
-- [x] [公开包 API26/31/36 QA](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/39762032271) 和 API36 实际更新检查通过，显示已是最新版本。
-- [x] 核实并删除本轮 owned QA draft，确认临时 tag 与发布锁均不存在；补记证据，不移动标签。
-
-## 构建与发布证据
-
-本地正式签名候选为 12,526,481 bytes，SHA-256 `5045ad44c5c5c4f3426d5f1031413fd68e884748684675940da08db591e091cd`。候选副本与原始报告保存在 `.tmp/v424-candidate/`（本机、未入 Git），APK 为 `glimmer-countdown-4-2-4.apk`。
-
-完整构建使用 `--no-build-cache --rerun-tasks`，151 项任务执行，结果 `BUILD SUCCESSFUL`。源码基于 `082aff936dac3f48f473cacd1f9c7e80e50e52bf` 加本轮工作区修改；源码清单 SHA-256 为 `a0e9493e26ee3a1152d10d82b854ecce17ce92f137d77fdd536723d2cc5f8ba4`。
-
-详见 [4.2.4 修复与验证记录](releases/v4.2.4-development.md)及[机器可读验证记录](releases/v4.2.4-verification.json)。本机无连接设备，模拟器缺 hypervisor driver；后续原生执行已在云端完成。最终标签正式 APK 为 12,526,321 bytes，SHA-256 `5aa396a3028ca1dd75e75d6f847b2017a81520f700d8ea8227135596d7a6ea53`，副本与报告保存在 `.tmp/v424-release/`。Release ID 为 `420573534`，唯一 APK asset ID 为 `665465531`，于 2026-10-22 10:17 UTC / 18:17 香港时间正式公开。尚未执行的检查保持未勾选。
+- [ ] 最终代码与发布准备文档提交，工作区干净；不可变 `v4.3.0` 标签的 HEAD 与远端解引用一致。
+- [ ] 从最终标签新鲜构建、验签并完成正式包 QA 后运行现有 publisher。
+- [ ] Release 仅含 `glimmer-countdown-4-3-0.apk`，公开正式版本，非 prerelease。
+- [ ] 公开匿名下载核对 size、digest、下载 URL、签名与包身份。
+- [ ] 公开包 API26/31/36 QA 与实际“检查更新”通过。
+- [ ] 核实并删除本轮 owned QA draft，确认临时 tag 与发布锁均不存在。
 
 ## 历史记录（非发布门）
 
-[4.2.3 历史清单](releases/v4.2.3-checklist.md)、[4.2.2 历史清单](releases/v4.2.2-checklist.md)、[4.2.1 历史清单](releases/v4.2.1-checklist.md)、[4.2 历史清单](releases/v4.2-checklist.md)、[4.1 历史清单](releases/v4.1-checklist.md)与[4.0 历史清单](releases/v4.0-checklist.md)仅保留各版证据。
+[4.2.4 历史清单](releases/v4.2.4-development.md)、[4.2.3 历史清单](releases/v4.2.3-checklist.md)、[4.2.2 历史清单](releases/v4.2.2-checklist.md)、[4.2.1 历史清单](releases/v4.2.1-checklist.md)、[4.2 历史清单](releases/v4.2-checklist.md)、[4.1 历史清单](releases/v4.1-checklist.md)与[4.0 历史清单](releases/v4.0-checklist.md)仅保留各版证据。

@@ -23,7 +23,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.collectAsState
+import androidx.room.withTransaction
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -77,7 +78,9 @@ import com.example.timeapk.ui.theme.FontPresetValues
 import com.example.timeapk.ui.theme.SongColorBoundary
 import com.example.timeapk.widget.WidgetUpdater
 import com.example.timeapk.update.CheckUpdateResult
+import com.example.timeapk.update.UpdateInstallOutcome
 import com.example.timeapk.update.UpdateInstaller
+import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
@@ -155,16 +158,16 @@ fun AppearanceSettingsContent(
         }
     }
 
-    val themeMode by prefs.themeModeFlow.collectAsState(initial = THEME_FOLLOW_SYSTEM)
-    val customBackgroundHex by prefs.customBackgroundHexFlow.collectAsState(initial = null)
-    val customSurfaceHex by prefs.customSurfaceHexFlow.collectAsState(initial = null)
-    val customPrimaryHex by prefs.customPrimaryHexFlow.collectAsState(initial = null)
-    val customOnBackgroundHex by prefs.customOnBackgroundHexFlow.collectAsState(initial = null)
-    val fontPreset by prefs.fontPresetFlow.collectAsState(initial = 4)
-    val appBaseFontScale by prefs.appBaseFontScaleFlow.collectAsState(initial = 1f)
-    val dynamicColorEnabled by prefs.dynamicColorEnabledFlow.collectAsState(initial = false)
-    val reduceMotionEnabled by prefs.reduceMotionEnabledFlow.collectAsState(initial = false)
-    val songSoundEnabled by prefs.songSoundEnabledFlow.collectAsState(initial = false)
+    val themeMode by prefs.themeModeFlow.collectAsStateWithLifecycle(initialValue = THEME_FOLLOW_SYSTEM)
+    val customBackgroundHex by prefs.customBackgroundHexFlow.collectAsStateWithLifecycle(initialValue = null)
+    val customSurfaceHex by prefs.customSurfaceHexFlow.collectAsStateWithLifecycle(initialValue = null)
+    val customPrimaryHex by prefs.customPrimaryHexFlow.collectAsStateWithLifecycle(initialValue = null)
+    val customOnBackgroundHex by prefs.customOnBackgroundHexFlow.collectAsStateWithLifecycle(initialValue = null)
+    val fontPreset by prefs.fontPresetFlow.collectAsStateWithLifecycle(initialValue = 4)
+    val appBaseFontScale by prefs.appBaseFontScaleFlow.collectAsStateWithLifecycle(initialValue = 1f)
+    val dynamicColorEnabled by prefs.dynamicColorEnabledFlow.collectAsStateWithLifecycle(initialValue = false)
+    val reduceMotionEnabled by prefs.reduceMotionEnabledFlow.collectAsStateWithLifecycle(initialValue = false)
+    val songSoundEnabled by prefs.songSoundEnabledFlow.collectAsStateWithLifecycle(initialValue = false)
     var appBaseFontScaleDraft by remember(appBaseFontScale) { mutableStateOf(appBaseFontScale) }
     var colorPickerKey by remember { mutableStateOf<String?>(null) }
     var showFontPresetDialog by remember { mutableStateOf(false) }
@@ -466,7 +469,7 @@ fun AppearanceSettingsContent(
             summary = listOfNotNull(
                 stringResource(R.string.settings_reduce_motion_title).takeIf { reduceMotionEnabled },
                 stringResource(R.string.settings_song_sound_title).takeIf { songSoundEnabled }
-            ).joinToString(" · ").ifEmpty { stringResource(R.string.settings_value_default) }
+            ).joinToString(" 路 ").ifEmpty { stringResource(R.string.settings_value_default) }
         ) {
             SettingsSwitchRow(
                 title = stringResource(R.string.settings_reduce_motion_title),
@@ -600,11 +603,11 @@ fun DisplaySettingsContent(
     val scope = rememberCoroutineScope()
     val activity = context.findActivity()
 
-    val languageMode by prefs.languageModeFlow.collectAsState(initial = LANG_ZH)
-    val showHours by prefs.showHoursFlow.collectAsState(initial = true)
-    val homeDensityMode by prefs.homeDensityModeFlow.collectAsState(initial = 1)
-    val nearestBannerEnabled by prefs.homeNearestBannerEnabledFlow.collectAsState(initial = true)
-    val dateFormatMode by prefs.dateFormatModeFlow.collectAsState(initial = 0)
+    val languageMode by prefs.languageModeFlow.collectAsStateWithLifecycle(initialValue = LANG_ZH)
+    val showHours by prefs.showHoursFlow.collectAsStateWithLifecycle(initialValue = true)
+    val homeDensityMode by prefs.homeDensityModeFlow.collectAsStateWithLifecycle(initialValue = 1)
+    val nearestBannerEnabled by prefs.homeNearestBannerEnabledFlow.collectAsStateWithLifecycle(initialValue = true)
+    val dateFormatMode by prefs.dateFormatModeFlow.collectAsStateWithLifecycle(initialValue = 0)
 
     Column(
         modifier = modifier
@@ -629,7 +632,10 @@ fun DisplaySettingsContent(
                             scope.launch {
                                 prefs.setLanguageMode(value)
                                 WidgetUpdater.refreshCountdownWidgets(context.applicationContext)
-                                withContext(Dispatchers.Main) { activity?.recreate() }
+                                val appliedByPlatform = com.example.timeapk.LocaleUtils.applyPlatformLocale(context, value)
+                                if (!appliedByPlatform) {
+                                    withContext(Dispatchers.Main) { activity?.recreate() }
+                                }
                             }
                         }
                     )
@@ -764,23 +770,20 @@ fun MilestoneSettingsContent(
     val prefs = app.userPrefs
     val scope = rememberCoroutineScope()
 
-    val showMilestone by prefs.showMilestoneFlow.collectAsState(initial = true)
-    val smartMilestonesEnabled by prefs.smartMilestonesEnabledFlow.collectAsState(initial = true)
-    val milestoneRemindEnabled by prefs.milestoneRemindEnabledFlow.collectAsState(initial = false)
-    val milestoneRemindDaysAhead by prefs.milestoneRemindDaysAheadFlow.collectAsState(initial = 7)
-    val milestoneRemindTimeMinutesOfDay by prefs.milestoneRemindTimeMinutesOfDayFlow.collectAsState(initial = 480)
-    val defaultEventRemindEnabled by prefs.defaultEventRemindEnabledFlow.collectAsState(
-        initial = DEFAULT_NEW_EVENT_REMIND_ENABLED
+    val showMilestone by prefs.showMilestoneFlow.collectAsStateWithLifecycle(initialValue = true)
+    val smartMilestonesEnabled by prefs.smartMilestonesEnabledFlow.collectAsStateWithLifecycle(initialValue = true)
+    val milestoneRemindEnabled by prefs.milestoneRemindEnabledFlow.collectAsStateWithLifecycle(initialValue = false)
+    val milestoneRemindDaysAhead by prefs.milestoneRemindDaysAheadFlow.collectAsStateWithLifecycle(initialValue = 7)
+    val milestoneRemindTimeMinutesOfDay by prefs.milestoneRemindTimeMinutesOfDayFlow.collectAsStateWithLifecycle(initialValue = 480)
+    val defaultEventRemindEnabled by prefs.defaultEventRemindEnabledFlow.collectAsStateWithLifecycle(initialValue = DEFAULT_NEW_EVENT_REMIND_ENABLED
     )
-    val defaultEventRemindDaysBefore by prefs.defaultEventRemindDaysBeforeFlow.collectAsState(
-        initial = DEFAULT_NEW_EVENT_REMIND_DAYS_BEFORE
+    val defaultEventRemindDaysBefore by prefs.defaultEventRemindDaysBeforeFlow.collectAsStateWithLifecycle(initialValue = DEFAULT_NEW_EVENT_REMIND_DAYS_BEFORE
     )
-    val defaultEventRemindTimeMinutesOfDay by prefs.defaultEventRemindTimeMinutesOfDayFlow.collectAsState(
-        initial = DEFAULT_NEW_EVENT_REMIND_TIME_MINUTES_OF_DAY
+    val defaultEventRemindTimeMinutesOfDay by prefs.defaultEventRemindTimeMinutesOfDayFlow.collectAsStateWithLifecycle(initialValue = DEFAULT_NEW_EVENT_REMIND_TIME_MINUTES_OF_DAY
     )
-    val customMilestones by prefs.customMilestonesFlow.collectAsState(initial = DEFAULT_MILESTONE_DAYS)
-    val scheduleTargetCalendarId by prefs.scheduleTargetCalendarIdFlow.collectAsState(initial = null)
-    val scheduleUseRRuleSync by prefs.scheduleUseRRuleSyncFlow.collectAsState(initial = true)
+    val customMilestones by prefs.customMilestonesFlow.collectAsStateWithLifecycle(initialValue = DEFAULT_MILESTONE_DAYS)
+    val scheduleTargetCalendarId by prefs.scheduleTargetCalendarIdFlow.collectAsStateWithLifecycle(initialValue = null)
+    val scheduleUseRRuleSync by prefs.scheduleUseRRuleSyncFlow.collectAsStateWithLifecycle(initialValue = true)
 
     var newMilestoneInput by remember { mutableStateOf("") }
     val leadTimePresets = remember { listOf(0, 1, 3, 7, 30) }
@@ -1516,31 +1519,42 @@ fun DataSettingsContent(
     var importResultMessage by remember { mutableStateOf<String?>(null) }
     var pendingImportPreview by remember { mutableStateOf<PendingImportPreview?>(null) }
     var pendingExportText by remember { mutableStateOf<String?>(null) }
-    val importBusy by app.backupImportInProgress.collectAsState()
+    val importBusy by app.backupImportInProgress.collectAsStateWithLifecycle()
     var parseBusy by remember { mutableStateOf(false) }
     var importCompleted by remember { mutableIntStateOf(0) }
     var importTotal by remember { mutableIntStateOf(0) }
     val backupBusy = importBusy || parseBusy
 
-    suspend fun importEvents(events: List<Event>): ImportExecutionResult {
+    suspend fun importEvents(events: List<Event>, inTransaction: Boolean = false): ImportExecutionResult {
         if (events.isEmpty()) return ImportExecutionResult(0, 0, 0)
-        var successCount = 0
         var failedCount = 0
         var warningCount = 0
         val preferredCalendarId = app.userPrefs.scheduleTargetCalendarIdFlow.first()
         val useRRuleSync = app.userPrefs.scheduleUseRRuleSyncFlow.first()
+        val prepared = events.map { it.sanitizedReminderConfig() }
 
-        events.forEachIndexed { index, sourceEvent ->
-            withContext(Dispatchers.Main) { importCompleted = index + 1 }
-            val event = sourceEvent.sanitizedReminderConfig()
-            val newId = try {
-                repository.insertEvent(event)
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (_: Exception) {
-                failedCount += 1
-                return@forEachIndexed
+        // Phase 1: insert every row in one transaction. A crash or cancellation can no longer
+        // leave a partial import behind (previously each event committed on its own).
+        val insertAll = suspend {
+            prepared.map { event ->
+                try {
+                    event to repository.insertEvent(event)
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    failedCount += 1
+                    event to null
+                }
             }
+        }
+        val inserted = if (inTransaction) insertAll() else app.database.withTransaction { insertAll() }
+
+        // Phase 2: reminder/calendar side effects only after the rows are committed.
+        var successCount = 0
+        inserted.forEachIndexed { index, insertedEvent ->
+            withContext(Dispatchers.Main) { importCompleted = index + 1 }
+            val event = insertedEvent.first
+            val newId = insertedEvent.second ?: return@forEachIndexed
             val savedEvent = event.copy(id = newId.toInt(), scheduleEventId = null)
 
             var hasWarning = false
@@ -1816,7 +1830,7 @@ fun DataSettingsContent(
                             val sampleEvents = preview.importableEvents.take(5)
                             sampleEvents.forEach { event ->
                                 Text(
-                                    text = "${event.title} · ${formatImportPreviewDate(event)}",
+                                    text = "${event.title} 路 ${formatImportPreviewDate(event)}",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -1879,8 +1893,12 @@ fun DataSettingsContent(
                                         importTotal = freshPreview.importableEvents.size
                                     }
                                     val executionResult = withContext(Dispatchers.IO) {
-                                        app.categoryRepository.insertAll(freshPreview.newCategories)
-                                        importEvents(freshPreview.importableEvents)
+                                        // Categories and events commit together so a failure never
+                                        // leaves custom categories without their events.
+                                        app.database.withTransaction {
+                                            app.categoryRepository.insertAll(freshPreview.newCategories)
+                                            importEvents(freshPreview.importableEvents, inTransaction = true)
+                                        }
                                     }
                                     withContext(Dispatchers.Main) {
                                         importResultMessage = importResultText(freshPreview, executionResult)
@@ -1914,6 +1932,12 @@ fun DataSettingsContent(
             .padding(24.dp)
     ) {
         SettingsGroupHeader(title = stringResource(R.string.export_import))
+        Text(
+            text = stringResource(R.string.export_images_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
         if (importBusy) Text(stringResource(R.string.import_working))
 
         SettingsActionRow(
@@ -2020,8 +2044,9 @@ fun AboutSettingsContent(
 
     var updateResult by remember { mutableStateOf<CheckUpdateResult?>(null) }
     var updateCheckInProgress by remember { mutableStateOf(false) }
-    var updateDownloading by remember { mutableStateOf(false) }
-    var downloadProgress by remember { mutableStateOf<com.example.timeapk.update.DownloadProgress?>(null) }
+    val updateState by app.updateDownloadState.collectAsStateWithLifecycle()
+    val isUpdateDownloading = updateState.downloading
+    val updateProgress = updateState.progress
     var showInstallPermissionDialog by remember { mutableStateOf(false) }
     var installAfterPermissionGrant by remember { mutableStateOf(false) }
     var showLicensesDialog by remember { mutableStateOf(false) }
@@ -2068,29 +2093,28 @@ fun AboutSettingsContent(
     }
 
     fun startDownloadAndInstall(url: String) {
-        if (updateDownloading) return
+        if (isUpdateDownloading) return
         // Ask for "install unknown apps" before downloading so the flow can continue on return.
         if (!UpdateInstaller.canRequestPackageInstalls(context)) {
             showInstallPermissionDialog = true
             return
         }
-        updateDownloading = true
-        downloadProgress = null
-        scope.launch {
-            try {
-                val ok = UpdateInstaller.downloadAndInstall(context, url) { progress ->
-                    scope.launch { downloadProgress = progress }
-                }
-                updateResult = null
-                if (!ok) snackbarHostState.showSnackbar(context.getString(R.string.update_download_failed))
-            } finally {
-                updateDownloading = false
-                downloadProgress = null
-            }
-        }
+        // The download runs on the application scope so leaving this screen no longer cancels it.
+        app.startUpdateDownload(url, updateResult?.sha256)
     }
 
-    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    UpdateDownloadOutcomeEffect(
+        outcome = updateState.outcome,
+        snackbarHostState = snackbarHostState,
+        onConsumed = {
+            if (updateState.outcome == UpdateInstallOutcome.INSTALL_REQUESTED) {
+                updateResult = null
+            }
+            app.clearUpdateOutcome()
+        }
+    )
+
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME && installAfterPermissionGrant) {
@@ -2108,7 +2132,7 @@ fun AboutSettingsContent(
     if (directApkUpdatesEnabled) updateResult?.takeIf { it.hasUpdate }?.let { result ->
         SongFormDialog(
             title = context.getString(R.string.update_new_title, result.versionName ?: ""),
-            onDismissRequest = { if (!updateDownloading) updateResult = null },
+            onDismissRequest = { if (!isUpdateDownloading) updateResult = null },
             content = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     result.releaseNotes?.takeIf { it.isNotBlank() }?.let { notes ->
@@ -2119,8 +2143,8 @@ fun AboutSettingsContent(
                         )
                         ReleaseNotesText(notes)
                     }
-                    if (updateDownloading) {
-                        UpdateDownloadProgressSection(downloadProgress)
+                    if (isUpdateDownloading) {
+                        UpdateDownloadProgressSection(updateProgress)
                     }
                 }
             },
@@ -2129,7 +2153,7 @@ fun AboutSettingsContent(
                     val releasePageUrl = result.releasePageUrl ?: "$GLIMMER_SOURCE_URL/releases"
                     SongDialogButton(
                         text = context.getString(R.string.update_open_browser),
-                        enabled = !updateDownloading,
+                        enabled = !isUpdateDownloading,
                         onClick = {
                             UpdateInstaller.openReleasePageInBrowser(context, releasePageUrl)
                             updateResult = null
@@ -2139,15 +2163,15 @@ fun AboutSettingsContent(
                 }
                 SongDialogButton(
                     text = context.getString(R.string.update_later),
-                    enabled = !updateDownloading,
+                    enabled = !isUpdateDownloading,
                     onClick = { updateResult = null }
                 )
                 if (directApkUpdatesEnabled) {
                     Spacer(modifier = Modifier.width(4.dp))
                     SongDialogButton(
-                        text = if (updateDownloading) context.getString(R.string.update_downloading)
+                        text = if (isUpdateDownloading) context.getString(R.string.update_downloading)
                         else context.getString(R.string.update_download_install),
-                        enabled = !updateDownloading && result.downloadUrl != null,
+                        enabled = !isUpdateDownloading && result.downloadUrl != null,
                         onClick = {
                             result.downloadUrl?.let { url -> startDownloadAndInstall(url) }
                         }
@@ -2389,4 +2413,31 @@ private fun evaluateContrastAuditForKey(
         primary = primary,
         onPrimary = onPrimary
     )
+}
+
+@Composable
+private fun UpdateDownloadOutcomeEffect(
+    outcome: UpdateInstallOutcome?,
+    snackbarHostState: SnackbarHostState,
+    onConsumed: () -> Unit
+) {
+    val context = LocalContext.current
+    LaunchedEffect(outcome) {
+        when (outcome) {
+            UpdateInstallOutcome.NEEDS_FOREGROUND -> snackbarHostState.showSnackbar(
+                context.getString(R.string.update_needs_foreground),
+                withDismissAction = true
+            )
+            UpdateInstallOutcome.CHECKSUM_MISMATCH -> snackbarHostState.showSnackbar(
+                context.getString(R.string.update_checksum_failed),
+                withDismissAction = true
+            )
+            UpdateInstallOutcome.DOWNLOAD_FAILED -> snackbarHostState.showSnackbar(
+                context.getString(R.string.update_download_failed),
+                withDismissAction = true
+            )
+            UpdateInstallOutcome.INSTALL_REQUESTED, null -> Unit
+        }
+        onConsumed()
+    }
 }

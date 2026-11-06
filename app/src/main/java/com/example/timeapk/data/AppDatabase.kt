@@ -1,4 +1,4 @@
-﻿package com.example.timeapk.data
+package com.example.timeapk.data
 
 import android.content.Context
 import androidx.room.Database
@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [Event::class, Category::class], version = 11, exportSchema = true)
+@Database(entities = [Event::class, Category::class], version = 12, exportSchema = true)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun eventDao(): EventDao
     abstract fun categoryDao(): CategoryDao
@@ -217,11 +217,19 @@ abstract class AppDatabase : RoomDatabase() {
                 )
             }
         }
+        private val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Home sorts by date and filters by category; both were full table scans before.
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_events_date ON events(date)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_events_category ON events(category)")
+            }
+        }
         internal val MIGRATION_6_7_FOR_TEST: Migration = MIGRATION_6_7
         internal val MIGRATION_7_8_FOR_TEST: Migration = MIGRATION_7_8
         internal val MIGRATION_8_9_FOR_TEST: Migration = MIGRATION_8_9
         internal val MIGRATION_9_10_FOR_TEST: Migration = MIGRATION_9_10
         internal val MIGRATION_10_11_FOR_TEST: Migration = MIGRATION_10_11
+        internal val MIGRATION_11_12_FOR_TEST: Migration = MIGRATION_11_12
 
         @Volatile
         private var Instance: AppDatabase? = null
@@ -239,7 +247,8 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_7_8,
                         MIGRATION_8_9,
                         MIGRATION_9_10,
-                        MIGRATION_10_11
+                        MIGRATION_10_11,
+                        MIGRATION_11_12
                     )
                     .build()
                     .also { Instance = it }

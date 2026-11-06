@@ -1,0 +1,12 @@
+# Initial baseline profile for Glimmer 4.3.0.
+#
+# This file was written by hand around the startup path (Application -> MainActivity -> TimeApp ->
+# first Home composition). It is intentionally tiny: regenerate it with Macrobenchmark +
+# androidx.baselineprofile on a physical device before claiming startup improvements.
+HSPLcom/example/timeapk/TimeApplication;-><init>()V
+HSPLcom/example/timeapk/TimeApplication;->onCreate()V
+HSPLcom/example/timeapk/MainActivity;-><init>()V
+HSPLcom/example/timeapk/MainActivity;->onCreate(Landroid/os/Bundle;)V
+HSPLcom/example/timeapk/MainActivity;->attachBaseContext(Landroid/content/Context;)V
+HSPLcom/example/timeapk/ui/theme/TimeAPKThemeKt;->TimeAPKTheme(IZZIFLjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;III)V
+HSPLcom/example/timeapk/TimeAppKt;->TimeApp(ILkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)V

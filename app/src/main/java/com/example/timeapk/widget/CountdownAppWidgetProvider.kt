@@ -79,6 +79,15 @@ class CountdownAppWidgetProvider : AppWidgetProvider() {
             notifyWidgetListChanged(appWidgetManager, appWidgetId)
         }
 
+        internal suspend fun refreshNow(
+            context: Context,
+            appWidgetManager: AppWidgetManager,
+            appWidgetIds: IntArray
+        ) {
+            val app = context.applicationContext as? TimeApplication ?: return
+            runCoordinatedRefresh(app, appWidgetManager, appWidgetIds)
+        }
+
         internal fun launchRefresh(
             context: Context,
             appWidgetManager: AppWidgetManager,
@@ -194,6 +203,8 @@ class CountdownAppWidgetProvider : AppWidgetProvider() {
             val appWidgetManager = AppWidgetManager.getInstance(context)
             val appWidgetIds = getAppWidgetIds(context, appWidgetManager)
             WidgetDateBoundaryScheduler.scheduleOrCancel(context)
+            // Single-event widgets rely on the same date boundary, so refresh both families.
+            SingleEventWidgetProvider.refreshAll(context)
             if (appWidgetIds.isEmpty()) return
             launchRefresh(
                 context,

@@ -3,6 +3,7 @@ package com.example.timeapk.ui.event
 import android.Manifest
 import android.content.Context
 import android.view.inputmethod.InputMethodManager
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -121,7 +122,7 @@ fun EventEntryScreen(
     viewModel: EventEntryViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
     val context = LocalContext.current
-    val eventUiState by viewModel.eventUiState.collectAsState()
+    val eventUiState by viewModel.eventUiState.collectAsStateWithLifecycle()
     val latestEventDetails by rememberUpdatedState(eventUiState.eventDetails)
     val snackbarHostState = remember { SnackbarHostState() }
     val calendarPermissions = remember {
@@ -151,10 +152,10 @@ fun EventEntryScreen(
     }
 
     var isRequestingSave by remember { mutableStateOf(false) }
-    val isPersisting by viewModel.isSaving.collectAsState()
-    val draftRecoveryError by viewModel.draftRecoveryError.collectAsState()
-    val imageProtectionError by viewModel.imageProtectionError.collectAsState()
-    val saveResult by viewModel.saveResult.collectAsState()
+    val isPersisting by viewModel.isSaving.collectAsStateWithLifecycle()
+    val draftRecoveryError by viewModel.draftRecoveryError.collectAsStateWithLifecycle()
+    val imageProtectionError by viewModel.imageProtectionError.collectAsStateWithLifecycle()
+    val saveResult by viewModel.saveResult.collectAsStateWithLifecycle()
     val isSaving = isRequestingSave || isPersisting || saveResult != null ||
         pendingSaveAfterNotificationPermission || pendingSaveAfterCalendarPermission
 
@@ -521,7 +522,7 @@ fun EventEntryBody(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val dateFormatMode by (context.applicationContext as TimeApplication).userPrefs.dateFormatModeFlow.collectAsState(initial = 0)
+    val dateFormatMode by (context.applicationContext as TimeApplication).userPrefs.dateFormatModeFlow.collectAsStateWithLifecycle(initialValue = 0)
     val dateFormatter = remember(dateFormatMode) { getDisplayDateFormatter(dateFormatMode) }
     val previewDetails = eventUiState.eventDetails
     val previewDate = eventDateToLocalDate(previewDetails.date)
@@ -706,7 +707,7 @@ fun EventInputForm(
         }
         pendingScheduleEnableAfterPermission = false
     }
-    val dateFormatMode by (context.applicationContext as TimeApplication).userPrefs.dateFormatModeFlow.collectAsState(initial = 0)
+    val dateFormatMode by (context.applicationContext as TimeApplication).userPrefs.dateFormatModeFlow.collectAsStateWithLifecycle(initialValue = 0)
     val dateFormatter = remember(dateFormatMode) { getDisplayDateFormatter(dateFormatMode) }
     var showDatePicker by remember { mutableStateOf(false) }
 

@@ -21,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,8 +37,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -88,7 +91,7 @@ private fun resolveHomeTimeText(
     showHours: Boolean
 ): HomeTimeText {
     val context = LocalContext.current
-    val locale = context.resources.configuration.locales[0]
+    val locale = LocalConfiguration.current.locales[0]
     val isRepeating = eventState.event.repeatType != REPEAT_NONE
     val isToday = eventState.daysRemaining == 0L && !eventState.isPast
     val todayLabel = stringResource(R.string.home_today_seal)
@@ -398,7 +401,7 @@ internal fun NearestEventBanner(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val locale = LocalContext.current.resources.configuration.locales[0]
+    val locale = LocalConfiguration.current.locales[0]
     val time = resolveHomeTimeText(eventState, today, DisplayModes.UNTIL_DAYS, showHours)
     val accent = parseEventColorOrFallback(eventState.event.colorHex, MaterialTheme.colorScheme.primary)
     val nearestLabel = stringResource(R.string.home_nearest_label)
@@ -553,7 +556,7 @@ fun EventCard(
     val cardAccentColor = baseCardColor.copy(alpha = if (isPast) 0.30f else 0.62f)
     val cardBorderColor = baseCardColor.copy(alpha = if (isPast) 0.16f else 0.22f)
 
-    val locale = LocalContext.current.resources.configuration.locales[0]
+    val locale = LocalConfiguration.current.locales[0]
     val titleMaxLines = homeCardTitleMaxLines(LocalDensity.current.fontScale)
     val targetLocalDate = remember(eventState.event.date) {
         eventDateToLocalDate(eventState.event.date)
@@ -605,7 +608,19 @@ fun EventCard(
                 onClick = onClick,
                 onLongClick = onLongClick
             )
-            .semantics(mergeDescendants = true) { contentDescription = cardDescription },
+            .semantics(mergeDescendants = true) {
+                contentDescription = cardDescription
+                // The compact time toggle is visually inside the merged card; expose it as an
+                // accessibility action so TalkBack users can still trigger it.
+                if (dateDeltaToggleEnabled) {
+                    customActions = listOf(
+                        CustomAccessibilityAction(toggleDateDeltaDescription) {
+                            onToggleDateDeltaDisplayMode()
+                            true
+                        }
+                    )
+                }
+            },
         backgroundColor = cardContainerColor,
         borderColor = when {
             isDragging || selected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.52f)
@@ -805,6 +820,7 @@ internal fun EventListItem(
         hex = eventState.event.colorHex,
         fallback = MaterialTheme.colorScheme.primary
     )
+    val toggleDateDeltaTitle = stringResource(R.string.cd_toggle_date_delta_display)
     val itemDescription = buildString {
         append(eventState.event.title)
         append(", ")
@@ -857,7 +873,17 @@ internal fun EventListItem(
                 onClick = onClick,
                 onLongClick = onLongClick
             )
-            .semantics(mergeDescendants = true) { contentDescription = itemDescription }
+            .semantics(mergeDescendants = true) {
+                contentDescription = itemDescription
+                if (dateDeltaToggleEnabled) {
+                    customActions = listOf(
+                        CustomAccessibilityAction(toggleDateDeltaTitle) {
+                            onToggleDateDeltaDisplayMode()
+                            true
+                        }
+                    )
+                }
+            }
     ) {
         Row(
             modifier = Modifier
@@ -930,7 +956,7 @@ private fun CompactEventTime(
     Column(
         modifier = Modifier
             .widthIn(min = 82.dp, max = 138.dp)
-            .heightIn(min = 42.dp)
+            .heightIn(min = 48.dp)
             .then(
                 if (enabled) {
                     Modifier

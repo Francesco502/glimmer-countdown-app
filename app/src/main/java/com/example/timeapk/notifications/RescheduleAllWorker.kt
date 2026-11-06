@@ -391,6 +391,21 @@ class RescheduleAllWorker(
                 request
             )
         }
+
+        private const val COLD_START_MIN_INTERVAL_MS = 15 * 60 * 1000L
+
+        /**
+         * Cold starts are frequent (launcher, widget, notification); skip the full rebuild when a
+         * successful pass just ran so we never cancel an in-flight calendar sync for nothing.
+         */
+        fun enqueueColdStartIfStale(context: Context) {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val lastSuccess = prefs.getLong(KEY_LAST_SUCCESS_AT, 0L)
+            val fresh = lastSuccess > 0L &&
+                System.currentTimeMillis() - lastSuccess < COLD_START_MIN_INTERVAL_MS
+            if (fresh) return
+            enqueue(context, REASON_COLD_START)
+        }
     }
 }
 

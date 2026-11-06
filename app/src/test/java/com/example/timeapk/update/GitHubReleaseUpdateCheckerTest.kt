@@ -1,4 +1,4 @@
-package com.example.timeapk.update
+﻿package com.example.timeapk.update
 
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.CancellationException
@@ -23,13 +23,13 @@ class GitHubReleaseUpdateCheckerTest {
     @Test
     fun selectDirectApkAsset_ignoresPlayAndOldApksAndFindsExactVersionedName() {
         val assets = listOf(
-            ReleaseAsset("app-play-release.apk", "https://example/play"),
-            ReleaseAsset("glimmer-countdown-3-17.apk", "https://example/old"),
-            ReleaseAsset("glimmer-countdown-4-1.apk", "https://example/direct")
+            ReleaseAsset("app-play-release.apk", "https://github.com/o/r/releases/download/v4/app-play-release.apk"),
+            ReleaseAsset("glimmer-countdown-3-17.apk", "https://github.com/o/r/releases/download/v4/glimmer-countdown-3-17.apk"),
+            ReleaseAsset("glimmer-countdown-4-1.apk", "https://github.com/o/r/releases/download/v4/glimmer-countdown-4-1.apk")
         )
 
         assertEquals(
-            "https://example/direct",
+            "https://github.com/o/r/releases/download/v4/glimmer-countdown-4-1.apk",
             selectDirectApkAsset("v4.1", assets)?.downloadUrl
         )
     }
@@ -69,9 +69,9 @@ class GitHubReleaseUpdateCheckerTest {
             releaseJson(
                 tag = "v4.1",
                 assets = listOf(
-                    "app-play-release.apk" to "https://example/play",
-                    "glimmer-countdown-3-17.apk" to "https://example/old",
-                    "glimmer-countdown-4-1.apk" to "https://example/direct"
+                    "app-play-release.apk" to "https://github.com/o/r/releases/download/v4/app-play-release.apk",
+                    "glimmer-countdown-3-17.apk" to "https://github.com/o/r/releases/download/v4/glimmer-countdown-3-17.apk",
+                    "glimmer-countdown-4-1.apk" to "https://github.com/o/r/releases/download/v4/glimmer-countdown-4-1.apk"
                 )
             )
         )
@@ -81,7 +81,7 @@ class GitHubReleaseUpdateCheckerTest {
         assertTrue(result.hasUpdate)
         assertFalse(result.checkFailed)
         assertEquals("4.1", result.versionName)
-        assertEquals("https://example/direct", result.downloadUrl)
+        assertEquals("https://github.com/o/r/releases/download/v4/glimmer-countdown-4-1.apk", result.downloadUrl)
         assertEquals("notes", result.releaseNotes)
     }
 
@@ -90,7 +90,7 @@ class GitHubReleaseUpdateCheckerTest {
         val checker = checkerReturning(
             releaseJson(
                 tag = "v4.1",
-                assets = listOf("app-direct-release.apk" to "https://example/wrong")
+                assets = listOf("app-direct-release.apk" to "https://github.com/o/r/releases/download/v4/app-direct-release.apk")
             )
         )
 
@@ -107,8 +107,8 @@ class GitHubReleaseUpdateCheckerTest {
             releaseJson(
                 tag = "v4.1",
                 assets = listOf(
-                    "glimmer-countdown-4-1.apk" to "https://example/a",
-                    "glimmer-countdown-4-1.apk" to "https://example/b"
+                    "glimmer-countdown-4-1.apk" to "https://github.com/o/r/releases/download/v4/glimmer-countdown-4-1.apk",
+                    "glimmer-countdown-4-1.apk" to "https://github.com/o/r/releases/download/v4/glimmer-countdown-4-1.apk"
                 )
             )
         )
@@ -155,7 +155,7 @@ class GitHubReleaseUpdateCheckerTest {
                     isSuccessful = true,
                     responseBody = releaseJson(
                         tag = "4.1",
-                        assets = listOf("glimmer-countdown-4-1.apk" to "https://example/direct")
+                        assets = listOf("glimmer-countdown-4-1.apk" to "https://github.com/o/r/releases/download/v4/glimmer-countdown-4-1.apk")
                     )
                 )
             }

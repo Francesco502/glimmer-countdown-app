@@ -2,6 +2,7 @@ package com.example.timeapk.widget
 
 import android.app.Activity
 import android.appwidget.AppWidgetManager
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -37,7 +38,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -60,7 +61,10 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.timeapk.R
 import com.example.timeapk.TimeApplication
+import com.example.timeapk.LocalePreferenceMirror
+import com.example.timeapk.LocaleUtils
 import com.example.timeapk.data.Event
+import com.example.timeapk.data.LANG_ZH
 import com.example.timeapk.ui.theme.FONT_PRESET_NOTO_SERIF_SC
 import com.example.timeapk.ui.theme.SongDesignTokens
 import com.example.timeapk.ui.theme.SongLineIcon
@@ -77,6 +81,11 @@ import kotlinx.coroutines.withContext
 
 /** 单事件小组件配置：选择一个事件，或跟随最近事件。 */
 class SingleEventWidgetConfigActivity : ComponentActivity() {
+    override fun attachBaseContext(newBase: Context) {
+        val mode = LocalePreferenceMirror.read(newBase) ?: LANG_ZH
+        super.attachBaseContext(LocaleUtils.wrapContext(newBase, mode))
+    }
+
     private val appWidgetId: Int
         get() = intent?.getIntExtra(
             AppWidgetManager.EXTRA_APPWIDGET_ID,
@@ -92,10 +101,10 @@ class SingleEventWidgetConfigActivity : ComponentActivity() {
         }
         setContent {
             val prefs = (applicationContext as TimeApplication).userPrefs
-            val themeMode by prefs.themeModeFlow.collectAsState(initial = 0)
-            val fontPreset by prefs.fontPresetFlow.collectAsState(initial = FONT_PRESET_NOTO_SERIF_SC)
-            val appBaseFontScale by prefs.appBaseFontScaleFlow.collectAsState(initial = 1f)
-            val dynamicColor by prefs.dynamicColorEnabledFlow.collectAsState(initial = false)
+            val themeMode by prefs.themeModeFlow.collectAsStateWithLifecycle(initialValue = 0)
+            val fontPreset by prefs.fontPresetFlow.collectAsStateWithLifecycle(initialValue = FONT_PRESET_NOTO_SERIF_SC)
+            val appBaseFontScale by prefs.appBaseFontScaleFlow.collectAsStateWithLifecycle(initialValue = 1f)
+            val dynamicColor by prefs.dynamicColorEnabledFlow.collectAsStateWithLifecycle(initialValue = false)
             TimeAPKTheme(
                 themeMode = themeMode,
                 darkTheme = isSystemInDarkTheme(),
@@ -275,7 +284,7 @@ private fun SingleEventWidgetConfigRoute(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         },
         bottomBar = {

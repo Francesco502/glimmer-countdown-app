@@ -36,6 +36,13 @@ internal object ReminderNotificationDelivery {
     const val EXTRA_OPEN_EVENT_ID = "open_event_id"
     private const val SEAL_COLOR = 0xFFAF4E31.toInt()
 
+    /** Creates both channels up front so they are visible and pre-configurable in system settings. */
+    fun ensureChannels(context: Context) {
+        val nm = context.getSystemService(NotificationManager::class.java) ?: return
+        ensureChannel(nm, EVENT_CHANNEL_ID, context.getString(R.string.notification_channel_name))
+        ensureChannel(nm, MILESTONE_CHANNEL_ID, context.getString(R.string.milestone_notification_channel_name))
+    }
+
     fun templates(context: Context): ReminderNotificationTemplates {
         val res = context.resources
         return ReminderNotificationTemplates(

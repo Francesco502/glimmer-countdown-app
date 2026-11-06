@@ -1,6 +1,7 @@
-﻿package com.example.timeapk.data
+package com.example.timeapk.data
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /** 事件分类：生日 / 纪念日 / 其他 */
@@ -16,7 +17,10 @@ const val REPEAT_YEARLY = "yearly"
 const val REPEAT_HALF_YEARLY = "half_yearly"
 const val REPEAT_MONTHLY = "monthly"
 
-@Entity(tableName = "events")
+@Entity(
+    tableName = "events",
+    indices = [Index(value = ["date"]), Index(value = ["category"])]
+)
 data class Event(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val title: String,

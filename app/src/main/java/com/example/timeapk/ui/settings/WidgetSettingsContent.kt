@@ -37,7 +37,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -125,8 +125,8 @@ fun WidgetSettingsContent(
     val context = LocalContext.current
     val app = context.applicationContext as? TimeApplication ?: return
     val widgetConfigRepository = remember(app) { WidgetConfigRepository(app) }
-    val defaultWidgetConfig by widgetConfigRepository.defaultConfigFlow.collectAsState(initial = WidgetConfig.default())
-    val widgetInstanceConfigs by widgetConfigRepository.instanceConfigsFlow.collectAsState(initial = emptyMap())
+    val defaultWidgetConfig by widgetConfigRepository.defaultConfigFlow.collectAsStateWithLifecycle(initialValue = WidgetConfig.default())
+    val widgetInstanceConfigs by widgetConfigRepository.instanceConfigsFlow.collectAsStateWithLifecycle(initialValue = emptyMap())
     val appWidgetIds = CountdownAppWidgetProvider.getAppWidgetIds(app).toList()
     val singleEventWidgetIds = SingleEventWidgetProvider.getAppWidgetIds(app).toList()
     var confirmApplyToAll by remember { mutableStateOf(false) }

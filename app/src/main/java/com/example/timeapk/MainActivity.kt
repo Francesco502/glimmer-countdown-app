@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
@@ -20,6 +20,8 @@ import com.example.timeapk.data.LANG_ZH
 import com.example.timeapk.ui.theme.FONT_PRESET_NOTO_SERIF_SC
 import com.example.timeapk.ui.theme.AnimationSpecs
 import com.example.timeapk.ui.theme.TimeAPKTheme
+import com.example.timeapk.widget.WidgetDateBoundaryScheduler
+import com.example.timeapk.widget.WidgetUpdater
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -40,15 +42,15 @@ class MainActivity : ComponentActivity() {
             val openEventId by openEventIdState
             val app = applicationContext as TimeApplication
             val prefs = app.userPrefs
-            val themeMode by prefs.themeModeFlow.collectAsState(initial = 0)
-            val customBackgroundHex by prefs.customBackgroundHexFlow.collectAsState(initial = null)
-            val customSurfaceHex by prefs.customSurfaceHexFlow.collectAsState(initial = null)
-            val customPrimaryHex by prefs.customPrimaryHexFlow.collectAsState(initial = null)
-            val customOnBackgroundHex by prefs.customOnBackgroundHexFlow.collectAsState(initial = null)
-            val fontPreset by prefs.fontPresetFlow.collectAsState(initial = FONT_PRESET_NOTO_SERIF_SC)
-            val appBaseFontScale by prefs.appBaseFontScaleFlow.collectAsState(initial = 1f)
-            val reduceMotionEnabled by prefs.reduceMotionEnabledFlow.collectAsState(initial = false)
-            val dynamicColorEnabled by prefs.dynamicColorEnabledFlow.collectAsState(initial = false)
+            val themeMode by prefs.themeModeFlow.collectAsStateWithLifecycle(initialValue = 0)
+            val customBackgroundHex by prefs.customBackgroundHexFlow.collectAsStateWithLifecycle(initialValue = null)
+            val customSurfaceHex by prefs.customSurfaceHexFlow.collectAsStateWithLifecycle(initialValue = null)
+            val customPrimaryHex by prefs.customPrimaryHexFlow.collectAsStateWithLifecycle(initialValue = null)
+            val customOnBackgroundHex by prefs.customOnBackgroundHexFlow.collectAsStateWithLifecycle(initialValue = null)
+            val fontPreset by prefs.fontPresetFlow.collectAsStateWithLifecycle(initialValue = FONT_PRESET_NOTO_SERIF_SC)
+            val appBaseFontScale by prefs.appBaseFontScaleFlow.collectAsStateWithLifecycle(initialValue = 1f)
+            val reduceMotionEnabled by prefs.reduceMotionEnabledFlow.collectAsStateWithLifecycle(initialValue = false)
+            val dynamicColorEnabled by prefs.dynamicColorEnabledFlow.collectAsStateWithLifecycle(initialValue = false)
 
             SideEffect {
                 val systemReducedMotion = !ValueAnimator.areAnimatorsEnabled()
@@ -83,6 +85,14 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         updateOpenEventIdFromIntent(intent)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Cheap safety net for the date boundary: the widget alarm can be delayed under Doze.
+        WidgetUpdater.refreshCountdownWidgets(this)
+        WidgetDateBoundaryScheduler.scheduleOrCancel(this)
+        (application as? TimeApplication)?.installPendingUpdate(this)
     }
 
     private fun updateOpenEventIdFromIntent(intent: Intent) {

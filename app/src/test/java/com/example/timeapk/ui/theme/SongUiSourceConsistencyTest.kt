@@ -46,7 +46,7 @@ class SongUiSourceConsistencyTest {
             .substringBefore("private data class TimelineActionTileSpec")
 
         assertTrue(search.contains(".size(48.dp)"))
-        assertTrue(search.contains(".height(48.dp)"))
+        assertTrue(search.contains(".heightIn(min = 48.dp)"))
         assertTrue(search.contains(".padding(horizontal = 10.dp)"))
         assertTrue(search.contains("contentDescription = stringResource(R.string.cd_clear_search)"))
         assertFalse(search.contains("contentDescription = stringResource(R.string.date_picker_cancel)"))

@@ -48,6 +48,31 @@ class EventRepository(private val eventDao: EventDao) {
 
     suspend fun updateEvent(event: Event) = eventDao.updateEvent(event)
 
+    /** @return true when the row still existed and the user-editable columns were written. */
+    suspend fun updateEventUserFields(event: Event): Boolean = eventDao.updateEventUserFields(
+        id = event.id,
+        title = event.title,
+        date = event.date,
+        category = event.category,
+        note = event.note,
+        colorHex = event.colorHex,
+        repeatType = event.repeatType,
+        remindDaysBefore = event.remindDaysBefore,
+        reminderTimeMinutesOfDay = event.reminderTimeMinutesOfDay,
+        remindEnabled = event.remindEnabled,
+        syncToScheduleEnabled = event.syncToScheduleEnabled,
+        isLunar = event.isLunar,
+        imagePath = event.imagePath
+    ) == 1
+
+    suspend fun updateEventScheduleFields(event: Event) = eventDao.updateEventScheduleFields(
+        id = event.id,
+        scheduleEventId = event.scheduleEventId,
+        targetCalendarId = event.targetCalendarId,
+        lastScheduleSyncAt = event.lastScheduleSyncAt,
+        lastScheduleSyncError = event.lastScheduleSyncError
+    )
+
     suspend fun updateScheduleSyncState(expected: Event, updated: Event): Boolean {
         val current = eventDao.getEventById(expected.id) ?: return false
         val scheduleState = eventWithScheduleSyncStateIfInputsUnchanged(

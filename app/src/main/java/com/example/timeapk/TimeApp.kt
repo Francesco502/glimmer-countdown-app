@@ -23,7 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import com.example.timeapk.ui.theme.AnimationSpecs
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -74,7 +75,7 @@ fun TimeApp(
     // 记忆并在旋转等配置变更后恢复当前详情事件 ID，避免详情层意外消失
     var selectedEventIdForDetail by rememberSaveable { mutableStateOf<Int?>(null) }
     val app = LocalContext.current.applicationContext as TimeApplication
-    val customCategories by app.categoryRepository.getAll().collectAsState(initial = emptyList())
+    val customCategories by app.categoryRepository.getAll().collectAsStateWithLifecycle(initialValue = emptyList())
 
     LaunchedEffect(initialOpenEventId) {
         initialOpenEventId?.let { id ->
@@ -122,7 +123,7 @@ fun TimeApp(
             val undoLabel = stringResource(R.string.action_undo)
             val calendarCleanupBlockedMessage = stringResource(R.string.calendar_cleanup_blocked)
             val homeViewModel: com.example.timeapk.ui.home.HomeViewModel = viewModel(factory = AppViewModelProvider.Factory)
-            val allEventStates by homeViewModel.unfilteredCalendarUiState.collectAsState()
+            val allEventStates by homeViewModel.unfilteredCalendarUiState.collectAsStateWithLifecycle()
 
             // Shared by the detail page and the home long-press menu: delete, then offer undo.
             val deleteWithUndo: suspend (com.example.timeapk.data.Event) -> Boolean = { deletedEvent ->
@@ -229,8 +230,16 @@ fun TimeApp(
                         }
                     }
                 } else {
-                    homeContent(Modifier)
-                    selectedEventIdForDetail?.let { eventId ->
+                    val detailId = selectedEventIdForDetail
+                    // While the detail overlay covers the list, its nodes must leave the
+                    // accessibility tree; otherwise TalkBack can activate invisible rows.
+                    val homeModifier = if (detailId != null) {
+                        Modifier.clearAndSetSemantics { }
+                    } else {
+                        Modifier
+                    }
+                    homeContent(homeModifier)
+                    detailId?.let { eventId ->
                         detailContent(eventId, Modifier.fillMaxSize())
                     }
                 }

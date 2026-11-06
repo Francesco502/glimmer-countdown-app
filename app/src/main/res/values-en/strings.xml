@@ -141,6 +141,9 @@
 
     <!-- Export / Import -->
     <string name="export_import">Export / Import</string>
+    <string name="export_images_hint">The JSON export does not include event images. Use system backup when switching phones, or re-add images after migrating.</string>
+    <string name="update_checksum_failed">The downloaded file failed its checksum check and was discarded. Please try again.</string>
+    <string name="update_needs_foreground">The update was downloaded and verified. Keep the app open and try installing again.</string>
     <string name="export_events">Share JSON text</string>
     <string name="export_events_file">Save JSON file</string>
     <string name="import_events">Import events</string>
@@ -376,6 +379,7 @@
         <item quantity="other">%1$s: %2$s in %3$d days</item>
     </plurals>
     <string name="save_event_failed">Could not save. Try again later.</string>
+    <string name="save_event_missing">This event was deleted, so the edit could not be saved.</string>
     <string name="save_event_partial_warning">Committed; reminder or calendar is unsettled.</string>
     <string name="save_event_partial_warning_no_writable_calendar">Committed; no writable device calendar, so sync paused.</string>
     <string name="import_completed_detailed">Settled: found %1$d, placed %2$d, repeats %3$d, unfinished %4$d, notices %5$d</string>

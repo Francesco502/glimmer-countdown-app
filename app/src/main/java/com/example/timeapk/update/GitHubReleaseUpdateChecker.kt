@@ -103,7 +103,8 @@ class GitHubReleaseUpdateChecker(
             if (remoteVersion <= installedVersion) {
                 return@withContext CheckUpdateResult(hasUpdate = false)
             }
-            val downloadUrl = selectDirectApkAsset(remoteVersion, releaseInfo.assets)?.downloadUrl
+            val selectedAsset = selectDirectApkAsset(remoteVersion, releaseInfo.assets)
+            val downloadUrl = selectedAsset?.downloadUrl
                 ?: return@withContext CheckUpdateResult(
                     hasUpdate = false,
                     checkFailed = true,
@@ -115,7 +116,8 @@ class GitHubReleaseUpdateChecker(
                 versionName = remoteVersion.displayName,
                 downloadUrl = downloadUrl,
                 releaseNotes = releaseInfo.releaseNotes,
-                releasePageUrl = releaseInfo.releasePageUrl ?: releasesPageUrl
+                releasePageUrl = releaseInfo.releasePageUrl ?: releasesPageUrl,
+                sha256 = parseSha256Digest(selectedAsset.digest)
             )
         } catch (cancelled: CancellationException) {
             throw cancelled
@@ -153,7 +155,8 @@ class GitHubReleaseUpdateChecker(
                 add(
                     ReleaseAsset(
                         name = asset.optString("name").trim(),
-                        downloadUrl = asset.optString("browser_download_url").trim()
+                        downloadUrl = asset.optString("browser_download_url").trim(),
+                        digest = parseSha256Digest(asset.optString("digest"))
                     )
                 )
             }

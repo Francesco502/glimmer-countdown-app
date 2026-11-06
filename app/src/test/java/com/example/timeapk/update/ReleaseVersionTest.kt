@@ -88,12 +88,15 @@ class ReleaseVersionTest {
     fun checker_newerPrereleaseSelectsMatchingAssetAndExposesReleasePage() = runBlocking {
         val result = checker(
             """{"tag_name":"v4.2-rc1","body":"n","html_url":"https://github.com/o/r/releases/tag/v4.2-rc1",
-               "assets":[{"name":"glimmer-countdown-4-2-rc1.apk","browser_download_url":"https://example/apk"}]}""",
+               "assets":[{"name":"glimmer-countdown-4-2-rc1.apk","browser_download_url":"https://github.com/o/r/releases/download/v4.2-rc1/glimmer-countdown-4-2-rc1.apk"}]}""",
             installed = "4.1"
         ).checkUpdate()
         assertTrue(result.hasUpdate)
         assertEquals("4.2-rc1", result.versionName)
-        assertEquals("https://example/apk", result.downloadUrl)
+        assertEquals(
+            "https://github.com/o/r/releases/download/v4.2-rc1/glimmer-countdown-4-2-rc1.apk",
+            result.downloadUrl
+        )
         assertEquals("https://github.com/o/r/releases/tag/v4.2-rc1", result.releasePageUrl)
     }
 
@@ -101,7 +104,7 @@ class ReleaseVersionTest {
     fun checker_nonGithubHtmlUrlFallsBackToReleasesPage() = runBlocking {
         val result = checker(
             """{"tag_name":"4.2","html_url":"javascript:alert(1)",
-               "assets":[{"name":"glimmer-countdown-4-2.apk","browser_download_url":"https://example/apk"}]}""",
+               "assets":[{"name":"glimmer-countdown-4-2.apk","browser_download_url":"https://github.com/o/r/releases/download/v4.2/glimmer-countdown-4-2.apk"}]}""",
             installed = "4.1"
         ).checkUpdate()
         assertTrue(result.hasUpdate)
