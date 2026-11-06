@@ -4,11 +4,12 @@ import java.io.File
 
 /**
  * 4.2 split the home screen into HomeScreen / HomeEventCards / HomeMonthCalendar.
+ * 4.3.0 moved the toolbar, search, action menus and tools panel into HomeChrome.
  * Source-contract tests read them concatenated in that order, so section anchors
  * (EmptyState -> EventCard -> EventListItem -> CompactEventTime -> MonthCalendarView) still hold.
  */
 object HomeSourceFiles {
-    private val files = listOf("HomeScreen.kt", "HomeEventCards.kt", "HomeMonthCalendar.kt")
+    private val files = listOf("HomeScreen.kt", "HomeChrome.kt", "HomeEventCards.kt", "HomeMonthCalendar.kt")
 
     fun combined(): String = files.joinToString("\n") { name ->
         val relative = "com/example/timeapk/ui/home/$name"

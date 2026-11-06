@@ -30,7 +30,7 @@ class HomeInteractionPolicyTest {
     fun homeEmptyStateUsesUnfilteredCalendarEventsAndClearsEveryActiveConstraintForNoMatches() {
         val source = readSource("ui/home/HomeScreen.kt")
         val screen = source.substringAfter("fun HomeScreen(")
-            .substringBefore("@Composable\nprivate fun HomeDisplayModeSegmentedControl")
+            .substringBefore("@Composable\ninternal fun HomeDisplayModeSegmentedControl")
 
         assertTrue(screen.contains("resolveHomeEmptyStateKind(unfilteredCalendarUiState.isEmpty())"))
         assertTrue(screen.contains("viewModel.updateSearchQuery(\"\")"))
@@ -49,7 +49,7 @@ class HomeInteractionPolicyTest {
         assertTrue(fab.contains("if (emptyStateKind != HomeEmptyStateKind.FirstEvent)"))
         assertTrue(fab.contains("HomeAddButton("))
         assertTrue(fab.contains("else navigateToItemEntry"))
-        assertTrue(source.contains("private fun HomeAddButton("))
+        assertTrue(source.contains("internal fun HomeAddButton("))
     }
 
 
@@ -204,7 +204,7 @@ class HomeInteractionPolicyTest {
     private fun readSource(relative: String): String {
         // 4.2 split the home screen into three files; contract checks read them in order.
         if (relative == "ui/home/HomeScreen.kt") {
-            return listOf("HomeScreen.kt", "HomeEventCards.kt", "HomeMonthCalendar.kt")
+            return listOf("HomeScreen.kt", "HomeChrome.kt", "HomeEventCards.kt", "HomeMonthCalendar.kt")
                 .joinToString("\n") { readSingleSource("ui/home/$it") }
         }
         return readSingleSource(relative)

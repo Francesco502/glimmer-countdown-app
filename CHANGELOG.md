@@ -23,7 +23,10 @@
 
 - Compose BOM 2024.02.00 → 2026.03.01（Compose 1.6 → 1.10，Material3 1.2 → 1.4），AndroidX core / activity / lifecycle / navigation / work / datastore / exifinterface 同步升级；移除未使用的 `material-icons-extended`。
 - 接入 Android 13+ per-app language（`localeConfig`），系统“应用语言”里可选择中文/英文，并与应用内设置双向同步。
+- 详情页在手机端改为独立导航目的地，返回栈与系统返回统一接管；宽屏保留列表 + 详情双栏。删除撤销提示提升到页面级，返回列表后仍可撤销。
+- 首页拆分为 `HomeScreen` + `HomeChrome`（工具栏、搜索、操作菜单、工具面板独立），降低单文件体积与回归成本。
 - 状态收集迁移到 `collectAsStateWithLifecycle`，后台不再持续收集页面 Flow。
+- 每分钟的事件状态计算（含农历转换）移到 `Dispatchers.Default`，减少首页卡顿。
 - Room v12：为 `events(date)`、`events(category)` 增加索引，首页排序与分类筛选不再全表扫描。
 - R8 保留规则收敛（不再整包 keep Compose/OkHttp/DataStore），删除反射不需要的 keep；新增 Baseline Profile 基础设施。
 - 深色启动页补齐 night 背景，消除冷启动白闪。
