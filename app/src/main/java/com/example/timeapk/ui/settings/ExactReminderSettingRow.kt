@@ -9,7 +9,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -52,10 +52,10 @@ fun ExactReminderSettingRow(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val app = context.applicationContext as? TimeApplication ?: return
     val scope = rememberCoroutineScope()
-    val enabled by app.userPrefs.exactRemindersEnabledFlow.collectAsState(initial = false)
+    val enabled by app.userPrefs.exactRemindersEnabledFlow.collectAsStateWithLifecycle(initialValue = false)
     var canScheduleExact by remember { mutableStateOf(ExactReminderAlarms.canScheduleExactAlarms(context)) }
 
-    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {

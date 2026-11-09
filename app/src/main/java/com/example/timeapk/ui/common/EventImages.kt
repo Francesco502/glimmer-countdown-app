@@ -14,10 +14,10 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.exifinterface.media.ExifInterface
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.UUID
+import kotlin.math.roundToInt
 
 /**
  * 事件配图保存在应用私有目录 files/event_images/，数据库只记录文件名。
@@ -67,10 +67,15 @@ object EventImageStore {
 
     internal suspend fun cleanupRegisteredImages(context: Context, referencedFiles: suspend () -> Set<String>): Boolean =
         withContext(Dispatchers.IO) {
-            // Serialize reference release with the latest DB snapshot and deletion on an IO thread.
-            runCatching { registry(context).cleanup { runBlocking { referencedFiles() } } }.getOrDefault(false).also {
-                cache.evictAll()
-            }
+            // Snapshot references once, then release/del under the registry lock without blocking
+            // on a suspend DB call inside it (previously a runBlocking nested inside the lock).
+            val referenced = runCatching { referencedFiles() }.getOrDefault(emptySet())
+            val released = runCatching { registry(context).cleanup { referenced } }.getOrDefault(false)
+            // Orphans left behind by a restored backup or a killed editor: unreferenced files older
+            // than the grace period are removed. Only app-generated names are touched.
+            runCatching { sweepUnreferencedImages(context, referenced) }
+            cache.evictAll()
+            released
         }
 
     /** 读取并压缩所选图片，返回新文件名；失败返回 null。 */
@@ -152,6 +157,27 @@ object EventImageStore {
         }
     }
 
+    private const val ORPHAN_RETENTION_MS = 7L * 24 * 60 * 60 * 1000
+    private val GENERATED_NAME = Regex("^[0-9a-f]{32}\\.jpg$")
+
+    /**
+     * Removes app-generated images that no event references and that have been idle past the
+     * grace period. Covers images left behind by a restored backup (the lifecycle registry lives
+     * in noBackupFilesDir and does not migrate with the backup).
+     */
+    private fun sweepUnreferencedImages(context: Context, referenced: Set<String>) {
+        val cutoff = System.currentTimeMillis() - ORPHAN_RETENTION_MS
+        directory(context).listFiles()?.forEach { file ->
+            if (file.isFile &&
+                GENERATED_NAME.matches(file.name) &&
+                file.name !in referenced &&
+                file.lastModified() < cutoff
+            ) {
+                file.delete()
+            }
+        }
+    }
+
     internal fun sampleSizeFor(width: Int, height: Int, maxEdge: Int): Int {
         var sample = 1
         var longest = maxOf(width, height)
@@ -163,24 +189,62 @@ object EventImageStore {
     }
 
     private fun scaleAndRotate(source: Bitmap, maxEdge: Int, orientation: Int): Bitmap {
-        val matrix = Matrix()
         val longest = maxOf(source.width, source.height)
-        if (longest > maxEdge) {
+        val scaled = if (longest > maxEdge) {
             val factor = maxEdge.toFloat() / longest
-            matrix.postScale(factor, factor)
+            val width = (source.width * factor).roundToInt().coerceAtLeast(1)
+            val height = (source.height * factor).roundToInt().coerceAtLeast(1)
+            Bitmap.createScaledBitmap(source, width, height, true)
+        } else {
+            source
         }
+        val matrix = orientationMatrix(orientation, scaled.width, scaled.height)
+        if (matrix.isIdentity) return scaled
+        return Bitmap.createBitmap(scaled, 0, 0, scaled.width, scaled.height, matrix, true)
+    }
+
+    /** Handles all eight EXIF orientations, including the mirrored/transposed ones. */
+    private fun orientationMatrix(orientation: Int, width: Int, height: Int): Matrix {
+        val matrix = Matrix()
+        val w = width.toFloat()
+        val h = height.toFloat()
         when (orientation) {
-            ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
-            ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
-            ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
+            ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> {
+                matrix.setScale(-1f, 1f)
+                matrix.postTranslate(w, 0f)
+            }
+            ExifInterface.ORIENTATION_ROTATE_180 -> {
+                matrix.setRotate(180f)
+                matrix.postTranslate(w, h)
+            }
+            ExifInterface.ORIENTATION_FLIP_VERTICAL -> {
+                matrix.setScale(1f, -1f)
+                matrix.postTranslate(0f, h)
+            }
+            ExifInterface.ORIENTATION_TRANSPOSE -> {
+                matrix.setRotate(90f)
+                matrix.postScale(-1f, 1f)
+                matrix.postTranslate(h, 0f)
+            }
+            ExifInterface.ORIENTATION_ROTATE_90 -> {
+                matrix.setRotate(90f)
+                matrix.postTranslate(h, 0f)
+            }
+            ExifInterface.ORIENTATION_TRANSVERSE -> {
+                matrix.setRotate(-90f)
+                matrix.postScale(-1f, 1f)
+                matrix.postTranslate(0f, w)
+            }
+            ExifInterface.ORIENTATION_ROTATE_270 -> {
+                matrix.setRotate(-90f)
+                matrix.postTranslate(0f, w)
+            }
         }
-        if (matrix.isIdentity) return source
-        return Bitmap.createBitmap(source, 0, 0, source.width, source.height, matrix, true)
+        return matrix
     }
 }
 
-/** 异步加载事件配图；无配图或失败时为 null。 */
-@Composable
+/** 异步加载事件配图；无配图或失败时为 null。 */@Composable
 fun rememberEventImage(name: String?, maxEdgePx: Int): ImageBitmap? {
     val context = LocalContext.current
     val bitmap by produceState<ImageBitmap?>(initialValue = null, name, maxEdgePx) {

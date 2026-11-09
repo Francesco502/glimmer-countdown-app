@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- 深色启动页背景：与深色纸色一致，避免冷启动白闪 -->
+    <color name="splash_bg">#FF141416</color>
     <color name="widget_surface_color">#FF1C1C1E</color>
     <color name="widget_surface_highlight_color">#00FFFFFF</color>
     <color name="widget_surface_highlight_fade_color">#00FFFFFF</color>

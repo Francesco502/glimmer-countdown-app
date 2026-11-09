@@ -209,6 +209,54 @@ class AppDatabaseMigrationTest {
         migratedDb.close()
     }
 
+    @Test
+    fun migrate11To12_addsDateAndCategoryIndexesAndPreservesRows() {
+        val dbName = "migration-test-v11-to-v12"
+
+        helper.createDatabase(dbName, 11).apply {
+            execSQL(
+                """
+                INSERT INTO events (
+                    id, title, date, category, note, colorHex, repeatType,
+                    remindDaysBefore, reminderTimeMinutesOfDay, remindEnabled,
+                    syncToScheduleEnabled, scheduleEventId, targetCalendarId,
+                    lastScheduleSyncAt, lastScheduleSyncError, createdAt, isLunar, imagePath
+                ) VALUES (
+                    7, 'Indexed', 1704067200000, 'other', 'note', NULL, 'none',
+                    0, 480, 0,
+                    1, NULL, NULL,
+                    NULL, NULL, 1704067200000, 0, NULL
+                )
+                """.trimIndent()
+            )
+            close()
+        }
+
+        val migratedDb = helper.runMigrationsAndValidate(
+            dbName,
+            12,
+            true,
+            AppDatabase.MIGRATION_11_12_FOR_TEST
+        )
+
+        val indexes = mutableSetOf<String>()
+        migratedDb.query("SELECT name FROM sqlite_master WHERE type = 'index'").use { cursor ->
+            while (cursor.moveToNext()) {
+                cursor.getString(0)?.let(indexes::add)
+            }
+        }
+        assertTrue(indexes.contains("index_events_date"))
+        assertTrue(indexes.contains("index_events_category"))
+
+        migratedDb.query("SELECT title, category, date FROM events WHERE id = 7").use { cursor ->
+            assertEquals(true, cursor.moveToFirst())
+            assertEquals("Indexed", cursor.getString(0))
+            assertEquals("other", cursor.getString(1))
+            assertEquals(1704067200000, cursor.getLong(2))
+        }
+        migratedDb.close()
+    }
+
     private fun columnNamesOf(db: SupportSQLiteDatabase, tableName: String): Set<String> {
         val result = linkedSetOf<String>()
         db.query("PRAGMA table_info($tableName)").use { cursor ->

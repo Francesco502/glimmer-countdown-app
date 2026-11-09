@@ -120,6 +120,9 @@
     <string name="search_hint">搜索标题、分类、备注</string>
     <string name="cd_clear_search">清除搜索</string>
     <string name="export_import">导出 / 导入</string>
+    <string name="export_images_hint">JSON 导出不含事件配图；换机请使用系统备份，或在迁移后重新添加配图。</string>
+    <string name="update_checksum_failed">下载文件的校验值不正确，已丢弃；请重试。</string>
+    <string name="update_needs_foreground">安装包已下载并校验完成，请保持应用在前台再试一次安装。</string>
     <string name="export_events">分享 JSON 文本</string>
     <string name="export_events_file">保存 JSON 文件</string>
     <string name="import_events">导入事件</string>
@@ -321,6 +324,7 @@
         <item quantity="other">%1$s：距离%2$s还有%3$d天</item>
     </plurals>
     <string name="save_event_failed">保存失败，请稍后重试。</string>
+    <string name="save_event_missing">这个事件已被删除，无法保存修改。</string>
     <string name="save_event_partial_warning">已保存；提醒或系统日程未能完成设置。</string>
     <string name="save_event_partial_warning_no_writable_calendar">已保存；手机系统日历里暂无可写日历，未写入系统日程。</string>
     <string name="import_completed_detailed">导入完成：识别 %1$d 条，导入 %2$d 条，重复 %3$d 条，失败 %4$d 条，提醒异常 %5$d 条</string>

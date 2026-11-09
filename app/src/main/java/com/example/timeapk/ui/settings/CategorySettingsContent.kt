@@ -25,7 +25,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -72,12 +72,12 @@ internal fun rememberSettingsCategorySummaries(): Map<SettingsCategory, String> 
     val context = LocalContext.current
     val app = context.applicationContext as? TimeApplication ?: return emptyMap()
     val prefs = app.userPrefs
-    val themeMode by prefs.themeModeFlow.collectAsState(initial = 0)
-    val fontPreset by prefs.fontPresetFlow.collectAsState(initial = 4)
-    val dynamicColor by prefs.dynamicColorEnabledFlow.collectAsState(initial = false)
-    val languageMode by prefs.languageModeFlow.collectAsState(initial = 0)
-    val homeMode by prefs.homeDisplayModeFlow.collectAsState(initial = 0)
-    val defaultRemind by prefs.defaultEventRemindEnabledFlow.collectAsState(initial = false)
+    val themeMode by prefs.themeModeFlow.collectAsStateWithLifecycle(initialValue = 0)
+    val fontPreset by prefs.fontPresetFlow.collectAsStateWithLifecycle(initialValue = 4)
+    val dynamicColor by prefs.dynamicColorEnabledFlow.collectAsStateWithLifecycle(initialValue = false)
+    val languageMode by prefs.languageModeFlow.collectAsStateWithLifecycle(initialValue = 0)
+    val homeMode by prefs.homeDisplayModeFlow.collectAsStateWithLifecycle(initialValue = 0)
+    val defaultRemind by prefs.defaultEventRemindEnabledFlow.collectAsStateWithLifecycle(initialValue = false)
     val customCategories = LocalCustomCategories.current
     val widgetCount by produceState(0) {
         val manager = AppWidgetManager.getInstance(context)

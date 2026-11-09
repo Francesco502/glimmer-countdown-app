@@ -33,6 +33,7 @@ import com.nlf.calendar.Solar
 import com.example.timeapk.widget.WidgetUpdater
 import com.example.timeapk.ui.common.EventImageStore
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,6 +44,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -511,11 +513,14 @@ class HomeViewModel(
         nowMillis
     ) { events: List<Event>, milestones: List<Long>, smartEnabled: Boolean, nowMillis: Long ->
         events.map { it.toEventUiState(milestones, smartEnabled, Instant.ofEpochMilli(nowMillis)) }
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = emptyList()
-    )
+        // Lunar conversion and per-event state building are pure CPU work; keep them off Main so
+        // a minute tick or a large event list cannot jank the UI thread.
+    }.flowOn(Dispatchers.Default)
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
 
     private data class FilterInput(
         val categoryFilter: String?,

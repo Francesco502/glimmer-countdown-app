@@ -47,7 +47,7 @@ class HomeEmptyStatePolicyTest {
         assertEquals(HomeEmptyStateKind.NoMatches, resolveHomeEmptyStateKind(allEvents.isEmpty()))
         assertTrue(viewModelSource.contains("val calendarUiState: StateFlow<List<EventUiState>> = homeUiState"))
         assertTrue(viewModelSource.contains("val unfilteredCalendarUiState: StateFlow<List<EventUiState>> = allHomeUiState"))
-        assertTrue(homeScreenSource.contains("val unfilteredCalendarUiState by viewModel.unfilteredCalendarUiState.collectAsState()"))
+        assertTrue(homeScreenSource.contains("val unfilteredCalendarUiState by viewModel.unfilteredCalendarUiState.collectAsStateWithLifecycle()"))
         assertTrue(homeScreenSource.contains("resolveHomeEmptyStateKind(unfilteredCalendarUiState.isEmpty())"))
     }
 

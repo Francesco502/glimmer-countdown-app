@@ -4,7 +4,7 @@ import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
@@ -44,7 +44,7 @@ fun rememberSongSoundscape(): SongSoundController {
     if (app == null) {
         return remember { SongSoundController(enabled = false) }
     }
-    val enabled by app.userPrefs.songSoundEnabledFlow.collectAsState(initial = false)
+    val enabled by app.userPrefs.songSoundEnabledFlow.collectAsStateWithLifecycle(initialValue = false)
     return remember(enabled) {
         SongSoundController(enabled)
     }

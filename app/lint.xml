@@ -1,7 +1,15 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <lint>
-    <!-- Dependency upgrades are reviewed outside the 3.13 release gate. -->
+    <!-- Dependency upgrades are reviewed outside the scheduled release gate. -->
     <issue id="AndroidGradlePluginVersion" severity="ignore" />
     <issue id="GradleDependency" severity="ignore" />
     <issue id="NewerVersionAvailable" severity="ignore" />
+
+    <!--
+      Compose 1.10 的 lint 新增了 LocalContextGetResourceValueCall：在组合中通过
+      `LocalContext.current.getString(...)` 读取本地化文字，配置变化时可能拿到旧资源。
+      当前实现大量在事件回调里读取文案（回调不是 @Composable，不能用 stringResource），
+      4.3.0 先降级为 warning 并保留在报告里；后续把这些回调改为「组合期取字符串、回调只用值」。
+    -->
+    <issue id="LocalContextGetResourceValueCall" severity="warning" />
 </lint>

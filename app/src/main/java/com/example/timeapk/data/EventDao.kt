@@ -36,6 +36,64 @@ interface EventDao {
     @Update
     suspend fun updateEvent(event: Event)
 
+    /**
+     * Writes only the fields a user can edit. Schedule-sync bookkeeping is owned by background
+     * workers (and their compare-and-set query), so saving an edit must never roll it back.
+     * Returns the number of updated rows (0 means the event no longer exists).
+     */
+    @Query(
+        """
+        UPDATE events SET
+            title = :title,
+            date = :date,
+            category = :category,
+            note = :note,
+            colorHex = :colorHex,
+            repeatType = :repeatType,
+            remindDaysBefore = :remindDaysBefore,
+            reminderTimeMinutesOfDay = :reminderTimeMinutesOfDay,
+            remindEnabled = :remindEnabled,
+            syncToScheduleEnabled = :syncToScheduleEnabled,
+            isLunar = :isLunar,
+            imagePath = :imagePath
+        WHERE id = :id
+        """
+    )
+    suspend fun updateEventUserFields(
+        id: Int,
+        title: String,
+        date: Long,
+        category: String,
+        note: String,
+        colorHex: String?,
+        repeatType: String,
+        remindDaysBefore: Int,
+        reminderTimeMinutesOfDay: Int,
+        remindEnabled: Boolean,
+        syncToScheduleEnabled: Boolean,
+        isLunar: Boolean,
+        imagePath: String?
+    ): Int
+
+    /** Writes only calendar-sync bookkeeping; used after a foreground save completes side effects. */
+    @Query(
+        """
+        UPDATE events SET
+            scheduleEventId = :scheduleEventId,
+            targetCalendarId = :targetCalendarId,
+            lastScheduleSyncAt = :lastScheduleSyncAt,
+            lastScheduleSyncError = :lastScheduleSyncError
+        WHERE id = :id
+        """
+    )
+    suspend fun updateEventScheduleFields(
+        id: Int,
+        scheduleEventId: Long?,
+        targetCalendarId: Long?,
+        lastScheduleSyncAt: Long?,
+        lastScheduleSyncError: String?
+    ): Int
+
     @Query(
         """
         UPDATE events SET

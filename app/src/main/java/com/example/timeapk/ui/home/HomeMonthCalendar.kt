@@ -19,6 +19,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
@@ -77,7 +78,7 @@ internal fun MonthCalendarView(
     var showMonthPicker by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
-    val locale = context.resources.configuration.locales[0]
+    val locale = LocalConfiguration.current.locales[0]
     val showLunarInCells = locale.language != "en"
     val monthPattern = stringResource(R.string.calendar_month_title_pattern)
     val selectedDatePattern = stringResource(R.string.calendar_selected_date_pattern)
@@ -349,7 +350,7 @@ private fun CalendarOccurrenceRow(
     onEventLongClick: ((Int) -> Unit)?
 ) {
     val context = LocalContext.current
-    val locale = context.resources.configuration.locales[0]
+    val locale = LocalConfiguration.current.locales[0]
     val selectedDatePattern = stringResource(R.string.calendar_selected_date_pattern)
     val rowDateFormatter = remember(selectedDatePattern, locale) {
         DateTimeFormatter.ofPattern(selectedDatePattern, locale)

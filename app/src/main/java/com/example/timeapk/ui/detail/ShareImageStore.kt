@@ -19,6 +19,7 @@ import kotlinx.coroutines.CancellationException
 object ShareImageStore {
     private const val MIME_TYPE_PNG = "image/png"
     private const val SHARE_DIR = "share/"
+    private const val CACHE_TTL_MS = 24L * 60 * 60 * 1000
 
     fun cacheShareImage(
         context: Context,
@@ -26,6 +27,7 @@ object ShareImageStore {
         displayName: String
     ): Uri {
         val shareDir = File(context.cacheDir, SHARE_DIR).apply { mkdirs() }
+        trimCache(shareDir)
         val imageFile = File.createTempFile(displayName.removeSuffix(".png") + "-", ".png", shareDir)
         try {
             FileOutputStream(imageFile).use { output ->
@@ -39,6 +41,16 @@ object ShareImageStore {
         } catch (error: Exception) {
             imageFile.delete()
             throw error
+        }
+    }
+
+    /** Drops share images older than a day; these are cache files handed to other apps. */
+    private fun trimCache(shareDir: File) {
+        val cutoff = System.currentTimeMillis() - CACHE_TTL_MS
+        shareDir.listFiles()?.forEach { file ->
+            if (file.isFile && file.lastModified() < cutoff) {
+                file.delete()
+            }
         }
     }
 
@@ -67,8 +79,7 @@ object ShareImageStore {
         context.startActivity(Intent.createChooser(sendIntent, chooserTitle))
     }
 
-    fun shareImageName(title: String): String {
-        val safeTitle = title
+    fun shareImageName(title: String): String {        val safeTitle = title
             .replace(Regex("[^A-Za-z0-9\\u4e00-\\u9fa5_-]+"), "-")
             .trim('-')
             .take(28)

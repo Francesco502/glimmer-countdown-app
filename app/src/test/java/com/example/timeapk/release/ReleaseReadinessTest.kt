@@ -38,20 +38,20 @@ class ReleaseReadinessTest {
     }
 
     @Test
-    fun versionConfigTargets424Development() {
+    fun versionConfigTargets430Development() {
         val properties = Properties().apply {
             rootGradlePropertiesFile().inputStream().use(::load)
         }
 
-        assertEquals("29", properties.getProperty("VERSION_CODE"))
-        assertEquals("4.2.4", properties.getProperty("VERSION_NAME"))
+        assertEquals("30", properties.getProperty("VERSION_CODE"))
+        assertEquals("4.3.0", properties.getProperty("VERSION_NAME"))
 
         val buildFile = appBuildGradleFile().readText(Charsets.UTF_8)
-        assertTrue(buildFile.contains("versionCode = versionCodeOverride ?: 29"))
-        assertTrue(buildFile.contains("versionName = versionNameOverride ?: \"4.2.4\""))
-        assertTrue(buildFile.contains("val versionNameForApk = versionNameOverride ?: \"4.2.4\""))
+        assertTrue(buildFile.contains("versionCode = versionCodeOverride ?: 30"))
+        assertTrue(buildFile.contains("versionName = versionNameOverride ?: \"4.3.0\""))
+        assertTrue(buildFile.contains("val versionNameForApk = versionNameOverride ?: \"4.3.0\""))
         assertTrue(buildFile.contains("applicationIdSuffix = \".play\""))
-        assertFalse("Play must keep the shared 4.2.4 versionName", buildFile.contains("versionNameSuffix"))
+        assertFalse("Play must keep the shared 4.3.0 versionName", buildFile.contains("versionNameSuffix"))
     }
 
     @Test
@@ -123,7 +123,7 @@ class ReleaseReadinessTest {
     }
 
     @Test
-    fun releaseDocsDeclare424IdentityAndRecognizedPublicationStage() {
+    fun releaseDocsDeclare430IdentityAndRecognizedPublicationStage() {
         val readme = existingFile("README.md", "../README.md").readText(Charsets.UTF_8)
         val changelog = existingFile("CHANGELOG.md", "../CHANGELOG.md").readText(Charsets.UTF_8)
         val checklist = existingFile(
@@ -143,25 +143,25 @@ class ReleaseReadinessTest {
         val publicationState = Regex("发布状态：([^*\\r\\n]+)").find(checklist)
             ?.groupValues?.get(1)?.trim()
         assertTrue(publicationState in setOf("候选 / 未发布", "已发布"))
-        val published = publicationState == "已发布"
-        val latestPublicVersion = if (published) "4.2.4" else "4.2.3"
+        // 4.2.4 stays the latest public release until 4.3.0 is actually published.
+        val latestPublicVersion = "4.2.4"
 
-        assertTrue(readme.contains("拾光（Glimmer）4.2.4"))
+        assertTrue(readme.contains("拾光（Glimmer）4.3.0"))
         assertTrue(readme.contains("最新公开版本为 `$latestPublicVersion`"))
         assertTrue(readme.contains("releases/tag/v$latestPublicVersion"))
         assertTrue(changelog.contains("## [4.0] - 2026-07-20"))
         assertTrue(changelog.contains("## [4.1] - 2026-10-10"))
         // The tag commit carries the release date; the publisher takes notes from this section.
-        assertTrue(Regex("(?m)^## \\[4\\.2\\.4\\] - \\d{4}-\\d{2}-\\d{2}\\r?$").containsMatchIn(changelog))
-        assertTrue(checklist.contains("# 发布检查清单（v4.2.4）"))
+        assertTrue(Regex("(?m)^## \\[4\\.3\\.0\\] - \\d{4}-\\d{2}-\\d{2}\\r?$").containsMatchIn(changelog))
+        assertTrue(checklist.contains("# 发布检查清单（v4.3.0）"))
         listOf(readme, githubGuide, releaseGuide).forEach { document ->
             assertFalse(document.contains("最新公开版本仍为 3.17"))
             assertFalse(document.contains("4.0 尚未发布"))
         }
-        assertTrue(combined.contains("versionCode=29"))
-        assertFalse(githubGuide.contains("4.2.4-play"))
-        assertFalse(releaseGuide.contains("4.2.4-play"))
-        assertTrue(combined.contains("glimmer-countdown-4-2-4.apk"))
+        assertTrue(combined.contains("versionCode=30"))
+        assertFalse(githubGuide.contains("4.3.0-play"))
+        assertFalse(releaseGuide.contains("4.3.0-play"))
+        assertTrue(combined.contains("glimmer-countdown-4-3-0.apk"))
         assertTrue(combined.contains("预览宽度 / 预览高度"))
         assertTrue(combined.contains("无可写系统日历"))
         assertFalse(combined.contains("小组件 2x2、3x3、4x2 模板"))
@@ -251,7 +251,7 @@ class ReleaseReadinessTest {
     }
 
     @Test
-    fun v424OfficialReleaseContractIsGithubOnlyWithDirectApkAndFreshScreenshots() {
+    fun v430OfficialReleaseContractIsGithubOnlyWithDirectApkAndFreshScreenshots() {
         val readme = existingFile("README.md", "../README.md").readText(Charsets.UTF_8)
         val changelog = existingFile("CHANGELOG.md", "../CHANGELOG.md").readText(Charsets.UTF_8)
         val checklist = existingFile(
@@ -269,7 +269,7 @@ class ReleaseReadinessTest {
 
         listOf(readme, checklist, githubGuide, releaseGuide).forEach { document ->
             assertTrue(document.contains("唯一正式发布渠道：GitHub Release"))
-            assertTrue(document.contains("glimmer-countdown-4-2-4.apk"))
+            assertTrue(document.contains("glimmer-countdown-4-3-0.apk"))
             assertTrue(document.contains("Play flavor 仅保留用于兼容性与开发回归"))
         }
         assertTrue(checklist.contains("历史记录（非发布门）"))
@@ -285,7 +285,7 @@ class ReleaseReadinessTest {
         assertFalse(finalActions.contains("Play Console"))
         assertFalse(finalActions.contains("Play AAB"))
         assertFalse(finalActions.contains("Play 渠道"))
-        assertTrue(finalActions.contains("Release 仅含 `glimmer-countdown-4-2-4.apk`"))
+        assertTrue(finalActions.contains("Release 仅含 `glimmer-countdown-4-3-0.apk`"))
 
         listOf(readme, githubGuide, releaseGuide).forEach { officialGuide ->
             assertFalse(officialGuide.contains("Play Console"))
@@ -311,7 +311,7 @@ class ReleaseReadinessTest {
         assertTrue(checklist.contains("releases/v4.0-checklist.md"))
         assertTrue(checklist.contains("旧测试、旧截图和旧真机豁免均不延续到本版"))
         assertTrue(checklist.contains("未知、未执行和失败不能勾选"))
-        assertTrue(checklist.contains("4.2.4 变更要求对照表"))
+        assertTrue(checklist.contains("4.3.0 变更要求对照表"))
         assertTrue(checklist.contains("源码 revision"))
         assertTrue(checklist.contains("APK 文件和设备安装包须互相对应"))
         assertTrue(checklist.contains("3b7cb426a82664f891c69511cc2505b67128c8503664639f297291da4ea903ca"))
@@ -473,7 +473,7 @@ class ReleaseReadinessTest {
             assertTrue(sourceFile.path, source.contains("FONT_PRESET_NOTO_SERIF_SC"))
             assertTrue(
                 sourceFile.path,
-                source.contains("fontPresetFlow.collectAsState(initial = FONT_PRESET_NOTO_SERIF_SC)")
+                source.contains("fontPresetFlow.collectAsStateWithLifecycle(initialValue = FONT_PRESET_NOTO_SERIF_SC)")
             )
             assertFalse(sourceFile.path, source.contains("fontPresetFlow.collectAsState(initial = 0)"))
         }
@@ -615,7 +615,7 @@ class ReleaseReadinessTest {
 
         val cloudBackup = singleDirectChild(modernRoot, "cloud-backup")
         val deviceTransfer = singleDirectChild(modernRoot, "device-transfer")
-        assertEquals("false", cloudBackup.getAttribute("disableIfNoEncryptionCapabilities"))
+        assertEquals("true", cloudBackup.getAttribute("disableIfNoEncryptionCapabilities"))
         assertEquals(expectedIncludes, directIncludes(cloudBackup))
         assertEquals(expectedIncludes, directIncludes(deviceTransfer))
     }

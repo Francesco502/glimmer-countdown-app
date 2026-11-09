@@ -21,7 +21,7 @@ class SongUiSourceConsistencyTest {
     fun homeDisplayModes_useLightweightSongTabs() {
         val homeSource = readSource("ui/home/HomeScreen.kt")
         val componentSource = readSource("ui/theme/SongComponents.kt")
-        val displayModeBlock = homeSource.substringAfter("private fun HomeDisplayModeSegmentedControl")
+        val displayModeBlock = homeSource.substringAfter("internal fun HomeDisplayModeSegmentedControl")
             .substringBefore("@Composable\nprivate fun InlineActionIconButton")
 
         assertTrue(displayModeBlock.contains("SongModeTabRow("))
@@ -42,11 +42,11 @@ class SongUiSourceConsistencyTest {
     @Test
     fun homeSearchClearActionHasAccessibleTargetAndDedicatedLabel() {
         val source = readSource("ui/home/HomeScreen.kt")
-        val search = source.substringAfter("private fun HomeSearchField(")
+        val search = source.substringAfter("internal fun HomeSearchField(")
             .substringBefore("private data class TimelineActionTileSpec")
 
         assertTrue(search.contains(".size(48.dp)"))
-        assertTrue(search.contains(".height(48.dp)"))
+        assertTrue(search.contains(".heightIn(min = 48.dp)"))
         assertTrue(search.contains(".padding(horizontal = 10.dp)"))
         assertTrue(search.contains("contentDescription = stringResource(R.string.cd_clear_search)"))
         assertFalse(search.contains("contentDescription = stringResource(R.string.date_picker_cancel)"))
@@ -219,8 +219,8 @@ class SongUiSourceConsistencyTest {
         val source = readSource("ui/home/HomeScreen.kt")
         val actionsBlock = source.substringAfter("actions = {")
             .substringBefore("colors = TopAppBarDefaults")
-        val menuBlock = source.substringAfter("private fun HomeOverflowPanel(")
-            .substringBefore("@Composable\nprivate fun HomeSearchField")
+        val menuBlock = source.substringAfter("internal fun HomeOverflowPanel(")
+            .substringBefore("@Composable\ninternal fun HomeSearchField")
 
         assertTrue(actionsBlock.contains("InlineActionIconButton("))
         assertTrue(actionsBlock.contains("icon = SongLineIconKind.Search"))
@@ -287,8 +287,8 @@ class SongUiSourceConsistencyTest {
     @Test
     fun homeOverflowUsesPaperSlipInsteadOfSystemDropdownMenu() {
         val source = readSource("ui/home/HomeScreen.kt")
-        val menuBlock = source.substringAfter("private fun HomeOverflowPanel(")
-            .substringBefore("@Composable\nprivate fun HomeSearchField")
+        val menuBlock = source.substringAfter("internal fun HomeOverflowPanel(")
+            .substringBefore("@Composable\ninternal fun HomeSearchField")
         val slipBlock = source.substringAfter("private fun SongActionSlip(")
             .substringBefore("@Composable\nprivate fun SongActionSlipFoldDecoration")
 
@@ -422,8 +422,8 @@ class SongUiSourceConsistencyTest {
         val iconSource = readSource("ui/theme/SongLineIcons.kt")
         val actionsBlock = homeSource.substringAfter("actions = {")
             .substringBefore("colors = TopAppBarDefaults")
-        val overflowBlock = homeSource.substringAfter("private fun HomeOverflowActionMenu(")
-            .substringBefore("@Composable\nprivate fun HomeOverflowPanel")
+        val overflowBlock = homeSource.substringAfter("internal fun HomeOverflowActionMenu(")
+            .substringBefore("@Composable\ninternal fun HomeOverflowPanel")
         val inlineButtonBlock = homeSource.substringAfter("fun InlineActionIconButton(")
             .substringBefore("@Composable\nprivate fun EmptyState")
 

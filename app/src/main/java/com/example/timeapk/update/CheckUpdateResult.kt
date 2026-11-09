@@ -22,5 +22,7 @@ data class CheckUpdateResult(
     val errorMessage: String? = null,
     val failureKind: UpdateFailureKind? = null,
     /** Human-facing release page (GitHub `html_url`), opened by "open in browser". */
-    val releasePageUrl: String? = null
+    val releasePageUrl: String? = null,
+    /** Expected SHA-256 of the APK asset (lowercase hex) when the release API provides one. */
+    val sha256: String? = null
 )

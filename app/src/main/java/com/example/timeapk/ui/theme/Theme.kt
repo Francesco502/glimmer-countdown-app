@@ -11,11 +11,7 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
-import androidx.compose.material.ripple.LocalRippleTheme
-import androidx.compose.material.ripple.RippleAlpha
-import androidx.compose.material.ripple.RippleTheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
@@ -94,19 +90,6 @@ private fun applyStatusBarStyle(
         isAppearanceLightStatusBars = darkIcons
         isAppearanceLightNavigationBars = darkIcons
     }
-}
-
-private object SongRippleTheme : RippleTheme {
-    @Composable
-    override fun defaultColor(): Color = MaterialTheme.colorScheme.onSurface
-
-    @Composable
-    override fun rippleAlpha(): RippleAlpha = RippleAlpha(
-        pressedAlpha = SongDesignTokens.RippleAlpha,
-        focusedAlpha = SongDesignTokens.RippleAlpha,
-        draggedAlpha = SongDesignTokens.RippleAlpha * 1.2f,
-        hoveredAlpha = SongDesignTokens.RippleAlpha * 0.6f
-    )
 }
 
 @Composable
@@ -201,9 +184,8 @@ fun TimeAPKTheme(
         typography = typographyForFontPreset(fontPreset, baseFontScale),
         shapes = songShapes
     ) {
-        CompositionLocalProvider(
-            LocalRippleTheme provides SongRippleTheme,
-            content = content
-        )
+        // Compose 1.10: RippleTheme/LocalRippleTheme were removed in favour of the new
+        // indication API; Material3 defaults now provide the press feedback.
+        content()
     }
 }

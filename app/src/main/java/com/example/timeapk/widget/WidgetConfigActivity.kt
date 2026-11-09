@@ -2,6 +2,7 @@ package com.example.timeapk.widget
 
 import android.app.Activity
 import android.appwidget.AppWidgetManager
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -27,7 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,6 +48,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.example.timeapk.R
 import com.example.timeapk.TimeApplication
+import com.example.timeapk.LocalePreferenceMirror
+import com.example.timeapk.LocaleUtils
+import com.example.timeapk.data.LANG_ZH
 import com.example.timeapk.ui.settings.WidgetConfigEditor
 import com.example.timeapk.ui.theme.FONT_PRESET_NOTO_SERIF_SC
 import com.example.timeapk.ui.theme.SongLineIcon
@@ -55,6 +59,11 @@ import com.example.timeapk.ui.theme.TimeAPKTheme
 import kotlinx.coroutines.launch
 
 class WidgetConfigActivity : ComponentActivity() {
+    override fun attachBaseContext(newBase: Context) {
+        val mode = LocalePreferenceMirror.read(newBase) ?: LANG_ZH
+        super.attachBaseContext(LocaleUtils.wrapContext(newBase, mode))
+    }
+
     private val appWidgetId: Int
         get() = intent?.getIntExtra(
             AppWidgetManager.EXTRA_APPWIDGET_ID,
@@ -72,13 +81,13 @@ class WidgetConfigActivity : ComponentActivity() {
         setContent {
             val app = applicationContext as TimeApplication
             val prefs = app.userPrefs
-            val themeMode by prefs.themeModeFlow.collectAsState(initial = 0)
-            val customBackgroundHex by prefs.customBackgroundHexFlow.collectAsState(initial = null)
-            val customSurfaceHex by prefs.customSurfaceHexFlow.collectAsState(initial = null)
-            val customPrimaryHex by prefs.customPrimaryHexFlow.collectAsState(initial = null)
-            val customOnBackgroundHex by prefs.customOnBackgroundHexFlow.collectAsState(initial = null)
-            val fontPreset by prefs.fontPresetFlow.collectAsState(initial = FONT_PRESET_NOTO_SERIF_SC)
-            val appBaseFontScale by prefs.appBaseFontScaleFlow.collectAsState(initial = 1f)
+            val themeMode by prefs.themeModeFlow.collectAsStateWithLifecycle(initialValue = 0)
+            val customBackgroundHex by prefs.customBackgroundHexFlow.collectAsStateWithLifecycle(initialValue = null)
+            val customSurfaceHex by prefs.customSurfaceHexFlow.collectAsStateWithLifecycle(initialValue = null)
+            val customPrimaryHex by prefs.customPrimaryHexFlow.collectAsStateWithLifecycle(initialValue = null)
+            val customOnBackgroundHex by prefs.customOnBackgroundHexFlow.collectAsStateWithLifecycle(initialValue = null)
+            val fontPreset by prefs.fontPresetFlow.collectAsStateWithLifecycle(initialValue = FONT_PRESET_NOTO_SERIF_SC)
+            val appBaseFontScale by prefs.appBaseFontScaleFlow.collectAsStateWithLifecycle(initialValue = 1f)
 
             TimeAPKTheme(
                 themeMode = themeMode,
@@ -164,7 +173,7 @@ internal fun WidgetConfigRoute(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.Transparent,
                     titleContentColor = MaterialTheme.colorScheme.onBackground,
                     navigationIconContentColor = MaterialTheme.colorScheme.onBackground

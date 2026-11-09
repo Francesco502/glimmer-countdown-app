@@ -13,7 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.rememberCoroutineScope
 import com.example.timeapk.data.CATEGORY_ANNIVERSARY
 import com.example.timeapk.data.CATEGORY_BIRTHDAY
@@ -23,11 +23,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
@@ -117,14 +119,14 @@ fun DetailScreen(
     showBackButton: Boolean = true
 ) {
     val context = LocalContext.current
-    val locale = context.resources.configuration.locales[0]
+    val locale = LocalConfiguration.current.locales[0]
     val prefs = (context.applicationContext as TimeApplication).userPrefs
     val scope = rememberCoroutineScope()
-    val showMilestone by prefs.showMilestoneFlow.collectAsState(initial = true)
-    val dateFormatMode by prefs.dateFormatModeFlow.collectAsState(initial = 0)
-    val dateDeltaDisplayMode by prefs.dateDeltaDisplayModeFlow.collectAsState(initial = 0)
-    val perEventDateDeltaModes by prefs.perEventDateDeltaDisplayModesFlow.collectAsState(initial = emptyMap())
-    val pinnedEventIds by prefs.pinnedEventIdsFlow.collectAsState(initial = emptyList())
+    val showMilestone by prefs.showMilestoneFlow.collectAsStateWithLifecycle(initialValue = true)
+    val dateFormatMode by prefs.dateFormatModeFlow.collectAsStateWithLifecycle(initialValue = 0)
+    val dateDeltaDisplayMode by prefs.dateDeltaDisplayModeFlow.collectAsStateWithLifecycle(initialValue = 0)
+    val perEventDateDeltaModes by prefs.perEventDateDeltaDisplayModesFlow.collectAsStateWithLifecycle(initialValue = emptyMap())
+    val pinnedEventIds by prefs.pinnedEventIdsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
     val dateFormatter = remember(dateFormatMode) { getDisplayDateFormatter(dateFormatMode) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var isDeleteInProgress by remember { mutableStateOf(false) }
@@ -196,7 +198,9 @@ fun DetailScreen(
         fallback = MaterialTheme.colorScheme.primary
     )
     
-    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+    // Use the resolved theme background, not the system night flag: the user can force
+    // light/dark independently of the system setting in 设置 → 主题与动效.
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     val detailCardColor = androidx.compose.ui.graphics.lerp(
         MaterialTheme.colorScheme.surface,
         detailBaseColor,

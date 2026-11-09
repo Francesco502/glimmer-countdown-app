@@ -2,7 +2,9 @@ package com.example.timeapk.update
 
 internal data class ReleaseAsset(
     val name: String,
-    val downloadUrl: String
+    val downloadUrl: String,
+    /** GitHub asset digest, e.g. "sha256:5aa396a3…"; null for older API responses. */
+    val digest: String? = null
 )
 
 private val RELEASE_VERSION_PATTERN = Regex("^\\d+(?:\\.\\d+)*$")
@@ -43,5 +45,18 @@ private fun selectDirectApkAssetNamed(
     assets: List<ReleaseAsset>
 ): ReleaseAsset? {
     val exactMatches = assets.filter { it.name == expectedName }
-    return exactMatches.singleOrNull()?.takeIf { it.downloadUrl.isNotBlank() }
+    return exactMatches.singleOrNull()?.takeIf { isTrustedAssetUrl(it.downloadUrl) }
+}
+
+/** The updater only accepts the exact GitHub release-download origin it publishes to. */
+internal fun isTrustedAssetUrl(url: String): Boolean =
+    url.startsWith("https://github.com/", ignoreCase = true) &&
+        url.substringBefore('?').endsWith(".apk", ignoreCase = true)
+
+/** Extracts the hex part of a GitHub `digest` field ("sha256:<hex>"). */
+internal fun parseSha256Digest(digest: String?): String? {
+    val value = digest?.trim().orEmpty()
+    if (!value.startsWith("sha256:", ignoreCase = true)) return null
+    val hex = value.substringAfter(':').trim().lowercase()
+    return hex.takeIf { it.length == 64 && it.all { ch -> ch in "0123456789abcdef" } }
 }
