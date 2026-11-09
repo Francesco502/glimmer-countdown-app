@@ -231,7 +231,7 @@ dependencies {    implementation("androidx.core:core-ktx:1.17.0")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.navigation:navigation-compose:2.9.8")
 
-    val roomVersion = "2.8.5"
+    val roomVersion = "2.8.4"
     implementation("androidx.room:room-runtime:$roomVersion")
     implementation("androidx.room:room-ktx:$roomVersion")
     ksp("androidx.room:room-compiler:$roomVersion")
@@ -255,14 +255,4 @@ dependencies {    implementation("androidx.core:core-ktx:1.17.0")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
-}
-
-// Room 2.8.5's room-testing is compiled against kotlinx-serialization 1.8.1, but AGP's
-// consistent resolution pins the androidTest runtime to the app runtime's 1.7.3 (pulled in by
-// lifecycle). Force the newer, binary-compatible version for device tests only.
-configurations.matching { it.name.contains("AndroidTest") }.configureEach {
-    resolutionStrategy.force(
-        "org.jetbrains.kotlinx:kotlinx-serialization-core:1.8.1",
-        "org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1"
-    )
 }
