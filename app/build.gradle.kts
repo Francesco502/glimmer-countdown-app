@@ -1,4 +1,4 @@
-﻿import java.io.File
+import java.io.File
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.util.Properties
@@ -220,8 +220,7 @@ tasks.matching { it.name == "assembleDirectRelease" }.configureEach {
     finalizedBy(renameDirectReleaseApk)
 }
 
-dependencies {
-    implementation("androidx.core:core-ktx:1.17.0")
+dependencies {    implementation("androidx.core:core-ktx:1.17.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.10.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.10.0")
     implementation("androidx.activity:activity-compose:1.12.4")
@@ -243,7 +242,9 @@ dependencies {
     implementation("androidx.profileinstaller:profileinstaller:1.4.1")
     implementation("com.squareup.okhttp3:okhttp:5.3.2")
     implementation("cn.6tail:lunar:1.7.7")
-    implementation("org.burnoutcrew.composereorderable:reorderable:0.9.6")
+    // Vendored from org.burnoutcrew.composereorderable:reorderable:0.9.6 (Apache-2.0) and patched
+    // for Compose 1.10, which removed LazyItemScope.animateItemPlacement; see
+    // docs/licenses/COMPOSE-REORDERABLE-NOTICE.md and app/src/main/java/org/burnoutcrew/reorderable.
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20260522")
@@ -254,4 +255,14 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+}
+
+// Room 2.8.5's room-testing is compiled against kotlinx-serialization 1.8.1, but AGP's
+// consistent resolution pins the androidTest runtime to the app runtime's 1.7.3 (pulled in by
+// lifecycle). Force the newer, binary-compatible version for device tests only.
+configurations.matching { it.name.contains("AndroidTest") }.configureEach {
+    resolutionStrategy.force(
+        "org.jetbrains.kotlinx:kotlinx-serialization-core:1.8.1",
+        "org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1"
+    )
 }
