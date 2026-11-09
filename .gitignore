@@ -39,3 +39,10 @@ StartupProfileData-*
 .gradle-user-home/
 .tmp/
 docs/superpowers/
+
+# Python (uv)
+.venv/
+*.pyc
+.python-version
+pyproject.toml
+uv.lock
