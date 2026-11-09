@@ -231,7 +231,7 @@ dependencies {    implementation("androidx.core:core-ktx:1.17.0")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.navigation:navigation-compose:2.9.8")
 
-    val roomVersion = "2.8.4"
+    val roomVersion = "2.8.5"
     implementation("androidx.room:room-runtime:$roomVersion")
     implementation("androidx.room:room-ktx:$roomVersion")
     ksp("androidx.room:room-compiler:$roomVersion")
@@ -240,6 +240,10 @@ dependencies {    implementation("androidx.core:core-ktx:1.17.0")
     implementation("androidx.exifinterface:exifinterface:1.4.2")
     implementation("androidx.datastore:datastore-preferences:1.2.1")
     implementation("androidx.profileinstaller:profileinstaller:1.4.1")
+    // lifecycle 2.10 and room-testing 2.8.5 must agree on one serialization runtime in both the
+    // app and the instrumentation APK; app runtime wins under AGP consistent resolution.
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.8.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
     implementation("com.squareup.okhttp3:okhttp:5.3.2")
     implementation("cn.6tail:lunar:1.7.7")
     // Vendored from org.burnoutcrew.composereorderable:reorderable:0.9.6 (Apache-2.0) and patched
