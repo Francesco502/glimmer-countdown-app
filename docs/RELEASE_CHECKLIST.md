@@ -1,66 +1,59 @@
-# 发布检查清单（v4.3.0）
+# 发布检查清单（v4.3.1）
 
-**版本**：`4.3.0`（`versionCode=30`） **文档日期**：2026-11-09 **发布状态：已发布**
+**版本**：`4.3.1`（`versionCode=31`） **文档日期**：2026-11-11 **发布状态：候选 / 未发布**
 
 所有通过结果必须来自本版新鲜执行，并绑定源码 revision、构建、设备和原始报告。未知、未执行和失败不能勾选；APK 文件和设备安装包须互相对应。旧测试、旧截图和旧真机豁免均不延续到本版。
 
-**唯一正式发布渠道：GitHub Release。** 唯一官方资产为 Direct APK `glimmer-countdown-4-3-0.apk`。Play flavor 仅保留用于兼容性与开发回归。
+**唯一正式发布渠道：GitHub Release。** 唯一官方资产为 Direct APK `glimmer-countdown-4-3-1.apk`。Play flavor 仅保留用于兼容性与开发回归。
 
 ## 一、源码与构建
 
-- [x] 版本更新为 4.3.0 / 30；升级验证脚本固定公开 4.2.4 / 29 的正式 APK 哈希与大小。
-- [x] Direct / Play 单元测试通过（各 677 项），零失败、零错误、零跳过；两渠道设备测试编译通过。
-- [x] Direct Debug、Direct Release、Play Release lint 零错误；release vital 分析通过。
-- [x] Python 测试 5/5 与 publisher 隔离 mock 全通过（CI `42600050583` 的对应步骤）。
-- [x] 最终标签对应提交的 CI：API26/31/36 native、运行时 smoke、双渠道 JVM、lint 及 R8 构建（run `42600050583`，三条矩阵全部 success）。
-- [x] 本轮过程记录写入 `docs/releases/v4.3.0-development.md`；本地候选与最终标签构建分开记录。
+- [ ] 版本更新为 4.3.1 / 31；升级验证脚本固定公开 4.3.0 / 30 的正式 APK 哈希与大小。
+- [ ] Direct / Play 单元测试通过，零失败、零错误、零跳过；两渠道设备测试编译通过。
+- [ ] Direct Debug、Direct Release、Play Release lint 零错误；release vital 分析通过。
+- [ ] Python 测试与 publisher 隔离 mock 全通过，未访问真实发布 API。
+- [ ] 最终标签对应提交的 CI：API26/31/36 native、运行时 smoke、双渠道 JVM、lint 及 R8 构建。
+- [ ] 本轮过程记录写入 `docs/releases/v4.3.1-development.md`，本地候选不冒充最终标签 CI 通过。
 
-## 二、4.3.0 变更要求对照表
+## 二、4.3.1 变更要求对照表
 
 | 变更 | 自动回归 | 真机 / Launcher 验收 |
 |---|---|---|
-| 小组件跨天刷新（精确闹钟优先、单事件纳入 goAsync、前台补刷） | 刷新生命周期与源码契约测试 | 待检查：夜间跨天后桌面数字与空态 |
-| 自更新 SHA-256 校验与 GitHub 域名白名单 | 下载校验、摘要解析与失败分支单测 | 待检查：真实 Release 覆盖安装 |
-| 安装可靠性（应用级作用域、后台转前台安装） | 状态流与失败提示测试 | 待检查：下载中切后台再回来 |
-| JSON 导出提示不含配图 | i18n 与界面契约 | 待检查：导出/导入页文案 |
-| 详情页主题、卡片无障碍动作、浮层语义隔离 | 主题与语义源码契约 | 待检查：TalkBack 与强制深浅色 |
-| 编辑保存只写用户列、0 行失败提示 | 保存路径单测 | 待检查：编辑期间后台同步后保存 |
-| DataStore 损坏回退、导入事务、备份加密、孤儿图片回收 | JVM 单测 + 迁移测试 | 待检查：系统备份恢复与 24h 清理 |
-| Compose 1.10 / Material3 1.4 / AndroidX 升级 | 全量单测 + lint + R8 | 待检查：首页、月历、详情、设置全流程 |
-| Room v12 索引迁移 | MigrationTestHelper 11→12 | 待检查：4.2.4 覆盖升级后事件完整 |
-| `collectAsStateWithLifecycle` 与 Baseline Profile | 源码契约 + 构建 | 待检查：冷启动与滚动流畅度 |
+| 图片引用读取失败时重试并终止清理，禁止按空集合删除 | `EventImageRegistryTest.databaseReadFailurePreservesAllCandidates` 与清理路径契约 | 待检查：备份恢复后冷启动观察日志与图片 |
+| 孤儿扫描前强制核对数据库引用（注册表丢失也不误删） | 单元测试 + 代码审查 | 待检查：纯恢复设备上已存事件配图仍显示 |
+| 启动清理增加缓冲与重试，避开数据库初始化竞争 | 仪器测试与 runtime smoke | 待检查：恢复后立即启动、反复启动 |
+| 版本号/发布脚本/QA 脚本同步到 4.3.1 / 31 | JVM 发布契约测试 + Python 测试 | — |
 
 ## 三、正式签名
 
-- [x] 候选包新鲜构建并验签、核对版本、非 debug、16KiB 对齐。
-- [x] 最终标签新鲜构建正式 APK 并独立验签：7,531,815 bytes，SHA-256 `31b37d4a2c7e47be02d6ed29335a79b0a9fb9e893b9dc96d45522d25cef9b6fd`。
+- [ ] 候选包新鲜构建并验签、核对版本、非 debug、16KiB 对齐。
+- [ ] 最终标签新鲜构建正式 APK 并独立验签。
 - 正式证书 SHA-256：`3b7cb426a82664f891c69511cc2505b67128c8503664639f297291da4ea903ca`。
-- [x] 升级标签（v4.3.0）为 annotated、不可移动（tag object `daeac632e30ae8b2f3fed8381a0c64d60541b1fc` → commit `f0b886435fb6881fef9c6cddc7b5f11fc78c7063`）。
+- [ ] 升级标签（v4.3.1）为 annotated、不可移动，发布后不复用旧产物。
 
 ## 四、正式 APK 升级与运行
 
-- [x] API26/31/36 从公开 4.2.4 / 29 覆盖升级：事件、配图、分类、排序、UID/首次安装时间保留（发布后 QA run `42607364389`，三条矩阵 success）。
-- [x] AMS 草稿恢复、编辑保存、分享保存与系统图片选择器在 API36 实际执行（CI run `42600050583` 与 QA run `42607364389`）。
-- [ ] 通知权限与精确提醒开关在 API 33+ 的行为符合预期。
-- [ ] 小组件（列表与单事件）在 API36 Launcher 实际绑定；跨天与深色切换检查。
-- [ ] 物理设备（至少一台）完成：覆盖安装、小组件跨天、换机云备份恢复。
-- [x] 未执行的设备矩阵保持未勾选，不以模拟器结果表述为真机通过。
+- [ ] API26/31/36 从公开 4.3.0 / 30 覆盖升级：事件、配图、分类、排序、UID/首次安装时间保留。
+- [ ] 恢复/升级后已存事件配图仍可显示，清理未删除仍被事件引用的图片。
+- [ ] AMS 草稿恢复、编辑保存、分享保存与系统图片选择器在 API36 实际执行。
+- [ ] 物理设备（至少一台）完成：覆盖安装、反复冷启动、备份恢复观察。
+- [ ] 未执行的设备矩阵保持未勾选，不以模拟器结果表述为真机通过。
 
 ## 五、发布凭据与说明
 
-- [x] 发布说明区分本地检查、设备验收与历史结果；4.2.4 发布证据已归档。
-- [x] 真机检查未执行；发布负责人于 2026-11-09 明确要求“推进直到完成发布”，真机项如实记录为未执行，不记为通过。
-- [x] 发布凭据仅在子进程环境变量中传入，未写入仓库或命令行可见输出。
+- [ ] 发布说明区分本地检查、设备验收与历史结果；4.3.0 发布证据已归档。
+- [ ] 真机检查如未执行，须由发布负责人明确授权并如实记录，不记为通过。
+- [ ] 正式候选 QA 通过后再准备发布凭据，且仅在子进程环境使用。
 
 ## 六、发布动作
 
-- [x] 最终代码与发布准备文档提交，工作区干净；不可变 `v4.3.0` 标签的 HEAD（`f0b8864`）与远端解引用一致。
-- [x] 从最终标签 `--no-build-cache --rerun-tasks` 新鲜构建、验签后运行现有 publisher。
-- [x] Release 仅含 `glimmer-countdown-4-3-0.apk`（Release `439034182`，asset `727191306`），公开正式版本，非 draft / 非 prerelease。
-- [x] 公开匿名下载核对：7,531,815 bytes，digest 与本地一致，证书 `3b7cb426…`，16 KiB 对齐通过。
-- [x] 公开包 API26/31/36 QA 与实际“检查更新”通过（run `42607364389`，三条矩阵 success）。
-- [x] 发布脚本已清理 owned QA draft 与发布锁；无临时 tag 残留。
+- [ ] 最终代码与发布准备文档提交，工作区干净；不可变 `v4.3.1` 标签的 HEAD 与远端解引用一致。
+- [ ] 从最终标签新鲜构建、验签并完成正式包 QA 后运行现有 publisher。
+- [ ] Release 仅含 `glimmer-countdown-4-3-1.apk`，公开正式版本，非 prerelease。
+- [ ] 公开匿名下载核对 size、digest、下载 URL、签名与包身份。
+- [ ] 公开包 API26/31/36 QA 与实际“检查更新”通过。
+- [ ] 核实并删除本轮 owned QA draft，确认临时 tag 与发布锁均不存在。
 
 ## 历史记录（非发布门）
 
-[4.2.4 历史清单](releases/v4.2.4-development.md)、[4.2.3 历史清单](releases/v4.2.3-checklist.md)、[4.2.2 历史清单](releases/v4.2.2-checklist.md)、[4.2.1 历史清单](releases/v4.2.1-checklist.md)、[4.2 历史清单](releases/v4.2-checklist.md)、[4.1 历史清单](releases/v4.1-checklist.md)与[4.0 历史清单](releases/v4.0-checklist.md)仅保留各版证据。
+[4.3.0 记录](releases/v4.3.0-development.md)、[4.2.4 历史清单](releases/v4.2.4-development.md)、[4.2.3 历史清单](releases/v4.2.3-checklist.md)、[4.2.2 历史清单](releases/v4.2.2-checklist.md)、[4.2.1 历史清单](releases/v4.2.1-checklist.md)、[4.2 历史清单](releases/v4.2-checklist.md)、[4.1 历史清单](releases/v4.1-checklist.md)与[4.0 历史清单](releases/v4.0-checklist.md)仅保留各版证据。
