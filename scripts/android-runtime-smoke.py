@@ -22,7 +22,7 @@ import xml.etree.ElementTree as ET
 PACKAGE = "com.example.timeapk"
 COMPONENT = PACKAGE + "/.MainActivity"
 UPGRADE_BASELINE = ("4.2.4", "29")
-UPGRADE_CANDIDATE = ("4.3.0", "30")
+UPGRADE_CANDIDATE = ("4.3.1", "31")
 LABELS = {
     "add": ("Add event", "Record your first event", "添加事件", "记录第一个日期"),
     "new": ("New event", "新建事件"),
@@ -523,7 +523,7 @@ class Smoke:
         identity = package_identity(self.text("shell", "dumpsys", "package", PACKAGE,
                                                destination=self.output / "pages-installed-package.txt"))
         # Both source CI and the current signed-upgrade path must capture 4.3.0.
-        expected = self.evidence.get("package_after") or {"versionName": "4.3.0", "versionCode": "30"}
+        expected = self.evidence.get("package_after") or {"versionName": "4.3.1", "versionCode": "31"}
         if (identity["versionName"], identity["versionCode"]) != (expected["versionName"], expected["versionCode"]):
             raise SmokeFailure("Page capture package does not match the expected build: " + repr(identity))
         self.evidence.update(pages_package=identity, pages_title=title, captured_pages=[],
