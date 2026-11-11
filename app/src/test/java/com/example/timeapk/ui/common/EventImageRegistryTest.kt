@@ -156,4 +156,18 @@ class EventImageRegistryTest {
         assertFalse(store.cleanup { emptySet() })
         assertTrue(outside.exists())
     }
+
+    @Test
+    fun databaseReadFailurePreservesAllCandidates() {
+        val images = temporary.newFolder("images")
+        val image = File(images, imageName).apply { writeText("image") }
+        val metadata = File(temporary.root, "registry")
+        val store = registry(metadata, images)
+        assertTrue(store.registerCandidate(imageName))
+        now += grace
+
+        // Simulate complete database failure. Cleanup must fail safely and not delete anything.
+        assertFalse(store.cleanup { throw RuntimeException("Simulated Database Error") })
+        assertTrue(image.exists())
+    }
 }
