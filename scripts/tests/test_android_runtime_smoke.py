@@ -60,24 +60,24 @@ class ShareMediaCompatibilityTest(unittest.TestCase):
 
 
 class UpgradeVersionTest(unittest.TestCase):
-    def test_upgrade_requires_424_baseline_and_430_candidate(self):
-        self.assertEqual(("4.2.4", "29"), smoke_module.UPGRADE_BASELINE)
-        self.assertEqual(("4.3.0", "30"), smoke_module.UPGRADE_CANDIDATE)
+    def test_upgrade_requires_430_baseline_and_431_candidate(self):
+        self.assertEqual(("4.3.0", "30"), smoke_module.UPGRADE_BASELINE)
+        self.assertEqual(("4.3.1", "31"), smoke_module.UPGRADE_CANDIDATE)
         for expected in (smoke_module.UPGRADE_BASELINE, smoke_module.UPGRADE_CANDIDATE):
             smoke_module.require_version(dict(versionName=expected[0], versionCode=expected[1]), expected)
-        for name, code in (("4.2.3", "28"), ("4.2.4", "29"), ("4.3.0", "29"), ("4.2.4", "30")):
+        for name, code in (("4.2.4", "29"), ("4.3.0", "30"), ("4.3.1", "30"), ("4.3.0", "31")):
             with self.subTest(name=name, code=code), self.assertRaises(smoke_module.SmokeFailure):
                 smoke_module.require_version(dict(versionName=name, versionCode=code), smoke_module.UPGRADE_CANDIDATE)
 
-    def test_workflow_pins_the_published_424_baseline(self):
+    def test_workflow_pins_the_published_430_baseline(self):
         root = Path(__file__).resolve().parents[2]
         workflow = (root / ".github/workflows/android-apk-qa.yml").read_text(encoding="utf-8")
-        evidence = (root / "docs/releases/v4.2.4-development.md").read_text(encoding="utf-8")
-        baseline_sha256 = "5aa396a3028ca1dd75e75d6f847b2017a81520f700d8ea8227135596d7a6ea53"
-        baseline_size = 12_526_321
-        self.assertIn("verify_apk baseline 4.2.4 29", workflow)
-        self.assertIn("verify_apk candidate 4.3.0 30", workflow)
-        self.assertIn("releases/download/v4.2.4/glimmer-countdown-4-2-4.apk", workflow)
+        evidence = (root / "docs/releases/v4.3.0-development.md").read_text(encoding="utf-8")
+        baseline_sha256 = "31b37d4a2c7e47be02d6ed29335a79b0a9fb9e893b9dc96d45522d25cef9b6fd"
+        baseline_size = 7_531_815
+        self.assertIn("verify_apk baseline 4.3.0 30", workflow)
+        self.assertIn("verify_apk candidate 4.3.1 31", workflow)
+        self.assertIn("releases/download/v4.3.0/glimmer-countdown-4-3-0.apk", workflow)
         self.assertIn(baseline_sha256, workflow)
         self.assertIn(str(baseline_size), workflow)
         self.assertIn(baseline_sha256, evidence)

@@ -1,8 +1,8 @@
-# GitHub 提交与发布流程（v4.3.0）
+# GitHub 提交与发布流程（v4.3.1）
 
 本文记录 4.2.4 / versionCode=29 的发布流程。[v4.2.4](https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v4.2.4) 已于 2026-10-22 正式发布，实际结果见 [发布检查清单](RELEASE_CHECKLIST.md)；[v4.2.3 历史清单](releases/v4.2.3-checklist.md)保留上一公开版证据。
 
-**唯一正式发布渠道：GitHub Release。** 唯一官方资产为 Direct APK `glimmer-countdown-4-3-0.apk`。Play flavor 仅保留用于兼容性与开发回归。
+**唯一正式发布渠道：GitHub Release。** 唯一官方资产为 Direct APK `glimmer-countdown-4-3-1.apk`。Play flavor 仅保留用于兼容性与开发回归。
 
 ## 1. 提交、标签与新鲜构建
 
@@ -31,7 +31,7 @@ git push origin v4.2.4
 
 如需复用 CI 构建环境，可使用 CI 未签名构建、本机签名路径：从最终 tag 在 CI 执行 `packageDirectRelease -x validateReleaseSigning`，保留 source-revision、原始 SHA-256 与 `output-metadata.json`；本机先 zipalign，再用正式密钥与原生 apksigner 签名。密码只通过子进程环境输入，密钥、密码及 token 不进入日志。默认 Gradle 签名门保持；未签名工件不得发布。
 
-正式证书 SHA-256 为 `3b7cb426a82664f891c69511cc2505b67128c8503664639f297291da4ea903ca`。签名后用 `aapt` 核对包名 `com.example.timeapk`、4.2.4 / 29、非 debug、Direct 安装权限；zipalign 16KiB 检查通过。发布用 metadata 仅将唯一 artifact 的 outputFile 改为 `glimmer-countdown-4-3-0.apk`。
+正式证书 SHA-256 为 `3b7cb426a82664f891c69511cc2505b67128c8503664639f297291da4ea903ca`。签名后用 `aapt` 核对包名 `com.example.timeapk`、4.2.4 / 29、非 debug、Direct 安装权限；zipalign 16KiB 检查通过。发布用 metadata 仅将唯一 artifact 的 outputFile 改为 `glimmer-countdown-4-3-1.apk`。
 
 本地也可用只读挂载、无网络的容器隔离运行 publisher 状态机；测试使用假 APK 与内存 GitHub API，不读取正式签名或凭据：
 

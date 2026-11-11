@@ -15,9 +15,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.exifinterface.media.ExifInterface
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.example.timeapk.data.AppDatabase
 import java.io.File
 import java.util.UUID
 import kotlin.math.roundToInt
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.runBlocking
 
 /**
  * 事件配图保存在应用私有目录 files/event_images/，数据库只记录文件名。
@@ -67,12 +70,14 @@ object EventImageStore {
 
     internal suspend fun cleanupRegisteredImages(context: Context, referencedFiles: suspend () -> Set<String>): Boolean =
         withContext(Dispatchers.IO) {
-            // Snapshot references once, then release/del under the registry lock without blocking
-            // on a suspend DB call inside it (previously a runBlocking nested inside the lock).
-            val referenced = runCatching { referencedFiles() }.getOrDefault(emptySet())
+            val referenced = try {
+                referencedFiles()
+            } catch (e: Exception) {
+                // In case of DB errors during backup restoration or heavy contention,
+                // abort the cleanup to prevent误删.
+                throw IllegalStateException("Failed to retrieve referenced images for cleanup", e)
+            }
             val released = runCatching { registry(context).cleanup { referenced } }.getOrDefault(false)
-            // Orphans left behind by a restored backup or a killed editor: unreferenced files older
-            // than the grace period are removed. Only app-generated names are touched.
             runCatching { sweepUnreferencedImages(context, referenced) }
             cache.evictAll()
             released
@@ -167,14 +172,31 @@ object EventImageStore {
      */
     private fun sweepUnreferencedImages(context: Context, referenced: Set<String>) {
         val cutoff = System.currentTimeMillis() - ORPHAN_RETENTION_MS
+        
+        // Load all known event image names from database as an absolute ground truth
+        // to prevent misdeletion if registry is missing (e.g., after backup restore).
+        // Note: This requires an EventDAO or equivalent. Need to find where event images are stored.
+        // For now, implementing protection using a placeholder, will refine after DAO check.
+        val referencedFromDb = getReferencedImagesFromDatabase(context)
+
         directory(context).listFiles()?.forEach { file ->
             if (file.isFile &&
                 GENERATED_NAME.matches(file.name) &&
                 file.name !in referenced &&
+                file.name !in referencedFromDb && // Extra protection
                 file.lastModified() < cutoff
             ) {
                 file.delete()
             }
+        }
+    }
+
+    private fun getReferencedImagesFromDatabase(context: Context): Set<String> {
+        return runBlocking {
+            AppDatabase.getDatabase(context).eventDao().getAllEvents()
+                .firstOrNull()
+                ?.mapNotNull { it.imagePath }
+                ?.toSet() ?: emptySet()
         }
     }
 

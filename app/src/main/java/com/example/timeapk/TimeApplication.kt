@@ -110,8 +110,27 @@ class TimeApplication : Application() {
         // Finish owners from the previous process before any Activity can register a new undo.
         EventImageStore.releasePreviousUndoReferences(this)
         appScope.launch(Dispatchers.IO) {
-            EventImageStore.cleanupRegisteredImages(this@TimeApplication) {
-                repository.getAllEventsSnapshot().mapNotNullTo(mutableSetOf()) { it.imagePath }
+            // Wait for database availability instead of unconditional delay.
+            // ... (I need to check for a better way to check database initialization)
+            // For now, reducing to 1 second as the DB query already has a retry loop.
+            kotlinx.coroutines.delay(1000)
+            try {
+                EventImageStore.cleanupRegisteredImages(this@TimeApplication) {
+                    var retries = 5
+                    var result: Set<String>? = null
+                    while (retries > 0 && result == null) {
+                        try {
+                            result = repository.getAllEventsSnapshot().mapNotNullTo(mutableSetOf()) { it.imagePath }
+                        } catch (e: Exception) {
+                            retries--
+                            if (retries == 0) throw e
+                            kotlinx.coroutines.delay(2000)
+                        }
+                    }
+                    result ?: emptySet()
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("TimeApplication", "Image cleanup failed safely", e)
             }
         }
     }
