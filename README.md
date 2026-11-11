@@ -2,13 +2,13 @@
 
 拾光是一款面向 Android 的倒数日、生日与纪念日应用。它把日子整理成安静的纸笺、月历和桌面小组件，让重要时刻能被看见，也能被系统提醒与日历同步照顾到。
 
-当前版本为 `4.3.1 / versionCode=31`（候选，尚未发布）。本版修复图片清理安全性：读取事件图片引用失败时终止清理而不是按空集合删除；孤儿扫描前强制核对数据库引用，即使清理注册表在系统备份恢复后丢失也不会误删已保存的事件配图；启动清理增加缓冲与重试。见[发布检查清单](docs/RELEASE_CHECKLIST.md)与[修复记录](docs/releases/v4.3.1-development.md)。
+当前版本为 `4.3.1 / versionCode=31`，已于 2026-11-11 [正式发布](https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v4.3.1)。本版修复图片清理安全性：读取事件图片引用失败时终止清理而不是按空集合删除；孤儿扫描前强制核对数据库引用，即使清理注册表在系统备份恢复后丢失也不会误删已保存的事件配图；启动清理增加缓冲与重试。见[发布检查清单](docs/RELEASE_CHECKLIST.md)与[修复记录](docs/releases/v4.3.1-development.md)。
 
-**唯一正式发布渠道：GitHub Release。** 本版计划资产为 Direct APK `glimmer-countdown-4-3-1.apk`，沿用正式签名，可从 4.3.0 覆盖升级。Play flavor 仅保留用于兼容性与开发回归。
+**唯一正式发布渠道：GitHub Release。** 本版唯一官方资产为 Direct APK `glimmer-countdown-4-3-1.apk`，沿用正式签名，可从 4.3.0 覆盖升级。Play flavor 仅保留用于兼容性与开发回归。
 
-最新公开版本为 `4.3.0`：[下载 v4.3.0 APK](https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v4.3.0)
+最新公开版本为 `4.3.1`：[下载 v4.3.1 APK](https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v4.3.1)
 
-4.3.0 已通过 API 26 / 31 / 36 三套模拟器的 CI 回归（双渠道单测、lint、R8、仪器测试与运行时 smoke），并完成公开资产哈希、签名与 16 KiB 对齐核验。按发布负责人授权，真机检查未执行，不作为发布前置条件；实体设备覆盖升级与桌面效果仍无通过记录。折叠屏切换、其他手机、完整桌面日期/时区矩阵及系统图片备份恢复尚未验收；本版保留 targetSdk 36。
+4.3.1 已通过 API 26 / 31 / 36 三套模拟器的 CI 回归（双渠道单测、lint、R8、仪器测试与运行时 smoke），并完成公开资产哈希、签名与 16 KiB 对齐核验；发布后 QA 覆盖了从 4.3.0 覆盖升级。按发布负责人授权，真机检查未执行，不作为发布前置条件；实体设备覆盖升级、桌面效果与真实备份恢复仍无通过记录。折叠屏切换、其他手机、完整桌面日期/时区矩阵尚未验收；本版保留 targetSdk 36。
 
 ## 4.2.1 历史版本与截图
 

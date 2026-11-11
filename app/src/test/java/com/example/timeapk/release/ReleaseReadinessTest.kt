@@ -143,8 +143,8 @@ class ReleaseReadinessTest {
         val publicationState = Regex("发布状态：([^*\\r\\n]+)").find(checklist)
             ?.groupValues?.get(1)?.trim()
         assertTrue(publicationState in setOf("候选 / 未发布", "已发布"))
-        // 4.3.0 stays the latest public release until 4.3.1 is actually published.
-        val latestPublicVersion = "4.3.0"
+        // 4.3.1 is the latest public release after the 2026-11-11 publication.
+        val latestPublicVersion = "4.3.1"
 
         assertTrue(readme.contains("拾光（Glimmer）4.3.1"))
         assertTrue(readme.contains("最新公开版本为 `$latestPublicVersion`"))
