@@ -38,20 +38,20 @@ class ReleaseReadinessTest {
     }
 
     @Test
-    fun versionConfigTargets430Development() {
+    fun versionConfigTargets431Development() {
         val properties = Properties().apply {
             rootGradlePropertiesFile().inputStream().use(::load)
         }
 
-        assertEquals("30", properties.getProperty("VERSION_CODE"))
-        assertEquals("4.3.0", properties.getProperty("VERSION_NAME"))
+        assertEquals("31", properties.getProperty("VERSION_CODE"))
+        assertEquals("4.3.1", properties.getProperty("VERSION_NAME"))
 
         val buildFile = appBuildGradleFile().readText(Charsets.UTF_8)
-        assertTrue(buildFile.contains("versionCode = versionCodeOverride ?: 30"))
-        assertTrue(buildFile.contains("versionName = versionNameOverride ?: \"4.3.0\""))
-        assertTrue(buildFile.contains("val versionNameForApk = versionNameOverride ?: \"4.3.0\""))
+        assertTrue(buildFile.contains("versionCode = versionCodeOverride ?: 31"))
+        assertTrue(buildFile.contains("versionName = versionNameOverride ?: \"4.3.1\""))
+        assertTrue(buildFile.contains("val versionNameForApk = versionNameOverride ?: \"4.3.1\""))
         assertTrue(buildFile.contains("applicationIdSuffix = \".play\""))
-        assertFalse("Play must keep the shared 4.3.0 versionName", buildFile.contains("versionNameSuffix"))
+        assertFalse("Play must keep the shared 4.3.1 versionName", buildFile.contains("versionNameSuffix"))
     }
 
     @Test
