@@ -265,14 +265,13 @@ class HomeFilteredReorderGestureTest {
     private fun selectCustomSortAndSearchDragEvents() {
         val homeToolsDescription = composeRule.activity.getString(R.string.home_tools_action)
         val customSortLabel = composeRule.activity.getString(R.string.sort_custom)
-        // Room/DataStore completion is not a rendered frame. Pump queued collectors
-        // while awaiting the fixture, before the first single-node assertion.
+        val homeTools = composeRule.onNodeWithContentDescription(homeToolsDescription)
+        // The initial sort can place fixture cards outside the lazy viewport.
         composeRule.waitUntil(timeoutMillis = 5_000) {
             composeRule.mainClock.advanceTimeByFrame()
-            composeRule.onAllNodesWithText("E2EDrag-A").fetchSemanticsNodes().size == 1
+            homeTools.isDisplayed()
         }
-        composeRule.onNodeWithText("E2EDrag-A").assertExists()
-        composeRule.onNodeWithContentDescription(homeToolsDescription).performClick()
+        homeTools.performClick()
         // Fixture preparation exercises the UI callback, independently of popup
         // touch coordinates. The reorder tests below retain real down/move/up input.
         val customSortOption = composeRule.onNodeWithText(customSortLabel)
