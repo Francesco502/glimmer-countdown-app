@@ -2,15 +2,15 @@
 
 拾光是一款面向 Android 的倒数日、生日与纪念日应用。它把日子整理成安静的纸笺、月历和桌面小组件，让重要时刻能被看见，也能被系统提醒与日历同步照顾到。
 
-4.3.2 更新了宋式纸笺卡片、三栏账页和历书月历，使用无印章的毛笔沙漏图标。“最近”横幅中的事件只在首页出现一次。验证进度见[发布检查清单](docs/RELEASE_CHECKLIST.md)和[本版记录](docs/releases/v4.3.2-development.md)。
+4.3.2 更新了宋式纸笺卡片、三栏账页和历书月历，使用无印章的毛笔沙漏图标。“最近”横幅中的事件只在卡片页出现一次。验证结果见[发布检查清单](docs/RELEASE_CHECKLIST.md)和[本版记录](docs/releases/v4.3.2-development.md)。
 
 **唯一正式发布渠道：GitHub Release。** 4.3.2 的唯一官方资产为 Direct APK `glimmer-countdown-4-3-2.apk`，沿用正式签名。覆盖升级基线为 4.3.1。Play flavor 仅保留用于兼容性与开发回归。
 
-最新公开版本为 `4.3.1`：[下载 v4.3.1 APK](https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v4.3.1)
+最新公开版本为 `4.3.2`，已于 2026-11-17 发布。[下载 v4.3.2 APK](https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v4.3.2)
 
 ## 4.2.1 历史版本与截图
 
-以下 4.2.1 截图和签名证据属于历史版本，不作为 4.2.4 验收证据。[4.2.1 历史清单](docs/releases/v4.2.1-checklist.md)、[v4.2 历史清单](docs/releases/v4.2-checklist.md)、[v4.1 历史清单](docs/releases/v4.1-checklist.md)与[v4.0 历史清单](docs/releases/v4.0-checklist.md)保留各版证据。
+以下是 4.2.1 的历史截图和签名记录。[4.2.1 历史清单](docs/releases/v4.2.1-checklist.md)、[v4.2 历史清单](docs/releases/v4.2-checklist.md)、[v4.1 历史清单](docs/releases/v4.1-checklist.md)与[v4.0 历史清单](docs/releases/v4.0-checklist.md)保留各版证据。
 
 ## 4.2.1 小组件修复
 
@@ -103,7 +103,7 @@
 
 - 当前源码 `versionName` 为 `4.3.2`
 - 当前源码 `versionCode` 为 `32`
-- 4.3.2 正在进行发布验证
+- 4.3.2 已正式发布
 
 ## 构建与运行
 

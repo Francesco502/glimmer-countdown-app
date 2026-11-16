@@ -1,6 +1,6 @@
 # GitHub 提交与发布流程（v4.3.2）
 
-本流程适用于 4.3.2 / versionCode=32。[发布检查清单](RELEASE_CHECKLIST.md)记录本版进度，[v4.3.1 检查清单](releases/v4.3.1-checklist.md)保留上一版记录。
+4.3.2 / versionCode=32 已于 2026-11-17 正式发布。以下流程对应本版，签名和测试证据见[验证记录](releases/v4.3.2-development.md)。
 
 **唯一正式发布渠道：GitHub Release。** 唯一官方资产为 Direct APK `glimmer-countdown-4-3-2.apk`。Play flavor 仅保留用于兼容性与开发回归。
 
