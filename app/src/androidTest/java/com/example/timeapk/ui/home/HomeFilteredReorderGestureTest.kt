@@ -112,17 +112,25 @@ class HomeFilteredReorderGestureTest {
         val downwardDistance = thirdCenterY - secondCenterY
 
         beginLongPressDrag("E2EDrag-B")
+        // A held drag can schedule edge-scroll frames until the pointer is released.
+        composeRule.mainClock.autoAdvance = false
         try {
             composeRule.onRoot().performTouchInput {
                 moveBy(Offset(0f, downwardDistance / 2f), 250)
             }
+            composeRule.mainClock.advanceTimeByFrame()
             assertDragIsActive("E2EDrag-B")
             composeRule.onRoot().performTouchInput {
                 moveBy(Offset(0f, downwardDistance / 2f + 120f), 250)
             }
+            composeRule.mainClock.advanceTimeByFrame()
             assertDragIsActive("E2EDrag-B")
         } finally {
-            composeRule.onRoot().performTouchInput { up() }
+            try {
+                composeRule.onRoot().performTouchInput { up() }
+            } finally {
+                composeRule.mainClock.autoAdvance = true
+            }
         }
         composeRule.waitForIdle()
 
