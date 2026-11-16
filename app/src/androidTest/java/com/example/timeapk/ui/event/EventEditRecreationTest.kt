@@ -3,6 +3,7 @@ package com.example.timeapk.ui.event
 import android.os.Build
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -16,7 +17,6 @@ import com.example.timeapk.R
 import com.example.timeapk.TimeApplication
 import com.example.timeapk.data.CATEGORY_OTHER
 import com.example.timeapk.data.Event
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -34,14 +34,10 @@ class EventEditRecreationTest {
 
     private lateinit var app: TimeApplication
     private var eventId = 0
-    private var originalBanner = true
 
     @Before
     fun seedEditableEvent() = runBlocking {
         app = composeRule.activity.application as TimeApplication
-        // The Up next banner repeats the nearest title; keep one node per event.
-        originalBanner = app.userPrefs.homeNearestBannerEnabledFlow.first()
-        app.userPrefs.setHomeNearestBannerEnabled(false)
         val date = LocalDate.now().plusDays(7)
             .atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
         eventId = app.repository.insertEvent(
@@ -60,7 +56,6 @@ class EventEditRecreationTest {
         if (eventId != 0) {
             app.repository.getEvent(eventId)?.let { app.repository.deleteEvent(it) }
         }
-        app.userPrefs.setHomeNearestBannerEnabled(originalBanner)
     }
 
     @Test
@@ -70,7 +65,7 @@ class EventEditRecreationTest {
         val discardTitle = composeRule.activity.getString(R.string.discard_changes_dialog_title)
         val stayLabel = composeRule.activity.getString(R.string.discard_changes_dialog_dismiss)
 
-        composeRule.onNodeWithText(SEED_TITLE).performClick()
+        openSeededEvent()
         composeRule.onNodeWithContentDescription(editDescription).performClick()
         composeRule.onNode(hasSetTextAction() and hasText(SEED_TITLE))
             .performTextReplacement(UPDATED_TITLE)
@@ -112,11 +107,17 @@ class EventEditRecreationTest {
         val titleLabel = composeRule.activity.getString(R.string.field_title)
         val noteLabel = composeRule.activity.getString(R.string.field_note)
 
-        composeRule.onNodeWithText(SEED_TITLE).performClick()
+        openSeededEvent()
         composeRule.onNodeWithContentDescription(editDescription).performClick()
 
         composeRule.onNodeWithContentDescription(titleLabel).assertExists()
         composeRule.onNodeWithContentDescription(noteLabel).assertExists()
+    }
+
+    private fun openSeededEvent() {
+        val event = composeRule.onNodeWithContentDescription("$SEED_TITLE, ", substring = true)
+        composeRule.waitUntil(timeoutMillis = 5_000) { event.isDisplayed() }
+        event.performClick()
     }
 
     private companion object {
