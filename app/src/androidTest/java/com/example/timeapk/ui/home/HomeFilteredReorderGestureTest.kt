@@ -17,6 +17,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
@@ -325,14 +326,15 @@ class HomeFilteredReorderGestureTest {
             ViewCompat.getRootWindowInsets(composeRule.activity.window.decorView)
                 ?.isVisible(WindowInsetsCompat.Type.ime()) != true
         }
+        // The lazy list can retain its previous visible key after sorting and filtering.
+        composeRule.onNode(hasScrollAction()).performScrollToIndex(0)
+        val dragTitles = listOf("E2EDrag-A", "E2EDrag-B", "E2EDrag-C")
         composeRule.waitUntil(timeoutMillis = 5_000) {
             composeRule.mainClock.advanceTimeByFrame()
-            listOf("E2EDrag-A", "E2EDrag-B", "E2EDrag-C").all { title ->
-                composeRule.onAllNodesWithText(title).fetchSemanticsNodes().size == 1
+            dragTitles.all { title ->
+                composeRule.onAllNodesWithText(title).fetchSemanticsNodes().size == 1 &&
+                    composeRule.onNodeWithText(title).isDisplayed()
             } && composeRule.onAllNodesWithText("E2EHidden").fetchSemanticsNodes().isEmpty()
-        }
-        listOf("E2EDrag-A", "E2EDrag-B", "E2EDrag-C").forEach { title ->
-            composeRule.onNodeWithText(title).assertIsDisplayed()
         }
     }
 
