@@ -9,6 +9,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -24,6 +26,7 @@ import com.example.timeapk.data.Event
 import com.example.timeapk.ui.captureComponentUiEvidence
 import com.example.timeapk.ui.utils.DisplayModes
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -82,13 +85,18 @@ class HomeEventCardDisplayTest {
         composeRule.onNodeWithText(event.event.title, useUnmergedTree = true).assertIsDisplayed()
         val hourQuantity = context.getString(R.string.quantity_with_unit, "13",
             context.resources.getQuantityString(R.plurals.hours_unit, 13))
-        composeRule.onNodeWithContentDescription(hourQuantity, substring = true).assertExists()
+        val card = composeRule.onNodeWithContentDescription(hourQuantity, substring = true)
+        val toggleLabel = context.getString(R.string.cd_toggle_date_delta_display)
+        assertTrue(card.fetchSemanticsNode().config[SemanticsActions.CustomActions].any { it.label == toggleLabel })
+        composeRule.onNodeWithContentDescription(
+            context.getString(R.string.category_other), useUnmergedTree = true
+        ).assertIsDisplayed()
         captureComponentUiEvidence(
             composeRule, "home-card-narrow-large-text",
             "Synthetic future event; card width 320dp; Compose font scale 1.6; hours enabled and 13 hours visible"
         )
-        composeRule.onNodeWithContentDescription(context.getString(R.string.cd_toggle_date_delta_display))
-            .assertIsDisplayed().performClick()
+        composeRule.onNodeWithContentDescription(toggleLabel)
+            .assertIsDisplayed().assertHasClickAction().performClick()
         composeRule.runOnIdle { assertEquals(1, timeClicks); showHours = false }
         composeRule.onNodeWithText("13", useUnmergedTree = true).assertDoesNotExist()
         val dayUnit = context.resources.getQuantityString(R.plurals.days_unit, 1)

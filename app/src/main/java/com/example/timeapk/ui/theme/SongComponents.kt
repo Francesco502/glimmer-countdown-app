@@ -1,5 +1,6 @@
-﻿package com.example.timeapk.ui.theme
+package com.example.timeapk.ui.theme
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
@@ -18,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -30,6 +33,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -37,12 +45,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -66,7 +77,7 @@ fun SongPaperSurface(
         Box {
             SongPaperTextureOverlay(
                 modifier = Modifier.matchParentSize(),
-                paperTextureAlpha = 0.020f
+                paperTextureAlpha = SongDesignTokens.PaperTextureAlpha
             )
             content()
         }
@@ -163,6 +174,66 @@ fun SongSealLabel(
             .border(BorderStroke(1.dp, color.copy(alpha = 0.72f)), RoundedCornerShape(2.dp))
             .padding(horizontal = 6.dp, vertical = 2.dp)
     )
+}
+
+enum class SongSealStyle {
+    Intaglio,
+    Relief
+}
+
+internal fun songSealInk(paperColor: Color): Color {
+    val ink = if (paperColor.luminance() > 0.5f) SongPalette.Seal else SongPalette.SealOnDark
+    return ColorContrastGuardrail.ensureReadableText(ink, paperColor)
+}
+
+@Composable
+internal fun SongSeal(
+    text: String,
+    modifier: Modifier = Modifier,
+    style: SongSealStyle = SongSealStyle.Relief,
+    stampAnimation: Boolean = false,
+    paperColor: Color = MaterialTheme.colorScheme.surface,
+    textStyle: TextStyle = MaterialTheme.typography.titleMedium,
+    contentPadding: PaddingValues = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+) {
+    val intaglio = style == SongSealStyle.Intaglio
+    val sealColor = if (intaglio) SongPalette.Seal else songSealInk(paperColor)
+    val contentColor = if (intaglio) {
+        ColorContrastGuardrail.ensureReadableText(Color.White, sealColor)
+    } else {
+        sealColor
+    }
+    val shape = RoundedCornerShape(SongDesignTokens.RadiusXs.dp)
+    Box(
+        modifier = modifier
+            .stampMotion(stampAnimation)
+            .background(if (intaglio) sealColor else Color.Transparent, shape)
+            .border(SongDesignTokens.SealLineWidth.dp, sealColor, shape)
+            .padding(contentPadding),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(text = text, style = textStyle, color = contentColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+@Composable
+private fun Modifier.stampMotion(enabled: Boolean): Modifier {
+    val startScale = AnimationSpecs.responsiveScale(1.08f)
+    if (!enabled || startScale == 1f) return this
+
+    var stamped by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { stamped = true }
+    val distance by animateFloatAsState(
+        targetValue = if (stamped) 0f else 1f,
+        animationSpec = AnimationSpecs.microTween(),
+        label = "songSealStamp"
+    )
+    return graphicsLayer {
+        val scale = 1f + (startScale - 1f) * distance
+        scaleX = scale
+        scaleY = scale
+        rotationZ = -1.5f * distance
+    }
 }
 
 @Composable
@@ -455,6 +526,26 @@ fun SongDivider(
 }
 
 @Composable
+internal fun InkRuleLine(
+    modifier: Modifier = Modifier,
+    color: Color = MaterialTheme.colorScheme.onSurface.copy(alpha = SongDesignTokens.RuleAlpha),
+    thickness: Dp = SongDesignTokens.RuleLineWidth.dp
+) {
+    // Keep the subpixel ink line drawable at mdpi.
+    val pixel = with(LocalDensity.current) { 1.toDp() }
+    Canvas(modifier.fillMaxWidth().height(maxOf(thickness, pixel))) {
+        drawLine(color, Offset(0f, center.y), Offset(size.width, center.y), thickness.toPx())
+    }
+}
+
+enum class SongLunarCellKind {
+    Festival,
+    SolarTerm,
+    MonthStart,
+    Day
+}
+
+@Composable
 fun SongCalendarCell(
     dayText: String,
     eventIndicatorText: String?,
@@ -463,96 +554,81 @@ fun SongCalendarCell(
     hasEvents: Boolean,
     modifier: Modifier = Modifier,
     lunarText: String? = null,
-    eventDotColors: List<Color> = emptyList(),
+    lunarKind: SongLunarCellKind = SongLunarCellKind.Day,
+    eventBarColors: List<Color> = emptyList(),
     onClick: (() -> Unit)? = null
 ) {
-    val primary = MaterialTheme.colorScheme.primary
-    val selectedContentColor = ColorContrastGuardrail.ensureReadableText(
-        preferred = MaterialTheme.colorScheme.onPrimary,
-        background = primary
-    )
-    val shape = RoundedCornerShape(SongDesignTokens.StandardRadius.dp)
-    // Selected is a solid seal fill; today keeps a strong seal outline so both stay distinguishable.
-    val borderColor = when {
-        selected -> primary.copy(alpha = 0.58f)
-        today -> primary.copy(alpha = 0.86f)
-        hasEvents -> primary.copy(alpha = 0.24f)
-        else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.16f)
-    }
-    val borderWidth = if (today && !selected) 1.5.dp else SongDesignTokens.BorderWidth.dp
-    val backgroundColor = when {
-        selected -> primary
-        today -> primary.copy(alpha = 0.06f)
-        hasEvents -> MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
-        else -> Color.Transparent
-    }
-    val cellModifier = modifier
-        .clip(shape)
-        .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-        .semantics(mergeDescendants = true) {
-            if (onClick != null) role = Role.Button
-            this.selected = selected
-        }
+    val colors = MaterialTheme.colorScheme
+    val paper = colors.background
+    val dayStyle = MaterialTheme.typography.labelMedium.copy(lineHeight = 16.sp)
+    val daySize = Modifier.defaultMinSize(minWidth = 22.dp, minHeight = 22.dp)
+    val celadon = if (paper.luminance() > 0.5f) SongPalette.Celadon else SongPalette.CeladonOnDark
 
-    Box(
-        modifier = cellModifier
-            .background(backgroundColor, shape)
-            .border(BorderStroke(borderWidth, borderColor), shape)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 5.dp, vertical = 4.dp)
-        ) {
-            Text(
-                text = dayText,
-                style = MaterialTheme.typography.bodyMedium,
-                color = when {
-                    selected -> selectedContentColor
-                    today || hasEvents -> primary
-                    else -> MaterialTheme.colorScheme.onSurface
-                },
-                maxLines = 1
-            )
-            if (!lunarText.isNullOrBlank()) {
-                Text(
-                    text = lunarText,
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, lineHeight = 11.sp),
-                    color = if (selected) selectedContentColor.copy(alpha = 0.82f)
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Clip
-                )
+    Column(
+        modifier = modifier
+            .heightIn(min = SongDesignTokens.CalendarCellMinHeight.dp)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .semantics(mergeDescendants = true) {
+                if (onClick != null) role = Role.Button
+                this.selected = selected
             }
-            Spacer(modifier = Modifier.weight(1f))
-            if (hasEvents) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    val dots = eventDotColors.ifEmpty { listOf(primary) }
-                    dots.forEach { dotColor ->
-                        Box(
-                            modifier = Modifier
-                                .size(5.dp)
-                                .background(
-                                    if (selected) selectedContentColor else dotColor,
-                                    RoundedCornerShape(50)
-                                )
-                        )
-                    }
-                    if (!eventIndicatorText.isNullOrBlank()) {
-                        Text(
-                            text = eventIndicatorText,
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, lineHeight = 11.sp),
-                            color = if (selected) selectedContentColor else primary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Clip,
-                            textAlign = TextAlign.Start,
-                            modifier = Modifier.padding(start = 1.dp)
-                        )
-                    }
+            .padding(horizontal = 2.dp, vertical = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        if (today) {
+            SongSeal(
+                text = dayText,
+                modifier = daySize,
+                stampAnimation = true,
+                paperColor = paper,
+                textStyle = dayStyle,
+                contentPadding = PaddingValues(horizontal = 3.dp, vertical = 1.dp)
+            )
+        } else {
+            Box(modifier = daySize, contentAlignment = Alignment.Center) {
+                Text(dayText, style = dayStyle, color = colors.onBackground, maxLines = 1)
+            }
+        }
+        Box(modifier = Modifier.height(2.dp), contentAlignment = Alignment.Center) {
+            if (selected) {
+                InkRuleLine(Modifier.width(14.dp), color = colors.onBackground.copy(alpha = 0.7f))
+            }
+        }
+        if (!lunarText.isNullOrBlank()) {
+            Text(
+                text = lunarText,
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, lineHeight = 11.sp),
+                color = when (lunarKind) {
+                    SongLunarCellKind.Festival -> songSealInk(paper)
+                    SongLunarCellKind.SolarTerm -> ColorContrastGuardrail.ensureReadableText(celadon, paper)
+                    else -> colors.onSurfaceVariant
+                },
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        if (hasEvents) {
+            Row(
+                modifier = Modifier.padding(top = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(SongDesignTokens.CalendarBarSpacing.dp)
+            ) {
+                for (barColor in eventBarColors.ifEmpty { listOf(colors.onSurfaceVariant) }) {
+                    Box(
+                        modifier = Modifier
+                            .width(SongDesignTokens.CalendarBarWidth.dp)
+                            .height(SongDesignTokens.CalendarBarHeight.dp)
+                            .background(barColor, RoundedCornerShape(1.dp))
+                    )
                 }
+            }
+            if (!eventIndicatorText.isNullOrBlank()) {
+                Text(
+                    text = eventIndicatorText,
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, lineHeight = 11.sp),
+                    color = colors.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
         }
     }

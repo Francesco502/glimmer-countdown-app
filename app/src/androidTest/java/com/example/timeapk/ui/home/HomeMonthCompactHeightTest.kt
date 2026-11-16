@@ -9,20 +9,24 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import com.example.timeapk.R
 import com.example.timeapk.data.Event
 import com.example.timeapk.data.CATEGORY_OTHER
+import com.example.timeapk.data.REPEAT_MONTHLY
 import com.example.timeapk.ui.captureComponentUiEvidence
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.time.LocalDate
-import java.time.ZoneId
+import java.time.ZoneOffset
 
 @RunWith(AndroidJUnit4::class)
 class HomeMonthCompactHeightTest {
@@ -36,7 +40,8 @@ class HomeMonthCompactHeightTest {
                 id = 981736,
                 title = "Six-week calendar event",
                 category = CATEGORY_OTHER,
-                date = selectedDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                date = selectedDate.minusMonths(1).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+                repeatType = REPEAT_MONTHLY
             ),
             daysRemaining = 0,
             isPast = false,
@@ -61,6 +66,8 @@ class HomeMonthCompactHeightTest {
         )
         composeRule.onNode(hasScrollAction()).performScrollToNode(hasText(event.event.title))
         composeRule.onNodeWithText(event.event.title).assertIsDisplayed()
+        val today = InstrumentationRegistry.getInstrumentation().targetContext.getString(R.string.home_today_seal)
+        composeRule.onNodeWithContentDescription("${event.event.title}, $today", substring = true).assertIsDisplayed()
         captureComponentUiEvidence(
             composeRule, "home-six-week-event-reachable",
             "Same 360 x 240dp component viewport after scrolling to the synthetic selected event"

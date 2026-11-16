@@ -42,6 +42,26 @@ object SongDesignTokens {
     const val MotionNormalMs = 220
     const val MotionSlowMs = 300
 
+    // 4.3.2 纸笺 / 账页 / 历书层级令牌。
+    /** 纸纹透明度：0.02 在浅色纸面上几乎不可见，0.035 才能读出纸张质感。 */
+    const val PaperTextureAlpha = 0.035f
+
+    /** 墨线宽度：列表分隔线与月历行栏线共用。 */
+    const val RuleLineWidth = 0.36f
+    const val RuleAlpha = 0.14f
+
+    /** 印章描边宽度：朱文印框与月历“今天”方印框。 */
+    const val SealLineWidth = 0.75f
+
+    const val ListDateColumnWidth = 40
+
+    /** 月历格中的分类短横标记。 */
+    const val CalendarBarWidth = 7
+    const val CalendarBarHeight = 2
+    const val CalendarBarSpacing = 2
+
+    const val CalendarCellMinHeight = 48
+
     const val BaseFontScaleMin = 0.85f
     const val BaseFontScaleMax = 1.30f
     const val WidgetFontScaleMin = 0.85f
@@ -58,7 +78,9 @@ object SongPalette {
     val InkSoft = Color(0x331F1F1F)
     val Seal = Color(0xFFAF4E31)
     val SealDark = Color(0xFF86351C)
+    val SealOnDark = Color(0xFFE29881)
     val Celadon = Color(0xFF457080)
+    val CeladonOnDark = Color(0xFF9ABFC5)
     val CeladonWash = Color(0xFFE8EEE6)
     val Jade = Color(0xFF5B8E79)
     val Gold = Color(0xFFAC8F62)

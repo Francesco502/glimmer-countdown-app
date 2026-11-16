@@ -6,6 +6,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 import java.util.Properties
+import javax.imageio.ImageIO
 
 class ReleaseReadinessTest {
     @Test
@@ -38,40 +39,47 @@ class ReleaseReadinessTest {
     }
 
     @Test
-    fun versionConfigTargets431Development() {
+    fun versionConfigTargets432() {
         val properties = Properties().apply {
             rootGradlePropertiesFile().inputStream().use(::load)
         }
 
-        assertEquals("31", properties.getProperty("VERSION_CODE"))
-        assertEquals("4.3.1", properties.getProperty("VERSION_NAME"))
+        assertEquals("32", properties.getProperty("VERSION_CODE"))
+        assertEquals("4.3.2", properties.getProperty("VERSION_NAME"))
 
         val buildFile = appBuildGradleFile().readText(Charsets.UTF_8)
-        assertTrue(buildFile.contains("versionCode = versionCodeOverride ?: 31"))
-        assertTrue(buildFile.contains("versionName = versionNameOverride ?: \"4.3.1\""))
-        assertTrue(buildFile.contains("val versionNameForApk = versionNameOverride ?: \"4.3.1\""))
+        assertTrue(buildFile.contains("versionCode = versionCodeOverride ?: 32"))
+        assertTrue(buildFile.contains("versionName = versionNameOverride ?: \"4.3.2\""))
+        assertTrue(buildFile.contains("val versionNameForApk = versionNameOverride ?: \"4.3.2\""))
         assertTrue(buildFile.contains("applicationIdSuffix = \".play\""))
-        assertFalse("Play must keep the shared 4.3.1 versionName", buildFile.contains("versionNameSuffix"))
+        assertFalse("Play must keep the shared 4.3.2 versionName", buildFile.contains("versionNameSuffix"))
     }
 
     @Test
-    fun launcherForegroundHasReleaseScaleAndReadableInkWeight() {
-        val foreground = existingFile(
-            "src/main/res/drawable/ic_launcher_foreground.xml",
-            "app/src/main/res/drawable/ic_launcher_foreground.xml"
-        ).readText(Charsets.UTF_8)
-        val monochrome = existingFile(
-            "src/main/res/drawable/ic_launcher_monochrome.xml",
-            "app/src/main/res/drawable/ic_launcher_monochrome.xml"
-        ).readText(Charsets.UTF_8)
-
-        assertTrue("Launcher artwork should fill more of the adaptive-icon safe zone", foreground.contains("M 38, 27"))
-        assertTrue("Launcher core should scale with the enlarged hourglass", foreground.contains("m-5.5,0"))
-        assertTrue("Hourglass waist must remain visible at launcher size", foreground.contains("android:color=\"#221A1E24\""))
-        assertFalse("The former nearly-transparent waist was too faint", foreground.contains("android:color=\"#051A1E24\""))
-        assertTrue("The themed icon must use the same enlarged silhouette", monochrome.contains("M 38, 27"))
-        assertTrue("The themed icon core must match the enlarged foreground", monochrome.contains("A 5.5,5.5"))
-        assertFalse("The themed icon must not retain the former smaller silhouette", monochrome.contains("M 40, 30.2"))
+    fun launcherInkFitsAdaptiveSafeZoneWithAnOpenWaist() {
+        val ink = ImageIO.read(existingFile(
+            "src/main/res/drawable-xxxhdpi/launcher_brush_ink.png",
+            "app/src/main/res/drawable-xxxhdpi/launcher_brush_ink.png"
+        ))
+        assertEquals(108 * 4, ink.width)
+        assertEquals(ink.width, ink.height)
+        val center = (ink.width - 1) / 2.0
+        val safeRadius = 33 * 4
+        for (y in 0 until ink.height) {
+            for (x in 0 until ink.width) {
+                val dx = x - center
+                val dy = y - center
+                if (dx * dx + dy * dy > safeRadius * safeRadius) {
+                    assertEquals("Ink outside the adaptive icon safe circle", 0, ink.getRGB(x, y) ushr 24)
+                }
+            }
+        }
+        val waistAlpha = (0 until ink.width).map { ink.getRGB(it, ink.height / 2) ushr 24 }
+        val leftInk = waistAlpha.subList(0, ink.width / 2).indexOfLast { it >= 128 }
+        val rightInk = waistAlpha.subList(ink.width / 2, ink.width).indexOfFirst { it >= 128 }
+        assertTrue("Both strokes must reach the waist", leftInk >= 0 && rightInk >= 0)
+        assertTrue("The waist must have room for two pixels of paper at 32 px",
+            waistAlpha.subList(leftInk + 1, ink.width / 2 + rightInk).count { it <= 16 } >= 18)
     }
 
     @Test
@@ -123,7 +131,7 @@ class ReleaseReadinessTest {
     }
 
     @Test
-    fun releaseDocsDeclare431IdentityAndRecognizedPublicationStage() {
+    fun releaseDocsDeclare432IdentityAndRecognizedPublicationStage() {
         val readme = existingFile("README.md", "../README.md").readText(Charsets.UTF_8)
         val changelog = existingFile("CHANGELOG.md", "../CHANGELOG.md").readText(Charsets.UTF_8)
         val checklist = existingFile(
@@ -143,25 +151,24 @@ class ReleaseReadinessTest {
         val publicationState = Regex("发布状态：([^*\\r\\n]+)").find(checklist)
             ?.groupValues?.get(1)?.trim()
         assertTrue(publicationState in setOf("候选 / 未发布", "已发布"))
-        // 4.3.1 is the latest public release after the 2026-11-11 publication.
-        val latestPublicVersion = "4.3.1"
+        val latestPublicVersion = if (publicationState == "已发布") "4.3.2" else "4.3.1"
 
-        assertTrue(readme.contains("拾光（Glimmer）4.3.1"))
+        assertTrue(readme.contains("拾光（Glimmer）4.3.2"))
         assertTrue(readme.contains("最新公开版本为 `$latestPublicVersion`"))
         assertTrue(readme.contains("releases/tag/v$latestPublicVersion"))
         assertTrue(changelog.contains("## [4.0] - 2026-07-20"))
         assertTrue(changelog.contains("## [4.1] - 2026-10-10"))
-        // The tag commit carries the release date; the publisher takes notes from this section.
-        assertTrue(Regex("(?m)^## \\[4\\.3\\.1\\] - \\d{4}-\\d{2}-\\d{2}\\r?$").containsMatchIn(changelog))
-        assertTrue(checklist.contains("# 发布检查清单（v4.3.1）"))
+        val changelogStatus = if (publicationState == "已发布") "\\d{4}-\\d{2}-\\d{2}" else "未发布"
+        assertTrue(Regex("(?m)^## \\[4\\.3\\.2\\] - $changelogStatus\\r?$").containsMatchIn(changelog))
+        assertTrue(checklist.contains("# 发布检查清单（v4.3.2）"))
         listOf(readme, githubGuide, releaseGuide).forEach { document ->
             assertFalse(document.contains("最新公开版本仍为 3.17"))
             assertFalse(document.contains("4.0 尚未发布"))
         }
-        assertTrue(combined.contains("versionCode=31"))
-        assertFalse(githubGuide.contains("4.3.1-play"))
-        assertFalse(releaseGuide.contains("4.3.1-play"))
-        assertTrue(combined.contains("glimmer-countdown-4-3-1.apk"))
+        assertTrue(combined.contains("versionCode=32"))
+        assertFalse(githubGuide.contains("4.3.2-play"))
+        assertFalse(releaseGuide.contains("4.3.2-play"))
+        assertTrue(combined.contains("glimmer-countdown-4-3-2.apk"))
         assertTrue(combined.contains("预览宽度 / 预览高度"))
         assertTrue(combined.contains("无可写系统日历"))
         assertFalse(combined.contains("小组件 2x2、3x3、4x2 模板"))
@@ -251,7 +258,7 @@ class ReleaseReadinessTest {
     }
 
     @Test
-    fun v431OfficialReleaseContractIsGithubOnlyWithDirectApkAndFreshScreenshots() {
+    fun v432OfficialReleaseContractIsGithubOnlyWithDirectApkAndFreshScreenshots() {
         val readme = existingFile("README.md", "../README.md").readText(Charsets.UTF_8)
         val changelog = existingFile("CHANGELOG.md", "../CHANGELOG.md").readText(Charsets.UTF_8)
         val checklist = existingFile(
@@ -269,7 +276,7 @@ class ReleaseReadinessTest {
 
         listOf(readme, checklist, githubGuide, releaseGuide).forEach { document ->
             assertTrue(document.contains("唯一正式发布渠道：GitHub Release"))
-            assertTrue(document.contains("glimmer-countdown-4-3-1.apk"))
+            assertTrue(document.contains("glimmer-countdown-4-3-2.apk"))
             assertTrue(document.contains("Play flavor 仅保留用于兼容性与开发回归"))
         }
         assertTrue(checklist.contains("历史记录（非发布门）"))
@@ -285,7 +292,7 @@ class ReleaseReadinessTest {
         assertFalse(finalActions.contains("Play Console"))
         assertFalse(finalActions.contains("Play AAB"))
         assertFalse(finalActions.contains("Play 渠道"))
-        assertTrue(finalActions.contains("Release 仅含 `glimmer-countdown-4-3-1.apk`"))
+        assertTrue(finalActions.contains("Release 仅含 `glimmer-countdown-4-3-2.apk`"))
 
         listOf(readme, githubGuide, releaseGuide).forEach { officialGuide ->
             assertFalse(officialGuide.contains("Play Console"))
@@ -301,7 +308,7 @@ class ReleaseReadinessTest {
     }
 
     @Test
-    fun releaseChecklistSeparates424EvidenceFromHistoricalResults() {
+    fun releaseChecklistSeparates432EvidenceFromHistoricalResults() {
         val checklist = existingFile(
             "docs/RELEASE_CHECKLIST.md",
             "../docs/RELEASE_CHECKLIST.md"
@@ -311,7 +318,7 @@ class ReleaseReadinessTest {
         assertTrue(checklist.contains("releases/v4.0-checklist.md"))
         assertTrue(checklist.contains("旧测试、旧截图和旧真机豁免均不延续到本版"))
         assertTrue(checklist.contains("未知、未执行和失败不能勾选"))
-        assertTrue(checklist.contains("4.3.1 变更要求对照表"))
+        assertTrue(checklist.contains("4.3.2 变更要求对照表"))
         assertTrue(checklist.contains("源码 revision"))
         assertTrue(checklist.contains("APK 文件和设备安装包须互相对应"))
         assertTrue(checklist.contains("3b7cb426a82664f891c69511cc2505b67128c8503664639f297291da4ea903ca"))
@@ -512,14 +519,14 @@ class ReleaseReadinessTest {
             "src/main/res/drawable/splash_background.xml",
             "app/src/main/res/drawable/splash_background.xml"
         ).readText(Charsets.UTF_8)
-        assertTrue(splashBackground.contains("android:drawable=\"@drawable/ic_launcher_foreground\""))
+        assertTrue(splashBackground.contains("android:drawable=\"@drawable/ic_launcher_monochrome\""))
 
         val android12Theme = existingFile(
             "src/main/res/values-v31/themes.xml",
             "app/src/main/res/values-v31/themes.xml"
         ).readText(Charsets.UTF_8)
         assertTrue(android12Theme.contains("android:windowSplashScreenAnimatedIcon"))
-        assertTrue(android12Theme.contains("@drawable/ic_launcher_foreground"))
+        assertTrue(android12Theme.contains("@drawable/ic_launcher_monochrome"))
 
         val adaptiveIcon = existingFile(
             "src/main/res/drawable-anydpi/ic_launcher.xml",

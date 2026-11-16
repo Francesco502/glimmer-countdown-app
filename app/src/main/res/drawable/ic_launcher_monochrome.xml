@@ -2,22 +2,26 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    
-    <!-- Monochrome 动态图标：与彩色前景共用放大后的轮廓，并以负空间挖空中心原点。 -->
-    <path
-        android:fillColor="#000000"
-        android:fillType="evenOdd"
-        android:pathData="
-            M 38, 27
-            Q 54, 26 70, 27
-            C 70, 43 60.4, 47.6 60.4, 54
-            C 60.4, 60.4 70, 65.2 70, 81
-            Q 54, 82 38, 81
-            C 38, 65.2 47.6, 60.4 47.6, 54
-            C 47.6, 47.6 38, 43 38, 27 Z
-            M 54,48.5
-            A 5.5,5.5 0 1,1 54,59.5
-            A 5.5,5.5 0 1,1 54,48.5 Z" />
+    android:viewportWidth="1881"
+    android:viewportHeight="1881">
+    <!-- Trace the two brush strokes for system tinting and the native splash screen. -->
+    <group
+        android:translateX="313.5"
+        android:translateY="313.5">
+        <path
+            android:fillColor="@color/splash_ink"
+            android:pathData="
+                M280,350 C302,273 507,166 702,164 C844,160 940,210 942,303
+                C946,414 850,485 754,548 C706,580 677,612 676,638
+                C674,668 709,699 756,731 C825,781 912,845 899,941
+                C883,880 839,831 795,802 C731,753 662,711 658,640
+                C655,589 697,551 747,506 C798,457 832,408 826,358
+                C819,274 722,241 617,239 C479,236 339,278 280,350 Z
+                M359,324 C316,368 305,439 371,494 C428,542 526,581 526,638
+                C528,681 468,719 418,759 C345,819 270,895 279,962
+                C286,1034 375,1080 532,1078 C720,1077 929,1025 932,942
+                C896,987 803,1019 668,1021 C516,1027 403,986 388,916
+                C375,856 414,803 480,748 C520,715 544,680 545,642
+                C548,580 497,547 431,493 C374,445 319,395 359,324 Z" />
+    </group>
 </vector>

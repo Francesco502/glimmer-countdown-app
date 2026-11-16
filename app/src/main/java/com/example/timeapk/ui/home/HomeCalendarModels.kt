@@ -8,6 +8,7 @@ import com.example.timeapk.data.REPEAT_MONTHLY
 import com.example.timeapk.data.REPEAT_NONE
 import com.example.timeapk.data.REPEAT_WEEKLY
 import com.example.timeapk.data.REPEAT_YEARLY
+import com.example.timeapk.ui.theme.SongLunarCellKind
 import com.example.timeapk.ui.utils.buildLunarSolarDateForYear
 import com.example.timeapk.ui.utils.eventDateToLocalDate
 import com.example.timeapk.ui.utils.safeWithYear
@@ -65,11 +66,8 @@ fun calendarDayCellContent(
 ): CalendarDayCellContent {
     return CalendarDayCellContent(
         dayText = date.dayOfMonth.toString(),
-        eventIndicatorText = when {
-            occurrences.size <= 1 -> null
-            occurrences.size > 99 -> "99+"
-            else -> occurrences.size.toString()
-        }
+        eventIndicatorText = (occurrences.size - CALENDAR_CELL_MAX_MARKERS)
+            .takeIf { it > 0 }?.let { "+$it" }
     )
 }
 
@@ -226,30 +224,33 @@ private fun lunarYearlyOccurrencesInRange(
     }
 }
 
-/**
- * 月历格第二行的农历短标签：传统节日 > 节气 > 初一显示月名 > 农历日。
- * 仅中文界面显示；失败时返回 null。
- */
-fun calendarLunarCellLabel(date: LocalDate): String? = try {
-    val solar = Solar.fromYmd(date.year, date.monthValue, date.dayOfMonth)
-    val lunar = solar.lunar
-    val festival = lunar.festivals.firstOrNull { it.length <= 3 }
-    val jieQi = lunar.jieQi.takeIf { it.isNotBlank() }
-    when {
-        festival != null -> festival
-        jieQi != null -> jieQi
-        lunar.day == 1 -> lunar.monthInChinese + "月"
-        else -> lunar.dayInChinese
-    }
-} catch (_: Throwable) {
+internal data class CalendarLunarLabel(val text: String, val kind: SongLunarCellKind)
+
+internal fun calendarLunarMonthTitle(month: YearMonth): String? = try {
+    val lunar = Solar.fromYmd(month.year, month.monthValue, 1).lunar
+    "${lunar.yearInGanZhi}年 · ${lunar.monthInChinese}月"
+} catch (_: Exception) {
     null
 }
 
-/** 月历格中最多显示的分类色点数；超出部分以“+N”表示。 */
-const val CALENDAR_CELL_MAX_DOTS = 3
-
-fun calendarCellDotCategories(occurrences: List<CalendarEventOccurrence>): Pair<List<String>, Int> {
-    val categories = occurrences.map { it.eventState.event.category }
-    val shown = categories.take(CALENDAR_CELL_MAX_DOTS)
-    return shown to (categories.size - shown.size)
+internal fun calendarLunarCellLabel(date: LocalDate): CalendarLunarLabel? = try {
+    val solar = Solar.fromYmd(date.year, date.monthValue, date.dayOfMonth)
+    val lunar = solar.lunar
+    val lunarFestival = lunar.festivals.firstOrNull()
+    val jieQi = lunar.jieQi.takeIf { it.isNotBlank() }
+    val solarFestival = solar.festivals.firstOrNull()
+    when {
+        lunarFestival != null -> CalendarLunarLabel(lunarFestival, SongLunarCellKind.Festival)
+        jieQi != null -> CalendarLunarLabel(jieQi, SongLunarCellKind.SolarTerm)
+        solarFestival != null -> CalendarLunarLabel(solarFestival, SongLunarCellKind.Festival)
+        lunar.day == 1 -> CalendarLunarLabel(lunar.monthInChinese + "月", SongLunarCellKind.MonthStart)
+        else -> CalendarLunarLabel(lunar.dayInChinese, SongLunarCellKind.Day)
+    }
+} catch (_: Exception) {
+    null
 }
+
+private const val CALENDAR_CELL_MAX_MARKERS = 3
+
+internal fun calendarCellBarCategories(occurrences: List<CalendarEventOccurrence>): List<String> =
+    occurrences.take(CALENDAR_CELL_MAX_MARKERS).map { it.eventState.event.category }

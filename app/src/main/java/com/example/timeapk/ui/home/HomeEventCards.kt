@@ -13,8 +13,8 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -26,12 +26,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -39,41 +38,52 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.timeapk.R
+import com.example.timeapk.data.CATEGORY_ANNIVERSARY
+import com.example.timeapk.data.CATEGORY_BIRTHDAY
+import com.example.timeapk.data.CATEGORY_OTHER
 import com.example.timeapk.data.REPEAT_DAILY
 import com.example.timeapk.data.REPEAT_HALF_YEARLY
 import com.example.timeapk.data.REPEAT_MONTHLY
 import com.example.timeapk.data.REPEAT_NONE
 import com.example.timeapk.data.REPEAT_WEEKLY
 import com.example.timeapk.data.REPEAT_YEARLY
+import com.example.timeapk.ui.common.categoryColor
 import com.example.timeapk.ui.common.categoryLabel
 import com.example.timeapk.ui.common.homeCardTitleMaxLines
 import com.example.timeapk.ui.common.rememberEventImage
 import com.example.timeapk.ui.theme.AnimationSpecs
-import com.example.timeapk.ui.theme.ColorContrastGuardrail
+import com.example.timeapk.ui.theme.InkRuleLine
 import com.example.timeapk.ui.theme.SongDesignTokens
 import com.example.timeapk.ui.theme.SongLineIcon
 import com.example.timeapk.ui.theme.SongLineIconKind
 import com.example.timeapk.ui.theme.SongPalette
 import com.example.timeapk.ui.theme.SongPaperSurface
-import com.example.timeapk.ui.theme.SongSealLabel
+import com.example.timeapk.ui.theme.SongSeal
+import com.example.timeapk.ui.theme.SongSealStyle
+import com.example.timeapk.ui.theme.songSealInk
 import com.example.timeapk.ui.utils.DisplayModes
 import com.example.timeapk.ui.utils.eventDateToLocalDate
 import com.example.timeapk.ui.utils.formatBetweenAsYMD
 import com.example.timeapk.ui.utils.formatDaysSmart
 import com.example.timeapk.ui.utils.getAvailableDisplayModes
 import com.example.timeapk.ui.utils.getUntilLabel
-import com.example.timeapk.ui.utils.parseEventColorOrFallback
+import java.text.BreakIterator
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
+import java.time.temporal.ChronoUnit
+import kotlin.math.abs
 
 /** Resolved text for the time column of a card or list row. */
 private data class HomeTimeText(
@@ -167,40 +177,6 @@ private fun repeatLabelFor(repeatType: String): String? = when (repeatType) {
     else -> null
 }
 
-/** 朱印式“今天”：实心朱红方印，比纯文字更醒目。 */
-@Composable
-internal fun TodaySeal(
-    text: String,
-    modifier: Modifier = Modifier,
-    large: Boolean = false
-) {
-    val sealColor = MaterialTheme.colorScheme.primary
-    val textColor = ColorContrastGuardrail.ensureReadableText(
-        preferred = MaterialTheme.colorScheme.onPrimary,
-        background = sealColor
-    )
-    Box(
-        modifier = modifier
-            .background(sealColor, RoundedCornerShape(SongDesignTokens.RadiusSm.dp))
-            .border(
-                BorderStroke(1.dp, textColor.copy(alpha = 0.35f)),
-                RoundedCornerShape(SongDesignTokens.RadiusSm.dp)
-            )
-            .padding(
-                horizontal = if (large) 16.dp else 12.dp,
-                vertical = if (large) 8.dp else 5.dp
-            ),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = text,
-            style = if (large) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.titleLarge,
-            color = textColor,
-            maxLines = 1
-        )
-    }
-}
-
 @Composable
 private fun PinnedMark(modifier: Modifier = Modifier) {
     val pinnedDescription = stringResource(R.string.home_pinned)
@@ -217,17 +193,20 @@ private fun PinnedMark(modifier: Modifier = Modifier) {
 private fun EventThumbnail(imagePath: String?, size: Int, modifier: Modifier = Modifier) {
     val sizePx = with(LocalDensity.current) { size.dp.roundToPx() * 2 }
     val image = rememberEventImage(imagePath, sizePx) ?: return
+    val shape = RoundedCornerShape(SongDesignTokens.RadiusXs.dp)
     Image(
         bitmap = image,
         contentDescription = null,
         contentScale = ContentScale.Crop,
         modifier = modifier
             .size(size.dp)
-            .clip(RoundedCornerShape(SongDesignTokens.RadiusSm.dp))
+            .background(MaterialTheme.colorScheme.surface, shape)
             .border(
                 BorderStroke(SongDesignTokens.BorderWidth.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
-                RoundedCornerShape(SongDesignTokens.RadiusSm.dp)
+                shape
             )
+            .padding(3.dp)
+            .clip(shape)
     )
 }
 
@@ -390,7 +369,6 @@ private fun EmptyPaperIllustration(modifier: Modifier = Modifier) {
     }
 }
 
-/** 首页顶部“最近”横幅：最近一个未来事件，数字更大，作为首屏焦点。 */
 @Composable
 internal fun NearestEventBanner(
     eventState: EventUiState,
@@ -401,96 +379,60 @@ internal fun NearestEventBanner(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val locale = LocalConfiguration.current.locales[0]
+    val colors = MaterialTheme.colorScheme
+    val paper = colors.surface
     val time = resolveHomeTimeText(eventState, today, DisplayModes.UNTIL_DAYS, showHours)
-    val accent = parseEventColorOrFallback(eventState.event.colorHex, MaterialTheme.colorScheme.primary)
     val nearestLabel = stringResource(R.string.home_nearest_label)
     val dateLine = eventState.nextOccurrenceDate.format(dateFormatter)
-    val description = buildString {
-        append(nearestLabel).append(", ").append(eventState.event.title).append(", ")
-        if (time.isToday) append(time.content)
-        else append(time.label).append(" ").append(
-            if (time.unit.isEmpty()) time.content else stringResource(R.string.quantity_with_unit, time.content, time.unit)
-        )
-    }
+    val description = listOf(eventState.event.title, nearestLabel, time.label, time.quantity(), dateLine)
+        .filter(String::isNotBlank).joinToString(", ")
     SongPaperSurface(
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .semantics(mergeDescendants = true) { contentDescription = description },
-        backgroundColor = lerp(MaterialTheme.colorScheme.surface, accent, 0.06f),
-        borderColor = accent.copy(alpha = 0.36f)
+        backgroundColor = paper,
+        borderColor = colors.onSurface.copy(alpha = SongDesignTokens.RuleAlpha)
     ) {
-        Box {
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
             val image = rememberEventImage(eventState.event.imagePath, 900)
             if (image != null) {
-                androidx.compose.foundation.Image(
-                    bitmap = image,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    alpha = 0.16f,
-                    modifier = Modifier.matchParentSize()
+                Image(image, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
+                Box(
+                    Modifier.matchParentSize().background(
+                        Brush.horizontalGradient(
+                            0f to paper,
+                            0.55f to paper.copy(alpha = 0.96f),
+                            1f to paper.copy(alpha = 0.80f)
+                        )
+                    )
                 )
             }
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 18.dp),
-                verticalArrangement = Arrangement.spacedBy(SongDesignTokens.SpaceSm.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    SongSealLabel(text = nearestLabel, color = accent)
-                    if (pinned) {
-                        Spacer(Modifier.width(SongDesignTokens.SpaceSm.dp))
-                        PinnedMark()
-                    }
+            val stacked = maxWidth < 300.dp || LocalDensity.current.fontScale >= 1.3f
+            Column(Modifier.padding(horizontal = 18.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(nearestLabel, style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant)
+                    if (pinned) PinnedMark()
                     Spacer(Modifier.weight(1f))
-                    Text(
-                        text = dateLine,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1
-                    )
+                    Text(dateLine, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, maxLines = 1)
                 }
-                Row(verticalAlignment = Alignment.Bottom) {
+                val title: @Composable (Modifier) -> Unit = { titleModifier ->
                     Text(
                         text = eventState.event.title,
+                        modifier = titleModifier,
                         style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = colors.onSurface,
                         maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f).padding(bottom = 6.dp)
+                        overflow = TextOverflow.Ellipsis
                     )
-                    Spacer(Modifier.width(SongDesignTokens.SpaceMd.dp))
-                    if (time.isToday) {
-                        TodaySeal(text = time.content, large = true)
-                    } else {
-                        Column(horizontalAlignment = Alignment.End) {
-                            if (time.label.isNotBlank()) {
-                                Text(
-                                    text = time.label,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Row(verticalAlignment = Alignment.Bottom) {
-                                Text(
-                                    text = time.content,
-                                    style = MaterialTheme.typography.displayLarge.copy(fontSize = MaterialTheme.typography.displayLarge.fontSize * 1.25f),
-                                    color = accent.let { if (it.luminance() > 0.6f) MaterialTheme.colorScheme.onSurface else it },
-                                    maxLines = 1
-                                )
-                                if (time.unit.isNotEmpty()) {
-                                    Spacer(Modifier.width(if (locale.language == "en") 6.dp else 3.dp))
-                                    Text(
-                                        text = time.unit,
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        modifier = Modifier.padding(bottom = 8.dp)
-                                    )
-                                }
-                            }
-                        }
+                }
+                if (stacked) {
+                    title(Modifier.fillMaxWidth())
+                    CardCountdown(time, paper, Modifier.fillMaxWidth(), featured = true)
+                } else {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        title(Modifier.weight(1f))
+                        CardCountdown(time, paper, Modifier.width(140.dp), featured = true)
                     }
                 }
             }
@@ -517,12 +459,8 @@ fun EventCard(
     selected: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    val isPast = eventState.isPast
-    val baseCardColor = parseEventColorOrFallback(
-        hex = eventState.event.colorHex,
-        fallback = MaterialTheme.colorScheme.primary
-    )
-
+    val colors = MaterialTheme.colorScheme
+    val paper = colors.surface
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -530,68 +468,27 @@ fun EventCard(
         animationSpec = AnimationSpecs.springItem,
         label = "cardScale"
     )
-    val lightSurface = MaterialTheme.colorScheme.surface.luminance() > 0.5f
-    val cardContainerColor = when {
-        isPast && lightSurface -> SongPalette.PaperMuted
-        isPast -> MaterialTheme.colorScheme.surface.copy(alpha = 0.86f)
-        else -> MaterialTheme.colorScheme.surface
-    }
-    val cardContentColor = lerp(MaterialTheme.colorScheme.onSurface, baseCardColor, 0.06f)
-    val effectiveCardBackground = HomeEventColorPolicy.compositeOver(
-        foreground = cardContainerColor,
-        background = MaterialTheme.colorScheme.background
-    )
-    val cardOnSurfaceColor = MaterialTheme.colorScheme.onSurface
-    val cardAuxiliaryColor = if (lightSurface) {
-        baseCardColor.copy(alpha = if (isPast) 0.54f else 0.74f)
-    } else {
-        remember(baseCardColor, cardOnSurfaceColor, effectiveCardBackground) {
-            HomeEventColorPolicy.ensureTextContrast(
-                eventColor = baseCardColor,
-                onSurface = cardOnSurfaceColor,
-                background = effectiveCardBackground
-            )
+    val titleMaxLines = homeCardTitleMaxLines(LocalDensity.current.fontScale)
+    val targetLocalDate = remember(eventState.event.date) { eventDateToLocalDate(eventState.event.date) }
+    val time = eventTime(eventState, today, sortType, dateDeltaDisplayMode, showHours, showMilestone)
+    val onToggleTime = onToggleDateDeltaDisplayMode.takeUnless { sortType == SortType.ByDays }
+    val category = eventState.event.category
+    val categoryText = categoryLabel(category)
+    val categoryStamp = when (category) {
+        CATEGORY_BIRTHDAY -> stringResource(R.string.home_category_birthday_stamp)
+        CATEGORY_ANNIVERSARY -> stringResource(R.string.home_category_anniversary_stamp)
+        CATEGORY_OTHER -> stringResource(R.string.home_category_countdown_stamp)
+        else -> {
+            val locale = LocalConfiguration.current.locales[0]
+            remember(categoryText, locale) {
+                val characters = BreakIterator.getCharacterInstance(locale).apply { setText(categoryText) }
+                categoryText.take(characters.next().coerceAtLeast(0))
+            }
         }
     }
-    val cardAccentColor = baseCardColor.copy(alpha = if (isPast) 0.30f else 0.62f)
-    val cardBorderColor = baseCardColor.copy(alpha = if (isPast) 0.16f else 0.22f)
-
-    val locale = LocalConfiguration.current.locales[0]
-    val titleMaxLines = homeCardTitleMaxLines(LocalDensity.current.fontScale)
-    val targetLocalDate = remember(eventState.event.date) {
-        eventDateToLocalDate(eventState.event.date)
-    }
-
-    val resolvedDateDeltaDisplayMode = resolveHomeDateDeltaDisplayMode(
-        sortType = sortType,
-        requestedMode = dateDeltaDisplayMode,
-        eventState = eventState
-    )
-    val availableModes = getAvailableDisplayModes(eventState, showMilestone)
-    val modeIndex = availableModes.indexOf(resolvedDateDeltaDisplayMode)
-    val mode = if (modeIndex != -1) resolvedDateDeltaDisplayMode else availableModes.first()
-    val dateDeltaToggleEnabled = sortType != SortType.ByDays
-    val time = resolveHomeTimeText(eventState, today, mode, showHours)
-    val isToday = time.isToday
-
-    val cardDescription = buildString {
-        append(eventState.event.title)
-        append(", ")
-        if (isToday) append(time.content)
-        else append(time.label).append(" ").append(
-            if (time.unit.isEmpty()) time.content
-            else stringResource(R.string.quantity_with_unit, time.content, time.unit)
-        )
-        if (pinned) append(", ").append(stringResource(R.string.home_pinned))
-    }
-    val categoryText = categoryLabel(eventState.event.category)
-    val repeatLabel = repeatLabelFor(eventState.event.repeatType)
-    val cardAuxiliaryLine = buildList {
-        add(categoryText)
-        if (eventState.event.isLunar) add(stringResource(R.string.lunar_calendar))
-        repeatLabel?.let(::add)
-        if (eventState.event.remindEnabled) add(stringResource(R.string.field_remind))
-    }.joinToString(" · ")
+    val dateLine = targetLocalDate.format(dateFormatter)
+    val description = eventDescription(eventState, time, dateLine, pinned)
+    val cardAuxiliaryLine = eventAuxiliaryText(eventState, categoryText)
     val toggleDateDeltaDescription = stringResource(R.string.cd_toggle_date_delta_display)
 
     SongPaperSurface(
@@ -609,162 +506,69 @@ fun EventCard(
                 onLongClick = onLongClick
             )
             .semantics(mergeDescendants = true) {
-                contentDescription = cardDescription
-                // The compact time toggle is visually inside the merged card; expose it as an
-                // accessibility action so TalkBack users can still trigger it.
-                if (dateDeltaToggleEnabled) {
-                    customActions = listOf(
-                        CustomAccessibilityAction(toggleDateDeltaDescription) {
-                            onToggleDateDeltaDisplayMode()
-                            true
-                        }
-                    )
+                contentDescription = description
+                if (selected) this.selected = true
+                if (onToggleTime != null) {
+                    customActions = listOf(CustomAccessibilityAction(toggleDateDeltaDescription) {
+                        onToggleTime()
+                        true
+                    })
                 }
             },
-        backgroundColor = cardContainerColor,
+        backgroundColor = paper,
         borderColor = when {
-            isDragging || selected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.52f)
-            isToday -> MaterialTheme.colorScheme.primary.copy(alpha = 0.40f)
-            else -> cardBorderColor
+            selected -> songSealInk(paper).copy(alpha = 0.75f)
+            isDragging -> colors.onSurface.copy(alpha = SongDesignTokens.BorderAlphaStrong)
+            else -> colors.onSurface.copy(alpha = SongDesignTokens.RuleAlpha)
         }
     ) {
-        Box {
-            if (pinned) {
-                PinnedMark(modifier = Modifier.align(Alignment.TopEnd).padding(top = 8.dp, end = 10.dp))
-            }
-            BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
-                val stacked = maxWidth < 300.dp || LocalDensity.current.fontScale >= 1.3f
-                val accentWidth = if (isToday) 4.dp else 3.dp
-                val titleContent: @Composable () -> Unit = {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(
-                            text = eventState.event.title,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = cardContentColor.copy(alpha = if (isPast) 0.8f else 1.0f),
-                            maxLines = if (stacked) maxOf(2, titleMaxLines) else titleMaxLines,
-                            overflow = TextOverflow.Ellipsis
-                        )
-
-                        val dateLine = targetLocalDate.format(dateFormatter)
-                        val dateLineStyle = if (dateLine.length > 12) {
-                            MaterialTheme.typography.labelSmall
-                        } else {
-                            MaterialTheme.typography.bodySmall
-                        }
-                        Text(
-                            text = dateLine,
-                            style = dateLineStyle,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        if (showDetail && cardAuxiliaryLine.isNotBlank()) {
+        BoxWithConstraints(Modifier.fillMaxWidth().padding(16.dp)) {
+            val stacked = maxWidth < 284.dp || LocalDensity.current.fontScale >= 1.3f
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    SongSeal(
+                        text = categoryStamp,
+                        modifier = Modifier.clearAndSetSemantics { contentDescription = categoryText },
+                        paperColor = paper,
+                        textStyle = MaterialTheme.typography.labelSmall,
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 1.dp)
+                    )
+                    if (pinned) {
+                        Spacer(Modifier.weight(1f))
+                        PinnedMark()
+                    }
+                }
+                val details: @Composable (Modifier) -> Unit = { detailsModifier ->
+                    Row(detailsModifier, horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                             Text(
-                                text = cardAuxiliaryLine,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = cardAuxiliaryColor,
-                                maxLines = 1,
+                                text = eventState.event.title,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = colors.onSurface,
+                                maxLines = if (stacked) maxOf(2, titleMaxLines) else titleMaxLines,
                                 overflow = TextOverflow.Ellipsis
                             )
-                        }
-                    }
-                }
-                val timeContent: @Composable () -> Unit = {
-                    val timeColor = if (isPast) cardContentColor.copy(alpha = 0.85f) else cardContentColor
-                    Box(
-                        modifier = Modifier
-                            .then(if (stacked) Modifier.fillMaxWidth() else Modifier.widthIn(min = 72.dp, max = maxWidth * 0.48f))
-                            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
-                            .then(
-                                if (dateDeltaToggleEnabled) {
-                                    Modifier
-                                        .clickable(
-                                            interactionSource = remember { MutableInteractionSource() },
-                                            indication = LocalIndication.current,
-                                            onClick = onToggleDateDeltaDisplayMode
-                                        )
-                                        .semantics {
-                                            role = Role.Button
-                                            contentDescription = toggleDateDeltaDescription
-                                        }
-                                } else {
-                                    Modifier
-                                }
-                            ),
-                        contentAlignment = Alignment.CenterEnd
-                    ) {
-                        if (isToday) {
-                            TodaySeal(text = time.content)
-                        } else {
-                            Column(
-                                horizontalAlignment = Alignment.End,
-                                verticalArrangement = Arrangement.Center,
-                                modifier = Modifier.heightIn(min = 52.dp)
-                            ) {
-                                if (time.label.isNotBlank()) {
-                                    Text(
-                                        text = time.label,
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = timeColor.copy(alpha = 0.72f),
-                                        letterSpacing = 0.sp,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                                Row(
-                                    verticalAlignment = Alignment.Bottom,
-                                    horizontalArrangement = Arrangement.End
-                                ) {
-                                    Text(
-                                        text = time.content,
-                                        style = if (time.unit.isEmpty() && time.content.length > 6) {
-                                            MaterialTheme.typography.titleLarge
-                                        } else {
-                                            MaterialTheme.typography.displayLarge
-                                        },
-                                        color = timeColor,
-                                        modifier = Modifier.weight(1f, fill = false),
-                                        maxLines = if (stacked && time.unit.isEmpty()) 2 else 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                    if (time.unit.isNotEmpty()) {
-                                        Spacer(modifier = Modifier.width(if (locale.language == "en") 6.dp else 3.dp))
-                                        Text(
-                                            text = time.unit,
-                                            style = MaterialTheme.typography.labelLarge,
-                                            color = timeColor,
-                                            modifier = Modifier.padding(bottom = 6.dp)
-                                        )
-                                    }
-                                }
+                            Text(
+                                dateLine, style = MaterialTheme.typography.bodySmall,
+                                color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis
+                            )
+                            if (showDetail) {
+                                Text(
+                                    cardAuxiliaryLine, style = MaterialTheme.typography.labelSmall,
+                                    color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis
+                                )
                             }
                         }
+                        EventThumbnail(eventState.event.imagePath, size = 46)
                     }
-                }
-                val thumbnail: @Composable () -> Unit = {
-                    EventThumbnail(eventState.event.imagePath, size = 44)
                 }
                 if (stacked) {
-                    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.width(accentWidth).height(44.dp).background(cardAccentColor, RoundedCornerShape(2.dp)))
-                            Spacer(Modifier.width(12.dp))
-                            Box(Modifier.weight(1f)) { titleContent() }
-                            thumbnail()
-                        }
-                        timeContent()
-                    }
+                    details(Modifier.fillMaxWidth())
+                    CardCountdown(time, paper, Modifier.fillMaxWidth(), onToggle = onToggleTime)
                 } else {
-                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.width(accentWidth).height(52.dp).background(cardAccentColor, RoundedCornerShape(2.dp)))
-                        Spacer(Modifier.width(16.dp))
-                        if (eventState.event.imagePath != null) {
-                            thumbnail()
-                            Spacer(Modifier.width(12.dp))
-                        }
-                        Box(Modifier.weight(1f)) { titleContent() }
-                        Spacer(Modifier.width(16.dp))
-                        timeContent()
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        details(Modifier.weight(1f))
+                        CardCountdown(time, paper, Modifier.width(128.dp), onToggle = onToggleTime)
                     }
                 }
             }
@@ -772,7 +576,112 @@ fun EventCard(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun eventTime(
+    eventState: EventUiState,
+    today: LocalDate,
+    sortType: SortType,
+    displayMode: Int,
+    showHours: Boolean,
+    showMilestone: Boolean
+): HomeTimeText {
+    val mode = resolveHomeDateDeltaDisplayMode(sortType, displayMode, eventState)
+    val available = getAvailableDisplayModes(eventState, showMilestone)
+    return resolveHomeTimeText(eventState, today, if (mode in available) mode else available.first(), showHours)
+}
+
+@Composable
+private fun HomeTimeText.quantity(): String =
+    if (content.isEmpty() || unit.isEmpty()) content else stringResource(R.string.quantity_with_unit, content, unit)
+
+@Composable
+private fun eventDescription(eventState: EventUiState, time: HomeTimeText, date: String, pinned: Boolean): String =
+    buildList {
+        add(eventState.event.title)
+        add(listOf(time.label, time.quantity()).filter(String::isNotBlank).joinToString(" "))
+        add(date)
+        if (pinned) add(stringResource(R.string.home_pinned))
+    }.filter(String::isNotBlank).joinToString(", ")
+
+@Composable
+private fun eventAuxiliaryText(eventState: EventUiState, categoryText: String): String = buildList {
+    add(categoryText)
+    if (eventState.event.isLunar) add(stringResource(R.string.lunar_calendar))
+    repeatLabelFor(eventState.event.repeatType)?.let(::add)
+    if (eventState.event.remindEnabled) add(stringResource(R.string.field_remind))
+}.joinToString(" · ")
+
+@Composable
+private fun Modifier.timeToggle(onToggle: (() -> Unit)?): Modifier {
+    if (onToggle == null) return this
+    val label = stringResource(R.string.cd_toggle_date_delta_display)
+    return clickable(role = Role.Button, onClick = onToggle).semantics { contentDescription = label }
+}
+
+@Composable
+private fun CardCountdown(
+    time: HomeTimeText,
+    paper: Color,
+    modifier: Modifier = Modifier,
+    featured: Boolean = false,
+    onToggle: (() -> Unit)? = null
+) {
+    val colors = MaterialTheme.colorScheme
+    val locale = LocalConfiguration.current.locales[0]
+    Row(
+        modifier = modifier.heightIn(min = 48.dp).timeToggle(onToggle),
+        horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (time.isToday) {
+            SongSeal(
+                text = time.content,
+                style = if (featured) SongSealStyle.Intaglio else SongSealStyle.Relief,
+                stampAnimation = true,
+                paperColor = paper,
+                textStyle = if (featured) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.titleLarge
+            )
+        } else {
+            if (time.label.isNotBlank()) {
+                val vertical = locale.language == "zh" && time.label.length == 2
+                Text(
+                    text = if (vertical) time.label.toList().joinToString("\n") else time.label,
+                    modifier = Modifier.widthIn(max = 42.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colors.onSurfaceVariant,
+                    maxLines = if (vertical) 2 else 3,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Row(
+                modifier = Modifier.weight(1f, fill = false),
+                horizontalArrangement = Arrangement.spacedBy(3.dp),
+                verticalAlignment = Alignment.Bottom
+            ) {
+                val displayStyle = MaterialTheme.typography.displayLarge
+                Text(
+                    text = time.content,
+                    modifier = Modifier.weight(1f, fill = false).alignByBaseline(),
+                    style = when {
+                        time.unit.isEmpty() && time.content.length > 6 -> MaterialTheme.typography.titleLarge
+                        featured -> displayStyle.copy(fontSize = displayStyle.fontSize * 1.12f)
+                        else -> displayStyle
+                    },
+                    color = colors.onSurface,
+                    maxLines = if (time.unit.isEmpty()) 2 else 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (time.unit.isNotEmpty()) {
+                    Text(
+                        time.unit, modifier = Modifier.alignByBaseline(),
+                        style = MaterialTheme.typography.labelMedium, color = colors.onSurface
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 internal fun EventListItem(
     eventState: EventUiState,
@@ -789,72 +698,84 @@ internal fun EventListItem(
     selected: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
+    val date = remember(eventState.event.date) { eventDateToLocalDate(eventState.event.date) }
+    EventLedgerRow(
+        eventState = eventState,
+        date = date,
+        time = eventTime(eventState, today, sortType, dateDeltaDisplayMode, showHours, showMilestone),
+        onClick = onClick,
+        onLongClick = onLongClick,
+        onToggleTime = onToggleDateDeltaDisplayMode.takeUnless { sortType == SortType.ByDays },
+        isDragging = isDragging,
+        pinned = pinned,
+        selected = selected,
+        modifier = modifier
+    )
+}
+
+@Composable
+internal fun CalendarOccurrenceRow(
+    occurrence: CalendarEventOccurrence,
+    today: LocalDate,
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)?
+) {
+    val locale = LocalConfiguration.current.locales[0]
+    val delta = ChronoUnit.DAYS.between(today, occurrence.date)
+    val days = abs(delta)
+    val time = if (delta == 0L) {
+        HomeTimeText(stringResource(R.string.home_today_seal), "", "", isToday = true)
+    } else {
+        HomeTimeText(
+            content = formatDaysSmart(days, false, locale),
+            unit = pluralStringResource(R.plurals.days_unit, days.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()),
+            label = stringResource(if (delta > 0L) R.string.days_until_label else R.string.days_past_label),
+            isToday = false
+        )
+    }
+    EventLedgerRow(occurrence.eventState, occurrence.date, time, onClick, onLongClick)
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun EventLedgerRow(
+    eventState: EventUiState,
+    date: LocalDate,
+    time: HomeTimeText,
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)?,
+    onToggleTime: (() -> Unit)? = null,
+    isDragging: Boolean = false,
+    pinned: Boolean = false,
+    selected: Boolean = false,
+    modifier: Modifier = Modifier
+) {
+    val colors = MaterialTheme.colorScheme
+    val locale = LocalConfiguration.current.locales[0]
+    val dateLabel = remember(date, locale) {
+        date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale))
+    }
+    val description = eventDescription(eventState, time, dateLabel, pinned)
+    val category = eventState.event.category
+    val auxiliary = eventAuxiliaryText(eventState, categoryLabel(category))
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = AnimationSpecs.responsiveScale(if (isDragging) 1.02f else if (isPressed) 0.98f else 1f),
+        targetValue = AnimationSpecs.responsiveScale(if (isDragging) 1.02f else if (pressed) 0.98f else 1f),
         animationSpec = AnimationSpecs.springItem,
         label = "listItemScale"
     )
-    val isPast = eventState.isPast
-
-    val resolvedDateDeltaDisplayMode = resolveHomeDateDeltaDisplayMode(
-        sortType = sortType,
-        requestedMode = dateDeltaDisplayMode,
-        eventState = eventState
-    )
-    val availableModes = getAvailableDisplayModes(eventState, showMilestone = showMilestone)
-    val modeIndex = availableModes.indexOf(resolvedDateDeltaDisplayMode)
-    val mode = if (modeIndex != -1) resolvedDateDeltaDisplayMode else availableModes.first()
-    val dateDeltaToggleEnabled = sortType != SortType.ByDays
-    val time = resolveHomeTimeText(eventState, today, mode, showHours)
-    val isToday = time.isToday
-    val labelText = time.label
-    val daysDisplay = when {
-        time.content.isEmpty() -> ""
-        time.unit.isEmpty() -> time.content
-        else -> stringResource(R.string.quantity_with_unit, time.content, time.unit)
-    }
-
-    val eventColor = parseEventColorOrFallback(
-        hex = eventState.event.colorHex,
-        fallback = MaterialTheme.colorScheme.primary
-    )
-    val toggleDateDeltaTitle = stringResource(R.string.cd_toggle_date_delta_display)
-    val itemDescription = buildString {
-        append(eventState.event.title)
-        append(", ")
-        if (isToday) append(time.content)
-        else append(labelText).append(" ").append(daysDisplay)
-        if (pinned) append(", ").append(stringResource(R.string.home_pinned))
-    }
-    val isLightSurface = MaterialTheme.colorScheme.surface.luminance() > 0.5f
     val rowBackground = when {
-        isDragging -> MaterialTheme.colorScheme.surface
-        selected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-        isPressed -> MaterialTheme.colorScheme.primary.copy(alpha = 0.05f)
+        isDragging -> colors.surface
+        pressed -> colors.onBackground.copy(alpha = 0.05f)
         else -> Color.Transparent
     }
-    val effectiveListBackground = HomeEventColorPolicy.compositeOver(
-        foreground = rowBackground,
-        background = MaterialTheme.colorScheme.background
-    )
-    val listOnBackgroundColor = MaterialTheme.colorScheme.onBackground
-    val displayColor = if (isLightSurface) {
-        lerp(eventColor, listOnBackgroundColor, 0.4f)
-    } else {
-        remember(eventColor, listOnBackgroundColor, effectiveListBackground) {
-            HomeEventColorPolicy.ensureTextContrast(
-                eventColor = eventColor,
-                onSurface = listOnBackgroundColor,
-                background = effectiveListBackground
-            )
-        }
+    val paper = HomeEventColorPolicy.compositeOver(rowBackground, colors.background)
+    val categoryColor = categoryColor(category)
+    val marker = remember(categoryColor, colors.onBackground, paper) {
+        HomeEventColorPolicy.categoryMarker(categoryColor, colors.onBackground, paper)
     }
-
-    val baseTextColorListItem = MaterialTheme.colorScheme.onSurface
-    val itemContentColor = lerp(baseTextColorListItem, eventColor, 0.04f)
-
+    val timeLabel = stringResource(R.string.cd_toggle_date_delta_display)
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -862,146 +783,111 @@ internal fun EventListItem(
                 scaleX = scale
                 scaleY = scale
             }
-            .background(color = rowBackground, shape = MaterialTheme.shapes.medium)
-            .then(
-                if (isDragging) Modifier.border(SongDesignTokens.BorderWidth.dp, MaterialTheme.colorScheme.primary.copy(alpha = SongDesignTokens.BorderAlphaStrong), MaterialTheme.shapes.medium)
-                else Modifier
-            )
+            .background(rowBackground, MaterialTheme.shapes.small)
             .combinedClickable(
-                interactionSource = interactionSource,
+                interactionSource = interaction,
                 indication = LocalIndication.current,
                 onClick = onClick,
                 onLongClick = onLongClick
             )
             .semantics(mergeDescendants = true) {
-                contentDescription = itemDescription
-                if (dateDeltaToggleEnabled) {
-                    customActions = listOf(
-                        CustomAccessibilityAction(toggleDateDeltaTitle) {
-                            onToggleDateDeltaDisplayMode()
-                            true
-                        }
-                    )
+                contentDescription = description
+                if (selected) this.selected = true
+                if (onToggleTime != null) {
+                    customActions = listOf(CustomAccessibilityAction(timeLabel) {
+                        onToggleTime()
+                        true
+                    })
                 }
             }
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 52.dp)
-                .padding(horizontal = 8.dp, vertical = 6.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp).padding(horizontal = 8.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .width(if (isToday) 3.dp else 2.dp)
-                    .height(18.dp)
-                    .background(
-                        color = eventColor.copy(alpha = if (isPast) 0.26f else 0.50f),
-                        shape = RoundedCornerShape(2.dp)
+            Column(
+                modifier = Modifier.width(SongDesignTokens.ListDateColumnWidth.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                if (selected) {
+                    SongSeal(
+                        date.dayOfMonth.toString(), paperColor = paper,
+                        textStyle = MaterialTheme.typography.titleMedium,
+                        contentPadding = PaddingValues(horizontal = 3.dp, vertical = 1.dp)
                     )
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            if (pinned) {
-                PinnedMark()
-                Spacer(modifier = Modifier.width(6.dp))
-            }
-            Text(
-                text = eventState.event.title,
-                style = MaterialTheme.typography.titleMedium.copy(
-                    letterSpacing = 0.sp
-                ),
-                color = itemContentColor.copy(alpha = if (isPast) 0.84f else 1f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            if (isToday) {
-                TodaySeal(text = time.content)
-            } else {
-                CompactEventTime(
-                    daysDisplay = daysDisplay,
-                    labelText = labelText,
-                    timeColor = if (isPast && isLightSurface) {
-                        displayColor.copy(alpha = 0.82f)
-                    } else {
-                        displayColor
-                    },
-                    labelColor = itemContentColor.copy(alpha = 0.64f),
-                    contentDescription = stringResource(R.string.cd_toggle_date_delta_display),
-                    enabled = dateDeltaToggleEnabled,
-                    onClick = onToggleDateDeltaDisplayMode
+                } else {
+                    Text(date.dayOfMonth.toString(), style = MaterialTheme.typography.titleMedium, color = colors.onBackground)
+                }
+                Text(
+                    date.dayOfWeek.getDisplayName(java.time.format.TextStyle.SHORT, locale),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colors.onSurfaceVariant,
+                    maxLines = 1
                 )
             }
+            Spacer(Modifier.width(8.dp))
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (pinned) PinnedMark()
+                    Text(
+                        eventState.event.title, style = MaterialTheme.typography.titleMedium,
+                        color = colors.onBackground, maxLines = 1, overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
+                    Box(Modifier.size(5.dp).background(marker, CircleShape))
+                    Text(
+                        auxiliary, style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            Spacer(Modifier.width(8.dp))
+            CompactEventTime(time, paper, onToggle = onToggleTime)
         }
-        HorizontalDivider(
-            modifier = Modifier.padding(start = 24.dp),
-            thickness = SongDesignTokens.BorderWidth.dp,
-            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
-        )
+        InkRuleLine(Modifier.padding(start = 48.dp))
     }
 }
 
 @Composable
-private fun CompactEventTime(
-    daysDisplay: String,
-    labelText: String,
-    timeColor: Color,
-    labelColor: Color,
-    contentDescription: String,
-    enabled: Boolean,
-    onClick: () -> Unit
-) {
+private fun CompactEventTime(time: HomeTimeText, paper: Color, onToggle: (() -> Unit)?) {
+    val colors = MaterialTheme.colorScheme
+    val quantity = time.quantity()
     Column(
         modifier = Modifier
-            .widthIn(min = 82.dp, max = 138.dp)
+            .width(if (LocalDensity.current.fontScale >= 1.3f) 106.dp else 96.dp)
             .heightIn(min = 48.dp)
-            .then(
-                if (enabled) {
-                    Modifier
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = LocalIndication.current,
-                            onClick = onClick
-                        )
-                        .semantics {
-                            role = Role.Button
-                            this.contentDescription = contentDescription
-                        }
-                } else {
-                    Modifier
-                }
-            ),
+            .timeToggle(onToggle),
         horizontalAlignment = Alignment.End,
         verticalArrangement = Arrangement.Center
     ) {
-        if (labelText.isNotBlank()) {
-            Text(
-                text = labelText,
-                style = MaterialTheme.typography.labelSmall,
-                color = labelColor,
-                letterSpacing = 0.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.End,
-                modifier = Modifier.fillMaxWidth()
+        if (time.isToday) {
+            SongSeal(
+                text = time.content,
+                stampAnimation = true,
+                paperColor = paper,
+                textStyle = MaterialTheme.typography.titleSmall
             )
-        }
-        if (daysDisplay.isNotBlank()) {
-            Text(
-                text = daysDisplay,
-                style = when {
-                    daysDisplay.length > 12 -> MaterialTheme.typography.bodySmall
-                    daysDisplay.length > 8 -> MaterialTheme.typography.bodyMedium
-                    else -> MaterialTheme.typography.titleLarge
-                },
-                color = timeColor,
-                maxLines = if (daysDisplay.length > 12) 3 else 2,
-                overflow = TextOverflow.Clip,
-                textAlign = TextAlign.End,
-                modifier = Modifier.fillMaxWidth()
-            )
+        } else {
+            if (time.label.isNotBlank()) {
+                Text(
+                    time.label, style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.End
+                )
+            }
+            if (quantity.isNotBlank()) {
+                Text(
+                    quantity,
+                    style = if (quantity.length > 10) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.titleMedium,
+                    color = colors.onBackground,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.End
+                )
+            }
         }
     }
 }

@@ -56,16 +56,13 @@ class SongUiSourceConsistencyTest {
     @Test
     fun homeListMode_usesBookListRhythmInsteadOfCardRhythm() {
         val source = readSource("ui/home/HomeScreen.kt")
-        val listBlock = source.substringAfter("internal fun EventListItem(")
+        val listBlock = source.substringAfter("private fun EventLedgerRow(")
             .substringBefore("private fun CompactEventTime")
 
-        assertTrue(listBlock.contains(".heightIn(min = 52.dp)"))
-        assertTrue(listBlock.contains(".width(if (isToday) 3.dp else 2.dp)"))
-        assertTrue(listBlock.contains(".height(18.dp)"))
-        assertTrue(listBlock.contains("HorizontalDivider("))
-        assertFalse(listBlock.contains(".heightIn(min = 64.dp)"))
-        assertFalse(listBlock.contains(".heightIn(min = 88.dp)"))
-        assertFalse(listBlock.contains(".height(40.dp)"))
+        assertTrue(listBlock.contains(".heightIn(min = 60.dp)"))
+        assertTrue(listBlock.contains("ListDateColumnWidth.dp"))
+        assertTrue(listBlock.contains("InkRuleLine(Modifier.padding(start = 48.dp))"))
+        assertFalse(source.contains("stickyHeader("))
     }
 
     @Test
@@ -78,22 +75,19 @@ class SongUiSourceConsistencyTest {
         assertTrue(monthBlock.contains("SongDateWheelPickerDialog("))
         assertTrue(monthBlock.contains("initialDateMillis = monthPickerInitialDate"))
         assertTrue(monthBlock.contains("title = stringResource(R.string.field_date)"))
-        assertTrue(monthBlock.contains("val pickedMonth = YearMonth.from(pickedLocalDate)"))
-        assertTrue(monthBlock.contains("currentMonth = pickedMonth"))
-        assertTrue(monthBlock.contains("updatePickedDate(pickedMonth.atDay("))
+        assertTrue(monthBlock.contains("currentMonth = YearMonth.from(picked)"))
+        assertTrue(monthBlock.contains("updatePickedDate(picked)"))
         assertTrue(monthBlock.contains("role = Role.Button"))
-        assertTrue(monthBlock.contains("this.contentDescription = currentMonthTitle"))
-        assertTrue(monthBlock.contains(".heightIn(min = 48.dp, max = 72.dp"))
-        assertFalse(monthBlock.contains(".height(60.dp)"))
-        assertTrue(monthBlock.contains("CalendarOccurrenceRow("))
+        assertTrue(monthBlock.contains("contentDescription = currentMonthTitle"))
+        assertTrue(monthBlock.contains("calendarLunarMonthTitle(currentMonth)"))
+        assertTrue(monthBlock.contains("if (index > 0) InkRuleLine()"))
+        assertFalse(monthBlock.contains(".border("))
         assertFalse(monthBlock.contains("SongPaperSurface("))
-        assertTrue(componentSource.contains("Color.Transparent"))
-        assertTrue(componentSource.contains("selected -> primary"))
-        assertTrue(componentSource.contains("selected -> selectedContentColor"))
-        assertTrue(componentSource.contains("if (selected) selectedContentColor else primary"))
-        assertTrue(componentSource.contains("hasEvents -> MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)"))
-        // 4.2: today keeps a strong seal outline so it stays distinct from the selected fill.
-        assertTrue(componentSource.contains("today -> primary.copy(alpha = 0.86f)"))
+        val cell = componentSource.substringAfter("fun SongCalendarCell(")
+        assertTrue(cell.contains("if (today) {\n            SongSeal("))
+        assertTrue(cell.contains("if (selected) {\n                InkRuleLine("))
+        assertTrue(cell.contains("CalendarCellMinHeight.dp"))
+        assertFalse(cell.contains(".border("))
     }
 
     @Test
@@ -380,18 +374,11 @@ class SongUiSourceConsistencyTest {
     @Test
     fun calendarSelectedEventsRenderDetailedDayNotes() {
         val source = readSource("ui/home/HomeScreen.kt")
-        val rowBlock = source.substringAfter("private fun CalendarOccurrenceRow(")
-        val timeLineBlock = rowBlock
-            .substringAfter("text = calendarTimeLine")
-            .substringBefore("text = calendarMetaLine")
-
-        assertTrue(rowBlock.contains("val calendarMetaLine = buildList"))
-        assertTrue(rowBlock.contains("val calendarTimeLine"))
-        assertTrue(rowBlock.contains("occurrence.eventState.event.repeatType"))
-        assertTrue(rowBlock.contains("occurrence.eventState.event.remindEnabled"))
-        // The lunar date now lives in each calendar cell and in the day header above the list.
+        val rowBlock = source.substringAfter("internal fun CalendarOccurrenceRow(")
+            .substringBefore("private fun EventLedgerRow(")
+        assertTrue(rowBlock.contains("ChronoUnit.DAYS.between(today, occurrence.date)"))
+        assertTrue(rowBlock.contains("EventLedgerRow(occurrence.eventState, occurrence.date"))
         assertTrue(source.contains("calendarLunarCellLabel(date)"))
-        assertTrue("Calendar event details must remain readable at large text", timeLineBlock.contains("maxLines = 2"))
     }
 
     @Test

@@ -41,7 +41,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.time.LocalDate
-import java.time.ZoneId
+import java.time.ZoneOffset
 
 @OptIn(ExperimentalTestApi::class)
 @RunWith(AndroidJUnit4::class)
@@ -71,14 +71,16 @@ class HomeFilteredReorderGestureTest {
         originalDisplayMode = app.userPrefs.homeDisplayModeFlow.first()
         originalOrder = app.userPrefs.customEventOrderFlow.first()
         originalBanner = app.userPrefs.homeNearestBannerEnabledFlow.first()
-        // The Up next banner repeats the nearest title; keep one node per event.
+        // Search-subset fixtures start from plain cards. The banner test enables it explicitly.
         app.userPrefs.setHomeNearestBannerEnabled(false)
 
-        val today = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        dragAId = app.repository.insertEvent(testEvent("E2EDrag-A", today, 30L)).toInt()
+        val date = LocalDate.now()
+        val today = date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+        val tomorrow = date.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+        dragAId = app.repository.insertEvent(testEvent("E2EDrag-A", tomorrow, 30L)).toInt()
         hiddenId = app.repository.insertEvent(testEvent("E2EHidden", today, 20L)).toInt()
-        dragBId = app.repository.insertEvent(testEvent("E2EDrag-B", today, 10L)).toInt()
-        dragCId = app.repository.insertEvent(testEvent("E2EDrag-C", today, 5L)).toInt()
+        dragBId = app.repository.insertEvent(testEvent("E2EDrag-B", tomorrow, 10L)).toInt()
+        dragCId = app.repository.insertEvent(testEvent("E2EDrag-C", tomorrow, 5L)).toInt()
         app.userPrefs.setFilterType(FilterType.All.ordinal)
         app.userPrefs.setSortType(SortType.ByDays.ordinal)
         app.userPrefs.setHomeDisplayMode(0)
@@ -153,9 +155,36 @@ class HomeFilteredReorderGestureTest {
     }
 
     @Test
+    fun nearestBannerAppearsOnceAndKeepsItsGlobalSlotWhenVisibleCardsMove() {
+        runBlocking {
+            app.userPrefs.setSortType(SortType.Custom.ordinal)
+            app.userPrefs.setHomeNearestBannerEnabled(true)
+        }
+        val activity = composeRule.activity
+        val bannerDescription = "E2EHidden, " + activity.getString(R.string.home_nearest_label)
+        val banner = composeRule.onNodeWithContentDescription(bannerDescription, substring = true)
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.mainClock.advanceTimeByFrame()
+            banner.isDisplayed() && composeRule.onAllNodesWithText("E2EHidden").fetchSemanticsNodes().size == 1
+        }
+
+        val moveDownLabel = activity.getString(R.string.home_move_down)
+        val actions = composeRule.onNodeWithContentDescription("E2EDrag-A", substring = true)
+            .fetchSemanticsNode().config[SemanticsActions.CustomActions]
+        composeRule.runOnIdle { assertTrue(actions.single { it.label == moveDownLabel }.action()) }
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.mainClock.advanceTimeByFrame()
+            runBlocking { app.userPrefs.customEventOrderFlow.first().take(4) } ==
+                listOf(dragBId, hiddenId, dragAId, dragCId)
+        }
+        banner.assertIsDisplayed()
+        assertEquals(1, composeRule.onAllNodesWithText("E2EHidden").fetchSemanticsNodes().size)
+    }
+
+    @Test
     fun holdingADragNearTheListEdgeScrollsBeyondTheInitialViewport() {
         runBlocking {
-            val today = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            val today = LocalDate.now().atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
             (1..12).forEach { index ->
                 additionalDragIds += app.repository.insertEvent(testEvent("E2EDrag-M$index", today, -index.toLong())).toInt()
             }

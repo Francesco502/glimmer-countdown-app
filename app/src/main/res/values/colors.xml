@@ -2,6 +2,7 @@
 <resources>
     <!-- 启动页背景色：宣纸暖白，与应用主视觉保持一致 -->
     <color name="splash_bg">#F9F7F2</color>
+    <color name="splash_ink">#422D1D</color>
     <color name="widget_surface_color">#FFF5F3ED</color>
     <color name="widget_surface_highlight_color">#00FFFFFF</color>
     <color name="widget_surface_highlight_fade_color">#00FFFFFF</color>

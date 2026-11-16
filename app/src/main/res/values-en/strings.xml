@@ -593,6 +593,9 @@
     <string name="home_time_toggle_hint">Tap the number on a card to switch between days, date span and the next milestone</string>
     <string name="home_hint_dismiss">Got it</string>
     <string name="home_today_seal">Today</string>
+    <string name="home_category_birthday_stamp">B</string>
+    <string name="home_category_anniversary_stamp">A</string>
+    <string name="home_category_countdown_stamp">D</string>
     <string name="home_nearest_label">Up next</string>
     <string name="home_pinned">Pinned</string>
     <string name="home_empty_subtitle">Add a birthday, an anniversary or a day you are looking forward to, and Glimmer will count it for you.</string>

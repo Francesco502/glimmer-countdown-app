@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Host-driven draft recovery, or 4.3.0-to-4.3.1 upgrade with --upgrade-apk.
+"""Host-driven draft recovery, or an in-place upgrade with --upgrade-apk.
 
 This terminates a real background process through ActivityManager while retaining
 its task. It does not claim natural low-memory-killer or physical-device coverage.
@@ -21,8 +21,8 @@ import xml.etree.ElementTree as ET
 
 PACKAGE = "com.example.timeapk"
 COMPONENT = PACKAGE + "/.MainActivity"
-UPGRADE_BASELINE = ("4.3.0", "30")
-UPGRADE_CANDIDATE = ("4.3.1", "31")
+UPGRADE_BASELINE = ("4.3.1", "31")
+UPGRADE_CANDIDATE = ("4.3.2", "32")
 LABELS = {
     "add": ("Add event", "Record your first event", "添加事件", "记录第一个日期"),
     "new": ("New event", "新建事件"),
@@ -44,6 +44,19 @@ class SmokeFailure(RuntimeError):
 def require_version(identity, expected):
     if (identity["versionName"], identity["versionCode"]) != expected:
         raise SmokeFailure("Expected package " + "/".join(expected) + ", got " + repr(identity))
+
+
+def source_version():
+    properties = (Path(__file__).resolve().parents[1] / "gradle.properties").read_text(encoding="utf-8")
+    values = dict(re.findall(r"(?m)^\s*(VERSION_NAME|VERSION_CODE)\s*=\s*(\S+)", properties))
+    return values["VERSION_NAME"], values["VERSION_CODE"]
+
+
+def capture_version(package_state, upgraded):
+    if upgraded:
+        return upgraded["versionName"], upgraded["versionCode"]
+    debuggable = re.search(r"(?m)^\s*(?:flags|pkgFlags)=\[[^\]\r\n]*\bDEBUGGABLE\b", package_state)
+    return source_version() if debuggable else UPGRADE_CANDIDATE
 
 
 def share_media_published(row):
@@ -437,7 +450,7 @@ class Smoke:
         return next(iter(values))
 
     def upgrade(self, apk):
-        self.evidence["scenario"] = "saved-event-4.3.0-to-4.3.1-in-place-upgrade"
+        self.evidence["scenario"] = f"saved-event-{UPGRADE_BASELINE[0]}-to-{UPGRADE_CANDIDATE[0]}-in-place-upgrade"
         self.evidence["launcher_widget_upgrade"] = "not_executed; separate launcher acceptance required"
         apk = Path(apk).resolve()
         if not apk.is_file():
@@ -516,18 +529,20 @@ class Smoke:
         self.hide_keyboard()
         self.tap_action("back")
         self.evidence["passed"] = True
-        self.evidence["scope"] = "One saved synthetic event upgraded from 4.3.0/30 to 4.3.1/31 with unchanged firstInstallTime/userId and title/note/displayed date; caller verifies APK signature separately; launcher widget/config migration, baseline process-recovery and physical-device acceptance are separate, not implied."
+        self.evidence["scope"] = (
+            f"One saved synthetic event upgraded from {'/'.join(UPGRADE_BASELINE)} to "
+            f"{'/'.join(UPGRADE_CANDIDATE)} with unchanged firstInstallTime, userId, title, note and displayed date. "
+            "Caller verifies the APK signature."
+        )
 
     def capture_pages(self, title):
         self.stage = "pages-00-package"
-        identity = package_identity(self.text("shell", "dumpsys", "package", PACKAGE,
-                                               destination=self.output / "pages-installed-package.txt"))
-        # Both source CI and the current signed-upgrade path must capture 4.3.1.
-        expected = self.evidence.get("package_after") or {"versionName": "4.3.1", "versionCode": "31"}
-        if (identity["versionName"], identity["versionCode"]) != (expected["versionName"], expected["versionCode"]):
-            raise SmokeFailure("Page capture package does not match the expected build: " + repr(identity))
+        package_state = self.text("shell", "dumpsys", "package", PACKAGE,
+                                  destination=self.output / "pages-installed-package.txt")
+        identity = package_identity(package_state)
+        require_version(identity, capture_version(package_state, self.evidence.get("package_after")))
         self.evidence.update(pages_package=identity, pages_title=title, captured_pages=[],
-                             pages_scope="Five actual MainActivity pages: home cards, calendar, the unique saved event detail, settings root, and app-internal widget default configuration preview; no Launcher widget binding claim.")
+                             pages_scope="MainActivity pages: home cards, ledger list, calendar, event detail, settings, and in-app widget preview.")
 
         def selected(tree, labels):
             node = tree.action(labels, allow_selected=True)
@@ -551,6 +566,7 @@ class Smoke:
             })
 
         cards = ("Cards", "卡片")
+        ledger = ("List", "列表")
         calendar = ("Calendar", "月历")
         settings = ("Settings", "设置")
         widget = ("Widget settings", "小组件设置")
@@ -591,6 +607,10 @@ class Smoke:
             passed=True, closed_by_native_back=True,
             closed_xml=str(Path(self.last_xml).relative_to(self.output)), closed_png=self.stage + ".png"
         )
+
+        self.stage = "pages-06-home-list"
+        self.tap(self.seek("List tab", lambda tree: tree.action(ledger, allow_selected=True)))
+        capture(self.stage, lambda tree: selected(tree, ledger) and tree.action(title=title) is not None)
 
         self.stage = "pages-02-calendar"
         self.tap(self.seek("Calendar tab", lambda tree: tree.action(calendar, allow_selected=True)))
@@ -819,7 +839,7 @@ def main():
     parser.add_argument("--adb", required=True)
     parser.add_argument("--serial", required=True)
     parser.add_argument("--output", required=True)
-    parser.add_argument("--upgrade-apk", help="Upgrade installed 4.3.0/30 to this caller-verified signed 4.3.1/31 APK")
+    parser.add_argument("--upgrade-apk", help=f"Upgrade installed {'/'.join(UPGRADE_BASELINE)} to this caller-verified signed {'/'.join(UPGRADE_CANDIDATE)} APK")
     parser.add_argument("--capture-pages", action="store_true", help="After success, capture five MainActivity pages for manual review")
     parser.add_argument("--check-update", action="store_true", help="After success, require the published Direct-app update UI to confirm Already up to date")
     args = parser.parse_args()

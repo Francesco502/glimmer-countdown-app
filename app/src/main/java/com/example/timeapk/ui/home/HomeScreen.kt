@@ -146,7 +146,7 @@ fun HomeScreen(
             filterEventsForTimelineBucket(calendarUiState, today, type)
         }
     }
-    val displayedList = focusedTimelineList ?: homeUiState
+    val homeEvents = focusedTimelineList ?: homeUiState
     val calendarEvents = focusedTimelineList ?: calendarUiState
     val emptyStateKind = resolveHomeEmptyStateKind(unfilteredCalendarUiState.isEmpty())
     val clearEmptyStateConstraints: () -> Unit = {
@@ -155,15 +155,19 @@ fun HomeScreen(
         timelineFocus = null
         searchExpanded = false
     }
-    val nearestEvent = remember(unfilteredCalendarUiState, today, pinnedEventIds) {
-        pickNearestUpcomingEvent(unfilteredCalendarUiState, today, pinnedEventIds)
-    }
     val showNearestBanner = nearestBannerEnabled &&
         homeDisplayMode == 0 &&
-        nearestEvent != null &&
         categoryFilter == null &&
         timelineFocus == null &&
         searchQuery.isBlank()
+    val nearestEvent = remember(showNearestBanner, homeEvents, today, pinnedEventIds) {
+        if (showNearestBanner) pickNearestUpcomingEvent(homeEvents, today, pinnedEventIds) else null
+    }
+    val nearestEventId = nearestEvent?.event?.id
+    val displayedList = remember(homeEvents, nearestEventId) {
+        if (nearestEventId == null) homeEvents else homeEvents.filterNot { it.event.id == nearestEventId }
+    }
+    val isHomeContentEmpty = homeEvents.isEmpty()
 
     // Reorder list state is seeded synchronously to avoid first-frame jump/glitch.
     val orderedList = remember { mutableStateListOf<EventUiState>() }
@@ -320,7 +324,7 @@ fun HomeScreen(
         floatingActionButtonPosition = if (homeDisplayMode == 2) FabPosition.End else FabPosition.Center,
         floatingActionButton = {
             if (emptyStateKind != HomeEmptyStateKind.FirstEvent) {
-                val isEmpty = displayedList.isEmpty()
+                val isEmpty = isHomeContentEmpty
                 val fabScale by animateFloatAsState(
                     if (isEmpty) 1.03f else 1f,
                     animationSpec = AnimationSpecs.springButton,
@@ -505,7 +509,7 @@ fun HomeScreen(
                     )
 
                     AnimatedContent(
-                        targetState = displayedList.isEmpty(),
+                        targetState = isHomeContentEmpty,
                         transitionSpec = {
                             (fadeIn(animationSpec = AnimationSpecs.mediumTween()) + slideInVertically(animationSpec = AnimationSpecs.mediumTweenIntOffset()) { it / 8 })
                                 .togetherWith(
@@ -537,9 +541,10 @@ fun HomeScreen(
                                         top = 12.dp,
                                         bottom = SongDesignTokens.FabClearance.dp
                                     ),
-                                    verticalArrangement = Arrangement.spacedBy(if (homeDisplayMode == 0) 12.dp else SongDesignTokens.PaddingList.dp)
+                                    verticalArrangement = Arrangement.spacedBy(if (homeDisplayMode == 0) 12.dp else 0.dp)
                                 ) {
-                                    nearestEvent?.takeIf { showNearestBanner }?.let { nearest ->
+                                    // Wait for the ordered snapshot to drop the banner event before showing it.
+                                    nearestEvent?.takeUnless { orderedList.any { it.event.id == nearestEventId } }?.let { nearest ->
                                         item(key = NEAREST_BANNER_KEY) {
                                             NearestEventBanner(
                                                 eventState = nearest,

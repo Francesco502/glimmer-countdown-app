@@ -111,13 +111,14 @@ class HomeInteractionPolicyTest {
     }
 
     @Test
-    fun homeListItemUsesCompactWidgetStyle() {
+    fun homeListItemUsesSharedLedgerStyle() {
         val source = readSource("ui/home/HomeScreen.kt")
         val listItemSource = source
             .substringAfter("internal fun EventListItem(")
             .substringBefore("private fun CompactEventTime(")
 
-        assertTrue(source.contains("CompactEventTime"))
+        assertTrue(listItemSource.contains("EventLedgerRow("))
+        assertTrue(listItemSource.contains("CompactEventTime(time"))
         assertFalse(listItemSource.contains("val metaLine = buildList"))
         assertFalse(listItemSource.contains("val supportLine = buildList"))
         assertFalse(listItemSource.contains("dateLine = targetLocalDate.format(dateFormatter)"))
@@ -130,7 +131,7 @@ class HomeInteractionPolicyTest {
             .substringAfter("fun EventCard(")
             .substringBefore("internal fun EventListItem(")
 
-        assertTrue(cardSource.contains("val cardAuxiliaryLine = buildList"))
+        assertTrue(cardSource.contains("val cardAuxiliaryLine = eventAuxiliaryText("))
         assertTrue(cardSource.contains("eventState.event.category"))
         assertTrue(cardSource.contains("eventState.event.repeatType"))
         assertTrue(cardSource.contains("eventState.event.remindEnabled"))
@@ -151,40 +152,36 @@ class HomeInteractionPolicyTest {
     }
 
     @Test
-    fun eventColorTextUsesSharedDarkThemeContrastPolicyInCardAndListModes() {
+    fun categoryInkIsLimitedToTheLedgerMarkerAndCalendarBars() {
         val source = readSource("ui/home/HomeScreen.kt")
         val cardSource = source.substringAfter("fun EventCard(")
             .substringBefore("internal fun EventListItem(")
-        val listSource = source.substringAfter("internal fun EventListItem(")
+        val listSource = source.substringAfter("private fun EventLedgerRow(")
             .substringBefore("private fun CompactEventTime(")
+        val monthSource = source.substringAfter("internal fun MonthCalendarView(")
 
-        assertTrue(cardSource.contains("HomeEventColorPolicy.ensureTextContrast("))
-        assertTrue(cardSource.contains("if (lightSurface)"))
-        assertTrue(cardSource.contains("baseCardColor.copy(alpha = if (isPast) 0.54f else 0.74f)"))
-        assertTrue(listSource.contains("HomeEventColorPolicy.ensureTextContrast("))
-        assertTrue(cardSource.contains("remember(baseCardColor"))
-        assertTrue(listSource.contains("remember(eventColor"))
-        assertTrue(cardSource.contains("HomeEventColorPolicy.compositeOver("))
-        assertTrue(listSource.contains("HomeEventColorPolicy.compositeOver("))
-        assertTrue(listSource.contains("if (isLightSurface)"))
-        assertFalse(listSource.contains("lerp(eventColor, MaterialTheme.colorScheme.onBackground, 0.2f)"))
-        assertFalse(cardSource.contains("alpha = cardAlpha"))
-        assertFalse(listSource.contains("alpha = itemAlpha"))
+        assertFalse(cardSource.contains("event.colorHex"))
+        assertTrue(listSource.contains("HomeEventColorPolicy.categoryMarker("))
+        assertTrue(listSource.contains(".background(marker, CircleShape)"))
+        assertTrue(monthSource.contains("HomeEventColorPolicy.categoryMarker("))
+        assertTrue(monthSource.contains("eventBarColors = bars"))
     }
 
     @Test
     fun homeTimeToggleTargetsExposeAccessibleButtonSemantics() {
         val source = readSource("ui/home/HomeScreen.kt")
-        val cardSource = source.substringAfter("fun EventCard(")
+        val toggle = source.substringAfter("private fun Modifier.timeToggle(")
+            .substringBefore("private fun CardCountdown(")
+        val cardTime = source.substringAfter("private fun CardCountdown(")
             .substringBefore("internal fun EventListItem(")
-        val compactTimeSource = source.substringAfter("private fun CompactEventTime(")
-            .substringBefore("@OptIn(ExperimentalFoundationApi::class)")
+        val compactTime = source.substringAfter("private fun CompactEventTime(")
+            .substringBefore("internal fun MonthCalendarView(")
 
-        assertTrue(source.contains("R.string.cd_toggle_date_delta_display"))
-        assertTrue(cardSource.contains("role = Role.Button"))
-        assertTrue(cardSource.contains("contentDescription = toggleDateDeltaDescription"))
-        assertTrue(compactTimeSource.contains("role = Role.Button"))
-        assertTrue(compactTimeSource.contains("contentDescription = contentDescription"))
+        assertTrue(toggle.contains("R.string.cd_toggle_date_delta_display"))
+        assertTrue(toggle.contains("clickable(role = Role.Button"))
+        assertTrue(toggle.contains("contentDescription = label"))
+        assertTrue(cardTime.contains(".timeToggle(onToggle)"))
+        assertTrue(compactTime.contains(".timeToggle(onToggle)"))
     }
 
     @Test
@@ -197,7 +194,7 @@ class HomeInteractionPolicyTest {
         assertTrue(monthSource.contains("LazyColumn("))
         assertTrue(monthSource.contains("items(selectedEvents"))
         assertFalse(monthSource.contains(".weight(1f, fill = true)"))
-        assertTrue(monthSource.contains(".heightIn(min = 48.dp, max = 72.dp"))
+        assertTrue(monthSource.contains("CalendarCellMinHeight.dp"))
         assertFalse(monthSource.contains(".height(60.dp)"))
     }
 

@@ -1,14 +1,12 @@
-# 拾光（Glimmer）4.3.1
+# 拾光（Glimmer）4.3.2
 
 拾光是一款面向 Android 的倒数日、生日与纪念日应用。它把日子整理成安静的纸笺、月历和桌面小组件，让重要时刻能被看见，也能被系统提醒与日历同步照顾到。
 
-当前版本为 `4.3.1 / versionCode=31`，已于 2026-11-11 [正式发布](https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v4.3.1)。本版修复图片清理安全性：读取事件图片引用失败时终止清理而不是按空集合删除；孤儿扫描前强制核对数据库引用，即使清理注册表在系统备份恢复后丢失也不会误删已保存的事件配图；启动清理增加缓冲与重试。见[发布检查清单](docs/RELEASE_CHECKLIST.md)与[修复记录](docs/releases/v4.3.1-development.md)。
+4.3.2 更新了宋式纸笺卡片、三栏账页和历书月历，使用无印章的毛笔沙漏图标。“最近”横幅中的事件只在首页出现一次。验证进度见[发布检查清单](docs/RELEASE_CHECKLIST.md)和[本版记录](docs/releases/v4.3.2-development.md)。
 
-**唯一正式发布渠道：GitHub Release。** 本版唯一官方资产为 Direct APK `glimmer-countdown-4-3-1.apk`，沿用正式签名，可从 4.3.0 覆盖升级。Play flavor 仅保留用于兼容性与开发回归。
+**唯一正式发布渠道：GitHub Release。** 4.3.2 的唯一官方资产为 Direct APK `glimmer-countdown-4-3-2.apk`，沿用正式签名。覆盖升级基线为 4.3.1。Play flavor 仅保留用于兼容性与开发回归。
 
 最新公开版本为 `4.3.1`：[下载 v4.3.1 APK](https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v4.3.1)
-
-4.3.1 已通过 API 26 / 31 / 36 三套模拟器的 CI 回归（双渠道单测、lint、R8、仪器测试与运行时 smoke），并完成公开资产哈希、签名与 16 KiB 对齐核验；发布后 QA 覆盖了从 4.3.0 覆盖升级。按发布负责人授权，真机检查未执行，不作为发布前置条件；实体设备覆盖升级、桌面效果与真实备份恢复仍无通过记录。折叠屏切换、其他手机、完整桌面日期/时区矩阵尚未验收；本版保留 targetSdk 36。
 
 ## 4.2.1 历史版本与截图
 
@@ -96,17 +94,16 @@
 - 同时支持公历与农历日期。
 - 支持按天、周、月、半年、年重复。
 - 支持“提前 N 天 + 固定时间”的提醒配置。
-- 支持系统通知（Direct 渠道可选精确提醒）、系统日历同步、权限处理和同步状态反馈。
+- 支持系统通知（Direct 渠道可选精确提醒）、系统日历同步、权限处理和“无可写系统日历”等同步状态提示。
 - 首页提供卡片、列表、月历三种浏览方式，支持搜索、筛选、置顶和自定义排序。
 - 桌面列表小组件与单事件大数字小组件；列表小组件支持透明 / 半透明 / 宣纸 / 青瓷 / 朱印等视觉方案，并可配置内容范围、排序、密度、边框、圆角和文字模式。
 - 支持 JSON 导入 / 导出，并可导入“记得日子” `.mdb` 备份文件。
 
 ## 版本信息
 
-- 当前源码 `versionName`: `4.2.4`
-- 当前源码 `versionCode`: `29`
-- 发布状态：候选 / 未发布；当前公开版本为 4.2.3
-- 4.2.4 Direct Release 计划文件名：`glimmer-countdown-4-2-4.apk`
+- 当前源码 `versionName` 为 `4.3.2`
+- 当前源码 `versionCode` 为 `32`
+- 4.3.2 正在进行发布验证
 
 ## 构建与运行
 
@@ -128,21 +125,20 @@
 
 默认产物路径：
 
-- `app/build/outputs/apk/direct/release/glimmer-countdown-4-2-4.apk`
+- `app/build/outputs/apk/direct/release/glimmer-countdown-4-3-2.apk`
 
 ## 发布与验证
 
-4.2.4 正式发布要求包含，实际结果以当前清单为准：
+4.3.2 的发布检查包括以下项目。实际结果以当前清单为准。
 
 - `testDirectDebugUnitTest testPlayDebugUnitTest`
 - `compileDirectDebugAndroidTestKotlin compilePlayDebugAndroidTestKotlin`
 - `lintDirectDebug lintDirectRelease lintPlayRelease lintVitalDirectRelease lintVitalPlayRelease`
 - `assembleDirectRelease`，或按[发布指引](docs/release_and_update_guide.md)从最终 tag 的 CI 未签名 Release 工件在本机完成正式签名
 - Direct release APK 正式证书、精确证书指纹与 SHA-256 验证
-- Direct release APK 的 API26/31/36 模拟器安装、v4.2.3→v4.2.4 保留事件升级、AMS 草稿恢复与 API36 页面、分享、更新 smoke；vivo X Fold3 Pro 覆盖安装、背景透明度、文字颜色、已有及新增小组件待验收，其他设备及系统备份恢复未执行
-- GitHub Release 只保留 `glimmer-countdown-4-2-4.apk`，并完成公开下载复验、线上重装、更新检查与关键链路 smoke
-
-本版处于发布准备阶段：本地验证和候选包结果见当前发布检查清单。最终标签 CI、正式签名包 API26/31/36 升级与恢复、真机桌面验收及发布后复验尚未完成；历史截图不作为本版证据。
+- Direct APK 在 API 26、31、36 模拟器上从 4.3.1 覆盖升级、确认事件保留并检查进程终止后的草稿恢复
+- API 36 核对卡片、列表、月历、事件详情、设置、小组件预览、分享和应用内更新
+- GitHub Release 仅上传 `glimmer-countdown-4-3-2.apk`，发布后复验匿名下载文件与应用内更新状态
 
 publisher 会拒绝脏工作区或未指向 exact tag 的 `HEAD`，并核对输出元数据与 APK 的真实包名、版本、权限和非调试状态。发布流程禁止移动已推送的 tag 或覆盖已发布 Release，GitHub Release 仅上传 exact Direct APK。
 

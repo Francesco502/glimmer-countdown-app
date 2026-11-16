@@ -145,7 +145,7 @@ class HomeCalendarModelTest {
     }
 
     @Test
-    fun calendarDayCellContent_usesShortCountInsteadOfEventTitleForCrowdedCells() {
+    fun calendarDayCellContent_doesNotShowOverflowWhileAllMarkersFit() {
         val date = LocalDate.of(2026, 6, 24)
         val occurrences = listOf(
             CalendarEventOccurrence(
@@ -160,7 +160,7 @@ class HomeCalendarModelTest {
 
         val content = calendarDayCellContent(date, occurrences)
 
-        assertEquals("2", content.eventIndicatorText)
+        assertEquals(null, content.eventIndicatorText)
     }
 
     @Test

@@ -537,6 +537,9 @@
     <string name="home_time_toggle_hint">轻点卡片上的天数，可切换天数、年月日或下一个节点</string>
     <string name="home_hint_dismiss">知道了</string>
     <string name="home_today_seal">今天</string>
+    <string name="home_category_birthday_stamp">生</string>
+    <string name="home_category_anniversary_stamp">纪</string>
+    <string name="home_category_countdown_stamp">倒</string>
     <string name="home_nearest_label">最近</string>
     <string name="home_pinned">已置顶</string>
     <string name="home_empty_subtitle">记下生日、纪念日或期待的日子，拾光会替你数着。</string>

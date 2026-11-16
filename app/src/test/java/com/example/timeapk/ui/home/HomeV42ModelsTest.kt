@@ -1,5 +1,7 @@
 package com.example.timeapk.ui.home
 
+import com.example.timeapk.ui.theme.SongLunarCellKind
+
 import com.example.timeapk.data.CATEGORY_BIRTHDAY
 import com.example.timeapk.data.CATEGORY_OTHER
 import com.example.timeapk.data.Event
@@ -75,23 +77,33 @@ class HomeV42ModelsTest {
 
     @Test
     fun lunarCellLabel_prefersFestivalsSolarTermsAndMonthStarts() {
-        // 2026-02-17 is the first day of the lunar new year (春节).
-        assertEquals("春节", calendarLunarCellLabel(LocalDate.of(2026, 2, 17)))
-        // 2026-09-25 is the mid-autumn festival.
-        assertEquals("中秋节", calendarLunarCellLabel(LocalDate.of(2026, 9, 25)))
-        assertEquals("廿九", calendarLunarCellLabel(LocalDate.of(2026, 10, 9)))
-        // The first day of any lunar month shows the month name instead of 初一.
-        val monthStart = generateSequence(LocalDate.of(2026, 10, 1)) { it.plusDays(1) }
-            .first { com.nlf.calendar.Solar.fromYmd(it.year, it.monthValue, it.dayOfMonth).lunar.day == 1 }
-        val label = calendarLunarCellLabel(monthStart).orEmpty()
-        assertTrue(label, label.endsWith("月") || label.length in 2..3)
+        assertEquals(
+            CalendarLunarLabel("春节", SongLunarCellKind.Festival),
+            calendarLunarCellLabel(LocalDate.of(2026, 2, 17))
+        )
+        assertEquals(
+            CalendarLunarLabel("除夕", SongLunarCellKind.Festival),
+            calendarLunarCellLabel(LocalDate.of(2026, 2, 16))
+        )
+        assertEquals(
+            CalendarLunarLabel("清明", SongLunarCellKind.SolarTerm),
+            calendarLunarCellLabel(LocalDate.of(2026, 4, 5))
+        )
+        assertEquals(
+            CalendarLunarLabel("九月", SongLunarCellKind.MonthStart),
+            calendarLunarCellLabel(LocalDate.of(2026, 10, 10))
+        )
+        assertEquals(
+            CalendarLunarLabel("廿九", SongLunarCellKind.Day),
+            calendarLunarCellLabel(LocalDate.of(2026, 10, 9))
+        )
+        assertEquals("丙午年 · 九月", calendarLunarMonthTitle(java.time.YearMonth.of(2026, 11)))
     }
 
     @Test
-    fun calendarDots_capAtThreeAndReportOverflow() {
+    fun calendarMarkersCapAtThreeAndReportOverflow() {
         val occurrences = (1..5).map { CalendarEventOccurrence(state(it, today), today) }
-        val (shown, overflow) = calendarCellDotCategories(occurrences)
-        assertEquals(CALENDAR_CELL_MAX_DOTS, shown.size)
-        assertEquals(2, overflow)
+        assertEquals(3, calendarCellBarCategories(occurrences).size)
+        assertEquals("+2", calendarDayCellContent(today, occurrences).eventIndicatorText)
     }
 }

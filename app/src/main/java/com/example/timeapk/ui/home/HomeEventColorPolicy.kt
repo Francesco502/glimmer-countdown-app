@@ -7,6 +7,14 @@ import com.example.timeapk.ui.theme.ColorContrastGuardrail
 object HomeEventColorPolicy {
     private const val SearchIterations = 24
 
+    fun categoryMarker(category: Color, ink: Color, paper: Color): Color =
+        ensureTextContrast(
+            eventColor = lerp(category.copy(alpha = 1f), ink, 0.36f),
+            onSurface = ink,
+            background = paper,
+            minRatio = 3.0
+        )
+
     fun ensureTextContrast(
         eventColor: Color,
         onSurface: Color,
