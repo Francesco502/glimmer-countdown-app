@@ -2,7 +2,7 @@
 
 拾光是一款面向 Android 的倒数日、生日与纪念日应用。它把日子整理成安静的纸笺、月历和桌面小组件，让重要时刻能被看见，也能被系统提醒与日历同步照顾到。
 
-4.3.3 更新了拾光 Logo。汝窑青小弧与墨弧组成图形，桌面彩色图标和启动画面随系统使用浅色或深色配色，系统主题图标和通知栏使用新轮廓。验证结果见[发布检查清单](docs/RELEASE_CHECKLIST.md)和[本版记录](docs/releases/v4.3.3-development.md)。
+4.3.3 更新了拾光 Logo。汝窑青小弧与墨弧组成图形，启动画面随系统切换浅色和深色。桌面彩色图标提供两套配色，实际刷新由手机桌面决定。系统主题图标和通知栏使用新轮廓。验证结果见[发布检查清单](docs/RELEASE_CHECKLIST.md)和[本版记录](docs/releases/v4.3.3-development.md)。
 
 **唯一正式发布渠道：GitHub Release。** 4.3.3 的唯一官方资产为 Direct APK `glimmer-countdown-4-3-3.apk`，沿用正式签名。覆盖升级基线为 4.3.2。Play flavor 仅保留用于兼容性与开发回归。
 
