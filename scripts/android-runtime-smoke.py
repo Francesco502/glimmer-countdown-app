@@ -21,8 +21,8 @@ import xml.etree.ElementTree as ET
 
 PACKAGE = "com.example.timeapk"
 COMPONENT = PACKAGE + "/.MainActivity"
-UPGRADE_BASELINE = ("4.3.1", "31")
-UPGRADE_CANDIDATE = ("4.3.2", "32")
+UPGRADE_BASELINE = ("4.3.2", "32")
+UPGRADE_CANDIDATE = ("4.3.3", "33")
 LABELS = {
     "add": ("Add event", "Record your first event", "添加事件", "记录第一个日期"),
     "new": ("New event", "新建事件"),

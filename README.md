@@ -1,10 +1,10 @@
-# 拾光（Glimmer）4.3.2
+# 拾光（Glimmer）4.3.3
 
 拾光是一款面向 Android 的倒数日、生日与纪念日应用。它把日子整理成安静的纸笺、月历和桌面小组件，让重要时刻能被看见，也能被系统提醒与日历同步照顾到。
 
-4.3.2 更新了宋式纸笺卡片、三栏账页和历书月历，使用无印章的毛笔沙漏图标。“最近”横幅中的事件只在卡片页出现一次。验证结果见[发布检查清单](docs/RELEASE_CHECKLIST.md)和[本版记录](docs/releases/v4.3.2-development.md)。
+4.3.3 更新了拾光 Logo。汝窑青小弧与墨弧组成图形，桌面彩色图标和启动画面随系统使用浅色或深色配色，系统主题图标和通知栏使用新轮廓。验证结果见[发布检查清单](docs/RELEASE_CHECKLIST.md)和[本版记录](docs/releases/v4.3.3-development.md)。
 
-**唯一正式发布渠道：GitHub Release。** 4.3.2 的唯一官方资产为 Direct APK `glimmer-countdown-4-3-2.apk`，沿用正式签名。覆盖升级基线为 4.3.1。Play flavor 仅保留用于兼容性与开发回归。
+**唯一正式发布渠道：GitHub Release。** 4.3.3 的唯一官方资产为 Direct APK `glimmer-countdown-4-3-3.apk`，沿用正式签名。覆盖升级基线为 4.3.2。Play flavor 仅保留用于兼容性与开发回归。
 
 最新公开版本为 `4.3.2`，已于 2026-11-17 发布。[下载 v4.3.2 APK](https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v4.3.2)
 
@@ -101,9 +101,9 @@
 
 ## 版本信息
 
-- 当前源码 `versionName` 为 `4.3.2`
-- 当前源码 `versionCode` 为 `32`
-- 4.3.2 已正式发布
+- 当前源码 `versionName` 为 `4.3.3`
+- 当前源码 `versionCode` 为 `33`
+- 4.3.3 更新拾光 Logo，彩色应用图标和启动画面适配系统深浅模式。[更新日志](CHANGELOG.md)
 
 ## 构建与运行
 
@@ -125,11 +125,11 @@
 
 默认产物路径：
 
-- `app/build/outputs/apk/direct/release/glimmer-countdown-4-3-2.apk`
+- `app/build/outputs/apk/direct/release/glimmer-countdown-4-3-3.apk`
 
 ## 发布与验证
 
-4.3.2 的发布检查包括以下项目。实际结果以当前清单为准。
+4.3.3 的发布检查包括以下项目。实际结果以当前清单为准。
 
 - `testDirectDebugUnitTest testPlayDebugUnitTest`
 - `compileDirectDebugAndroidTestKotlin compilePlayDebugAndroidTestKotlin`
@@ -138,7 +138,7 @@
 - Direct release APK 正式证书、精确证书指纹与 SHA-256 验证
 - Direct APK 在 API 26、31、36 模拟器上从 4.3.1 覆盖升级、确认事件保留并检查进程终止后的草稿恢复
 - API 36 核对卡片、列表、月历、事件详情、设置、小组件预览、分享和应用内更新
-- GitHub Release 仅上传 `glimmer-countdown-4-3-2.apk`，发布后复验匿名下载文件与应用内更新状态
+- GitHub Release 仅上传 `glimmer-countdown-4-3-3.apk`，发布后复验匿名下载文件与应用内更新状态
 
 publisher 会拒绝脏工作区或未指向 exact tag 的 `HEAD`，并核对输出元数据与 APK 的真实包名、版本、权限和非调试状态。发布流程禁止移动已推送的 tag 或覆盖已发布 Release，GitHub Release 仅上传 exact Direct APK。
 
