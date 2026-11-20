@@ -6,7 +6,7 @@
 
 **唯一正式发布渠道：GitHub Release。** 4.3.3 的唯一官方资产为 Direct APK `glimmer-countdown-4-3-3.apk`，沿用正式签名。覆盖升级基线为 4.3.2。Play flavor 仅保留用于兼容性与开发回归。
 
-最新公开版本为 `4.3.2`，已于 2026-11-17 发布。[下载 v4.3.2 APK](https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v4.3.2)
+最新公开版本为 `4.3.3`，已于 2026-11-21 发布。[下载 v4.3.3 APK](https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v4.3.3)
 
 ## 4.2.1 历史版本与截图
 

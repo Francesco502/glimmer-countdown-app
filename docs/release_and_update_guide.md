@@ -1,6 +1,6 @@
 # TimeAPK 发布与更新指引（4.3.3）
 
-4.3.3 / versionCode=33 发布候选，唯一官方资产为 Direct APK `glimmer-countdown-4-3-3.apk`，升级基线为公开 4.3.2 / 32。**唯一正式发布渠道：GitHub Release。** Play flavor 仅保留用于兼容性与开发回归。[发布检查清单](RELEASE_CHECKLIST.md)
+4.3.3 / versionCode=33 已于 2026-11-21 正式发布，唯一官方资产为 Direct APK `glimmer-countdown-4-3-3.apk`，升级基线为公开 4.3.2 / 32。**唯一正式发布渠道：GitHub Release。** Play flavor 仅保留用于兼容性与开发回归。[发布检查清单](RELEASE_CHECKLIST.md)
 
 ## 一、发布身份与凭据
 
