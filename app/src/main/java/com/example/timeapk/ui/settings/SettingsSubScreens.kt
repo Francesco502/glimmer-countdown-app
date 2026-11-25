@@ -77,9 +77,6 @@ import com.example.timeapk.ui.theme.FONT_PRESET_ZCOOL_XIAOWEI
 import com.example.timeapk.ui.theme.FontPresetValues
 import com.example.timeapk.ui.theme.SongColorBoundary
 import com.example.timeapk.widget.WidgetUpdater
-import com.example.timeapk.update.CheckUpdateResult
-import com.example.timeapk.update.UpdateInstallOutcome
-import com.example.timeapk.update.UpdateInstaller
 import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
@@ -97,6 +94,11 @@ import com.example.timeapk.ui.theme.typographyForFontPreset
 import com.example.timeapk.ui.utils.eventDateToLocalDate
 import com.example.timeapk.ui.utils.findActivity
 import java.time.Instant
+import com.example.timeapk.ui.common.EventImageStore
+import java.io.File
+import java.io.IOException
+import java.util.UUID
+import kotlinx.coroutines.NonCancellable
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -106,7 +108,10 @@ private data class PendingImportPreview(
     val parseResult: BackupParseResult,
     val importableEvents: List<Event>,
     val existingDuplicateCount: Int,
-    val newCategories: List<com.example.timeapk.data.Category> = emptyList()
+    val newCategories: List<com.example.timeapk.data.Category> = emptyList(),
+    val archive: BackupArchivePayload? = null,
+    val matchedEventIds: Map<Int, Int> = emptyMap(),
+    val hadExistingEvents: Boolean = false
 ) {
     val totalSkippedDuplicates: Int
         get() = parseResult.skippedDuplicateCount + existingDuplicateCount
@@ -469,7 +474,7 @@ fun AppearanceSettingsContent(
             summary = listOfNotNull(
                 stringResource(R.string.settings_reduce_motion_title).takeIf { reduceMotionEnabled },
                 stringResource(R.string.settings_song_sound_title).takeIf { songSoundEnabled }
-            ).joinToString(" 路 ").ifEmpty { stringResource(R.string.settings_value_default) }
+            ).joinToString(" · ").ifEmpty { stringResource(R.string.settings_value_default) }
         ) {
             SettingsSwitchRow(
                 title = stringResource(R.string.settings_reduce_motion_title),
@@ -760,6 +765,7 @@ private fun SettingsReminderTimePickerWheels(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun MilestoneSettingsContent(
     modifier: Modifier = Modifier
@@ -784,6 +790,18 @@ fun MilestoneSettingsContent(
     val customMilestones by prefs.customMilestonesFlow.collectAsStateWithLifecycle(initialValue = DEFAULT_MILESTONE_DAYS)
     val scheduleTargetCalendarId by prefs.scheduleTargetCalendarIdFlow.collectAsStateWithLifecycle(initialValue = null)
     val scheduleUseRRuleSync by prefs.scheduleUseRRuleSyncFlow.collectAsStateWithLifecycle(initialValue = true)
+    val onLabel = stringResource(R.string.toggle_on)
+    val offLabel = stringResource(R.string.toggle_off)
+    val defaultReminderSummary = if (defaultEventRemindEnabled) stringResource(
+        R.string.settings_section_reminder_timing,
+        reminderLeadLabel(defaultEventRemindDaysBefore),
+        formatMinutesOfDay(defaultEventRemindTimeMinutesOfDay)
+    ) else offLabel
+    val milestoneReminderSummary = if (milestoneRemindEnabled) stringResource(
+        R.string.settings_section_reminder_timing,
+        reminderLeadLabel(milestoneRemindDaysAhead),
+        formatMinutesOfDay(milestoneRemindTimeMinutesOfDay)
+    ) else offLabel
 
     var newMilestoneInput by remember { mutableStateOf("") }
     val leadTimePresets = remember { listOf(0, 1, 3, 7, 30) }
@@ -967,7 +985,7 @@ fun MilestoneSettingsContent(
         }
         SettingsExpandableSection(
             title = stringResource(R.string.settings_section_default_reminder_title),
-            summary = stringResource(R.string.settings_section_default_reminder_summary),
+            summary = defaultReminderSummary,
             initiallyExpanded = true
         ) {
         Row(
@@ -1049,7 +1067,11 @@ fun MilestoneSettingsContent(
 
         SettingsExpandableSection(
             title = stringResource(R.string.settings_section_milestone_display_title),
-            summary = stringResource(R.string.settings_section_milestone_display_summary)
+            summary = stringResource(
+                R.string.settings_section_milestone_display_summary,
+                if (showMilestone) onLabel else offLabel,
+                if (smartMilestonesEnabled) onLabel else offLabel
+            )
         ) {
         Row(
             modifier = Modifier
@@ -1102,7 +1124,7 @@ fun MilestoneSettingsContent(
 
         SettingsExpandableSection(
             title = stringResource(R.string.settings_section_milestone_reminder_title),
-            summary = stringResource(R.string.settings_section_milestone_reminder_summary)
+            summary = milestoneReminderSummary
         ) {
         Row(
             modifier = Modifier
@@ -1185,7 +1207,13 @@ fun MilestoneSettingsContent(
 
         SettingsExpandableSection(
             title = stringResource(R.string.settings_section_schedule_sync_title),
-            summary = stringResource(R.string.settings_schedule_sync_summary),
+            summary = when {
+                !hasCalendarPermission() -> stringResource(R.string.reminder_status_calendar_permission_needed)
+                !scheduleSyncStatusLoaded -> stringResource(R.string.settings_schedule_sync_summary)
+                writableCalendars.isEmpty() -> stringResource(R.string.settings_calendar_none_available)
+                else -> writableCalendars.firstOrNull { it.id == scheduleTargetCalendarId }?.displayName
+                    ?: stringResource(R.string.settings_schedule_calendar_auto)
+            },
             onExpandedChange = { expanded ->
                 if (expanded && !scheduleSyncStatusLoaded) {
                     scope.launch { refreshScheduleSyncStatus() }
@@ -1379,7 +1407,7 @@ fun MilestoneSettingsContent(
 
         SettingsExpandableSection(
             title = stringResource(R.string.settings_section_custom_milestones_title),
-            summary = stringResource(R.string.settings_section_custom_milestones_summary)
+            summary = stringResource(R.string.settings_section_custom_milestones_summary, customMilestones.size)
         ) {
         Text(
             text = stringResource(R.string.settings_custom_milestones_title),
@@ -1413,13 +1441,10 @@ fun MilestoneSettingsContent(
                 Text(stringResource(R.string.settings_custom_milestones_add))
             }
         }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp)
-                .horizontalScroll(rememberScrollState()),
+        FlowRow(
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             customMilestones.forEach { days ->
                 Row(
@@ -1467,6 +1492,11 @@ fun MilestoneSettingsContent(
         }
     }
 }
+
+@Composable
+private fun reminderLeadLabel(days: Int): String =
+    if (days == 0) stringResource(R.string.remind_same_day)
+    else pluralStringResource(R.plurals.remind_days_before_format, days, days)
 
 @Composable
 private fun ReminderLeadTimePresetRow(
@@ -1525,114 +1555,6 @@ fun DataSettingsContent(
     var importTotal by remember { mutableIntStateOf(0) }
     val backupBusy = importBusy || parseBusy
 
-    suspend fun importEvents(events: List<Event>, inTransaction: Boolean = false): ImportExecutionResult {
-        if (events.isEmpty()) return ImportExecutionResult(0, 0, 0)
-        var failedCount = 0
-        var warningCount = 0
-        val preferredCalendarId = app.userPrefs.scheduleTargetCalendarIdFlow.first()
-        val useRRuleSync = app.userPrefs.scheduleUseRRuleSyncFlow.first()
-        val prepared = events.map { it.sanitizedReminderConfig() }
-
-        // Phase 1: insert every row in one transaction. A crash or cancellation can no longer
-        // leave a partial import behind (previously each event committed on its own).
-        val insertAll = suspend {
-            prepared.map { event ->
-                try {
-                    event to repository.insertEvent(event)
-                } catch (cancelled: CancellationException) {
-                    throw cancelled
-                } catch (_: Exception) {
-                    failedCount += 1
-                    event to null
-                }
-            }
-        }
-        val inserted = if (inTransaction) insertAll() else app.database.withTransaction { insertAll() }
-
-        // Phase 2: reminder/calendar side effects only after the rows are committed.
-        var successCount = 0
-        inserted.forEachIndexed { index, insertedEvent ->
-            withContext(Dispatchers.Main) { importCompleted = index + 1 }
-            val event = insertedEvent.first
-            val newId = insertedEvent.second ?: return@forEachIndexed
-            val savedEvent = event.copy(id = newId.toInt(), scheduleEventId = null)
-
-            var hasWarning = false
-            if (savedEvent.remindEnabled) {
-                try {
-                    scheduleReminder(context, savedEvent)
-                } catch (_: Exception) {
-                    hasWarning = true
-                }
-            }
-
-            val syncResult = try {
-                if (savedEvent.syncToScheduleEnabled) {
-                    ScheduleSyncManager.syncReminderSeries(
-                        context = context,
-                        event = savedEvent,
-                        preferredCalendarId = preferredCalendarId,
-                        useRRuleSync = useRRuleSync
-                    )
-                } else {
-                    val cleanup = ScheduleSyncManager.removeManagedCalendarEntries(
-                        context,
-                        savedEvent
-                    )
-                    ScheduleSyncManager.scheduleSyncResultAfterCleanup(
-                        event = savedEvent,
-                        primaryScheduleEventId = null,
-                        targetCalendarId = null,
-                        lastSyncAt = System.currentTimeMillis(),
-                        cleanupResult = cleanup
-                    )
-                }
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (_: Exception) {
-                hasWarning = true
-                null
-            }
-
-            if (syncResult != null) {
-                if (syncResult.error != null) hasWarning = true
-                try {
-                    repository.updateEvent(
-                        eventAfterScheduleSyncAttempt(savedEvent, syncResult)
-                    )
-                } catch (_: Exception) {
-                    hasWarning = true
-                }
-            }
-
-            successCount += 1
-            if (hasWarning) {
-                warningCount += 1
-            }
-        }
-
-        if (successCount > 0) {
-            try {
-                val milestoneResult = rescheduleMilestoneReminders(app)
-                if (!milestoneResult.isSuccess) {
-                    warningCount += 1
-                }
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (_: Exception) {
-                warningCount += 1
-                enqueueMilestoneScheduleRetry(context)
-            }
-            try {
-                WidgetUpdater.refreshCountdownWidgets(context)
-            } catch (_: Exception) {
-                warningCount += 1
-            }
-        }
-
-        return ImportExecutionResult(successCount, failedCount, warningCount)
-    }
-
     fun importFailureText(parseResult: BackupParseResult): String {
         return when (parseResult.failure) {
             BackupParseFailure.TOO_LARGE -> context.getString(R.string.import_error_too_large)
@@ -1657,7 +1579,7 @@ fun DataSettingsContent(
         )
     }
 
-    suspend fun buildImportPreview(parseResult: BackupParseResult): PendingImportPreview? {
+    suspend fun buildImportPreview(parseResult: BackupParseResult, archive: BackupArchivePayload? = null): PendingImportPreview? {
         if (parseResult.failure != null) {
             importResultMessage = importFailureText(parseResult)
             return null
@@ -1668,17 +1590,137 @@ fun DataSettingsContent(
             drafts = parseResult.categoryDrafts,
             existing = app.categoryRepository.getAllSnapshot()
         )
-        val duplicateFilter = filterExistingDuplicateEvents(
-            events = categoryResolution.events,
-            existingEvents = existingEvents
-        )
+        val duplicateFilter = if (archive == null) {
+            filterExistingDuplicateEvents(categoryResolution.events, existingEvents)
+        } else {
+            matchArchiveDuplicates(categoryResolution.events, existingEvents) { source, existing ->
+                val bytes = source.imagePath?.let(archive.images::get)
+                val file = existing.imagePath?.let { EventImageStore.fileFor(context, it) }
+                when {
+                    bytes == null -> existing.imagePath == null
+                    file == null || !file.isFile || file.length() != bytes.size.toLong() -> false
+                    else -> file.readBytes().contentEquals(bytes)
+                }
+            }
+        }
         val usedCategoryIds = duplicateFilter.importableEvents.mapTo(mutableSetOf()) { it.category }
         return PendingImportPreview(
             parseResult = parseResult,
             importableEvents = duplicateFilter.importableEvents,
             existingDuplicateCount = duplicateFilter.existingDuplicateCount,
-            newCategories = categoryResolution.newCategories.filter { it.id in usedCategoryIds }
+            newCategories = categoryResolution.newCategories.filter { archive != null || it.id in usedCategoryIds },
+            archive = archive,
+            matchedEventIds = duplicateFilter.matchedEventIds,
+            hadExistingEvents = existingEvents.isNotEmpty()
         )
+    }
+
+    suspend fun importEvents(preview: PendingImportPreview): Pair<PendingImportPreview, ImportExecutionResult> {
+        var warningCount = 0
+        val preferredCalendarId = app.userPrefs.scheduleTargetCalendarIdFlow.first()
+        val useRRuleSync = app.userPrefs.scheduleUseRRuleSyncFlow.first()
+        val imageOwner = "backup-${UUID.randomUUID()}"
+        val restoredImages = mutableMapOf<String, String>()
+        val eventIds = mutableMapOf<Int, Int>()
+        val (freshPreview, inserted) = try {
+            app.database.withTransaction {
+                val fresh = checkNotNull(buildImportPreview(preview.parseResult, preview.archive))
+                eventIds.putAll(fresh.matchedEventIds)
+                app.categoryRepository.insertAll(fresh.newCategories)
+                val savedEvents = fresh.importableEvents.map { event ->
+                    val image = event.imagePath?.let { source ->
+                        restoredImages.getOrPut(source) {
+                            EventImageStore.importBackupImage(context, imageOwner, checkNotNull(fresh.archive).images.getValue(source))
+                        }
+                    }
+                    val pending = event.copy(id = 0, imagePath = image).sanitizedReminderConfig()
+                    val id = repository.insertEvent(pending).toInt()
+                    eventIds[event.id] = id
+                    pending.copy(id = id)
+                }
+                fresh to savedEvents
+            }
+        } finally {
+            if (restoredImages.isNotEmpty() || preview.archive != null) {
+                withContext(NonCancellable + Dispatchers.IO) {
+                    EventImageStore.replaceDraftReferences(context, imageOwner, emptySet())
+                }
+            }
+        }
+
+        freshPreview.archive?.let { archive ->
+            app.userPrefs.restoreBackupOrdering(archive.ordering, eventIds, freshPreview.hadExistingEvents)
+        }
+
+        // Reminders and widgets are updated after the database transaction commits.
+        var successCount = 0
+        inserted.forEachIndexed { index, savedEvent ->
+            withContext(Dispatchers.Main) { importCompleted = index + 1 }
+            var hasWarning = false
+            if (!savedEvent.isArchived && (savedEvent.remindEnabled || savedEvent.syncToScheduleEnabled)) {
+                try {
+                    scheduleReminder(context, savedEvent)
+                } catch (_: Exception) {
+                    hasWarning = true
+                }
+            }
+
+            val syncResult = try {
+                if (!savedEvent.isArchived && savedEvent.syncToScheduleEnabled) {
+                    ScheduleSyncManager.syncReminderSeries(
+                        context = context,
+                        event = savedEvent,
+                        preferredCalendarId = preferredCalendarId,
+                        useRRuleSync = useRRuleSync
+                    )
+                } else null
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                hasWarning = true
+                null
+            }
+
+            if (syncResult != null) {
+                if (syncResult.error != null) hasWarning = true
+                try {
+                    if (!repository.updateScheduleSyncState(
+                        savedEvent, eventAfterScheduleSyncAttempt(savedEvent, syncResult)
+                    )) {
+                        hasWarning = true
+                        RescheduleAllWorker.enqueue(app, "import_schedule_conflict")
+                    }
+                } catch (_: Exception) {
+                    hasWarning = true
+                }
+            }
+
+            successCount += 1
+            if (hasWarning) {
+                warningCount += 1
+            }
+        }
+
+        if (successCount > 0 || freshPreview.archive != null) {
+            try {
+                val milestoneResult = rescheduleMilestoneReminders(app)
+                if (!milestoneResult.isSuccess) {
+                    warningCount += 1
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                warningCount += 1
+                enqueueMilestoneScheduleRetry(context)
+            }
+            try {
+                WidgetUpdater.refreshCountdownWidgets(context)
+            } catch (_: Exception) {
+                warningCount += 1
+            }
+        }
+
+        return freshPreview to ImportExecutionResult(successCount, 0, warningCount)
     }
 
     suspend fun parseBytesForPreview(bytes: ByteArray) {
@@ -1713,16 +1755,18 @@ fun DataSettingsContent(
         parseBusy = true
         scope.launch {
             try {
-                val bytes = withContext(Dispatchers.IO) {
-                    context.contentResolver.openInputStream(uri)?.use(::readBackupImportBytes)
-                        ?: throw java.io.IOException("Backup stream unavailable")
-                }
                 importResultMessage = null
-                parseBytesForPreview(bytes)
+                pendingImportPreview = withContext(Dispatchers.IO) {
+                    val (parsed, archive) = context.contentResolver.openInputStream(uri)?.use(::parseBackupImport)
+                        ?: throw IOException("Backup stream unavailable")
+                    buildImportPreview(parsed, archive)
+                }
             } catch (cancelled: CancellationException) {
                 throw cancelled
-            } catch (_: BackupInputTooLargeException) {
-                importResultMessage = context.getString(R.string.import_error_too_large)
+            } catch (large: BackupInputTooLargeException) {
+                importResultMessage = context.getString(
+                    if (large.archive) R.string.import_error_zip_limits else R.string.import_error_too_large
+                )
                 pendingImportPreview = null
             } catch (_: Exception) {
                 importResultMessage = context.getString(R.string.import_error_read_failed)
@@ -1752,6 +1796,43 @@ fun DataSettingsContent(
         if (uri == null || text == null) return@rememberLauncherForActivityResult
         scope.launch {
             showExportSaveResult(writeExportText(uri, text))
+        }
+    }
+
+    val saveZipLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/zip")
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        app.launchAppTask {
+            val owner = "backup-${UUID.randomUUID()}"
+            val saved = withContext(Dispatchers.IO) {
+                val temp = File.createTempFile("glimmer-backup-", ".zip", context.cacheDir)
+                try {
+                    val (events, categories) = app.database.withTransaction {
+                        repository.getAllEventsSnapshot() to app.categoryRepository.getAllSnapshot()
+                    }
+                    val images = events.mapNotNullTo(mutableSetOf(), Event::imagePath)
+                    check(images.isEmpty() || EventImageStore.retainDraftReferences(context, owner, images))
+                    val ordering = app.userPrefs.getBackupOrdering()
+                    temp.outputStream().use { output ->
+                        BackupArchiveCodec.write(output, events, categories, ordering) { image ->
+                            EventImageStore.fileFor(context, image)?.inputStream()
+                                ?: throw IOException("Backup image unavailable")
+                        }
+                    }
+                    context.contentResolver.openOutputStream(uri)?.use { output ->
+                        temp.inputStream().use { it.copyTo(output) }
+                    } != null
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    false
+                } finally {
+                    temp.delete()
+                    EventImageStore.replaceDraftReferences(context, owner, emptySet())
+                }
+            }
+            withContext(Dispatchers.Main) { showExportSaveResult(saved) }
         }
     }
 
@@ -1820,7 +1901,7 @@ fun DataSettingsContent(
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurface
                         )
-                        if (preview.importableEvents.isEmpty()) {
+                        if (preview.importableEvents.isEmpty() && preview.archive == null) {
                             Text(
                                 text = stringResource(R.string.import_preview_empty_after_duplicates),
                                 style = MaterialTheme.typography.bodySmall,
@@ -1830,7 +1911,7 @@ fun DataSettingsContent(
                             val sampleEvents = preview.importableEvents.take(5)
                             sampleEvents.forEach { event ->
                                 Text(
-                                    text = "${event.title} 路 ${formatImportPreviewDate(event)}",
+                                    text = "${event.title} · ${formatImportPreviewDate(event)}",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -1866,8 +1947,9 @@ fun DataSettingsContent(
                             R.string.import_events
                         }
                     ),
-                    enabled = !backupBusy && (pendingImportPreview?.importableEvents?.isNotEmpty()
-                        ?: importJsonText.isNotBlank()),
+                    enabled = !backupBusy && (pendingImportPreview?.let {
+                        it.archive != null || it.importableEvents.isNotEmpty()
+                    } ?: importJsonText.isNotBlank()),
                     onClick = {
                         if (parseBusy || app.backupImportInProgress.value) return@SongDialogButton
                         val preview = pendingImportPreview
@@ -1886,19 +1968,12 @@ fun DataSettingsContent(
                         } else if (app.backupImportInProgress.compareAndSet(false, true)) {
                             app.launchAppTask {
                                 try {
-                                    val freshPreview = buildImportPreview(preview.parseResult)
-                                        ?: return@launchAppTask
                                     withContext(Dispatchers.Main) {
                                         importCompleted = 0
-                                        importTotal = freshPreview.importableEvents.size
+                                        importTotal = preview.importableEvents.size
                                     }
-                                    val executionResult = withContext(Dispatchers.IO) {
-                                        // Categories and events commit together so a failure never
-                                        // leaves custom categories without their events.
-                                        app.database.withTransaction {
-                                            app.categoryRepository.insertAll(freshPreview.newCategories)
-                                            importEvents(freshPreview.importableEvents, inTransaction = true)
-                                        }
+                                    val (freshPreview, executionResult) = withContext(Dispatchers.IO) {
+                                        importEvents(preview)
                                     }
                                     withContext(Dispatchers.Main) {
                                         importResultMessage = importResultText(freshPreview, executionResult)
@@ -1939,6 +2014,12 @@ fun DataSettingsContent(
             modifier = Modifier.padding(bottom = 8.dp)
         )
         if (importBusy) Text(stringResource(R.string.import_working))
+
+        SettingsActionRow(
+            label = stringResource(R.string.export_complete_zip),
+            onClick = { saveZipLauncher.launch("glimmer-backup.zip") }
+        )
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = SongDesignTokens.BorderAlphaStrong))
 
         SettingsActionRow(
             label = stringResource(R.string.export_events),
@@ -2042,18 +2123,14 @@ fun AboutSettingsContent(
     val scope = rememberCoroutineScope()
     val directApkUpdatesEnabled = BuildConfig.DIRECT_APK_UPDATES_ENABLED
 
-    var updateResult by remember { mutableStateOf<CheckUpdateResult?>(null) }
     var updateCheckInProgress by remember { mutableStateOf(false) }
-    val updateState by app.updateDownloadState.collectAsStateWithLifecycle()
-    val isUpdateDownloading = updateState.downloading
-    val updateProgress = updateState.progress
-    var showInstallPermissionDialog by remember { mutableStateOf(false) }
-    var installAfterPermissionGrant by remember { mutableStateOf(false) }
     var showLicensesDialog by remember { mutableStateOf(false) }
+    val automaticUpdate by app.userPrefs.automaticUpdateSettings.collectAsStateWithLifecycle(
+        com.example.timeapk.update.AutomaticUpdateSettings()
+    )
 
     fun startUpdateCheck() {
         if (updateCheckInProgress) return
-        updateResult = null
         updateCheckInProgress = true
         scope.launch {
             val result = try {
@@ -2070,7 +2147,8 @@ fun AboutSettingsContent(
                 return@launch
             }
             updateCheckInProgress = false
-            updateResult = result
+            app.rememberAvailableUpdate(result)
+            if (result.hasUpdate) app.showUpdateDetails(result)
             when {
                 result.checkFailed -> snackbarHostState.showSnackbar(
                     context.getString(
@@ -2090,124 +2168,6 @@ fun AboutSettingsContent(
                 )
             }
         }
-    }
-
-    fun startDownloadAndInstall(url: String) {
-        if (isUpdateDownloading) return
-        // Ask for "install unknown apps" before downloading so the flow can continue on return.
-        if (!UpdateInstaller.canRequestPackageInstalls(context)) {
-            showInstallPermissionDialog = true
-            return
-        }
-        // The download runs on the application scope so leaving this screen no longer cancels it.
-        app.startUpdateDownload(url, updateResult?.sha256)
-    }
-
-    UpdateDownloadOutcomeEffect(
-        outcome = updateState.outcome,
-        snackbarHostState = snackbarHostState,
-        onConsumed = {
-            if (updateState.outcome == UpdateInstallOutcome.INSTALL_REQUESTED) {
-                updateResult = null
-            }
-            app.clearUpdateOutcome()
-        }
-    )
-
-    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
-        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME && installAfterPermissionGrant) {
-                installAfterPermissionGrant = false
-                val url = updateResult?.downloadUrl
-                if (url != null && UpdateInstaller.canRequestPackageInstalls(context)) {
-                    startDownloadAndInstall(url)
-                }
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
-
-    if (directApkUpdatesEnabled) updateResult?.takeIf { it.hasUpdate }?.let { result ->
-        SongFormDialog(
-            title = context.getString(R.string.update_new_title, result.versionName ?: ""),
-            onDismissRequest = { if (!isUpdateDownloading) updateResult = null },
-            content = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    result.releaseNotes?.takeIf { it.isNotBlank() }?.let { notes ->
-                        Text(
-                            context.getString(R.string.update_release_notes),
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        ReleaseNotesText(notes)
-                    }
-                    if (isUpdateDownloading) {
-                        UpdateDownloadProgressSection(updateProgress)
-                    }
-                }
-            },
-            buttons = {
-                if (directApkUpdatesEnabled) {
-                    val releasePageUrl = result.releasePageUrl ?: "$GLIMMER_SOURCE_URL/releases"
-                    SongDialogButton(
-                        text = context.getString(R.string.update_open_browser),
-                        enabled = !isUpdateDownloading,
-                        onClick = {
-                            UpdateInstaller.openReleasePageInBrowser(context, releasePageUrl)
-                            updateResult = null
-                        }
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                }
-                SongDialogButton(
-                    text = context.getString(R.string.update_later),
-                    enabled = !isUpdateDownloading,
-                    onClick = { updateResult = null }
-                )
-                if (directApkUpdatesEnabled) {
-                    Spacer(modifier = Modifier.width(4.dp))
-                    SongDialogButton(
-                        text = if (isUpdateDownloading) context.getString(R.string.update_downloading)
-                        else context.getString(R.string.update_download_install),
-                        enabled = !isUpdateDownloading && result.downloadUrl != null,
-                        onClick = {
-                            result.downloadUrl?.let { url -> startDownloadAndInstall(url) }
-                        }
-                    )
-                }
-            }
-        )
-    }
-
-    if (showInstallPermissionDialog) {
-        SongFormDialog(
-            title = stringResource(R.string.update_install_permission_title),
-            onDismissRequest = { showInstallPermissionDialog = false },
-            content = {
-                Text(
-                    stringResource(R.string.update_install_permission_message),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            },
-            buttons = {
-                SongDialogButton(
-                    text = stringResource(R.string.update_cancel),
-                    onClick = { showInstallPermissionDialog = false }
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                SongDialogButton(
-                    text = stringResource(R.string.update_install_permission_open),
-                    onClick = {
-                        showInstallPermissionDialog = false
-                        installAfterPermissionGrant = true
-                        UpdateInstaller.openUnknownAppSourcesSettings(context)
-                    }
-                )
-            }
-        )
     }
 
     if (showLicensesDialog) {
@@ -2246,6 +2206,11 @@ fun AboutSettingsContent(
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = com.example.timeapk.ui.theme.SongDesignTokens.BorderAlphaStrong))
 
         if (directApkUpdatesEnabled) {
+            SettingsSwitchRow(
+                title = stringResource(R.string.update_auto_check),
+                checked = automaticUpdate.enabled,
+                onCheckedChange = { enabled -> scope.launch { app.userPrefs.setAutomaticUpdateEnabled(enabled) } }
+            )
             SettingsActionRow(
                 label = stringResource(R.string.settings_check_update),
                 supportingText = if (updateCheckInProgress) {
@@ -2413,31 +2378,4 @@ private fun evaluateContrastAuditForKey(
         primary = primary,
         onPrimary = onPrimary
     )
-}
-
-@Composable
-private fun UpdateDownloadOutcomeEffect(
-    outcome: UpdateInstallOutcome?,
-    snackbarHostState: SnackbarHostState,
-    onConsumed: () -> Unit
-) {
-    val context = LocalContext.current
-    LaunchedEffect(outcome) {
-        when (outcome) {
-            UpdateInstallOutcome.NEEDS_FOREGROUND -> snackbarHostState.showSnackbar(
-                context.getString(R.string.update_needs_foreground),
-                withDismissAction = true
-            )
-            UpdateInstallOutcome.CHECKSUM_MISMATCH -> snackbarHostState.showSnackbar(
-                context.getString(R.string.update_checksum_failed),
-                withDismissAction = true
-            )
-            UpdateInstallOutcome.DOWNLOAD_FAILED -> snackbarHostState.showSnackbar(
-                context.getString(R.string.update_download_failed),
-                withDismissAction = true
-            )
-            UpdateInstallOutcome.INSTALL_REQUESTED, null -> Unit
-        }
-        onConsumed()
-    }
 }

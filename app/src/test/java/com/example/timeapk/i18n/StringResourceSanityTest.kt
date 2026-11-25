@@ -9,6 +9,14 @@ import java.io.File
 class StringResourceSanityTest {
 
     @Test
+    fun kotlinSourcesDoNotContainTheCorruptedMiddleDotSeparator() {
+        val source = listOf(File("src/main/java"), File("app/src/main/java")).first { it.isDirectory }
+        val corrupted = source.walkTopDown().filter { it.extension == "kt" && it.isFile }
+            .filter { " 路 " in it.readText(Charsets.UTF_8) }.toList()
+        assertTrue("Corrupted separator in $corrupted", corrupted.isEmpty())
+    }
+
+    @Test
     fun resourceKeys_areAlignedAcrossDefaultZhAndEn() {
         val defaultKeys = extractKeys(readResourceText("values/strings.xml"))
         val zhKeys = extractKeys(readResourceText("values-zh/strings.xml"))

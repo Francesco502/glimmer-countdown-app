@@ -28,6 +28,7 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
 
     private val openEventIdState = mutableStateOf<Int?>(null)
+    private val shortcutActionState = mutableStateOf<String?>(null)
 
     override fun attachBaseContext(newBase: Context) {
         val mode = LocalePreferenceMirror.read(newBase) ?: LANG_ZH
@@ -40,6 +41,7 @@ class MainActivity : ComponentActivity() {
         migrateLocaleMirror()
         setContent {
             val openEventId by openEventIdState
+            val shortcutAction by shortcutActionState
             val app = applicationContext as TimeApplication
             val prefs = app.userPrefs
             val themeMode by prefs.themeModeFlow.collectAsStateWithLifecycle(initialValue = 0)
@@ -74,7 +76,9 @@ class MainActivity : ComponentActivity() {
                 ) {
                     TimeApp(
                         initialOpenEventId = openEventId,
-                        onOpenEventIdConsumed = { openEventIdState.value = null }
+                        onOpenEventIdConsumed = { openEventIdState.value = null },
+                        shortcutAction = shortcutAction,
+                        onShortcutConsumed = { shortcutActionState.value = null }
                     )
                 }
             }
@@ -97,6 +101,7 @@ class MainActivity : ComponentActivity() {
 
     private fun updateOpenEventIdFromIntent(intent: Intent) {
         openEventIdState.value = intent.getIntExtra("open_event_id", -1).takeIf { it >= 0 }
+        shortcutActionState.value = intent.action?.takeIf { it == AppShortcutManager.ADD_DATE || it == AppShortcutManager.OPEN_CALENDAR }
     }
 
     private fun migrateLocaleMirror() {

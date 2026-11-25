@@ -36,11 +36,12 @@ internal object SingleEventWidgetPolicy {
         today: LocalDate,
         pinnedEventIds: List<Int>
     ): EventUiState? {
+        val active = states.filterNot { it.event.isArchived }
         if (selectedEventId != SINGLE_EVENT_FOLLOW_NEAREST) {
-            states.firstOrNull { it.event.id == selectedEventId }?.let { return it }
+            active.firstOrNull { it.event.id == selectedEventId }?.let { return it }
         }
-        return pickNearestUpcomingEvent(states, today, pinnedEventIds)
-            ?: states.maxByOrNull { it.nextOccurrenceDate }
+        return pickNearestUpcomingEvent(active, today, pinnedEventIds)
+            ?: active.maxByOrNull { it.nextOccurrenceDate }
     }
 
     fun buildText(context: Context, state: EventUiState): SingleEventWidgetText {

@@ -15,6 +15,8 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.example.timeapk.LocalePreferenceMirror
 import com.example.timeapk.ui.theme.FONT_PRESET_NOTO_SERIF_SC
 import com.example.timeapk.ui.theme.sanitizeFontPreset
+import com.example.timeapk.update.AutomaticUpdateSettings
+import com.example.timeapk.update.UPDATE_POSTPONE_MS
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -60,6 +62,10 @@ private val SMART_MILESTONES_ENABLED = booleanPreferencesKey("smart_milestones_e
 private val REDUCE_MOTION_ENABLED = booleanPreferencesKey("reduce_motion_enabled")
 private val SONG_SOUND_ENABLED = booleanPreferencesKey("song_sound_enabled")
 private val SCHEDULE_TARGET_CALENDAR_ID = longPreferencesKey("schedule_target_calendar_id")
+private val AUTO_CHECK_UPDATE_ENABLED = booleanPreferencesKey("auto_check_update_enabled")
+private val LAST_AUTO_UPDATE_CHECK_AT = longPreferencesKey("last_auto_update_check_at")
+private val SKIPPED_UPDATE_VERSION = stringPreferencesKey("skipped_update_version")
+private val POSTPONED_UPDATE_UNTIL = longPreferencesKey("postponed_update_until")
 private val SCHEDULE_USE_RRULE_SYNC = booleanPreferencesKey("schedule_use_rrule_sync")
 private val EXACT_REMINDERS_ENABLED = booleanPreferencesKey("exact_reminders_enabled")
 private val FILTER_CATEGORY_ID = stringPreferencesKey("filter_category_id")
@@ -150,6 +156,37 @@ internal fun parsePinnedEventIds(raw: String): List<Int> {
 internal fun encodePinnedEventIds(ids: List<Int>): String = JSONArray(ids.distinct()).toString()
 
 class UserPreferencesRepository(private val context: Context) {
+    internal val automaticUpdateSettings = context.dataStore.data.map { it.automaticUpdateSettings() }
+
+    internal suspend fun claimAutomaticUpdateCheck(now: Long): Boolean {
+        var claimed = false
+        context.dataStore.edit { prefs ->
+            if (prefs.automaticUpdateSettings().canCheck(now)) {
+                prefs[LAST_AUTO_UPDATE_CHECK_AT] = now
+                claimed = true
+            }
+        }
+        return claimed
+    }
+
+    internal suspend fun setAutomaticUpdateEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[AUTO_CHECK_UPDATE_ENABLED] = enabled }
+    }
+
+    internal suspend fun skipUpdate(version: String) {
+        context.dataStore.edit { it[SKIPPED_UPDATE_VERSION] = version }
+    }
+
+    internal suspend fun postponeUpdate(now: Long) {
+        context.dataStore.edit { it[POSTPONED_UPDATE_UNTIL] = now + UPDATE_POSTPONE_MS }
+    }
+
+    private fun Preferences.automaticUpdateSettings() = AutomaticUpdateSettings(
+        enabled = this[AUTO_CHECK_UPDATE_ENABLED] ?: true,
+        lastCheckedAt = this[LAST_AUTO_UPDATE_CHECK_AT] ?: 0,
+        skippedVersion = this[SKIPPED_UPDATE_VERSION],
+        postponedUntil = this[POSTPONED_UPDATE_UNTIL] ?: 0
+    )
     val themeModeFlow: Flow<Int> = context.dataStore.data.map { it[THEME_MODE] ?: THEME_FOLLOW_SYSTEM }
     val filterTypeFlow: Flow<Int> = context.dataStore.data.map { it[FILTER_TYPE] ?: 0 }
     val filterCategoryIdFlow: Flow<String?> = context.dataStore.data.map {
@@ -397,6 +434,35 @@ class UserPreferencesRepository(private val context: Context) {
         val list = days.filter { it > 0 }.distinct().sorted()
         val json = JSONArray(list).toString()
         context.dataStore.edit { it[CUSTOM_MILESTONES_JSON] = json }
+    }
+
+    internal suspend fun getBackupOrdering(): BackupOrdering {
+        val prefs = context.dataStore.data.first()
+        return BackupOrdering(
+            pinned = parsePinnedEventIds(prefs[PINNED_EVENT_IDS_JSON].orEmpty()),
+            customOrder = parseCustomEventOrder(prefs[CUSTOM_EVENT_ORDER_JSON].orEmpty()),
+            milestones = parseMilestonesJson(prefs[CUSTOM_MILESTONES_JSON]),
+            sortType = prefs[SORT_TYPE] ?: 2
+        )
+    }
+
+    internal suspend fun restoreBackupOrdering(
+        ordering: BackupOrdering,
+        eventIds: Map<Int, Int>,
+        mergeMilestones: Boolean
+    ) {
+        context.dataStore.edit { prefs ->
+            val pinned = ordering.pinned.mapNotNull(eventIds::get) +
+                parsePinnedEventIds(prefs[PINNED_EVENT_IDS_JSON].orEmpty())
+            val customOrder = ordering.customOrder.mapNotNull(eventIds::get) +
+                parseCustomEventOrder(prefs[CUSTOM_EVENT_ORDER_JSON].orEmpty())
+            val milestones = ordering.milestones +
+                if (mergeMilestones) parseMilestonesJson(prefs[CUSTOM_MILESTONES_JSON]) else emptyList()
+            prefs[PINNED_EVENT_IDS_JSON] = encodePinnedEventIds(pinned.distinct())
+            prefs[CUSTOM_EVENT_ORDER_JSON] = JSONArray(customOrder.distinct()).toString()
+            prefs[CUSTOM_MILESTONES_JSON] = JSONArray(milestones.distinct().sorted()).toString()
+            prefs[SORT_TYPE] = ordering.sortType
+        }
     }
 
     /** Opt-in exact alarm delivery (direct channel only). Default off. */

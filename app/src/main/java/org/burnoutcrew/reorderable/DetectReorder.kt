@@ -19,6 +19,7 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.forEachGesture
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
 
@@ -45,15 +46,36 @@ fun Modifier.detectReorder(state: ReorderableState<*>) =
     )
 
 
-fun Modifier.detectReorderAfterLongPress(state: ReorderableState<*>) =
+fun Modifier.detectReorderAfterLongPress(
+    state: ReorderableState<*>,
+    onReleasedWithoutDrag: (() -> Unit)? = null
+) =
     this.then(
         Modifier.pointerInput(Unit) {
             forEachGesture {
                 val down = awaitPointerEventScope {
                     awaitFirstDown(requireUnconsumed = false)
                 }
-                awaitLongPressOrCancellation(down)?.also {
+                val longPress = awaitLongPressOrCancellation(down)
+                if (longPress != null) {
                     state.interactions.trySend(StartDrag(down.id))
+                    if (onReleasedWithoutDrag != null) {
+                        awaitPointerEventScope {
+                            while (true) {
+                                // Inspect the release before a child clickable can turn it into a tap.
+                                val change = awaitPointerEvent(PointerEventPass.Initial).changes
+                                    .firstOrNull { it.id == down.id } ?: break
+                                if ((change.position - down.position).getDistance() > viewConfiguration.touchSlop) break
+                                if (!change.pressed) {
+                                    if (change.previousPressed && !change.isConsumed) {
+                                        change.consume()
+                                        onReleasedWithoutDrag()
+                                    }
+                                    break
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

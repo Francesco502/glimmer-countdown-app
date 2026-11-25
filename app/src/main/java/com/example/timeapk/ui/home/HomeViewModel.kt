@@ -26,12 +26,15 @@ import com.example.timeapk.notifications.eventAfterMilestoneScheduleSyncAttempt
 import com.example.timeapk.notifications.requestMilestoneScheduleRetryOnFailure
 import com.example.timeapk.ui.utils.eventDateToLocalDate
 import com.example.timeapk.ui.utils.getNextLunarOccurrence
-import com.example.timeapk.ui.utils.getPreviousLunarOccurrence
 import com.example.timeapk.ui.utils.nextOccurrenceDate
 import com.example.timeapk.ui.utils.previousOccurrenceDate
 import com.nlf.calendar.Solar
 import com.example.timeapk.widget.WidgetUpdater
 import com.example.timeapk.ui.common.EventImageStore
+import com.example.timeapk.ui.common.builtInCategoryLabelRes
+import com.example.timeapk.data.BUILT_IN_CATEGORY_IDS
+import com.example.timeapk.LocaleUtils
+import com.example.timeapk.notifications.RescheduleAllWorker
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -74,16 +77,9 @@ fun Event.toEventUiState(
     var nextTargetDate = targetDate
     var prevTargetDate: LocalDate? = null
 
-    when {
-        repeatType == REPEAT_YEARLY && isLunar && hasStarted -> {
-            nextTargetDate = getNextLunarOccurrence(targetDate, today)
-            prevTargetDate = getPreviousLunarOccurrence(targetDate, today)
-        }
-
-        repeatType != REPEAT_NONE && hasStarted -> {
-            nextTargetDate = nextOccurrenceDate(targetDate, today, repeatType)
-            prevTargetDate = previousOccurrenceDate(targetDate, today, repeatType)
-        }
+    if (repeatType != REPEAT_NONE && hasStarted) {
+        nextTargetDate = nextOccurrenceDate(targetDate, today, repeatType, isLunar)
+        prevTargetDate = previousOccurrenceDate(targetDate, today, repeatType, isLunar)
     }
 
     val daysDiff = ChronoUnit.DAYS.between(today, nextTargetDate)
@@ -506,7 +502,7 @@ class HomeViewModel(
     val smartMilestonesEnabled: StateFlow<Boolean> = userPrefs.smartMilestonesEnabledFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
-    private val allHomeUiState: StateFlow<List<EventUiState>> = combine(
+    internal val allHomeUiState: StateFlow<List<EventUiState>> = combine(
         repository.getAllEvents(),
         userPrefs.customMilestonesFlow,
         smartMilestonesEnabled,
@@ -558,24 +554,48 @@ class HomeViewModel(
     val homeUiState: StateFlow<List<EventUiState>> = combine(
         allHomeUiState,
         filterInputFlow,
-        orderInputFlow
-    ) { all, filterInput, orderInput ->
+        orderInputFlow,
+        customCategories,
+        userPrefs.languageModeFlow
+    ) { all, filterInput, orderInput, categories, languageMode ->
+        val localized = LocaleUtils.wrapContext(application, languageMode)
+        val categoryLabels = BUILT_IN_CATEGORY_IDS.associateWith { localized.getString(builtInCategoryLabelRes(it)) } +
+            categories.associate { it.id to it.name }
         buildHomeVisibleList(
             all = all,
             categoryFilter = filterInput.categoryFilter,
             sortType = filterInput.sortType,
             query = filterInput.query,
             customEventOrderIds = orderInput.customEventOrderIds,
-            pinnedEventIds = orderInput.pinnedEventIds
+            pinnedEventIds = orderInput.pinnedEventIds,
+            categoryLabels = categoryLabels,
+            context = localized
         )
-    }.stateIn(
+    }.flowOn(Dispatchers.Default).stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = emptyList()
     )
 
     val calendarUiState: StateFlow<List<EventUiState>> = homeUiState
-    val unfilteredCalendarUiState: StateFlow<List<EventUiState>> = allHomeUiState
+    val unfilteredCalendarUiState = allHomeUiState.map { states -> states.filterNot { it.event.isArchived } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val archivedUiState = allHomeUiState.map { states ->
+        states.filter { it.event.isArchived }.sortedByDescending { it.event.date }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun setArchived(eventId: Int, archived: Boolean) {
+        viewModelScope.launch {
+            if (repository.setEventArchived(eventId, archived)) {
+                if (archived) {
+                    cancelReminder(application, eventId)
+                    cancelMilestoneReminders(application, eventId)
+                }
+                RescheduleAllWorker.enqueue(application, "event_archive_changed")
+                WidgetUpdater.refreshCountdownWidgets(application)
+            }
+        }
+    }
 
     fun updateSearchQuery(query: String) {
         _searchQuery.value = query

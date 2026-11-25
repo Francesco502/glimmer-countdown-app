@@ -64,15 +64,15 @@ class SingleEventWidgetProvider : AppWidgetProvider() {
             val today = LocalDate.now()
             val localizedContext = widgetLanguageContext(context)
             ids.forEach { appWidgetId ->
-                val selection = repository.getSingleEventSelection(appWidgetId)
-                val target = SingleEventWidgetPolicy.resolveTarget(states, selection, today, pinned)
+                val instance = repository.getSingleEventConfiguration(appWidgetId)
+                val target = SingleEventWidgetPolicy.resolveTarget(states, instance.selection, today, pinned)
                 val text = target?.let { SingleEventWidgetPolicy.buildText(localizedContext, it) }
                 val options = appWidgetManager.getAppWidgetOptions(appWidgetId)
                 val widthDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 110)
                 val heightDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 110)
                 appWidgetManager.updateAppWidget(
                     appWidgetId,
-                    buildViews(localizedContext, appWidgetId, text, config, theme, widthDp, heightDp)
+                    buildViews(localizedContext, appWidgetId, text, instance.appearance ?: config, theme, widthDp, heightDp)
                 )
             }
         }

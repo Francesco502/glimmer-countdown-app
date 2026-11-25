@@ -120,20 +120,21 @@ class ScheduleSyncManagerInstrumentationTest {
 
             val recreated = ScheduleSyncManager.syncReminderSeries(
                 context = context,
-                event = source,
+                event = source.copy(remindDaysBefore = 3, remindLeadDays = "3,1,0", date = source.date + 7L * 86_400_000L),
                 preferredCalendarId = calendarId,
                 useRRuleSync = false
             )
             val recreatedId = recreated.primaryScheduleEventId
             assertNotNull(recreatedId)
-            assertEquals(
-                CalendarCleanupResult.RemovedOrNotPresent,
-                ScheduleSyncManager.removeManagedCalendarEntries(
-                    context = context,
-                    eventId = source.id,
-                    calendarEventId = recreatedId
-                )
+            assertEquals(3, countManagedEvents(source.id))
+            val archived = ScheduleSyncManager.syncReminderSeries(
+                context = context,
+                event = source.copy(isArchived = true, scheduleEventId = recreatedId, targetCalendarId = calendarId),
+                preferredCalendarId = calendarId,
+                useRRuleSync = false
             )
+            assertNull(archived.error)
+            assertNull(archived.primaryScheduleEventId)
             assertNull(queryEvent(recreatedId!!))
             assertEquals(0, countManagedEvents(source.id))
         } finally {

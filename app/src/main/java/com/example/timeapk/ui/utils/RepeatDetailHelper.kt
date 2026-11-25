@@ -45,10 +45,18 @@ fun formatGanZhiYear(year: Int, context: Context? = null): String {
     }
 }
 
-fun formatLunarMonthDay(date: LocalDate): String? {
+fun formatLunarMonthDay(date: LocalDate, context: Context? = null): String? {
     return try {
         val lunar = Solar.fromYmd(date.year, date.monthValue, date.dayOfMonth).lunar
-        "${lunar.monthInChinese}${lunar.dayInChinese}"
+        if (context?.resources?.configuration?.locales?.get(0)?.language == "en") {
+            context.getString(
+                if (lunar.month < 0) R.string.lunar_short_leap else R.string.lunar_short,
+                kotlin.math.abs(lunar.month),
+                lunar.day
+            )
+        } else {
+            "${lunar.monthInChinese}月${lunar.dayInChinese}"
+        }
     } catch (_: Throwable) {
         null
     }
@@ -56,7 +64,7 @@ fun formatLunarMonthDay(date: LocalDate): String? {
 
 fun formatLunarLine(date: LocalDate, context: Context? = null): String {
     val gz = formatGanZhiYear(date.year, context)
-    val lunar = formatLunarMonthDay(date)
+    val lunar = formatLunarMonthDay(date, context)
     return if (lunar != null) "$gz $lunar" else gz
 }
 
@@ -74,7 +82,14 @@ fun formatElapsedDays(days: Long, context: Context? = null): String {
     }
 }
 
-fun nextOccurrenceDate(origin: LocalDate, today: LocalDate, repeatType: String): LocalDate {
+fun nextOccurrenceDate(
+    origin: LocalDate,
+    today: LocalDate,
+    repeatType: String,
+    isLunar: Boolean = false
+): LocalDate {
+    if (isLunar && repeatType == REPEAT_YEARLY) return getNextLunarOccurrence(origin, today)
+    if (isLunar && repeatType == REPEAT_MONTHLY) return getLunarMonthlyOccurrence(origin, today, direction = 1)
     return when (repeatType) {
         REPEAT_DAILY -> if (origin.isAfter(today)) origin else today
 
@@ -133,7 +148,14 @@ fun nextOccurrenceDate(origin: LocalDate, today: LocalDate, repeatType: String):
     }
 }
 
-fun previousOccurrenceDate(origin: LocalDate, today: LocalDate, repeatType: String): LocalDate? {
+fun previousOccurrenceDate(
+    origin: LocalDate,
+    today: LocalDate,
+    repeatType: String,
+    isLunar: Boolean = false
+): LocalDate? {
+    if (isLunar && repeatType == REPEAT_YEARLY) return getPreviousLunarOccurrence(origin, today)
+    if (isLunar && repeatType == REPEAT_MONTHLY) return getLunarMonthlyOccurrence(origin, today, direction = -1)
     if (origin.isAfter(today)) return null
 
     val nextOnOrAfterToday = nextOccurrenceDate(origin, today, repeatType)

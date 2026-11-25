@@ -1,8 +1,11 @@
 package com.example.timeapk.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.example.timeapk.ui.utils.eventDateToLocalDate
+import java.time.LocalDate
 
 /** 事件分类：生日 / 纪念日 / 其他 */
 const val CATEGORY_BIRTHDAY = "birthday"
@@ -51,5 +54,10 @@ data class Event(
     /** 是否为农历日期 */
     val isLunar: Boolean = false,
     /** 事件配图：应用私有目录 files/event_images/ 下的文件名；null 表示无配图 */
-    val imagePath: String? = null
+    val imagePath: String? = null,
+    @ColumnInfo(defaultValue = "0") val isArchived: Boolean = false,
+    val remindLeadDays: String? = null
 )
+
+internal fun Event.canArchiveOn(today: LocalDate): Boolean =
+    !isArchived && repeatType == REPEAT_NONE && eventDateToLocalDate(date).isBefore(today)

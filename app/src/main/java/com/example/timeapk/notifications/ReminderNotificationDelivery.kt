@@ -11,13 +11,12 @@ import com.example.timeapk.MainActivity
 import com.example.timeapk.R
 import com.example.timeapk.TimeApplication
 import com.example.timeapk.data.Event
-import com.example.timeapk.data.sanitizedReminderConfig
+import com.example.timeapk.data.resolvedRemindLeadDays
 import com.example.timeapk.permissions.canPostAppNotifications
 import com.example.timeapk.permissions.canPostEventReminderNotifications
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 
@@ -76,11 +75,13 @@ internal object ReminderNotificationDelivery {
 
         val templates = templates(context)
         val referenceDate = referenceDate(triggerAtMillis)
-        val (daysLeft, occurrenceDate) = decision.event?.let { event ->
-            val occurrence = computeOccurrenceOnOrAfter(event.sanitizedReminderConfig(), referenceDate)
-            ChronoUnit.DAYS.between(referenceDate, occurrence).toInt() to occurrence
-        } ?: (workDaysLeft to referenceDate.plusDays(workDaysLeft.toLong()))
-        val text = ReminderNotificationTextPolicy.countdownText(templates, daysLeft, occurrenceDate)
+        val occurrenceDate = referenceDate.plusDays(workDaysLeft.toLong())
+        decision.event?.let { event ->
+            if (workDaysLeft !in event.resolvedRemindLeadDays() ||
+                computeOccurrenceOnOrAfter(event, occurrenceDate) != occurrenceDate
+            ) return false
+        }
+        val text = ReminderNotificationTextPolicy.countdownText(templates, workDaysLeft, occurrenceDate)
         post(
             context = context,
             channelId = EVENT_CHANNEL_ID,
@@ -143,7 +144,9 @@ internal object ReminderNotificationDelivery {
             lookupFailed = true
             null
         }
-        return ReminderNotificationTextPolicy.decide(latest, lookupFailed, fallbackTitle, stillEnabled)
+        return ReminderNotificationTextPolicy.decide(latest, lookupFailed, fallbackTitle) {
+            !it.isArchived && stillEnabled(it)
+        }
     }
 
     private fun referenceDate(triggerAtMillis: Long): LocalDate {

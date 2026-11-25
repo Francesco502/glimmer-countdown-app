@@ -65,6 +65,9 @@ import com.example.timeapk.data.CATEGORY_OTHER
 import com.example.timeapk.data.REPEAT_DAILY
 import com.example.timeapk.data.REPEAT_HALF_YEARLY
 import com.example.timeapk.data.REPEAT_MONTHLY
+import com.example.timeapk.data.MAX_REMINDER_LEADS
+import androidx.compose.ui.semantics.Role
+import com.example.timeapk.data.normalizeReminderLeadDays
 import com.example.timeapk.data.REPEAT_NONE
 import com.example.timeapk.data.REPEAT_WEEKLY
 import com.example.timeapk.data.REPEAT_YEARLY
@@ -100,6 +103,9 @@ import com.example.timeapk.ui.theme.SongLineIconKind
 import com.example.timeapk.ui.theme.SongPaperSurface
 import com.example.timeapk.ui.theme.SongPaperTextureOverlay
 import com.example.timeapk.ui.utils.eventDateToLocalDate
+import com.example.timeapk.ui.utils.getUntilLabel
+import com.example.timeapk.ui.home.toEventUiState
+import androidx.compose.ui.res.pluralStringResource
 import com.example.timeapk.ui.utils.getDisplayDateFormatter
 import com.example.timeapk.ui.utils.formatLunarDateString
 import kotlinx.coroutines.delay
@@ -532,10 +538,18 @@ fun EventEntryBody(
         previewDate.format(dateFormatter)
     }
     val previewCategoryLabel = categoryLabel(previewDetails.category)
-    val previewColor = remember(previewDetails.colorHex) {
-        previewDetails.colorHex?.let { hex ->
-            try { Color(hex.toColorInt()) } catch (_: Exception) { null }
-        } ?: Color(0xFF83ACA2)
+    val previewState = remember(previewDetails.date, previewDetails.isLunar, previewDetails.repeatType, previewDetails.category) {
+        previewDetails.toEvent().toEventUiState(smartMilestonesEnabled = false)
+    }
+    val previewDays = previewState.daysRemaining.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+    val previewTime = if (previewDays == 0) stringResource(R.string.home_today_seal) else {
+        stringResource(R.string.quantity_with_unit, previewDays, pluralStringResource(R.plurals.days_unit, previewDays))
+    }
+    val previewTimeLabel = when {
+        previewState.isPast -> stringResource(R.string.days_past_label)
+        previewDays == 0 -> getUntilLabel(context, previewState, onOccurrence = true)
+            .takeUnless { it == context.getString(R.string.days_until_label) }.orEmpty()
+        else -> getUntilLabel(context, previewState)
     }
     Box(
         modifier = modifier
@@ -562,7 +576,8 @@ fun EventEntryBody(
                 title = previewDetails.title.ifBlank { stringResource(R.string.event_preview_untitled) },
                 categoryLabel = previewCategoryLabel,
                 dateText = previewDateText,
-                color = previewColor,
+                timeLabel = previewTimeLabel,
+                timeText = previewTime,
                 reminderText = if (previewDetails.remindEnabled) {
                     stringResource(R.string.cd_reminder_on)
                 } else {
@@ -848,7 +863,18 @@ fun EventInputForm(
     val reminderHourPresets = remember { listOf(0, 7, 10, 12, 18) }
     val reminderHourOptions = remember { (0..23).toList() }
     val reminderMinuteOptions = remember { (0..59).toList() }
-    val selectedRemindDays = eventDetails.remindDaysBefore.coerceIn(0, 3650)
+    val selectedRemindDays = eventDetails.selectedReminderLeadDays()
+    fun toggleRemindDay(days: Int) {
+        val updated = if (days in selectedRemindDays) {
+            if (selectedRemindDays.size == 1) return
+            selectedRemindDays - days
+        } else {
+            if (selectedRemindDays.size >= MAX_REMINDER_LEADS) return
+            selectedRemindDays + days
+        }
+        val normalized = normalizeReminderLeadDays(updated)
+        onValueChange(eventDetails.copy(remindDaysBefore = normalized.first(), remindLeadDays = normalized.joinToString(",")))
+    }
     val selectedRemindHour = (eventDetails.reminderTimeMinutesOfDay / 60).coerceIn(0, 23)
     val selectedRemindMinute = (eventDetails.reminderTimeMinutesOfDay % 60).coerceIn(0, 59)
     fun remindDaysLabel(days: Int): String = formatRemindDaysBefore(days, context)
@@ -937,16 +963,17 @@ fun EventInputForm(
     }
 
     if (showCustomRemindDaysPicker) {
-        var draftDays by remember(eventDetails.remindDaysBefore) {
-            mutableStateOf(selectedRemindDays)
+        var draftDays by remember {
+            mutableStateOf(14)
         }
         var isDaysPickerScrolling by remember { mutableStateOf(false) }
         SongWheelPickerDialog(
             onDismissRequest = { showCustomRemindDaysPicker = false },
             title = stringResource(R.string.custom_remind_days_label),
-            confirmEnabled = !isDaysPickerScrolling,
+            confirmEnabled = !isDaysPickerScrolling && draftDays !in selectedRemindDays &&
+                selectedRemindDays.size < MAX_REMINDER_LEADS,
             onConfirm = {
-                onValueChange(eventDetails.copy(remindDaysBefore = draftDays))
+                toggleRemindDay(draftDays)
                 showCustomRemindDaysPicker = false
             }
         ) {
@@ -1028,11 +1055,8 @@ fun EventInputForm(
     }
 
     val baseDate = eventDateToLocalDate(eventDetails.date)
-    val dateString = if (eventDetails.isLunar) {
-        formatLunarDateString(baseDate, context)
-    } else {
-        baseDate.format(dateFormatter)
-    }
+    val solarDate = baseDate.format(dateFormatter)
+    val lunarDate = formatLunarDateString(baseDate, context)
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SongInkSection(
             title = stringResource(R.string.event_entry_section_content)
@@ -1052,7 +1076,8 @@ fun EventInputForm(
             // Date follows the title directly so it stays visible above the keyboard.
             SongInkChoiceRow(
                 label = stringResource(R.string.field_date),
-                value = dateString,
+                value = if (eventDetails.isLunar) lunarDate else solarDate,
+                secondaryValue = if (eventDetails.isLunar) solarDate else lunarDate,
                 onClick = { showDatePicker = true }
             )
             SongInkChoiceRow(
@@ -1144,21 +1169,25 @@ fun EventInputForm(
                 )
             }
 
-            if (eventDetails.remindEnabled) {
-                // Quick presets: picking a lead time is one tap, the wheel is only for unusual values.
+            if (eventDetails.remindEnabled || eventDetails.syncToScheduleEnabled) {
                 SongInkChoiceRow(
                     label = stringResource(R.string.custom_remind_days_label),
-                    value = remindDaysLabel(selectedRemindDays)
+                    value = stringResource(R.string.reminder_lead_selection_count, selectedRemindDays.size, MAX_REMINDER_LEADS)
                 ) {
-                    reminderQuickDayPresets.forEach { days ->
+                    (reminderQuickDayPresets + selectedRemindDays).distinct().sorted().forEach { days ->
+                        val canToggle = if (days in selectedRemindDays) selectedRemindDays.size > 1
+                        else selectedRemindDays.size < MAX_REMINDER_LEADS
                         SongFilterChip(
-                            selected = selectedRemindDays == days,
-                            onClick = { onValueChange(eventDetails.copy(remindDaysBefore = days)) },
-                            label = remindDaysLabel(days)
+                            selected = days in selectedRemindDays,
+                            enabled = canToggle,
+                            onClick = { toggleRemindDay(days) },
+                            label = remindDaysLabel(days),
+                            selectionRole = Role.Checkbox
                         )
                     }
                     SongFilterChip(
-                        selected = selectedRemindDays !in reminderQuickDayPresets,
+                        selected = false,
+                        enabled = selectedRemindDays.size < MAX_REMINDER_LEADS,
                         onClick = { showCustomRemindDaysPicker = true },
                         label = stringResource(R.string.repeat_more),
                         selectionRole = null
@@ -1175,6 +1204,11 @@ fun EventInputForm(
         SongInkSection(
             title = stringResource(R.string.event_entry_section_appearance)
         ) {
+            Text(
+                stringResource(R.string.event_theme_color_summary),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1605,6 +1639,7 @@ private fun SongInkChoiceRow(
     value: String,
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
+    secondaryValue: String? = null,
     choices: (@Composable FlowRowScope.() -> Unit)? = null
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
@@ -1622,13 +1657,18 @@ private fun SongInkChoiceRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f)
             )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Column(horizontalAlignment = Alignment.End, modifier = Modifier.weight(2f)) {
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                secondaryValue?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
         }
         choices?.let { choiceContent ->
             Spacer(modifier = Modifier.height(6.dp))

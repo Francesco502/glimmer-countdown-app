@@ -34,7 +34,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
@@ -49,6 +48,19 @@ import com.example.timeapk.TimeApplication
 import com.example.timeapk.data.REPEAT_DAILY
 import com.example.timeapk.data.REPEAT_HALF_YEARLY
 import com.example.timeapk.data.REPEAT_MONTHLY
+import com.example.timeapk.data.canArchiveOn
+import com.example.timeapk.data.DEFAULT_MILESTONE_DAYS
+import com.example.timeapk.notifications.ScheduleSyncManager
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.semantics.Role
+import androidx.core.content.res.ResourcesCompat
+import com.example.timeapk.ui.common.categoryColor
+import com.example.timeapk.ui.theme.FONT_PRESET_NOTO_SERIF_SC
+import com.example.timeapk.ui.theme.FONT_PRESET_ZCOOL_XIAOWEI
+import com.example.timeapk.ui.theme.SongFilterChip
 import com.example.timeapk.data.REPEAT_WEEKLY
 import com.example.timeapk.data.REPEAT_YEARLY
 import com.example.timeapk.permissions.canPostEventReminderNotifications
@@ -107,7 +119,7 @@ private val DetailSupplementContentMaxWidth = 340.dp
 private val DetailSupplementLabelWidth = 64.dp
 private val DetailSupplementValueMaxWidth = 228.dp
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun DetailScreen(
     eventState: EventUiState?,
@@ -116,13 +128,15 @@ fun DetailScreen(
     onEditClick: () -> Unit,
     onDeleteClick: suspend () -> Boolean,
     modifier: Modifier = Modifier,
-    showBackButton: Boolean = true
+    showBackButton: Boolean = true,
+    onArchiveChange: ((Boolean) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val locale = LocalConfiguration.current.locales[0]
     val prefs = (context.applicationContext as TimeApplication).userPrefs
     val scope = rememberCoroutineScope()
     val showMilestone by prefs.showMilestoneFlow.collectAsStateWithLifecycle(initialValue = true)
+    val customMilestones by prefs.customMilestonesFlow.collectAsStateWithLifecycle(initialValue = DEFAULT_MILESTONE_DAYS)
     val dateFormatMode by prefs.dateFormatModeFlow.collectAsStateWithLifecycle(initialValue = 0)
     val dateDeltaDisplayMode by prefs.dateDeltaDisplayModeFlow.collectAsStateWithLifecycle(initialValue = 0)
     val perEventDateDeltaModes by prefs.perEventDateDeltaDisplayModesFlow.collectAsStateWithLifecycle(initialValue = emptyMap())
@@ -195,7 +209,7 @@ fun DetailScreen(
 
     val detailBaseColor = parseEventColorOrFallback(
         hex = eventState.event.colorHex,
-        fallback = MaterialTheme.colorScheme.primary
+        fallback = categoryColor(eventState.event.category)
     )
     
     // Use the resolved theme background, not the system night flag: the user can force
@@ -226,8 +240,11 @@ fun DetailScreen(
     val calendarMetaLine = buildList {
         if (eventState.event.isLunar) add(formatLunarDateString(targetLocalDate, context))
         repeatLabel?.let(::add)
-        if (eventState.event.remindEnabled) add(stringResource(R.string.field_remind))
-        if (eventState.event.syncToScheduleEnabled) add(stringResource(R.string.sync_to_schedule))
+        if (eventState.event.isArchived) add(stringResource(R.string.archive_title))
+        else {
+            if (eventState.event.remindEnabled) add(stringResource(R.string.field_remind))
+            if (eventState.event.syncToScheduleEnabled) add(stringResource(R.string.sync_to_schedule))
+        }
     }.joinToString(" · ")
     val detailDisplayModeRaw = perEventDateDeltaModes[eventState.event.id] ?: dateDeltaDisplayMode
     val availableModes = getAvailableDisplayModes(eventState, showMilestone = showMilestone)
@@ -240,12 +257,27 @@ fun DetailScreen(
         today = today,
         locale = locale
     )
-    val reminderStatus = buildReminderStatus(
-        event = eventState.event,
-        notificationsEnabled = context.canPostEventReminderNotifications(),
-        calendarPermissionGranted = context.hasCalendarReadWritePermission(),
-        hasWritableCalendar = true
-    )
+    var resumeCount by remember { mutableIntStateOf(0) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { resumeCount++ }
+    val permissions = remember(context, resumeCount) {
+        context.canPostEventReminderNotifications() to context.hasCalendarReadWritePermission()
+    }
+    val writableCalendar by produceState<Boolean?>(null, context, permissions.second, resumeCount) {
+        value = permissions.second && ScheduleSyncManager.hasWritableCalendar(context)
+    }
+    val reminderStatus = writableCalendar?.takeUnless { eventState.event.isArchived }?.let { writable ->
+        buildReminderStatus(eventState.event, permissions.first, permissions.second, writable)
+    }
+    val fontPreset by prefs.fontPresetFlow.collectAsStateWithLifecycle(initialValue = FONT_PRESET_NOTO_SERIF_SC)
+    var sharePaper by rememberSaveable(eventState.event.id) { mutableStateOf(SharePaper.Xuan) }
+    var shareLunar by rememberSaveable(eventState.event.id) { mutableStateOf(eventState.event.isLunar) }
+    var shareNote by rememberSaveable(eventState.event.id) { mutableStateOf(false) }
+    val shareTypeface = remember(context, fontPreset, showShareDialog) {
+        if (showShareDialog) ResourcesCompat.getFont(
+            context,
+            if (fontPreset == FONT_PRESET_ZCOOL_XIAOWEI) R.font.glimmer_xiaowei_regular else R.font.glimmer_serif
+        ) else null
+    }
     val shareData = buildEventShareCardData(
         title = eventState.event.title,
         categoryLabel = categoryName,
@@ -255,6 +287,11 @@ fun DetailScreen(
         accentColor = detailBaseColor,
         brandText = stringResource(R.string.app_name),
         backgroundImage = shareBackgroundImage
+    ).copy(
+        paper = sharePaper,
+        typeface = shareTypeface,
+        lunarText = if (shareLunar) formatLunarDateString(targetLocalDate, context) else null,
+        note = eventState.event.note.trim().take(240).takeIf { shareNote && it.isNotEmpty() }
     )
     val shareImageName = remember(eventState.event.title) {
         ShareImageStore.shareImageName(eventState.event.title)
@@ -265,6 +302,36 @@ fun DetailScreen(
             title = stringResource(R.string.share_card_title),
             onDismissRequest = { if (!shareInProgress) showShareDialog = false },
             content = {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SharePaper.entries.forEach { paper ->
+                        SongFilterChip(
+                            selected = sharePaper == paper,
+                            label = stringResource(when (paper) {
+                                SharePaper.Xuan -> R.string.share_paper_xuan
+                                SharePaper.Ink -> R.string.share_paper_ink
+                                SharePaper.Celadon -> R.string.share_paper_celadon
+                            }),
+                            enabled = !shareInProgress,
+                            onClick = { sharePaper = paper }
+                        )
+                    }
+                    SongFilterChip(
+                        selected = shareLunar,
+                        label = stringResource(R.string.share_include_lunar),
+                        selectionRole = Role.Checkbox,
+                        enabled = !shareInProgress,
+                        onClick = { shareLunar = !shareLunar }
+                    )
+                    if (eventState.event.note.isNotBlank()) {
+                        SongFilterChip(
+                            selected = shareNote,
+                            label = stringResource(R.string.share_include_note),
+                            selectionRole = Role.Checkbox,
+                            enabled = !shareInProgress,
+                            onClick = { shareNote = !shareNote }
+                        )
+                    }
+                }
                 // Scale the 4:5 preview to fit instead of letting the dialog crop it.
                 BoxWithConstraints(
                     modifier = Modifier.fillMaxWidth(),
@@ -372,6 +439,12 @@ fun DetailScreen(
                             }
                         },
                         onEditClick = onEditClick,
+                        archived = eventState.event.isArchived,
+                        onArchiveClick = if (onArchiveChange != null &&
+                            (eventState.event.isArchived || eventState.event.canArchiveOn(today))
+                        ) {
+                            { onArchiveChange(!eventState.event.isArchived) }
+                        } else null,
                         onShareClick = {
                             shareStatusMessage = null
                             showShareDialog = true
@@ -454,12 +527,11 @@ fun DetailScreen(
                 today = today,
                 calendarMetaLine = calendarMetaLine,
                 reminderStatus = reminderStatus,
+                customMilestones = if (showMilestone) customMilestones else emptyList(),
                 detailContentColor = detailContentColor,
-                onReminderActionClick = detailReminderStatusAction(
-                    context,
-                    reminderStatus.primaryAction,
-                    onEditClick
-                )
+                onReminderActionClick = reminderStatus?.let {
+                    detailReminderStatusAction(context, it.primaryAction, onEditClick)
+                }
             )
 
 
@@ -729,7 +801,8 @@ private fun DetailSupplementSections(
     targetLocalDate: LocalDate,
     today: LocalDate,
     calendarMetaLine: String,
-    reminderStatus: ReminderStatusSummary,
+    reminderStatus: ReminderStatusSummary?,
+    customMilestones: List<Long>,
     detailContentColor: Color,
     onReminderActionClick: (() -> Unit)?
 ) {
@@ -765,11 +838,7 @@ private fun DetailSupplementSections(
             if (effectiveCategory == CATEGORY_ANNIVERSARY && isRepeating) {
                 val originDate = targetLocalDate
                 val isLunarAnniversary = eventState.event.isLunar && eventState.event.repeatType == REPEAT_YEARLY
-                val nextDate = if (isLunarAnniversary) {
-                    getNextLunarOccurrence(originDate, today)
-                } else {
-                    nextOccurrenceDate(originDate, today, eventState.event.repeatType)
-                }
+                val nextDate = eventState.nextOccurrenceDate
                 val safeToday = if (originDate.isAfter(today)) originDate else today
                 val elapsedPeriod = if (isLunarAnniversary) {
                     getLunarElapsedPeriod(originDate, safeToday)
@@ -837,7 +906,28 @@ private fun DetailSupplementSections(
             }
         }
 
-        SongReminderStatusStrip(
+        val nodes = remember(eventState, today, customMilestones) {
+            upcomingDetailNodes(eventState, today, customMilestones)
+        }
+        if (nodes.isNotEmpty()) DetailSupplementTable {
+            Text(stringResource(R.string.detail_recent_dates), style = MaterialTheme.typography.titleSmall, color = detailContentColor)
+            nodes.forEach { (date, milestone) ->
+                val days = ChronoUnit.DAYS.between(today, date)
+                val delta = if (days == 0L) stringResource(R.string.home_today_seal) else detailDaysValue(days, LocalConfiguration.current.locales[0])
+                val dateLabel = formatDateWithWeekday(date, context)
+                DetailLabelRow(
+                    milestone?.let { com.example.timeapk.ui.home.milestoneLabel(it) } ?: dateLabel,
+                    if (milestone != null) "$dateLabel · $delta" else delta,
+                    detailContentColor
+                )
+            }
+        }
+        if (eventState.event.isArchived && !eventState.event.lastScheduleSyncError.isNullOrBlank()) {
+            DetailSupplementTable {
+                Text(stringResource(R.string.calendar_cleanup_blocked), color = MaterialTheme.colorScheme.error)
+            }
+        }
+        if (reminderStatus != null) SongReminderStatusStrip(
             status = reminderStatus,
             title = reminderStatusTitle(context, reminderStatus),
             modifier = Modifier
@@ -869,11 +959,13 @@ private fun DetailBottomActions(
     onPinClick: () -> Unit,
     onEditClick: () -> Unit,
     onShareClick: () -> Unit,
-    onDeleteClick: () -> Unit
+    onDeleteClick: () -> Unit,
+    archived: Boolean,
+    onArchiveClick: (() -> Unit)?
 ) {
     SongBottomActionBar(
-        actions = listOf(
-            SongBottomAction(
+        actions = buildList {
+            if (!archived) add(SongBottomAction(
                 label = if (isPinned) stringResource(R.string.button_unpin) else stringResource(R.string.button_pin),
                 icon = SongLineIconKind.Pin,
                 tint = if (isPinned) {
@@ -882,27 +974,62 @@ private fun DetailBottomActions(
                     MaterialTheme.colorScheme.onSurfaceVariant
                 },
                 onClick = onPinClick
-            ),
-            SongBottomAction(
+            ))
+            if (!archived) add(SongBottomAction(
                 label = stringResource(R.string.button_edit),
                 icon = SongLineIconKind.Edit,
                 contentDescription = stringResource(R.string.cd_edit),
                 onClick = onEditClick
-            ),
-            SongBottomAction(
+            ))
+            if (onArchiveClick != null) add(SongBottomAction(
+                label = stringResource(if (archived) R.string.archive_restore else R.string.archive_event),
+                icon = SongLineIconKind.Book,
+                onClick = onArchiveClick
+            ))
+            add(SongBottomAction(
                 label = stringResource(R.string.button_share),
                 icon = SongLineIconKind.Share,
                 onClick = onShareClick
-            ),
-            SongBottomAction(
+            ))
+            add(SongBottomAction(
                 label = stringResource(R.string.button_delete),
                 icon = SongLineIconKind.Delete,
                 tint = MaterialTheme.colorScheme.error,
                 onClick = onDeleteClick
-            )
-        ),
+            ))
+        },
         outlined = false
     )
+}
+
+private fun upcomingDetailNodes(
+    state: EventUiState,
+    today: LocalDate,
+    customMilestones: List<Long>
+): List<Pair<LocalDate, Long?>> {
+    val event = state.event
+    if (event.isArchived) return emptyList()
+    val origin = eventDateToLocalDate(event.date)
+    val nodes = sortedMapOf<LocalDate, Long?>()
+    if (event.repeatType == REPEAT_NONE) {
+        if (!origin.isBefore(today)) nodes[origin] = null
+    } else {
+        var next = state.nextOccurrenceDate
+        repeat(4) {
+            if (!next.isBefore(today)) nodes[next] = null
+            val following = nextOccurrenceDate(origin, next.plusDays(1), event.repeatType, event.isLunar)
+            if (!following.isAfter(next)) return@repeat
+            next = following
+        }
+    }
+    if (event.repeatType in setOf(REPEAT_NONE, REPEAT_YEARLY)) {
+        customMilestones.forEach { milestone ->
+            val date = if (event.repeatType == REPEAT_NONE && origin.isAfter(today)) origin.minusDays(milestone)
+            else origin.plusDays(milestone)
+            if (!date.isBefore(today) && !nodes.containsKey(date)) nodes[date] = milestone
+        }
+    }
+    return nodes.entries.take(4).map { it.key to it.value }
 }
 
 private fun detailReminderStatusAction(

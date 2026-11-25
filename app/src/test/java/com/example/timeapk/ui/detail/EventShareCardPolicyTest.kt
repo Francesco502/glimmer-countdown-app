@@ -7,7 +7,7 @@ import java.io.File
 
 class EventShareCardPolicyTest {
     @Test
-    fun shareCardDataKeepsPrivateReminderAndNoteFieldsOutOfExportedImage() {
+    fun shareCardOmitsReminderDataAndDefaultsToNoNote() {
         val source = readSource("ui/detail/EventShareCard.kt")
 
         assertTrue(source.contains("data class EventShareCardData("))
@@ -18,7 +18,7 @@ class EventShareCardPolicyTest {
             "data class EventShareCardData(",
             "fun buildEventShareCardData("
         )
-        assertFalse(dataClassBlock.contains("note"))
+        assertTrue(dataClassBlock.contains("val note: String? = null"))
         assertFalse(dataClassBlock.contains("reminder"))
         assertFalse(dataClassBlock.contains("lastScheduleSyncError"))
         assertFalse(dataClassBlock.contains("permission"))

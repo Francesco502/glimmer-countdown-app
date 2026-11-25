@@ -67,7 +67,6 @@ class HomeEventCardDisplayTest {
                             eventState = event,
                             today = today,
                             dateFormatter = DateTimeFormatter.ISO_LOCAL_DATE,
-                            sortType = SortType.Custom,
                             dateDeltaDisplayMode = DisplayModes.UNTIL_DAYS,
                             onToggleDateDeltaDisplayMode = { timeClicks += 1 },
                             onClick = {},

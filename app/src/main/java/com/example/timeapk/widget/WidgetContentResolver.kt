@@ -87,6 +87,7 @@ internal object WidgetContentResolver {
         val now = Instant.now()
         val today = now.atZone(ZoneId.systemDefault()).toLocalDate()
         val ordered = app.repository.getAllEventsSnapshot()
+            .filterNot { it.isArchived }
             .map { it.toEventUiState(milestones, smartMilestonesEnabled, now) }
             .let { filterAndSortStates(it, config, pinnedEventIds, customEventOrder, homeSortType) }
 

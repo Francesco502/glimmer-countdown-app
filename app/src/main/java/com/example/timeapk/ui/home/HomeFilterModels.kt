@@ -1,11 +1,13 @@
 package com.example.timeapk.ui.home
 
+import android.content.Context
 import com.example.timeapk.data.CATEGORY_ANNIVERSARY
 import com.example.timeapk.data.CATEGORY_BIRTHDAY
 import com.example.timeapk.data.CATEGORY_OTHER
 import com.example.timeapk.data.Event
-import com.example.timeapk.data.REPEAT_NONE
-import com.example.timeapk.ui.utils.DisplayModes
+import com.example.timeapk.ui.utils.eventDateToLocalDate
+import com.example.timeapk.ui.utils.formatLunarDateString
+import com.example.timeapk.ui.utils.formatLunarMonthDay
 
 enum class FilterType { All, Birthday, Anniversary, Other }
 
@@ -22,24 +24,11 @@ internal fun EventUiState.matchesCategoryFilter(categoryId: String?): Boolean =
 
 enum class SortType { ByDays, ByDate, Custom }
 
-/** 非自定义排序时长按卡片打开操作菜单；自定义排序时长按用于拖动。 */
-internal fun homeCardLongPressMenuEnabled(sortType: SortType): Boolean = sortType != SortType.Custom
-
 internal fun homeCardDragSortEnabled(sortType: SortType): Boolean = sortType == SortType.Custom
 
 internal fun homeReorderAllowed(fromId: Int, toId: Int, pinnedEventIds: List<Int>): Boolean =
     fromId != toId && fromId !in pinnedEventIds && toId !in pinnedEventIds
 
-
-internal fun resolveHomeDateDeltaDisplayMode(
-    sortType: SortType,
-    requestedMode: Int,
-    eventState: EventUiState
-): Int = when {
-    sortType != SortType.ByDays -> requestedMode
-    eventState.event.repeatType == REPEAT_NONE && eventState.isPast -> DisplayModes.PAST_DAYS
-    else -> DisplayModes.UNTIL_DAYS
-}
 
 internal fun mergeVisibleOrderIntoGlobalOrder(
     globalIds: List<Int>,
@@ -77,7 +66,7 @@ internal fun applyHomeSort(
     pinnedEventIds: List<Int>
 ): List<EventUiState> {
     val sorted = when (sortType) {
-        SortType.ByDays -> list.sortedBy { it.daysRemaining }
+        SortType.ByDays -> list.sortedWith(compareBy<EventUiState> { it.isPast }.thenBy { it.daysRemaining })
         SortType.ByDate -> list.sortedBy { it.event.date }
         SortType.Custom -> {
             val base = list.sortedWith(
@@ -127,9 +116,10 @@ internal fun buildHomeVisibleList(
     query: String,
     customEventOrderIds: List<Int>,
     pinnedEventIds: List<Int>,
-    categoryLabels: Map<String, String> = emptyMap()
+    categoryLabels: Map<String, String> = emptyMap(),
+    context: Context? = null
 ): List<EventUiState> {
-    val categoryFiltered = all.filter { it.matchesCategoryFilter(categoryFilter) }
+    val categoryFiltered = all.filter { !it.event.isArchived && it.matchesCategoryFilter(categoryFilter) }
     val normalizedQuery = query.trim().lowercase()
     val searched = if (normalizedQuery.isEmpty()) {
         categoryFiltered
@@ -138,7 +128,8 @@ internal fun buildHomeVisibleList(
             state.event.title.lowercase().contains(normalizedQuery) ||
                 state.event.note.lowercase().contains(normalizedQuery) ||
                 state.event.category.lowercase().contains(normalizedQuery) ||
-                categoryLabels[state.event.category]?.lowercase()?.contains(normalizedQuery) == true
+                categoryLabels[state.event.category]?.lowercase()?.contains(normalizedQuery) == true ||
+                state.matchesSearchDate(normalizedQuery, context)
         }
     }
     return applyHomeSort(
@@ -148,3 +139,17 @@ internal fun buildHomeVisibleList(
         pinnedEventIds = pinnedEventIds
     )
 }
+
+private fun EventUiState.matchesSearchDate(query: String, context: Context?): Boolean =
+    setOf(eventDateToLocalDate(event.date), nextOccurrenceDate).any { date ->
+        val iso = date.toString()
+        sequenceOf(
+            iso,
+            iso.replace('-', '.'),
+            iso.replace('-', '/'),
+            "${date.monthValue}/${date.dayOfMonth}",
+            "${date.year}年${date.monthValue}月${date.dayOfMonth}日",
+            formatLunarMonthDay(date).orEmpty(),
+            formatLunarDateString(date, context)
+        ).any { it.lowercase().contains(query) }
+    }

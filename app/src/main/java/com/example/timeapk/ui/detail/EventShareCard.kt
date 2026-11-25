@@ -1,14 +1,17 @@
 package com.example.timeapk.ui.detail
 
+import android.graphics.Bitmap
+import android.graphics.Typeface
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -19,6 +22,10 @@ import com.example.timeapk.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+enum class SharePaper {
+    Xuan, Ink, Celadon
+}
+
 data class EventShareCardData(
     val title: String,
     val categoryLabel: String,
@@ -28,7 +35,11 @@ data class EventShareCardData(
     val accentColor: Color,
     val brandText: String,
     /** 事件配图，淡淡铺在纸笺底层；null 表示无配图。 */
-    val backgroundImage: android.graphics.Bitmap? = null
+    val backgroundImage: Bitmap? = null,
+    val paper: SharePaper = SharePaper.Xuan,
+    val typeface: Typeface? = null,
+    val lunarText: String? = null,
+    val note: String? = null
 )
 
 fun buildEventShareCardData(
@@ -39,7 +50,7 @@ fun buildEventShareCardData(
     timeLabel: String,
     accentColor: Color,
     brandText: String,
-    backgroundImage: android.graphics.Bitmap? = null
+    backgroundImage: Bitmap? = null
 ): EventShareCardData {
     return EventShareCardData(
         title = title,
@@ -58,8 +69,9 @@ fun EventShareCard(
     data: EventShareCardData,
     modifier: Modifier = Modifier
 ) {
-    val rendered by produceState<Result<android.graphics.Bitmap>?>(initialValue = null, key1 = data) {
-        value = withContext(Dispatchers.Default) {
+    var rendered by remember(data) { mutableStateOf<Result<Bitmap>?>(null) }
+    LaunchedEffect(data) {
+        rendered = withContext(Dispatchers.Default) {
             runCatching { EventShareImageRenderer().render(data) }
         }
     }
@@ -75,10 +87,8 @@ fun EventShareCard(
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Fit
             )
-        } else if (rendered == null) {
-            CircularProgressIndicator()
         } else {
-            Text(stringResource(R.string.share_image_failed))
+            Text(stringResource(if (rendered == null) R.string.share_image_preparing else R.string.share_image_failed))
         }
     }
 }

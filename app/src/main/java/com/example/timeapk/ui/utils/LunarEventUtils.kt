@@ -3,6 +3,8 @@ package com.example.timeapk.ui.utils
 import android.content.Context
 import com.example.timeapk.R
 import com.nlf.calendar.Lunar
+import com.nlf.calendar.LunarMonth
+import com.nlf.calendar.LunarYear
 import com.nlf.calendar.Solar
 import java.time.LocalDate
 import java.time.Period
@@ -49,6 +51,40 @@ private val GanZhiTransliterations = mapOf(
  */
 private fun lunarYearOf(date: LocalDate): Int =
     Solar.fromYmd(date.year, date.monthValue, date.dayOfMonth).lunar.year
+
+private fun LocalDate.toLunar(): Lunar = Solar.fromYmd(year, monthValue, dayOfMonth).lunar
+
+private fun Lunar.monthInfo(): LunarMonth = LunarMonth.fromYm(year, month)
+
+internal fun getLunarMonthlyOccurrence(
+    origin: LocalDate,
+    reference: LocalDate,
+    direction: Int
+): LocalDate {
+    if (!reference.isAfter(origin)) return origin
+    val originDay = origin.toLunar().day
+    val month = reference.toLunar().monthInfo()
+    val candidate = month.occurrenceOf(originDay)
+    return if ((direction > 0 && candidate.isBefore(reference)) ||
+        (direction < 0 && candidate.isAfter(reference))
+    ) {
+        month.next(direction).occurrenceOf(originDay)
+    } else {
+        candidate
+    }
+}
+
+private fun LunarMonth.occurrenceOf(day: Int): LocalDate {
+    val solar = Lunar.fromYmd(year, month, minOf(day, dayCount)).solar
+    return LocalDate.of(solar.year, solar.month, solar.day)
+}
+
+internal fun lunarMonthsBetween(origin: LocalDate, occurrence: LocalDate): Long {
+    val start = origin.toLunar().monthInfo()
+    val end = occurrence.toLunar().monthInfo()
+    return (end.index - start.index).toLong() +
+        (start.year until end.year).sumOf { LunarYear.fromYear(it).monthsInYear.size.toLong() }
+}
 
 fun getNextLunarOccurrence(originSolarDate: LocalDate, today: LocalDate): LocalDate {
     // 若 today 早于起始日期，则直接返回起始公历日期，避免出现「出生前就有生日」的情况

@@ -266,68 +266,7 @@ fun WidgetConfigEditor(
             modifier = Modifier.fillMaxWidth()
         )
         if (selectedTab == 0) {
-            WidgetOptionGroup(
-                title = stringResource(R.string.widget_config_appearance),
-                options = listOf(
-                    APPEARANCE_SYSTEM to stringResource(R.string.widget_config_appearance_system),
-                    APPEARANCE_SOLID to stringResource(R.string.widget_config_appearance_solid),
-                    APPEARANCE_TRANSLUCENT to stringResource(R.string.widget_config_appearance_translucent),
-                    APPEARANCE_TRANSPARENT to stringResource(R.string.widget_config_appearance_transparent),
-                    APPEARANCE_CELADON to stringResource(R.string.widget_config_appearance_celadon),
-                    APPEARANCE_SEAL to stringResource(R.string.widget_config_appearance_seal)
-                ),
-                selected = config.appearancePreset,
-                onSelected = { onConfigChange(config.copy(appearancePreset = it).sanitize()) },
-                showSwatches = true
-            )
-            if (widgetAppearanceSupportsOpacity(config.appearancePreset)) {
-                WidgetOpacityControl(
-                    value = config.backgroundOpacityPercent,
-                    onValueChange = { onConfigChange(config.copy(backgroundOpacityPercent = it).sanitize()) }
-                )
-            } else {
-                Text(
-                    text = stringResource(R.string.widget_config_opacity_unavailable),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
-            }
-            WidgetOptionGroup(
-                title = stringResource(R.string.widget_config_border),
-                options = listOf(
-                    BORDER_AUTO to stringResource(R.string.widget_config_auto),
-                    BORDER_ON to stringResource(R.string.toggle_on),
-                    BORDER_OFF to stringResource(R.string.toggle_off)
-                ),
-                selected = config.borderMode,
-                onSelected = { onConfigChange(config.copy(borderMode = it).sanitize()) }
-            )
-            WidgetOptionGroup(
-                title = stringResource(R.string.widget_config_corner),
-                options = listOf(
-                    CORNER_SYSTEM to stringResource(R.string.widget_config_corner_system),
-                    CORNER_SMALL to stringResource(R.string.widget_config_corner_small),
-                    CORNER_MEDIUM to stringResource(R.string.widget_config_corner_medium),
-                    CORNER_LARGE to stringResource(R.string.widget_config_corner_large)
-                ),
-                selected = config.cornerMode,
-                onSelected = { onConfigChange(config.copy(cornerMode = it).sanitize()) }
-            )
-            WidgetOptionGroup(
-                title = stringResource(R.string.widget_config_contrast),
-                options = listOf(
-                    CONTRAST_AUTO to stringResource(R.string.widget_config_contrast_auto),
-                    CONTRAST_LIGHT_TEXT to stringResource(R.string.widget_config_contrast_light),
-                    CONTRAST_DARK_TEXT to stringResource(R.string.widget_config_contrast_dark)
-                ),
-                selected = config.contrastMode,
-                onSelected = { onConfigChange(config.copy(contrastMode = it).sanitize()) }
-            )
-            WidgetFontScaleControl(
-                value = config.fontScale,
-                onValueChange = { onConfigChange(config.copy(fontScale = it).sanitize()) }
-            )
+            WidgetAppearanceOptions(config, onConfigChange)
         } else {
             WidgetOptionGroup(
                 title = stringResource(R.string.widget_config_content_scope),
@@ -401,6 +340,78 @@ fun WidgetConfigEditor(
             )
         }
     }
+}
+
+@Composable
+internal fun WidgetAppearanceOptions(
+    config: WidgetConfig,
+    onConfigChange: (WidgetConfig) -> Unit,
+    includeAdvanced: Boolean = true
+) {
+    WidgetOptionGroup(
+        title = stringResource(R.string.widget_config_appearance),
+        options = listOf(
+            APPEARANCE_SYSTEM to stringResource(R.string.widget_config_appearance_system),
+            APPEARANCE_SOLID to stringResource(R.string.widget_config_appearance_solid),
+            APPEARANCE_TRANSLUCENT to stringResource(R.string.widget_config_appearance_translucent),
+            APPEARANCE_TRANSPARENT to stringResource(R.string.widget_config_appearance_transparent),
+            APPEARANCE_CELADON to stringResource(R.string.widget_config_appearance_celadon),
+            APPEARANCE_SEAL to stringResource(R.string.widget_config_appearance_seal)
+        ),
+        selected = config.appearancePreset,
+        onSelected = { onConfigChange(config.copy(appearancePreset = it).sanitize()) },
+        showSwatches = true
+    )
+    if (widgetAppearanceSupportsOpacity(config.appearancePreset)) {
+        WidgetOpacityControl(
+            value = config.backgroundOpacityPercent,
+            onValueChange = { onConfigChange(config.copy(backgroundOpacityPercent = it).sanitize()) }
+        )
+    } else {
+        Text(
+            text = stringResource(R.string.widget_config_opacity_unavailable),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 8.dp)
+        )
+    }
+    if (includeAdvanced) {
+        WidgetOptionGroup(
+            title = stringResource(R.string.widget_config_border),
+            options = listOf(
+                BORDER_AUTO to stringResource(R.string.widget_config_auto),
+                BORDER_ON to stringResource(R.string.toggle_on),
+                BORDER_OFF to stringResource(R.string.toggle_off)
+            ),
+            selected = config.borderMode,
+            onSelected = { onConfigChange(config.copy(borderMode = it).sanitize()) }
+        )
+    }
+    WidgetOptionGroup(
+        title = stringResource(R.string.widget_config_corner),
+        options = listOf(
+            CORNER_SYSTEM to stringResource(R.string.widget_config_corner_system),
+            CORNER_SMALL to stringResource(R.string.widget_config_corner_small),
+            CORNER_MEDIUM to stringResource(R.string.widget_config_corner_medium),
+            CORNER_LARGE to stringResource(R.string.widget_config_corner_large)
+        ),
+        selected = config.cornerMode,
+        onSelected = { onConfigChange(config.copy(cornerMode = it).sanitize()) }
+    )
+    WidgetOptionGroup(
+        title = stringResource(R.string.widget_config_contrast),
+        options = listOf(
+            CONTRAST_AUTO to stringResource(R.string.widget_config_contrast_auto),
+            CONTRAST_LIGHT_TEXT to stringResource(R.string.widget_config_contrast_light),
+            CONTRAST_DARK_TEXT to stringResource(R.string.widget_config_contrast_dark)
+        ),
+        selected = config.contrastMode,
+        onSelected = { onConfigChange(config.copy(contrastMode = it).sanitize()) }
+    )
+    if (includeAdvanced) WidgetFontScaleControl(
+        value = config.fontScale,
+        onValueChange = { onConfigChange(config.copy(fontScale = it).sanitize()) }
+    )
 }
 
 /** 预览常用尺寸（宽 × 高格数）。 */

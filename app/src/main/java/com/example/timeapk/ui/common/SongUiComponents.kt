@@ -38,6 +38,7 @@ import com.example.timeapk.ui.theme.SongDesignTokens
 import com.example.timeapk.ui.theme.SongLineIcon
 import com.example.timeapk.ui.theme.SongLineIconKind
 import com.example.timeapk.ui.theme.SongPaperSurface
+import com.example.timeapk.ui.theme.SongSeal
 
 @Composable
 fun SongSectionHeader(
@@ -201,42 +202,42 @@ fun SongEventPreviewCard(
     title: String,
     categoryLabel: String,
     dateText: String,
-    color: Color,
+    timeLabel: String,
+    timeText: String,
     modifier: Modifier = Modifier,
     reminderText: String? = null
 ) {
     SongPaperSurface(
         modifier = modifier.fillMaxWidth(),
         backgroundColor = MaterialTheme.colorScheme.surface,
-        borderColor = color.copy(alpha = SongDesignTokens.BorderAlphaStrong)
+        borderColor = MaterialTheme.colorScheme.outline.copy(alpha = SongDesignTokens.BorderAlphaStrong)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = categoryLabel,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = color,
-                    maxLines = 1
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    text = dateText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
+            SongSeal(
+                categoryLabel,
+                paperColor = MaterialTheme.colorScheme.surface,
+                textStyle = MaterialTheme.typography.labelSmall
             )
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(dateText, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    if (timeLabel.isNotBlank()) Text(
+                        timeLabel,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(timeText, style = MaterialTheme.typography.headlineSmall, maxLines = 1, softWrap = false)
+                }
+            }
             if (!reminderText.isNullOrBlank()) {
                 Text(
                     text = reminderText,

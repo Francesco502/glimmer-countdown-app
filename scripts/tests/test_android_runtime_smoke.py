@@ -60,12 +60,24 @@ class ShareMediaCompatibilityTest(unittest.TestCase):
 
 
 class UpgradeVersionTest(unittest.TestCase):
-    def test_upgrade_requires_432_baseline_and_433_candidate(self):
-        self.assertEqual(("4.3.2", "32"), smoke_module.UPGRADE_BASELINE)
-        self.assertEqual(("4.3.3", "33"), smoke_module.UPGRADE_CANDIDATE)
+    def test_upgrade_compares_the_solar_date_in_a_dual_calendar_row(self):
+        smoke = object.__new__(smoke_module.Smoke)
+        for date in ("2026.11.25", "2026-11-25"):
+            with self.subTest(date=date):
+                row = smoke_module.ET.fromstring(f'''<node clickable="true">
+                    <node text="Date"/>
+                    <node text="{date}"/>
+                    <node text="Ganzhi Bingwu · Lunar month 10, day 17"/>
+                </node>''')
+                smoke.seek = lambda *args, **kwargs: row
+                self.assertEqual(date, smoke.date_text())
+
+    def test_upgrade_requires_433_baseline_and_434_candidate(self):
+        self.assertEqual(("4.3.3", "33"), smoke_module.UPGRADE_BASELINE)
+        self.assertEqual(("4.3.4", "34"), smoke_module.UPGRADE_CANDIDATE)
         for expected in (smoke_module.UPGRADE_BASELINE, smoke_module.UPGRADE_CANDIDATE):
             smoke_module.require_version(dict(versionName=expected[0], versionCode=expected[1]), expected)
-        for name, code in (("4.3.0", "30"), ("4.3.2", "32"), ("4.3.3", "32"), ("4.3.2", "33")):
+        for name, code in (("4.3.0", "30"), ("4.3.3", "33"), ("4.3.4", "33"), ("4.3.3", "34")):
             with self.subTest(name=name, code=code), self.assertRaises(smoke_module.SmokeFailure):
                 smoke_module.require_version(dict(versionName=name, versionCode=code), smoke_module.UPGRADE_CANDIDATE)
 
@@ -73,15 +85,15 @@ class UpgradeVersionTest(unittest.TestCase):
         self.assertEqual(smoke_module.source_version(), smoke_module.capture_version("  pkgFlags=[ DEBUGGABLE HAS_CODE ]", None))
         self.assertEqual(smoke_module.UPGRADE_CANDIDATE, smoke_module.capture_version("  flags=[ HAS_CODE ]", None))
 
-    def test_workflow_pins_the_published_432_baseline(self):
+    def test_workflow_pins_the_published_433_baseline(self):
         root = Path(__file__).resolve().parents[2]
         workflow = (root / ".github/workflows/android-apk-qa.yml").read_text(encoding="utf-8")
-        evidence = (root / "docs/releases/v4.3.2-development.md").read_text(encoding="utf-8")
-        baseline_sha256 = "3109bcaa1002bcaf5da784057f108f2ca6fe1218f769c5734c5feec0ad2279fe"
-        baseline_size = 7_555_083
-        self.assertIn("verify_apk baseline 4.3.2 32", workflow)
-        self.assertIn("verify_apk candidate 4.3.3 33", workflow)
-        self.assertIn("releases/download/v4.3.2/glimmer-countdown-4-3-2.apk", workflow)
+        evidence = (root / "docs/releases/v4.3.3-development.md").read_text(encoding="utf-8")
+        baseline_sha256 = "2681b4e8d34e5a873eb3a4580b853ff68ab082e5fad5c84eff1c25a35568e820"
+        baseline_size = 7_531_711
+        self.assertIn("verify_apk baseline 4.3.3 33", workflow)
+        self.assertIn("verify_apk candidate 4.3.4 34", workflow)
+        self.assertIn("releases/download/v4.3.3/glimmer-countdown-4-3-3.apk", workflow)
         self.assertIn(baseline_sha256, workflow)
         self.assertIn(str(baseline_size), workflow)
         self.assertIn(baseline_sha256, evidence)

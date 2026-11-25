@@ -51,11 +51,13 @@ interface EventDao {
             colorHex = :colorHex,
             repeatType = :repeatType,
             remindDaysBefore = :remindDaysBefore,
+            remindLeadDays = :remindLeadDays,
             reminderTimeMinutesOfDay = :reminderTimeMinutesOfDay,
             remindEnabled = :remindEnabled,
             syncToScheduleEnabled = :syncToScheduleEnabled,
             isLunar = :isLunar,
-            imagePath = :imagePath
+            imagePath = :imagePath,
+            isArchived = CASE WHEN :repeatType = 'none' AND :date < :todayUtcMillis THEN isArchived ELSE 0 END
         WHERE id = :id
         """
     )
@@ -68,12 +70,23 @@ interface EventDao {
         colorHex: String?,
         repeatType: String,
         remindDaysBefore: Int,
+        remindLeadDays: String?,
         reminderTimeMinutesOfDay: Int,
         remindEnabled: Boolean,
         syncToScheduleEnabled: Boolean,
         isLunar: Boolean,
-        imagePath: String?
+        imagePath: String?,
+        todayUtcMillis: Long
     ): Int
+
+    @Query(
+        """
+        UPDATE events SET isArchived = :archived
+        WHERE id = :id AND isArchived != :archived
+          AND (:archived = 0 OR (repeatType = 'none' AND date < :todayUtcMillis))
+        """
+    )
+    suspend fun setEventArchived(id: Int, archived: Boolean, todayUtcMillis: Long): Int
 
     /** Writes only calendar-sync bookkeeping; used after a foreground save completes side effects. */
     @Query(
@@ -107,6 +120,8 @@ interface EventDao {
           AND note = :expectedNote
           AND repeatType = :expectedRepeatType
           AND remindDaysBefore = :expectedRemindDaysBefore
+          AND remindLeadDays IS :expectedRemindLeadDays
+          AND isArchived = :expectedIsArchived
           AND reminderTimeMinutesOfDay = :expectedReminderTimeMinutesOfDay
           AND remindEnabled = :expectedRemindEnabled
           AND syncToScheduleEnabled = :expectedSyncToScheduleEnabled
@@ -126,6 +141,8 @@ interface EventDao {
         expectedNote: String,
         expectedRepeatType: String,
         expectedRemindDaysBefore: Int,
+        expectedRemindLeadDays: String?,
+        expectedIsArchived: Boolean,
         expectedReminderTimeMinutesOfDay: Int,
         expectedRemindEnabled: Boolean,
         expectedSyncToScheduleEnabled: Boolean,

@@ -26,3 +26,6 @@
 
 # Common traditional forms for lunar/festival text
 臘閏節氣陰曆農曆歲時鐘點週禮紀念離還經後
+
+# Personal-name hanzi available in both upstream fonts
+珩琰璇瑾琬煜昱曦珞璐珂奕琛宸梓歆骁钰筱潇昕妤瑜珉菡铖翊琦玺璞熠昀芮苒泓羲颢璨瑗潼毓莜琨霏婧峤昶佶

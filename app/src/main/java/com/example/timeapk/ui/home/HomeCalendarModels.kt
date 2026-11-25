@@ -11,6 +11,7 @@ import com.example.timeapk.data.REPEAT_YEARLY
 import com.example.timeapk.ui.theme.SongLunarCellKind
 import com.example.timeapk.ui.utils.buildLunarSolarDateForYear
 import com.example.timeapk.ui.utils.eventDateToLocalDate
+import com.example.timeapk.ui.utils.nextOccurrenceDate
 import com.example.timeapk.ui.utils.safeWithYear
 import com.nlf.calendar.Solar
 import java.time.LocalDate
@@ -95,7 +96,7 @@ private fun eventOccurrencesInRange(
     end: LocalDate
 ): List<CalendarEventOccurrence> {
     val origin = eventDateToLocalDate(eventState.event.date)
-    if (origin.isAfter(end)) return emptyList()
+    if (eventState.event.isArchived || origin.isAfter(end)) return emptyList()
 
     return when (eventState.event.repeatType) {
         REPEAT_NONE -> if (origin in start..end) {
@@ -126,7 +127,13 @@ private fun eventOccurrencesInRange(
         }
 
         REPEAT_MONTHLY -> {
-            fixedMonthIntervalOccurrences(eventState, origin, start, end, intervalMonths = 1)
+            if (!eventState.event.isLunar) {
+                fixedMonthIntervalOccurrences(eventState, origin, start, end, intervalMonths = 1)
+            } else {
+                generateSequence(nextOccurrenceDate(origin, start, REPEAT_MONTHLY, isLunar = true)) { previous ->
+                    nextOccurrenceDate(origin, previous.plusDays(1), REPEAT_MONTHLY, isLunar = true)
+                }.takeWhile { !it.isAfter(end) }.map { CalendarEventOccurrence(eventState, it) }.toList()
+            }
         }
 
         REPEAT_HALF_YEARLY -> {

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="add_date"
+        android:icon="@drawable/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_add_date">
+        <intent
+            android:action="com.example.timeapk.action.ADD_DATE"
+            android:targetPackage="com.example.timeapk"
+            android:targetClass="com.example.timeapk.MainActivity" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="open_calendar"
+        android:icon="@drawable/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_open_calendar">
+        <intent
+            android:action="com.example.timeapk.action.OPEN_CALENDAR"
+            android:targetPackage="com.example.timeapk"
+            android:targetClass="com.example.timeapk.MainActivity" />
+    </shortcut>
+</shortcuts>

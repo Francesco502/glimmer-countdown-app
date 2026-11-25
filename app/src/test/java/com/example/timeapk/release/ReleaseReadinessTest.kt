@@ -39,20 +39,20 @@ class ReleaseReadinessTest {
     }
 
     @Test
-    fun versionConfigTargets433() {
+    fun versionConfigTargets434() {
         val properties = Properties().apply {
             rootGradlePropertiesFile().inputStream().use(::load)
         }
 
-        assertEquals("33", properties.getProperty("VERSION_CODE"))
-        assertEquals("4.3.3", properties.getProperty("VERSION_NAME"))
+        assertEquals("34", properties.getProperty("VERSION_CODE"))
+        assertEquals("4.3.4", properties.getProperty("VERSION_NAME"))
 
         val buildFile = appBuildGradleFile().readText(Charsets.UTF_8)
-        assertTrue(buildFile.contains("versionCode = versionCodeOverride ?: 33"))
-        assertTrue(buildFile.contains("versionName = versionNameOverride ?: \"4.3.3\""))
-        assertTrue(buildFile.contains("val versionNameForApk = versionNameOverride ?: \"4.3.3\""))
+        assertTrue(buildFile.contains("versionCode = versionCodeOverride ?: 34"))
+        assertTrue(buildFile.contains("versionName = versionNameOverride ?: \"4.3.4\""))
+        assertTrue(buildFile.contains("val versionNameForApk = versionNameOverride ?: \"4.3.4\""))
         assertTrue(buildFile.contains("applicationIdSuffix = \".play\""))
-        assertFalse("Play must keep the shared 4.3.3 versionName", buildFile.contains("versionNameSuffix"))
+        assertFalse("Play must keep the shared 4.3.4 versionName", buildFile.contains("versionNameSuffix"))
     }
 
     @Test
@@ -138,7 +138,7 @@ class ReleaseReadinessTest {
     }
 
     @Test
-    fun releaseDocsDeclare433IdentityAndRecognizedPublicationStage() {
+    fun releaseDocsDeclare434IdentityAndRecognizedPublicationStage() {
         val readme = existingFile("README.md", "../README.md").readText(Charsets.UTF_8)
         val changelog = existingFile("CHANGELOG.md", "../CHANGELOG.md").readText(Charsets.UTF_8)
         val checklist = existingFile(
@@ -158,24 +158,24 @@ class ReleaseReadinessTest {
         val publicationState = Regex("发布状态：([^*\\r\\n]+)").find(checklist)
             ?.groupValues?.get(1)?.trim()
         assertTrue(publicationState in setOf("候选 / 未发布", "已发布"))
-        val latestPublicVersion = if (publicationState == "已发布") "4.3.3" else "4.3.2"
+        val latestPublicVersion = if (publicationState == "已发布") "4.3.4" else "4.3.3"
 
-        assertTrue(readme.contains("拾光（Glimmer）4.3.3"))
+        assertTrue(readme.contains("拾光（Glimmer）4.3.4"))
         assertTrue(readme.contains("最新公开版本为 `$latestPublicVersion`"))
         assertTrue(readme.contains("releases/tag/v$latestPublicVersion"))
         assertTrue(changelog.contains("## [4.0] - 2026-07-20"))
         assertTrue(changelog.contains("## [4.1] - 2026-10-10"))
         val changelogStatus = if (publicationState == "已发布") "\\d{4}-\\d{2}-\\d{2}" else "未发布"
-        assertTrue(Regex("(?m)^## \\[4\\.3\\.3\\] - $changelogStatus\\r?$").containsMatchIn(changelog))
-        assertTrue(checklist.contains("# 发布检查清单（v4.3.3）"))
+        assertTrue(Regex("(?m)^## \\[4\\.3\\.4\\] - $changelogStatus\\r?$").containsMatchIn(changelog))
+        assertTrue(checklist.contains("# 发布检查清单（v4.3.4）"))
         listOf(readme, githubGuide, releaseGuide).forEach { document ->
             assertFalse(document.contains("最新公开版本仍为 3.17"))
             assertFalse(document.contains("4.0 尚未发布"))
         }
-        assertTrue(combined.contains("versionCode=33"))
-        assertFalse(githubGuide.contains("4.3.3-play"))
-        assertFalse(releaseGuide.contains("4.3.3-play"))
-        assertTrue(combined.contains("glimmer-countdown-4-3-3.apk"))
+        assertTrue(combined.contains("versionCode=34"))
+        assertFalse(githubGuide.contains("4.3.4-play"))
+        assertFalse(releaseGuide.contains("4.3.4-play"))
+        assertTrue(combined.contains("glimmer-countdown-4-3-4.apk"))
         assertTrue(combined.contains("预览宽度 / 预览高度"))
         assertTrue(combined.contains("无可写系统日历"))
         assertFalse(combined.contains("小组件 2x2、3x3、4x2 模板"))
@@ -265,7 +265,7 @@ class ReleaseReadinessTest {
     }
 
     @Test
-    fun v433OfficialReleaseContractIsGithubOnlyWithDirectApkAndFreshScreenshots() {
+    fun v434OfficialReleaseContractIsGithubOnlyWithDirectApkAndFreshScreenshots() {
         val readme = existingFile("README.md", "../README.md").readText(Charsets.UTF_8)
         val changelog = existingFile("CHANGELOG.md", "../CHANGELOG.md").readText(Charsets.UTF_8)
         val checklist = existingFile(
@@ -283,7 +283,7 @@ class ReleaseReadinessTest {
 
         listOf(readme, checklist, githubGuide, releaseGuide).forEach { document ->
             assertTrue(document.contains("唯一正式发布渠道：GitHub Release"))
-            assertTrue(document.contains("glimmer-countdown-4-3-3.apk"))
+            assertTrue(document.contains("glimmer-countdown-4-3-4.apk"))
             assertTrue(document.contains("Play flavor 仅保留用于兼容性与开发回归"))
         }
         assertTrue(checklist.contains("历史记录（非发布门）"))
@@ -299,7 +299,7 @@ class ReleaseReadinessTest {
         assertFalse(finalActions.contains("Play Console"))
         assertFalse(finalActions.contains("Play AAB"))
         assertFalse(finalActions.contains("Play 渠道"))
-        assertTrue(finalActions.contains("Release 仅含 `glimmer-countdown-4-3-3.apk`"))
+        assertTrue(finalActions.contains("Release 仅含 `glimmer-countdown-4-3-4.apk`"))
 
         listOf(readme, githubGuide, releaseGuide).forEach { officialGuide ->
             assertFalse(officialGuide.contains("Play Console"))
@@ -315,7 +315,7 @@ class ReleaseReadinessTest {
     }
 
     @Test
-    fun releaseChecklistSeparates433EvidenceFromHistoricalResults() {
+    fun releaseChecklistSeparates434EvidenceFromHistoricalResults() {
         val checklist = existingFile(
             "docs/RELEASE_CHECKLIST.md",
             "../docs/RELEASE_CHECKLIST.md"
@@ -325,7 +325,7 @@ class ReleaseReadinessTest {
         assertTrue(checklist.contains("releases/v4.0-checklist.md"))
         assertTrue(checklist.contains("旧测试、旧截图和旧真机豁免均不延续到本版"))
         assertTrue(checklist.contains("未知、未执行和失败不能勾选"))
-        assertTrue(checklist.contains("4.3.3 变更要求对照表"))
+        assertTrue(checklist.contains("4.3.4 变更要求对照表"))
         assertTrue(checklist.contains("源码 revision"))
         assertTrue(checklist.contains("APK 文件和设备安装包须互相对应"))
         assertTrue(checklist.contains("3b7cb426a82664f891c69511cc2505b67128c8503664639f297291da4ea903ca"))

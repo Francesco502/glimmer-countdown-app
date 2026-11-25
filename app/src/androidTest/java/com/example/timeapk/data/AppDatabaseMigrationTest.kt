@@ -21,8 +21,8 @@ class AppDatabaseMigrationTest {
     )
 
     @Test
-    fun migratePublished6To10_runsTheFullChainAndPreservesRows() {
-        val dbName = "migration-test-v6-to-v10"
+    fun migratePublished6To13_runsTheFullChainAndPreservesRows() {
+        val dbName = "migration-test-v6-to-v13"
 
         helper.createDatabase(dbName, 6).apply {
             execSQL(
@@ -43,12 +43,15 @@ class AppDatabaseMigrationTest {
 
         val migratedDb = helper.runMigrationsAndValidate(
             dbName,
-            10,
+            13,
             true,
             AppDatabase.MIGRATION_6_7_FOR_TEST,
             AppDatabase.MIGRATION_7_8_FOR_TEST,
             AppDatabase.MIGRATION_8_9_FOR_TEST,
-            AppDatabase.MIGRATION_9_10_FOR_TEST
+            AppDatabase.MIGRATION_9_10_FOR_TEST,
+            AppDatabase.MIGRATION_10_11_FOR_TEST,
+            AppDatabase.MIGRATION_11_12_FOR_TEST,
+            AppDatabase.MIGRATION_12_13_FOR_TEST
         )
 
         val columns = columnNamesOf(migratedDb, "events")
@@ -64,7 +67,7 @@ class AppDatabaseMigrationTest {
             SELECT title, date, category, note, colorHex, repeatType,
                    remindDaysBefore, reminderTimeMinutesOfDay, remindEnabled,
                    syncToScheduleEnabled, scheduleEventId, createdAt, isLunar,
-                   targetCalendarId, lastScheduleSyncAt, lastScheduleSyncError
+                   targetCalendarId, lastScheduleSyncAt, lastScheduleSyncError, isArchived, remindLeadDays
             FROM events WHERE id = 1
             """.trimIndent()
         ).use { cursor ->
@@ -85,8 +88,52 @@ class AppDatabaseMigrationTest {
             assertEquals(true, cursor.isNull(13))
             assertEquals(true, cursor.isNull(14))
             assertEquals(true, cursor.isNull(15))
+            assertEquals(0, cursor.getInt(16))
+            assertTrue(cursor.isNull(17))
         }
         migratedDb.close()
+    }
+
+    @Test
+    fun migratePublished12To13_preservesCategoriesImagesAndCalendarOwnership() {
+        val dbName = "migration-test-v12-to-v13"
+        val image = "0123456789abcdef0123456789abcdef.jpg"
+        helper.createDatabase(dbName, 12).apply {
+            execSQL("INSERT INTO categories VALUES ('custom_test', 'Family', '#457080', 3, 1704067200000)")
+            execSQL(
+                """
+                INSERT INTO events (
+                    id, title, date, category, note, repeatType, remindDaysBefore, reminderTimeMinutesOfDay,
+                    remindEnabled, syncToScheduleEnabled, scheduleEventId, targetCalendarId,
+                    lastScheduleSyncAt, createdAt, isLunar, imagePath
+                ) VALUES (
+                    4, 'Lunar date', 1704067200000, 'custom_test', 'Original note', 'yearly', 7, 540,
+                    1, 1, 123, 9, 1704067200000, 1704067200000, 1, '$image'
+                )
+                """.trimIndent()
+            )
+            close()
+        }
+        helper.runMigrationsAndValidate(dbName, 13, true, AppDatabase.MIGRATION_12_13_FOR_TEST).use { db ->
+            db.query(
+                """
+                SELECT e.note, e.imagePath, e.scheduleEventId, e.targetCalendarId, e.remindDaysBefore,
+                       e.isArchived, e.remindLeadDays, c.name, c.sortOrder
+                FROM events e JOIN categories c ON e.category = c.id WHERE e.id = 4
+                """.trimIndent()
+            ).use {
+                assertTrue(it.moveToFirst())
+                assertEquals("Original note", it.getString(0))
+                assertEquals(image, it.getString(1))
+                assertEquals(123L, it.getLong(2))
+                assertEquals(9L, it.getLong(3))
+                assertEquals(7, it.getInt(4))
+                assertEquals(0, it.getInt(5))
+                assertTrue(it.isNull(6))
+                assertEquals("Family", it.getString(7))
+                assertEquals(3, it.getInt(8))
+            }
+        }
     }
 
     @Test

@@ -21,8 +21,8 @@ import xml.etree.ElementTree as ET
 
 PACKAGE = "com.example.timeapk"
 COMPONENT = PACKAGE + "/.MainActivity"
-UPGRADE_BASELINE = ("4.3.2", "32")
-UPGRADE_CANDIDATE = ("4.3.3", "33")
+UPGRADE_BASELINE = ("4.3.3", "33")
+UPGRADE_CANDIDATE = ("4.3.4", "34")
 LABELS = {
     "add": ("Add event", "Record your first event", "添加事件", "记录第一个日期"),
     "new": ("New event", "新建事件"),
@@ -444,7 +444,7 @@ class Smoke:
         labels = ("Date", "日期")
         row = self.seek("labelled date row", lambda tree: tree.action(labels), scroll=True, upward=True)
         values = {node.get("text", "").strip() for node in row.iter("node")
-                  if re.search(r"\d", node.get("text", ""))}
+                  if re.fullmatch(r"\d{4}([.-])\d{2}\1\d{2}", node.get("text", "").strip())}
         if len(values) != 1:
             raise SmokeFailure("Date row did not expose one stable date value: " + repr(values))
         return next(iter(values))

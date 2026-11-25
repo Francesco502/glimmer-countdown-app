@@ -17,12 +17,12 @@
         <item quantity="other">Until %d half-years</item>
     </plurals>
     <plurals name="until_birthday_label">
-        <item quantity="one">Until %d year old</item>
-        <item quantity="other">Until %d years old</item>
+        <item quantity="one">Until age %1$d</item>
+        <item quantity="other">Until age %1$d</item>
     </plurals>
     <plurals name="until_lunar_birthday_label">
-        <item quantity="one">Until lunar %1$d year old</item>
-        <item quantity="other">Until lunar %1$d years old</item>
+        <item quantity="one">Until lunar %1$d</item>
+        <item quantity="other">Until lunar %1$d</item>
     </plurals>
     <string name="days_today_label">Today</string>
     <string name="days_past_label">elapsed</string>
@@ -63,8 +63,8 @@
     </plurals>
     <string name="home_density_compact">Compact</string>
     <string name="home_density_detailed">Detailed</string>
-    <string name="home_density_compact_summary"></string>
-    <string name="home_density_detailed_summary"></string>
+    <string name="home_density_compact_summary">Show the title, date, and countdown.</string>
+    <string name="home_density_detailed_summary">Also show event details such as the category, repeat rule, and note.</string>
     <string name="settings_display_section_language_title">Language</string>
     <string name="settings_display_section_home_title">Home display</string>
     <string name="settings_display_section_date_title">Date format</string>
@@ -141,13 +141,13 @@
 
     <!-- Export / Import -->
     <string name="export_import">Export / Import</string>
-    <string name="export_images_hint">The JSON export does not include event images. Use system backup when switching phones, or re-add images after migrating.</string>
+    <string name="export_images_hint">Use a full ZIP backup to bring event images, categories, pins, and sorting to a new device.</string>
     <string name="update_checksum_failed">The downloaded file failed its checksum check and was discarded. Please try again.</string>
     <string name="update_needs_foreground">The update was downloaded and verified. Keep the app open and try installing again.</string>
     <string name="export_events">Share JSON text</string>
     <string name="export_events_file">Save JSON file</string>
     <string name="import_events">Import events</string>
-    <string name="import_hint">JSON / Remember Days .mdb</string>
+    <string name="import_hint">ZIP / JSON / Remember Days .mdb</string>
     <string name="import_from_file">Choose file</string>
     <string name="import_preview_action">Preview import</string>
     <string name="import_preview_summary">Found %1$d, ready %2$d, repeats %3$d, unread %4$d</string>
@@ -162,7 +162,7 @@
     <string name="export_file_saved">File saved</string>
     <string name="export_file_failed">Could not save file</string>
     <string name="import_error_empty_file">Empty scroll</string>
-    <string name="import_error_unsupported_format">Unreadable scroll. Use JSON or .mdb.</string>
+    <string name="import_error_unsupported_format">Choose a valid ZIP, JSON, or .mdb backup.</string>
     <string name="import_error_no_events">No events found</string>
 
     <!-- Event entry / Edit -->
@@ -199,6 +199,7 @@
     <string name="share_send_image">Share</string>
     <string name="share_image_saved">Image saved</string>
     <string name="share_image_failed">Could not prepare the image</string>
+    <string name="share_image_preparing">Preparing the share card…</string>
     <string name="share_chooser_title">Share this card</string>
     <string name="nav_back">Back</string>
 
@@ -221,7 +222,6 @@
     <string name="update_new_title">New version %1$s available</string>
     <string name="update_download_install">Download and install</string>
     <string name="update_later">Later</string>
-    <string name="update_release_notes">Release notes</string>
     <string name="update_downloading">Downloading…</string>
     <string name="settings_check_update_loading">Checking…</string>
     <string name="update_download_failed">Could not finish the download. Try again later.</string>
@@ -302,13 +302,13 @@
     <string name="settings_default_event_remind_days_title">Days ahead</string>
     <string name="settings_default_event_remind_time_title">Reminder time</string>
     <string name="settings_milestone_remind_days_title">Days ahead</string>
-    <string name="settings_schedule_sync_summary"></string>
+    <string name="settings_schedule_sync_summary">Calendar access enabled</string>
     <string name="settings_schedule_target_calendar_title">Target calendar</string>
     <string name="settings_schedule_calendar_auto">Auto-select writable calendar</string>
     <string name="settings_schedule_calendar_no_writable">No writable device calendar is available. Add an account or calendar in the system Calendar app.</string>
     <string name="settings_schedule_request_calendar_permission">Enable calendar access</string>
-    <string name="settings_schedule_rrule_title">Use RRULE strategy</string>
-    <string name="settings_schedule_rrule_summary"></string>
+    <string name="settings_schedule_rrule_title">Use repeat rules in the system calendar</string>
+    <string name="settings_schedule_rrule_summary">Supported Gregorian repeats use one recurring calendar entry. Lunar dates and multiple reminders use individual dates.</string>
     <string name="settings_schedule_status_title">Sync status</string>
     <string name="settings_schedule_status_last_sync">Last sync: %1$s</string>
     <string name="settings_schedule_status_never">Never synced</string>
@@ -424,14 +424,12 @@
     <string name="settings_section_font_summary">Font: %1$s</string>
     <string name="settings_typography_scale_title">Text size and reading density</string>
     <string name="settings_section_default_reminder_title">New-event default reminder</string>
-    <string name="settings_section_default_reminder_summary"></string>
     <string name="settings_section_milestone_display_title">Milestone display</string>
-    <string name="settings_section_milestone_display_summary"></string>
+    <string name="settings_section_milestone_display_summary">Milestones %1$s · Smart milestones %2$s</string>
     <string name="settings_section_milestone_reminder_title">Milestone reminder</string>
-    <string name="settings_section_milestone_reminder_summary"></string>
     <string name="settings_section_schedule_sync_title">System calendar sync</string>
     <string name="settings_section_custom_milestones_title">Custom milestones</string>
-    <string name="settings_section_custom_milestones_summary"></string>
+    <string name="settings_section_custom_milestones_summary">Milestones saved: %1$d</string>
     <string name="date_picker_invalid_input">Date format: 2026/02/28</string>
     <string name="permission_dialog_title_notifications">Allow notifications</string>
     <string name="permission_dialog_title_calendar">Allow calendar access</string>
@@ -652,7 +650,7 @@
     </plurals>
     <string name="settings_reminder_summary_on">New events remind by default</string>
     <string name="settings_reminder_summary_off">New events have no reminder by default</string>
-    <string name="settings_data_summary">JSON / CSV / Remember Days</string>
+    <string name="settings_data_summary">Full ZIP backup · JSON · CSV · Remember Days</string>
     <string name="category_edit_title">Edit category</string>
     <string name="category_save">Save</string>
     <string name="category_delete_title">Delete category</string>
@@ -687,5 +685,41 @@
     <string name="widget_preview_load_failed">Preview unavailable. Retry</string>
     <string name="single_widget_refresh_failed">Configuration saved. Widget refresh failed; retry refresh.</string>
     <string name="widget_config_retry_refresh">Retry refresh</string>
+    <string name="occurrence_anniversary_label">Year %1$d</string>
+    <string name="occurrence_month_label">Month %1$d</string>
+    <string name="occurrence_half_year_label">Half-year %1$d</string>
+    <string name="occurrence_lunar_age_label">Lunar age %1$d</string>
+    <string name="occurrence_age_label">Age %1$d</string>
+    <string name="home_until_milestone">Until %1$s</string>
+    <string name="calendar_today_short">Now</string>
+    <string name="archive_count">Archive (%1$d)</string>
+    <string name="archive_title">Archive</string>
+    <string name="archive_empty">Archived one-time dates appear here.</string>
+    <string name="archive_restore">Restore to Home</string>
+    <string name="archive_event">Archive</string>
+    <string name="home_event_actions">Event actions</string>
+    <string name="reminder_lead_selection_count">%1$d/%2$d selected</string>
+    <string name="detail_recent_dates">Upcoming dates</string>
+    <string name="event_theme_color_summary">Color for details and share cards</string>
+    <string name="update_auto_check">Check for updates at startup</string>
+    <string name="update_banner_title">Version %1$s is available</string>
+    <string name="update_banner_open">View update</string>
+    <string name="update_skip_version">Skip this version</string>
+    <string name="share_paper_xuan">Xuan paper</string>
+    <string name="share_paper_ink">Dark ink</string>
+    <string name="share_paper_celadon">Celadon</string>
+    <string name="share_include_lunar">Include lunar date</string>
+    <string name="share_include_note">Include note</string>
+    <string name="export_complete_zip">Export full backup (ZIP)</string>
+    <string name="import_error_zip_limits">The ZIP exceeds the backup limits of 8 MiB per image or 64 MiB uncompressed.</string>
+    <string name="single_widget_select_event">Choose an event</string>
+    <string name="single_widget_follow_appearance">Follow default appearance</string>
+    <string name="single_widget_search">Search events</string>
+    <string name="shortcut_add_date">New event</string>
+    <string name="shortcut_open_calendar">Open calendar</string>
+    <string name="settings_calendar_none_available">No writable calendar</string>
+    <string name="settings_section_reminder_timing">%1$s · %2$s</string>
+    <string name="lunar_short">Lunar %1$d/%2$d</string>
+    <string name="lunar_short_leap">Leap lunar %1$d/%2$d</string>
 </resources>
 

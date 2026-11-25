@@ -34,6 +34,8 @@ internal fun decodeSingleEventSelections(raw: String?): Map<Int, Int> {
 internal fun encodeSingleEventSelections(selections: Map<Int, Int>): String =
     org.json.JSONObject().apply { selections.forEach { (widgetId, eventId) -> put(widgetId.toString(), eventId) } }.toString()
 
+internal data class SingleEventWidgetConfiguration(val selection: Int, val appearance: WidgetConfig? = null)
+
 class WidgetConfigRepository(private val context: Context) {
     val defaultConfigFlow: Flow<WidgetConfig> = context.widgetConfigDataStore.data.map { prefs ->
         WidgetConfig.fromJson(prefs[WIDGET_DEFAULT_CONFIG_JSON])
@@ -86,6 +88,27 @@ class WidgetConfigRepository(private val context: Context) {
             ?: SINGLE_EVENT_FOLLOW_NEAREST
     }
 
+    internal suspend fun getSingleEventConfiguration(appWidgetId: Int): SingleEventWidgetConfiguration {
+        val prefs = context.widgetConfigDataStore.data.first()
+        return SingleEventWidgetConfiguration(
+            selection = decodeSingleEventSelections(prefs[SINGLE_EVENT_SELECTIONS_JSON])[appWidgetId]
+                ?: SINGLE_EVENT_FOLLOW_NEAREST,
+            appearance = decodeWidgetInstanceConfigs(prefs[WIDGET_INSTANCE_CONFIGS_JSON])[appWidgetId]
+        )
+    }
+
+    internal suspend fun setSingleEventConfiguration(appWidgetId: Int, configuration: SingleEventWidgetConfiguration) {
+        context.widgetConfigDataStore.edit { prefs ->
+            val selections = decodeSingleEventSelections(prefs[SINGLE_EVENT_SELECTIONS_JSON])
+            val configs = decodeWidgetInstanceConfigs(prefs[WIDGET_INSTANCE_CONFIGS_JSON])
+            prefs[SINGLE_EVENT_SELECTIONS_JSON] = encodeSingleEventSelections(selections + (appWidgetId to configuration.selection))
+            val appearance = configuration.appearance
+            prefs[WIDGET_INSTANCE_CONFIGS_JSON] = encodeWidgetInstanceConfigs(
+                if (appearance == null) configs - appWidgetId else configs + (appWidgetId to appearance.sanitize())
+            )
+        }
+    }
+
     suspend fun setSingleEventSelection(appWidgetId: Int, eventId: Int) {
         context.widgetConfigDataStore.edit { prefs ->
             val current = decodeSingleEventSelections(prefs[SINGLE_EVENT_SELECTIONS_JSON])
@@ -97,6 +120,9 @@ class WidgetConfigRepository(private val context: Context) {
         context.widgetConfigDataStore.edit { prefs ->
             val current = decodeSingleEventSelections(prefs[SINGLE_EVENT_SELECTIONS_JSON])
             prefs[SINGLE_EVENT_SELECTIONS_JSON] = encodeSingleEventSelections(current - appWidgetId)
+            prefs[WIDGET_INSTANCE_CONFIGS_JSON] = removeWidgetInstanceConfig(
+                prefs[WIDGET_INSTANCE_CONFIGS_JSON], appWidgetId
+            )
         }
     }
 

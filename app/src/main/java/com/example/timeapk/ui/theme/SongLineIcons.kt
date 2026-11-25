@@ -46,13 +46,15 @@ enum class SongLineIconKind {
     Fan,
     Ruyi,
     Plum,
-    Book
+    Book,
+    Bookmark
 }
 
 enum class SongSettingMarkKind {
     Appearance,
     Widget,
     Display,
+    Categories,
     Milestone,
     Data,
     About
@@ -91,6 +93,7 @@ fun SongSettingMark(
         SongSettingMarkKind.Appearance -> SongLineIconKind.Fan
         SongSettingMarkKind.Widget -> SongLineIconKind.Ruyi
         SongSettingMarkKind.Display -> SongLineIconKind.Scroll
+        SongSettingMarkKind.Categories -> SongLineIconKind.Bookmark
         SongSettingMarkKind.Milestone -> SongLineIconKind.Plum
         SongSettingMarkKind.Data -> SongLineIconKind.Book
         SongSettingMarkKind.About -> SongLineIconKind.Seal
@@ -362,6 +365,17 @@ private fun DrawScope.drawSongLineIcon(
             circle(14.3f, 15f, 2.1f)
             circle(9.7f, 15f, 2.1f)
             circle(8.3f, 10.6f, 2.1f)
+        }
+        SongLineIconKind.Bookmark -> {
+            path {
+                moveTo(7f * unit, 5f * unit)
+                lineTo(17f * unit, 5f * unit)
+                lineTo(17f * unit, 19f * unit)
+                lineTo(12f * unit, 15.7f * unit)
+                lineTo(7f * unit, 19f * unit)
+                close()
+            }
+            line(10f, 8.5f, 14f, 8.5f)
         }
         SongLineIconKind.Book -> {
             path {

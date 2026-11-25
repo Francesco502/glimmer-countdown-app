@@ -1,7 +1,6 @@
 ﻿package com.example.timeapk.data
 
 import com.example.timeapk.ui.utils.eventDateToLocalDate
-import com.example.timeapk.ui.utils.getNextLunarOccurrence
 import com.example.timeapk.ui.utils.nextOccurrenceDate
 import org.json.JSONArray
 import org.json.JSONObject
@@ -26,11 +25,13 @@ fun List<Event>.toJsonString(categories: List<Category> = emptyList()): String {
                 put("colorHex", e.colorHex ?: JSONObject.NULL)
                 put("repeatType", e.repeatType)
                 put("remindDaysBefore", e.remindDaysBefore)
+                put("remindLeadDays", e.remindLeadDays ?: JSONObject.NULL)
                 put("reminderTimeMinutesOfDay", e.reminderTimeMinutesOfDay)
                 put("remindEnabled", e.remindEnabled)
                 put("syncToScheduleEnabled", e.syncToScheduleEnabled)
                 put("createdAt", e.createdAt)
                 put("isLunar", e.isLunar)
+                put("isArchived", e.isArchived)
             }
         )
     }
@@ -49,7 +50,9 @@ data class ParseResult(
 private const val MIN_EVENT_DATE_MILLIS = -2208988800000L
 private val VALID_CATEGORIES = setOf(CATEGORY_BIRTHDAY, CATEGORY_ANNIVERSARY, CATEGORY_OTHER)
 
-fun parseEventsFromJson(json: String): ParseResult {
+fun parseEventsFromJson(json: String): ParseResult = parseEventsJson(json, archive = false)
+
+internal fun parseEventsJson(json: String, archive: Boolean): ParseResult {
     val list = mutableListOf<Event>()
     val drafts = linkedMapOf<String, ImportedCategoryDraft>()
     var errorCount = 0
@@ -59,7 +62,9 @@ fun parseEventsFromJson(json: String): ParseResult {
             try {
                 val o = arr.getJSONObject(i)
                 val repeatType = normalizeRepeatType(o.optionalString("repeatType", REPEAT_NONE))
-                val title = o.requiredString("title")
+                val title = if (archive) {
+                    (o.get("title") as? String)?.takeIf(String::isNotBlank) ?: error("Empty title in backup")
+                } else o.requiredString("title")
                 val date = o.requiredLong("date").also {
                     require(it >= MIN_EVENT_DATE_MILLIS) { "Date before 1900" }
                 }
@@ -72,7 +77,7 @@ fun parseEventsFromJson(json: String): ParseResult {
                 }
                 list.add(
                     Event(
-                        id = 0,
+                        id = if (archive) o.getInt("id").also { require(it > 0) } else 0,
                         title = title,
                         date = date,
                         category = category,
@@ -80,6 +85,7 @@ fun parseEventsFromJson(json: String): ParseResult {
                         colorHex = o.optionalNullableString("colorHex"),
                         repeatType = repeatType,
                         remindDaysBefore = sanitizeRemindDaysBefore(o.optionalInt("remindDaysBefore", 0)),
+                        remindLeadDays = o.optionalNullableString("remindLeadDays"),
                         reminderTimeMinutesOfDay = sanitizeReminderTimeMinutesOfDay(o.optionalInt("reminderTimeMinutesOfDay", 480)),
                         remindEnabled = o.optionalBoolean("remindEnabled", false),
                         syncToScheduleEnabled = o.optionalBoolean("syncToScheduleEnabled", false),
@@ -88,8 +94,10 @@ fun parseEventsFromJson(json: String): ParseResult {
                         lastScheduleSyncAt = null,
                         lastScheduleSyncError = null,
                         createdAt = o.optionalLong("createdAt", System.currentTimeMillis()),
-                        isLunar = o.optionalBoolean("isLunar", false)
-                    )
+                        isLunar = o.optionalBoolean("isLunar", false),
+                        isArchived = repeatType == REPEAT_NONE && o.optionalBoolean("isArchived", false),
+                        imagePath = if (archive) o.optionalNullableString("imagePath") else null
+                    ).sanitizedReminderConfig()
                 )
             } catch (_: Exception) {
                 errorCount++
@@ -234,8 +242,7 @@ fun List<Event>.toPlainTextListString(daysLeftLabel: String, daysPastLabel: Stri
         val targetDate = eventDateToLocalDate(e.date)
         val hasStarted = !targetDate.isAfter(today)
         val nextTargetDate = when {
-            e.repeatType == REPEAT_YEARLY && e.isLunar && hasStarted -> getNextLunarOccurrence(targetDate, today)
-            e.repeatType != REPEAT_NONE && hasStarted -> nextOccurrenceDate(targetDate, today, e.repeatType)
+            e.repeatType != REPEAT_NONE && hasStarted -> nextOccurrenceDate(targetDate, today, e.repeatType, e.isLunar)
             else -> targetDate
         }
 

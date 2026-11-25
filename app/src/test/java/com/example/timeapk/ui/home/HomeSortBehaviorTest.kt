@@ -3,7 +3,7 @@ package com.example.timeapk.ui.home
 import com.example.timeapk.data.CATEGORY_OTHER
 import com.example.timeapk.data.Event
 import com.example.timeapk.data.REPEAT_YEARLY
-import com.example.timeapk.ui.utils.DisplayModes
+import com.example.timeapk.ui.utils.formatLunarMonthDay
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.time.LocalDate
@@ -244,78 +244,28 @@ class HomeSortBehaviorTest {
     }
 
     @Test
-    fun resolveHomeDateDeltaDisplayMode_byDaysUsesPastDaysForPastOneTimeEvent() {
-        val eventState = eventState(
-            id = 1,
-            daysRemaining = -3,
-            createdAt = 1,
-            isPast = true
+    fun byDaysKeepsUpcomingAndTodayBeforeRecentlyExpiredEvents() {
+        val items = listOf(
+            eventState(id = 1, daysRemaining = 2, createdAt = 1, isPast = true),
+            eventState(id = 2, daysRemaining = 5, createdAt = 1),
+            eventState(id = 3, daysRemaining = 1, createdAt = 1, isPast = true),
+            eventState(id = 4, daysRemaining = 0, createdAt = 1, repeatType = REPEAT_YEARLY)
         )
-
-        assertEquals(
-            DisplayModes.PAST_DAYS,
-            resolveHomeDateDeltaDisplayMode(
-                sortType = SortType.ByDays,
-                requestedMode = DisplayModes.UNTIL_YMD,
-                eventState = eventState
-            )
-        )
+        assertEquals(listOf(4, 2, 3, 1), applyHomeSort(items, SortType.ByDays, emptyList(), emptyList()).map { it.event.id })
     }
 
     @Test
-    fun resolveHomeDateDeltaDisplayMode_byDaysUsesUntilDaysForUpcomingOneTimeEvent() {
-        val eventState = eventState(
-            id = 1,
-            daysRemaining = 3,
-            createdAt = 1
-        )
-
-        assertEquals(
-            DisplayModes.UNTIL_DAYS,
-            resolveHomeDateDeltaDisplayMode(
-                sortType = SortType.ByDays,
-                requestedMode = DisplayModes.PAST_YMD,
-                eventState = eventState
+    fun searchMatchesLocalizedCategoryAndRecurringDateWithoutReturningArchivedEvents() {
+        val first = eventState(1, 1, 1, date = LocalDate.of(2026, 10, 25))
+            .copy(nextOccurrenceDate = LocalDate.of(2026, 10, 25))
+        val archived = first.copy(event = first.event.copy(id = 2, isArchived = true))
+        for (query in listOf("朋友", "2026.10.25", "10/25", checkNotNull(formatLunarMonthDay(first.nextOccurrenceDate)))) {
+            val matches = buildHomeVisibleList(
+                listOf(first, archived), null, SortType.ByDays, query, emptyList(), emptyList(),
+                categoryLabels = mapOf(CATEGORY_OTHER to "朋友")
             )
-        )
-    }
-
-    @Test
-    fun resolveHomeDateDeltaDisplayMode_byDaysUsesUntilDaysForRecurringEvent() {
-        val eventState = eventState(
-            id = 1,
-            daysRemaining = 3,
-            createdAt = 1,
-            isPast = true,
-            repeatType = REPEAT_YEARLY
-        )
-
-        assertEquals(
-            DisplayModes.UNTIL_DAYS,
-            resolveHomeDateDeltaDisplayMode(
-                sortType = SortType.ByDays,
-                requestedMode = DisplayModes.PAST_DAYS,
-                eventState = eventState
-            )
-        )
-    }
-
-    @Test
-    fun resolveHomeDateDeltaDisplayMode_nonByDaysPreservesRequestedMode() {
-        val eventState = eventState(
-            id = 1,
-            daysRemaining = 3,
-            createdAt = 1
-        )
-
-        assertEquals(
-            DisplayModes.MILESTONE,
-            resolveHomeDateDeltaDisplayMode(
-                sortType = SortType.Custom,
-                requestedMode = DisplayModes.MILESTONE,
-                eventState = eventState
-            )
-        )
+            assertEquals(query, listOf(1), matches.map { it.event.id })
+        }
     }
 
     private fun eventState(

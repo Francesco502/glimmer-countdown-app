@@ -66,6 +66,25 @@ object EventImageStore {
 
     internal fun releasePreviousUndoReferences(context: Context) {
         runCatching { registry(context).releaseOwnersWithPrefix("undo-") }
+        runCatching { registry(context).releaseOwnersWithPrefix("backup-") }
+    }
+
+    internal fun importBackupImage(context: Context, owner: String, bytes: ByteArray): String {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        require(bounds.outMimeType == "image/jpeg" &&
+            bounds.outWidth in 1..EVENT_IMAGE_MAX_EDGE_PX && bounds.outHeight in 1..EVENT_IMAGE_MAX_EDGE_PX
+        ) { "Invalid event image in backup" }
+        val dir = directory(context)
+        check(dir.isDirectory || dir.mkdirs())
+        val name = UUID.randomUUID().toString().replace("-", "") + ".jpg"
+        val target = File(dir, name)
+        check(!target.exists() && retainDraftReferences(context, owner, setOf(name))) { "Cannot protect backup image" }
+        target.outputStream().use { stream ->
+            stream.write(bytes)
+            stream.fd.sync()
+        }
+        return name
     }
 
     internal suspend fun cleanupRegisteredImages(context: Context, referencedFiles: suspend () -> Set<String>): Boolean =

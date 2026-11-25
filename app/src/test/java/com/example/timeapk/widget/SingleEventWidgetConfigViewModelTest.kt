@@ -33,7 +33,10 @@ class SingleEventWidgetConfigViewModelTest {
     ): SingleEventWidgetConfigViewModel {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
         scopes += scope
-        return SingleEventWidgetConfigViewModel(handle, load, events, persist, refresh, scope)
+        return SingleEventWidgetConfigViewModel(
+            handle, { SingleEventWidgetConfiguration(load()) }, events,
+            { persist(it.selection) }, refresh, scope
+        )
     }
 
     @Test

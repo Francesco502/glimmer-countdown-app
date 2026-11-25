@@ -145,15 +145,15 @@ class EventEntryValidationTest {
 
     @Test
     fun sanitizeRepeatTypeForLunar_restrictsUnsupportedRepeatTypes() {
-        assertEquals(REPEAT_NONE, sanitizeRepeatTypeForLunar(isLunar = true, repeatType = REPEAT_MONTHLY))
+        assertEquals(REPEAT_MONTHLY, sanitizeRepeatTypeForLunar(isLunar = true, repeatType = REPEAT_MONTHLY))
         assertEquals(REPEAT_NONE, sanitizeRepeatTypeForLunar(isLunar = true, repeatType = REPEAT_DAILY))
         assertEquals(REPEAT_YEARLY, sanitizeRepeatTypeForLunar(isLunar = true, repeatType = REPEAT_YEARLY))
         assertEquals(REPEAT_NONE, sanitizeRepeatTypeForLunar(isLunar = true, repeatType = REPEAT_NONE))
     }
 
     @Test
-    fun supportedRepeatTypes_forLunarOnlyIncludesNoneAndYearly() {
-        assertEquals(listOf(REPEAT_NONE, REPEAT_YEARLY), supportedRepeatTypes(isLunar = true))
+    fun supportedRepeatTypes_forLunarIncludesMonthly() {
+        assertEquals(listOf(REPEAT_NONE, REPEAT_YEARLY, REPEAT_MONTHLY), supportedRepeatTypes(isLunar = true))
     }
 
     @Test
@@ -167,7 +167,7 @@ class EventEntryValidationTest {
             title = "lunar event",
             date = millis,
             isLunar = true,
-            repeatType = REPEAT_MONTHLY
+            repeatType = REPEAT_DAILY
         ).toEvent()
 
         assertEquals(REPEAT_NONE, event.repeatType)

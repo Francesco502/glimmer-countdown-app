@@ -372,7 +372,8 @@ fun SongFilterChip(
     onClick: () -> Unit,
     label: String,
     modifier: Modifier = Modifier,
-    selectionRole: Role? = Role.RadioButton
+    selectionRole: Role? = Role.RadioButton,
+    enabled: Boolean = true
 ) {
     val shape = RoundedCornerShape(SongDesignTokens.StandardRadius.dp)
     val borderColor = if (selected) {
@@ -388,12 +389,14 @@ fun SongFilterChip(
                 if (selectionRole != null) {
                     Modifier.selectable(
                         selected = selected,
+                        enabled = enabled,
                         role = selectionRole,
                         onClick = onClick
                     )
                 } else {
                     Modifier.clickable(
                         role = Role.Button,
+                        enabled = enabled,
                         onClick = onClick
                     )
                 }
@@ -415,7 +418,9 @@ fun SongFilterChip(
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelLarge,
-                color = if (selected) {
+                color = if (!enabled && !selected) {
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                } else if (selected) {
                     MaterialTheme.colorScheme.primary
                 } else {
                     MaterialTheme.colorScheme.onSurface

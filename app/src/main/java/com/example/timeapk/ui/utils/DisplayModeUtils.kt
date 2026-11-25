@@ -11,8 +11,6 @@ import com.example.timeapk.data.REPEAT_HALF_YEARLY
 import com.example.timeapk.ui.home.EventUiState
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
-import com.example.timeapk.ui.utils.getNextLunarOccurrence
-import com.example.timeapk.ui.utils.getLunarElapsedPeriod
 
 object DisplayModes {
     const val PAST_DAYS = 0
@@ -73,7 +71,7 @@ fun getAvailableDisplayModes(eventState: EventUiState, showMilestone: Boolean): 
  * 获取倒计时模式下的标签文案。
  * 如果是重复事件，会明确指出“距离 第X年”或“距离 X岁生日”。
  */
-fun getUntilLabel(context: Context, eventState: EventUiState): String {
+fun getUntilLabel(context: Context, eventState: EventUiState, onOccurrence: Boolean = false): String {
     val repeatType = eventState.event.repeatType
     val category = eventState.event.category
     val isLunar = eventState.event.isLunar
@@ -83,16 +81,8 @@ fun getUntilLabel(context: Context, eventState: EventUiState): String {
     }
 
     val originDate = eventDateToLocalDate(eventState.event.date)
-    val today = LocalDate.now()
-    if (!originDate.isBefore(today)) {
-        return context.getString(R.string.days_until_label)
-    }
-
-    val nextDate = if (isLunar && repeatType == REPEAT_YEARLY) {
-        getNextLunarOccurrence(originDate, today)
-    } else {
-        nextOccurrenceDate(originDate, today, repeatType)
-    }
+    val nextDate = eventState.nextOccurrenceDate
+    if (!originDate.isBefore(nextDate)) return context.getString(R.string.days_until_label)
     
     when (category) {
         CATEGORY_ANNIVERSARY -> {
@@ -103,13 +93,21 @@ fun getUntilLabel(context: Context, eventState: EventUiState): String {
                 } else {
                     nextDate.year - originDate.year
                 }
-                if (years > 0) return context.getString(R.string.until_anniversary_label, years)
+                if (years > 0) return context.getString(
+                    if (onOccurrence) R.string.occurrence_anniversary_label else R.string.until_anniversary_label,
+                    years
+                )
             } else if (repeatType == REPEAT_MONTHLY) {
-                val months = ChronoUnit.MONTHS.between(originDate.withDayOfMonth(1), nextDate.withDayOfMonth(1))
-                if (months > 0) return context.getString(R.string.until_month_anniversary_label, months)
+                val months = if (isLunar) lunarMonthsBetween(originDate, nextDate)
+                else ChronoUnit.MONTHS.between(originDate.withDayOfMonth(1), nextDate.withDayOfMonth(1))
+                if (months > 0) return context.getString(
+                    if (onOccurrence) R.string.occurrence_month_label else R.string.until_month_anniversary_label,
+                    months
+                )
             } else if (repeatType == REPEAT_HALF_YEARLY) {
                 val halfYears = ChronoUnit.MONTHS.between(originDate.withDayOfMonth(1), nextDate.withDayOfMonth(1)) / 6
                 if (halfYears > 0) {
+                    if (onOccurrence) return context.getString(R.string.occurrence_half_year_label, halfYears)
                     return context.resources.getQuantityString(
                         R.plurals.until_half_year_anniversary_label,
                         halfYears.toInt(),
@@ -127,6 +125,10 @@ fun getUntilLabel(context: Context, eventState: EventUiState): String {
                     nextDate.year - originDate.year
                 }
                 if (years > 0) {
+                    if (onOccurrence) return context.getString(
+                        if (isLunar) R.string.occurrence_lunar_age_label else R.string.occurrence_age_label,
+                        years
+                    )
                     return if (isLunar) {
                         context.resources.getQuantityString(
                             R.plurals.until_lunar_birthday_label,

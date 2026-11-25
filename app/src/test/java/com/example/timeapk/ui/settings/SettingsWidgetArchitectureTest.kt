@@ -54,10 +54,10 @@ class SettingsWidgetArchitectureTest {
         val editorBody = widgetSettings
             .substringAfter("fun WidgetConfigEditor(")
             .substringBefore("/** 预览常用尺寸")
-        val appearanceBody = editorBody
-            .substringAfter("if (selectedTab == 0) {")
-            .substringBefore("} else {\n            WidgetOptionGroup(\n                title = stringResource(R.string.widget_config_content_scope)")
+        assertTrue(editorBody.contains("WidgetAppearanceOptions(config, onConfigChange)"))
+        val appearanceBody = editorBody.substringAfter("internal fun WidgetAppearanceOptions(")
         val contentBody = editorBody.substringAfter("R.string.widget_config_content_scope")
+            .substringBefore("internal fun WidgetAppearanceOptions(")
 
         assertTrue(topLevelBody.countOccurrences("SettingsExpandableSection(") == 2)
         val defaultSectionBody = topLevelBody

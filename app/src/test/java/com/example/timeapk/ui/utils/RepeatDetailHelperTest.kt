@@ -117,7 +117,7 @@ class RepeatDetailHelperTest {
         val date = LocalDate.of(2024, 2, 10)
         val lunar = Solar.fromYmd(date.year, date.monthValue, date.dayOfMonth).lunar
 
-        assertEquals("${lunar.monthInChinese}${lunar.dayInChinese}", formatLunarMonthDay(date))
+        assertEquals("${lunar.monthInChinese}月${lunar.dayInChinese}", formatLunarMonthDay(date))
     }
 
     // --- previousOccurrenceDate tests ---

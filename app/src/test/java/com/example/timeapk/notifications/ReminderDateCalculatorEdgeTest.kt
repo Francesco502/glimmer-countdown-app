@@ -5,6 +5,7 @@ import com.example.timeapk.data.Event
 import com.example.timeapk.data.REPEAT_DAILY
 import com.example.timeapk.data.REPEAT_WEEKLY
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
@@ -13,6 +14,20 @@ import java.time.ZoneId
 class ReminderDateCalculatorEdgeTest {
 
     private val zoneId: ZoneId = ZoneId.of("UTC")
+
+    @Test
+    fun explicitOffsetsSkipPastAndUnselectedDaysAndArchivedEvents() {
+        val date = LocalDate.of(2026, 4, 12)
+        val now = date.minusDays(7).atTime(9, 1).atZone(zoneId).toInstant().toEpochMilli()
+        val event = Event(
+            title = "Trip", category = CATEGORY_OTHER, date = date.atStartOfDay(zoneId).toInstant().toEpochMilli(),
+            remindDaysBefore = 7, remindLeadDays = "7,1,0", reminderTimeMinutesOfDay = 9 * 60
+        )
+        val triggers = computeUpcomingReminderTriggers(event, now, zoneId)
+        assertEquals(listOf(1, 0), triggers.map { it.daysLeft })
+        assertEquals(listOf(date.minusDays(1), date), triggers.map { it.reminderDate })
+        assertTrue(computeUpcomingReminderTriggers(event.copy(isArchived = true), now, zoneId).isEmpty())
+    }
 
     @Test
     fun dailyRepeat_withLargeDaysBefore_stillComputesNextTrigger() {

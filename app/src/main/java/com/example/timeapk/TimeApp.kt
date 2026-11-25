@@ -54,6 +54,9 @@ import com.example.timeapk.ui.home.DeleteEventResult
 import com.example.timeapk.ui.home.HomeScreen
 import com.example.timeapk.ui.home.HomeViewModel
 import com.example.timeapk.ui.settings.SettingsScreen
+import com.example.timeapk.ui.settings.AppUpdateFlowHost
+import androidx.compose.runtime.withFrameNanos
+import kotlinx.coroutines.delay
 import com.example.timeapk.ui.theme.AnimationSpecs
 import com.example.timeapk.ui.theme.SongDesignTokens
 import kotlinx.coroutines.launch
@@ -73,7 +76,9 @@ object Routes {
 fun TimeApp(
     navController: NavHostController = rememberNavController(),
     initialOpenEventId: Int? = null,
-    onOpenEventIdConsumed: () -> Unit = {}
+    onOpenEventIdConsumed: () -> Unit = {},
+    shortcutAction: String? = null,
+    onShortcutConsumed: () -> Unit = {}
 ) {
     // Wide screens keep the list/detail side-by-side selection. Compact screens use the Detail
     // navigation destination instead, so the system back stack owns the detail page.
@@ -84,9 +89,16 @@ fun TimeApp(
     val wideScreen = windowWidthClassFor(screenWidthDp) == WindowWidthClass.Expanded
 
     val homeViewModel: HomeViewModel = viewModel(factory = AppViewModelProvider.Factory)
-    val allEventStates by homeViewModel.unfilteredCalendarUiState.collectAsStateWithLifecycle()
+    val allEventStates by homeViewModel.allHomeUiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    LaunchedEffect(app) {
+        if (BuildConfig.DIRECT_APK_UPDATES_ENABLED) {
+            withFrameNanos { }
+            delay(1_500)
+            app.checkForStartupUpdate()
+        }
+    }
     val deletedMessageTemplate = stringResource(R.string.event_deleted_named)
     val undoLabel = stringResource(R.string.action_undo)
     val calendarCleanupBlockedMessage = stringResource(R.string.calendar_cleanup_blocked)
@@ -137,6 +149,22 @@ fun TimeApp(
             }
             onOpenEventIdConsumed()
         }
+    }
+    LaunchedEffect(shortcutAction) {
+        val action = shortcutAction ?: return@LaunchedEffect
+        navController.navigate(Routes.Home) {
+            popUpTo(Routes.Home)
+            launchSingleTop = true
+        }
+        selectedEventIdForDetail = null
+        when (action) {
+            AppShortcutManager.ADD_DATE -> {
+                app.initialDateForAdd = null
+                navController.navigate(Routes.Add) { launchSingleTop = true }
+            }
+            AppShortcutManager.OPEN_CALENDAR -> app.userPrefs.setHomeDisplayMode(2)
+        }
+        onShortcutConsumed()
     }
     val startDestination = Routes.Home
     CompositionLocalProvider(LocalCustomCategories provides customCategories) {
@@ -218,6 +246,7 @@ fun TimeApp(
                                                 selectedEventIdForDetail = null
                                                 navController.navigate(Routes.edit(detailId)) { launchSingleTop = true }
                                             },
+                                            onArchiveChange = homeViewModel::setArchived,
                                             onDeleteClick = { event ->
                                                 deleteWithUndo(event)
                                             },
@@ -255,6 +284,7 @@ fun TimeApp(
                                 launchSingleTop = true
                             }
                         },
+                        onArchiveChange = homeViewModel::setArchived,
                         onDeleteClick = { event -> deleteWithUndo(event) },
                         showBackButton = true,
                         onDeleted = { navController.popBackStack() },
@@ -281,6 +311,7 @@ fun TimeApp(
                     )
                 }
             }
+            AppUpdateFlowHost(app, snackbarHostState)
             SnackbarHost(
                 hostState = snackbarHostState,
                 modifier = Modifier
@@ -302,6 +333,7 @@ private fun DetailPane(
     allEvents: () -> kotlinx.coroutines.flow.Flow<Event?>,
     onNavigateBack: () -> Unit,
     onEditClick: () -> Unit,
+    onArchiveChange: (Int, Boolean) -> Unit,
     onDeleteClick: suspend (Event) -> Boolean,
     showBackButton: Boolean,
     modifier: Modifier = Modifier,
@@ -320,6 +352,7 @@ private fun DetailPane(
         eventMissing = eventLoadState.first && event == null,
         onNavigateBack = onNavigateBack,
         onEditClick = onEditClick,
+        onArchiveChange = { archived -> onArchiveChange(eventId, archived) },
         onDeleteClick = {
             val deletedEvent = eventState?.event
             val deleted = if (deletedEvent == null) false else onDeleteClick(deletedEvent)

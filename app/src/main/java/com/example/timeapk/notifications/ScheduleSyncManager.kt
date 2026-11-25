@@ -11,6 +11,8 @@ import androidx.core.content.ContextCompat
 import com.example.timeapk.R
 import com.example.timeapk.data.Event
 import com.example.timeapk.data.REPEAT_MONTHLY
+import com.example.timeapk.data.resolvedRemindLeadDays
+import com.example.timeapk.ui.utils.eventDateToLocalDate
 import com.example.timeapk.data.REPEAT_WEEKLY
 import com.example.timeapk.data.REPEAT_YEARLY
 import com.example.timeapk.data.sanitizedReminderConfig
@@ -378,7 +380,7 @@ object ScheduleSyncManager {
         val sanitizedEvent = event.sanitizedReminderConfig()
 
         return try {
-            if (!sanitizedEvent.syncToScheduleEnabled) {
+            if (sanitizedEvent.isArchived || !sanitizedEvent.syncToScheduleEnabled) {
                 val cleanupResult = removeManagedCalendarEntriesLocked(context, sanitizedEvent)
                 scheduleSyncResultAfterCleanup(
                     event = sanitizedEvent,
@@ -1188,37 +1190,29 @@ object ScheduleSyncManager {
             )
         }
 
-        val series = computeUpcomingReminderSeries(event, nowMillis, zoneId) ?: return emptyList()
-        val reminderHour = event.reminderTimeMinutesOfDay / 60
-        val reminderMinute = event.reminderTimeMinutesOfDay % 60
-        val occurrenceEpochDay = series.occurrenceDate.toEpochDay()
-        return series.entries.map { entry ->
-            val remindAtMillis = entry.reminderDate
-                .atTime(reminderHour, reminderMinute)
-                .atZone(zoneId)
-                .toInstant()
-                .toEpochMilli()
-
+        return computeUpcomingReminderTriggers(event, nowMillis, zoneId).map { entry ->
+            val occurrenceEpochDay = entry.occurrenceDate.toEpochDay()
             ReminderSyncPlanEntry(
                 key = buildReminderEntryKey(
                     occurrenceEpochDay = occurrenceEpochDay,
                     daysLeft = entry.daysLeft,
                     useRRule = false
                 ),
-                triggerAtMillis = remindAtMillis,
+                triggerAtMillis = entry.triggerAtMillis,
                 occurrenceEpochDay = occurrenceEpochDay,
                 daysLeft = entry.daysLeft,
                 useRRule = false
             )
         }
-            .filter { it.triggerAtMillis > nowMillis || it.daysLeft == 0 }
-            .sortedBy { it.triggerAtMillis }
     }
 
     private fun shouldUseRRuleSync(event: Event, useRRuleSync: Boolean): Boolean {
         if (!useRRuleSync) return false
         if (event.isLunar) return false
-        if (event.remindDaysBefore != 0) return false
+        if (event.resolvedRemindLeadDays() != listOf(0)) return false
+        val origin = eventDateToLocalDate(event.date)
+        if (event.repeatType == REPEAT_MONTHLY && origin.dayOfMonth > 28) return false
+        if (event.repeatType == REPEAT_YEARLY && origin.monthValue == 2 && origin.dayOfMonth == 29) return false
         return event.repeatType in setOf(REPEAT_WEEKLY, REPEAT_MONTHLY, REPEAT_YEARLY)
     }
 

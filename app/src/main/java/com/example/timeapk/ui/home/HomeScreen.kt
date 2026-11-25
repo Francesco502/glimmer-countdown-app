@@ -28,6 +28,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -55,6 +56,7 @@ import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.ImeAction
@@ -65,9 +67,12 @@ import androidx.compose.ui.window.PopupProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.timeapk.R
 import com.example.timeapk.TimeApplication
+import com.example.timeapk.data.canArchiveOn
 import com.example.timeapk.ui.common.categoryLabel
 import com.example.timeapk.ui.common.categoryOptions
 import com.example.timeapk.ui.components.SongConfirmDialog
+import com.example.timeapk.ui.settings.visibleAutomaticUpdate
+import com.example.timeapk.ui.settings.UpdateDownloadProgressSection
 import com.example.timeapk.ui.sound.SongSoundEffect
 import com.example.timeapk.ui.sound.rememberSongSoundscape
 import com.example.timeapk.ui.theme.AnimationSpecs
@@ -105,8 +110,12 @@ fun HomeScreen(
     val homeUiState by viewModel.homeUiState.collectAsStateWithLifecycle()
     val calendarUiState by viewModel.calendarUiState.collectAsStateWithLifecycle()
     val unfilteredCalendarUiState by viewModel.unfilteredCalendarUiState.collectAsStateWithLifecycle()
+    val archivedEvents by viewModel.archivedUiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val prefs = (context.applicationContext as TimeApplication).userPrefs
+    val app = context.applicationContext as TimeApplication
+    val prefs = app.userPrefs
+    val automaticUpdate = visibleAutomaticUpdate(app)
+    val updateDownload by app.updateDownloadState.collectAsStateWithLifecycle()
     val today by viewModel.today.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val categoryFilter by viewModel.categoryFilter.collectAsStateWithLifecycle()
@@ -127,6 +136,7 @@ fun HomeScreen(
     val timeToggleHintSeen by prefs.homeTimeToggleHintSeenFlow.collectAsStateWithLifecycle(initialValue = true)
     val homeDisplayMode = savedHomeDisplayMode
     var showOverflowMenu by remember { mutableStateOf(false) }
+    var showArchive by rememberSaveable { mutableStateOf(false) }
     var timelineFocus by remember { mutableStateOf<TimelineBucketType?>(null) }
     var searchExpanded by rememberSaveable { mutableStateOf(false) }
     var calendarPickedEpochDay by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -134,6 +144,29 @@ fun HomeScreen(
     var menuEventId by remember { mutableStateOf<Int?>(null) }
     var pendingDeleteEvent by remember { mutableStateOf<EventUiState?>(null) }
     var deleteInProgress by remember { mutableStateOf(false) }
+    androidx.activity.compose.BackHandler(enabled = showArchive) { showArchive = false }
+    val eventMenu: @Composable (EventUiState) -> Unit = { state ->
+        val id = state.event.id
+        val archived = state.event.isArchived
+        if (menuEventId == id) HomeEventActionMenu(
+            expanded = true,
+            pinned = id in pinnedEventIds,
+            onDismiss = { menuEventId = null },
+            onTogglePin = if (archived) null else { { menuEventId = null; viewModel.togglePinned(id) } },
+            onEdit = if (archived) null else { { menuEventId = null; navigateToEdit(id) } },
+            onDelete = {
+                menuEventId = null
+                pendingDeleteEvent = state
+            },
+            onArchive = if (archived || state.event.canArchiveOn(today)) {
+                {
+                    menuEventId = null
+                    viewModel.setArchived(id, !archived)
+                }
+            } else null,
+            archived = archived
+        )
+    }
     val timelineDigest = remember(calendarUiState, today, pinnedEventIds) {
         buildHomeTimelineDigest(
             events = calendarUiState,
@@ -258,8 +291,18 @@ fun HomeScreen(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
+                navigationIcon = {
+                    if (showArchive) InlineActionIconButton(
+                        icon = SongLineIconKind.ChevronLeft,
+                        contentDescription = stringResource(R.string.nav_back),
+                        active = false,
+                        onClick = { showArchive = false }
+                    )
+                },
                 title = {
-                    if (searchExpanded) {
+                    if (showArchive) {
+                        Text(stringResource(R.string.archive_title), style = MaterialTheme.typography.titleLarge)
+                    } else if (searchExpanded) {
                         HomeSearchField(
                             searchQuery = searchQuery,
                             onSearchQueryChange = viewModel::updateSearchQuery
@@ -274,6 +317,7 @@ fun HomeScreen(
                     }
                 },
                 actions = {
+                    if (!showArchive) {
                     val soundscape = rememberSongSoundscape()
                     if (searchExpanded) {
                         InlineActionIconButton(
@@ -302,16 +346,27 @@ fun HomeScreen(
                         expanded = showOverflowMenu,
                         onExpandedChange = { showOverflowMenu = it }
                     )
-                    InlineActionIconButton(
-                        icon = SongLineIconKind.Settings,
-                        contentDescription = stringResource(R.string.settings_title),
-                        active = false,
-                        onClick = {
-                            soundscape.play(SongSoundEffect.Action)
-                            showOverflowMenu = false
-                            navigateToSettings()
+                    Box {
+                        InlineActionIconButton(
+                            icon = SongLineIconKind.Settings,
+                            contentDescription = stringResource(R.string.settings_title),
+                            active = false,
+                            onClick = {
+                                soundscape.play(SongSoundEffect.Action)
+                                showOverflowMenu = false
+                                navigateToSettings()
+                            }
+                        )
+                        if (automaticUpdate != null) {
+                            val updateLabel = stringResource(R.string.update_banner_title, automaticUpdate.versionName.orEmpty())
+                            Box(
+                                Modifier.align(Alignment.TopEnd).offset(x = (-9).dp, y = 9.dp)
+                                    .size(6.dp).background(MaterialTheme.colorScheme.error, CircleShape)
+                                    .semantics { contentDescription = updateLabel }
+                            )
                         }
-                    )
+                    }
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.Transparent,
@@ -323,7 +378,7 @@ fun HomeScreen(
         },
         floatingActionButtonPosition = if (homeDisplayMode == 2) FabPosition.End else FabPosition.Center,
         floatingActionButton = {
-            if (emptyStateKind != HomeEmptyStateKind.FirstEvent) {
+            if (!showArchive && emptyStateKind != HomeEmptyStateKind.FirstEvent) {
                 val isEmpty = isHomeContentEmpty
                 val fabScale by animateFloatAsState(
                     if (isEmpty) 1.03f else 1f,
@@ -351,7 +406,44 @@ fun HomeScreen(
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
         ) {
+            if (showArchive) {
+                if (archivedEvents.isEmpty()) {
+                    Text(
+                        stringResource(R.string.archive_empty),
+                        modifier = Modifier.padding(24.dp),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
+                        items(archivedEvents, key = { it.event.id }) { state ->
+                            Box {
+                                EventListItem(
+                                    eventState = state,
+                                    today = today,
+                                    dateDeltaDisplayMode = com.example.timeapk.ui.utils.DisplayModes.PAST_DAYS,
+                                    onToggleDateDeltaDisplayMode = null,
+                                    onClick = { navigateToDetail(state.event.id) },
+                                    onLongClick = { menuEventId = state.event.id },
+                                    showMilestone = false,
+                                    selected = selectedEventId == state.event.id
+                                )
+                                eventMenu(state)
+                            }
+                        }
+                    }
+                }
+                return@Box
+            }
             Column(modifier = Modifier.fillMaxSize()) {
+                if (automaticUpdate != null || updateDownload.downloading) {
+                    HomeUpdateBanner(
+                        title = automaticUpdate?.let { stringResource(R.string.update_banner_title, it.versionName.orEmpty()) },
+                        download = updateDownload,
+                        onOpen = { automaticUpdate?.let(app::showUpdateDetails) },
+                        onLater = app::postponeUpdate
+                    )
+                }
                 HomeDisplayModeSegmentedControl(
                     selectedMode = homeDisplayMode,
                     onModeSelected = { mode -> scope.launch { prefs.setHomeDisplayMode(mode) } },
@@ -379,7 +471,7 @@ fun HomeScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = activeFilters.joinToString(" 路 "),
+                            text = activeFilters.joinToString(" · "),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 2,
@@ -398,7 +490,7 @@ fun HomeScreen(
                         text = stringResource(R.string.home_reorder_hint),
                         onDismiss = { scope.launch { prefs.markHomeReorderHintSeen() } }
                     )
-                } else if (sortType != SortType.ByDays && homeDisplayMode != 2 &&
+                } else if (homeDisplayMode != 2 &&
                     displayedList.isNotEmpty() && !timeToggleHintSeen
                 ) {
                     HomeOneTimeHint(
@@ -423,8 +515,9 @@ fun HomeScreen(
                         pickedDate = calendarPickedDate,
                         onPickedDateChange = { calendarPickedEpochDay = it.toEpochDay() },
                         onEventClick = { navigateToDetail(it) },
-                        onEventLongClick = null,
-                        modifier = Modifier.fillMaxSize()
+                        onEventLongClick = { menuEventId = it },
+                        modifier = Modifier.fillMaxSize(),
+                        eventMenu = eventMenu
                     )
                 }
             } else {
@@ -546,14 +639,18 @@ fun HomeScreen(
                                     // Wait for the ordered snapshot to drop the banner event before showing it.
                                     nearestEvent?.takeUnless { orderedList.any { it.event.id == nearestEventId } }?.let { nearest ->
                                         item(key = NEAREST_BANNER_KEY) {
+                                            Box {
                                             NearestEventBanner(
                                                 eventState = nearest,
                                                 today = today,
                                                 dateFormatter = dateFormatter,
                                                 showHours = showHours,
                                                 pinned = nearest.event.id in pinnedEventIds,
-                                                onClick = { navigateToDetail(nearest.event.id) }
+                                                onClick = { navigateToDetail(nearest.event.id) },
+                                                onLongClick = { menuEventId = nearest.event.id }
                                             )
+                                            eventMenu(nearest)
+                                            }
                                         }
                                     }
                                     items(orderedList, key = { it.event.id }) { eventState ->
@@ -562,6 +659,7 @@ fun HomeScreen(
                                             val itemDragging = isDragging
                                             val isPinned = eventId in pinnedEventIds
                                             val rowDragEnabled = dragEnabled && !isPinned
+                                            val openActionsLabel = stringResource(R.string.home_event_actions)
                                             val moveUpLabel = stringResource(R.string.home_move_up)
                                             val moveDownLabel = stringResource(R.string.home_move_down)
                                             val reorderingLabel = stringResource(R.string.home_reordering)
@@ -578,6 +676,10 @@ fun HomeScreen(
                                                 return true
                                             }
                                             val reorderAccessibility = if (rowDragEnabled) Modifier.semantics {
+                                                onLongClick(label = openActionsLabel) {
+                                                    menuEventId = eventId
+                                                    true
+                                                }
                                                 if (itemDragging) stateDescription = reorderingLabel
                                                 customActions = buildList {
                                                     val index = orderedList.indexOfFirst { it.event.id == eventId }
@@ -613,7 +715,9 @@ fun HomeScreen(
                                                     )
                                                     .then(
                                                         if (rowDragEnabled) {
-                                                            Modifier.detectReorderAfterLongPress(reorderState)
+                                                            Modifier.detectReorderAfterLongPress(reorderState) {
+                                                                menuEventId = eventId
+                                                            }
                                                         } else {
                                                             Modifier
                                                         }
@@ -639,7 +743,6 @@ fun HomeScreen(
                                                         eventState = eventState,
                                                         today = today,
                                                         dateFormatter = dateFormatter,
-                                                        sortType = sortType,
                                                         dateDeltaDisplayMode = itemDisplayMode,
                                                         onToggleDateDeltaDisplayMode = toggleDisplayMode,
                                                         onClick = { navigateToDetail(eventState.event.id) },
@@ -656,7 +759,6 @@ fun HomeScreen(
                                                     EventListItem(
                                                         eventState = eventState,
                                                         today = today,
-                                                        sortType = sortType,
                                                         dateDeltaDisplayMode = itemDisplayMode,
                                                         onToggleDateDeltaDisplayMode = toggleDisplayMode,
                                                         onClick = { navigateToDetail(eventState.event.id) },
@@ -669,23 +771,7 @@ fun HomeScreen(
                                                         modifier = reorderAccessibility
                                                     )
                                                 }
-                                                HomeEventActionMenu(
-                                                    expanded = menuEventId == eventId,
-                                                    pinned = isPinned,
-                                                    onDismiss = { menuEventId = null },
-                                                    onTogglePin = {
-                                                        menuEventId = null
-                                                        viewModel.togglePinned(eventId)
-                                                    },
-                                                    onEdit = {
-                                                        menuEventId = null
-                                                        navigateToEdit(eventId)
-                                                    },
-                                                    onDelete = {
-                                                        menuEventId = null
-                                                        pendingDeleteEvent = eventState
-                                                    }
-                                                )
+                                                eventMenu(eventState)
                                             }
                                         }
                                     }
@@ -722,8 +808,40 @@ fun HomeScreen(
                             viewModel.updateSortType(type)
                             showOverflowMenu = false
                         },
+                        archivedCount = archivedEvents.size,
+                        onArchiveClick = {
+                            showOverflowMenu = false
+                            showArchive = true
+                        },
                         modifier = Modifier.padding(top = 8.dp, end = 16.dp)
                     )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun HomeUpdateBanner(
+    title: String?,
+    download: com.example.timeapk.update.UpdateDownloadState,
+    onOpen: () -> Unit,
+    onLater: () -> Unit
+) {
+    SongPaperSurface(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        backgroundColor = MaterialTheme.colorScheme.surface,
+        borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.28f)
+    ) {
+        Column(Modifier.padding(start = 12.dp, end = 8.dp, top = 8.dp, bottom = 2.dp)) {
+            if (download.downloading) {
+                UpdateDownloadProgressSection(download.progress)
+            } else if (title != null) {
+                Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = onOpen) { Text(stringResource(R.string.update_banner_open)) }
+                    TextButton(onClick = onLater) { Text(stringResource(R.string.update_later)) }
                 }
             }
         }

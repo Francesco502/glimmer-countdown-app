@@ -53,12 +53,6 @@ class ReminderWorker(
         val preferredCalendarId = app.userPrefs.scheduleTargetCalendarIdFlow.first()
         val useRRuleSync = app.userPrefs.scheduleUseRRuleSyncFlow.first()
 
-        if (event.remindEnabled) {
-            scheduleReminder(applicationContext, event)
-        } else {
-            cancelReminder(applicationContext, event.id)
-        }
-
         val updatedEvent = if (event.syncToScheduleEnabled) {
             val syncResult = ScheduleSyncManager.syncReminderSeries(
                 context = applicationContext,
@@ -80,7 +74,9 @@ class ReminderWorker(
             )
         }
 
-        return updatedEvent == event || repository.updateScheduleSyncState(event, updatedEvent)
+        val persisted = updatedEvent == event || repository.updateScheduleSyncState(event, updatedEvent)
+        if (persisted) scheduleReminder(applicationContext, updatedEvent, fromWorker = true)
+        return persisted
     }
 
     companion object {

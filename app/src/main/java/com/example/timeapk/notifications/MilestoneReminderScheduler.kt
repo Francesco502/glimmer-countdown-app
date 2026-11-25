@@ -455,6 +455,7 @@ internal fun computeNextMilestoneReminderPlan(
     nowMillis: Long = System.currentTimeMillis(),
     zoneId: ZoneId = ZoneId.systemDefault()
 ): MilestoneReminderPlan? {
+    if (event.isArchived) return null
     if (event.repeatType != REPEAT_YEARLY && event.repeatType != REPEAT_NONE) return null
 
     val targetDate = eventDateToLocalDate(event.date)

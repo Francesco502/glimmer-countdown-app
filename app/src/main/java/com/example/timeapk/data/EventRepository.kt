@@ -1,5 +1,7 @@
 package com.example.timeapk.data
 
+import java.time.LocalDate
+import java.time.ZoneOffset
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 
@@ -10,6 +12,8 @@ internal fun Event.hasSameScheduleSyncInputs(expected: Event): Boolean =
         note == expected.note &&
         repeatType == expected.repeatType &&
         remindDaysBefore == expected.remindDaysBefore &&
+        remindLeadDays == expected.remindLeadDays &&
+        isArchived == expected.isArchived &&
         reminderTimeMinutesOfDay == expected.reminderTimeMinutesOfDay &&
         remindEnabled == expected.remindEnabled &&
         syncToScheduleEnabled == expected.syncToScheduleEnabled &&
@@ -47,6 +51,8 @@ class EventRepository(private val eventDao: EventDao) {
     suspend fun deleteEvent(event: Event) = eventDao.deleteEvent(event)
 
     suspend fun updateEvent(event: Event) = eventDao.updateEvent(event)
+    suspend fun setEventArchived(id: Int, archived: Boolean): Boolean =
+        eventDao.setEventArchived(id, archived, todayUtcMillis()) == 1
 
     /** @return true when the row still existed and the user-editable columns were written. */
     suspend fun updateEventUserFields(event: Event): Boolean = eventDao.updateEventUserFields(
@@ -58,11 +64,13 @@ class EventRepository(private val eventDao: EventDao) {
         colorHex = event.colorHex,
         repeatType = event.repeatType,
         remindDaysBefore = event.remindDaysBefore,
+        remindLeadDays = event.remindLeadDays,
         reminderTimeMinutesOfDay = event.reminderTimeMinutesOfDay,
         remindEnabled = event.remindEnabled,
         syncToScheduleEnabled = event.syncToScheduleEnabled,
         isLunar = event.isLunar,
-        imagePath = event.imagePath
+        imagePath = event.imagePath,
+        todayUtcMillis = todayUtcMillis()
     ) == 1
 
     suspend fun updateEventScheduleFields(event: Event) = eventDao.updateEventScheduleFields(
@@ -91,6 +99,8 @@ class EventRepository(private val eventDao: EventDao) {
             expectedNote = expected.note,
             expectedRepeatType = expected.repeatType,
             expectedRemindDaysBefore = expected.remindDaysBefore,
+            expectedRemindLeadDays = expected.remindLeadDays,
+            expectedIsArchived = expected.isArchived,
             expectedReminderTimeMinutesOfDay = expected.reminderTimeMinutesOfDay,
             expectedRemindEnabled = expected.remindEnabled,
             expectedSyncToScheduleEnabled = expected.syncToScheduleEnabled,
@@ -100,3 +110,6 @@ class EventRepository(private val eventDao: EventDao) {
         ) == 1
     }
 }
+
+private fun todayUtcMillis(): Long =
+    LocalDate.now().atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()

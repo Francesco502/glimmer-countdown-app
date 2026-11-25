@@ -46,19 +46,12 @@ class HomeInteractionPolicyTest {
         val fab = source.substringAfter("floatingActionButton = {")
             .substringBefore("    ) { innerPadding ->")
 
-        assertTrue(fab.contains("if (emptyStateKind != HomeEmptyStateKind.FirstEvent)"))
+        assertTrue(fab.contains("emptyStateKind != HomeEmptyStateKind.FirstEvent"))
         assertTrue(fab.contains("HomeAddButton("))
         assertTrue(fab.contains("else navigateToItemEntry"))
         assertTrue(source.contains("internal fun HomeAddButton("))
     }
 
-
-    @Test
-    fun homeCardLongPressOpensMenuOnlyWhenItDoesNotStartDragging() {
-        assertFalse(homeCardLongPressMenuEnabled(SortType.Custom))
-        assertTrue(homeCardLongPressMenuEnabled(SortType.ByDays))
-        assertTrue(homeCardLongPressMenuEnabled(SortType.ByDate))
-    }
 
     @Test
     fun homeCardDragSortEnabled_isEnabledOnlyForCustomSort() {
@@ -115,10 +108,10 @@ class HomeInteractionPolicyTest {
         val source = readSource("ui/home/HomeScreen.kt")
         val listItemSource = source
             .substringAfter("internal fun EventListItem(")
-            .substringBefore("private fun CompactEventTime(")
+            .substringBefore("internal fun MonthCalendarView(")
 
         assertTrue(listItemSource.contains("EventLedgerRow("))
-        assertTrue(listItemSource.contains("CompactEventTime(time"))
+        assertTrue(listItemSource.contains("compact = true, onToggle = onToggleTime"))
         assertFalse(listItemSource.contains("val metaLine = buildList"))
         assertFalse(listItemSource.contains("val supportLine = buildList"))
         assertFalse(listItemSource.contains("dateLine = targetLocalDate.format(dateFormatter)"))
@@ -157,7 +150,7 @@ class HomeInteractionPolicyTest {
         val cardSource = source.substringAfter("fun EventCard(")
             .substringBefore("internal fun EventListItem(")
         val listSource = source.substringAfter("private fun EventLedgerRow(")
-            .substringBefore("private fun CompactEventTime(")
+            .substringBefore("internal fun MonthCalendarView(")
         val monthSource = source.substringAfter("internal fun MonthCalendarView(")
 
         assertFalse(cardSource.contains("event.colorHex"))
@@ -174,14 +167,10 @@ class HomeInteractionPolicyTest {
             .substringBefore("private fun CardCountdown(")
         val cardTime = source.substringAfter("private fun CardCountdown(")
             .substringBefore("internal fun EventListItem(")
-        val compactTime = source.substringAfter("private fun CompactEventTime(")
-            .substringBefore("internal fun MonthCalendarView(")
-
         assertTrue(toggle.contains("R.string.cd_toggle_date_delta_display"))
         assertTrue(toggle.contains("clickable(role = Role.Button"))
         assertTrue(toggle.contains("contentDescription = label"))
         assertTrue(cardTime.contains(".timeToggle(onToggle)"))
-        assertTrue(compactTime.contains(".timeToggle(onToggle)"))
     }
 
     @Test

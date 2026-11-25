@@ -79,7 +79,7 @@ enum class SettingsCategory(
     CATEGORIES(
         R.string.settings_categories_title,
         R.string.settings_entry_categories_desc,
-        SongSettingMarkKind.Data
+        SongSettingMarkKind.Categories
     ),
     MILESTONE(
         R.string.settings_milestone_entry_title,

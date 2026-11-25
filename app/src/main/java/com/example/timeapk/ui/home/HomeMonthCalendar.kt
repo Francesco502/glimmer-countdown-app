@@ -14,7 +14,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,7 +56,8 @@ internal fun MonthCalendarView(
     onEventLongClick: ((Int) -> Unit)?,
     modifier: Modifier = Modifier,
     pickedDate: LocalDate? = null,
-    onPickedDateChange: ((LocalDate) -> Unit)? = null
+    onPickedDateChange: ((LocalDate) -> Unit)? = null,
+    eventMenu: @Composable (EventUiState) -> Unit = {}
 ) {
     // selectedDate is today. The picked day can be hoisted to prefill a new event.
     var internalPickedDate by remember(selectedDate) { mutableStateOf(selectedDate) }
@@ -77,6 +77,7 @@ internal fun MonthCalendarView(
         DateTimeFormatter.ofPattern(selectedDatePattern, locale)
     }
     val currentMonthTitle = currentMonth.atDay(1).format(monthFormatter)
+    val todayActionDescription = stringResource(R.string.calendar_back_to_today)
     val lunarMonthTitle = if (showLunarInCells) remember(currentMonth) { calendarLunarMonthTitle(currentMonth) } else null
     val eventsByDate = remember(events, currentMonth) {
         calendarOccurrencesForMonth(events, currentMonth).groupBy { it.date }
@@ -153,22 +154,29 @@ internal fun MonthCalendarView(
                         textAlign = TextAlign.Center
                     )
                 }
+                Box(Modifier.width(48.dp), contentAlignment = Alignment.Center) {
+                    if (currentPickedDate != selectedDate || currentMonth != YearMonth.from(selectedDate)) {
+                        IconButton(
+                            onClick = {
+                                showMonth(YearMonth.from(selectedDate))
+                                updatePickedDate(selectedDate)
+                            },
+                            modifier = Modifier.semantics { contentDescription = todayActionDescription }
+                        ) {
+                            Text(
+                                stringResource(R.string.calendar_today_short),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = colors.primary
+                            )
+                        }
+                    }
+                }
                 IconButton(onClick = { showMonth(currentMonth.plusMonths(1)) }) {
                     SongLineIcon(
                         kind = SongLineIconKind.ChevronRight,
                         contentDescription = stringResource(R.string.calendar_next_month),
                         tint = colors.onBackground
                     )
-                }
-            }
-            if (currentPickedDate != selectedDate) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                    TextButton(onClick = {
-                        showMonth(YearMonth.from(selectedDate))
-                        updatePickedDate(selectedDate)
-                    }) {
-                        Text(stringResource(R.string.calendar_back_to_today))
-                    }
                 }
             }
             Row(
@@ -309,12 +317,15 @@ internal fun MonthCalendarView(
         } else {
             items(selectedEvents, key = { "${it.eventState.event.id}-${it.date}" }) { occurrence ->
                 val eventId = occurrence.eventState.event.id
-                CalendarOccurrenceRow(
-                    occurrence = occurrence,
-                    today = selectedDate,
-                    onClick = { onEventClick(eventId) },
-                    onLongClick = onEventLongClick?.let { action -> { action(eventId) } }
-                )
+                Box {
+                    CalendarOccurrenceRow(
+                        occurrence = occurrence,
+                        today = selectedDate,
+                        onClick = { onEventClick(eventId) },
+                        onLongClick = onEventLongClick?.let { action -> { action(eventId) } }
+                    )
+                    eventMenu(occurrence.eventState)
+                }
             }
         }
     }

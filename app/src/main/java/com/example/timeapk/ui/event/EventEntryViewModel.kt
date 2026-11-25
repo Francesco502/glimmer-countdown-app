@@ -21,14 +21,15 @@ import com.example.timeapk.data.DefaultEventReminderSettings
 import com.example.timeapk.data.Event
 import com.example.timeapk.data.EventRepository
 import com.example.timeapk.data.REPEAT_NONE
+import com.example.timeapk.data.REPEAT_MONTHLY
 import com.example.timeapk.data.REPEAT_YEARLY
 import com.example.timeapk.data.UserPreferencesRepository
 import com.example.timeapk.data.sanitizeRemindDaysBefore
 import com.example.timeapk.data.sanitizeReminderTimeMinutesOfDay
 import com.example.timeapk.data.sanitizedReminderConfig
+import com.example.timeapk.data.resolveReminderLeadDays
 import com.example.timeapk.notifications.ScheduleSyncManager
 import com.example.timeapk.notifications.cancelMilestoneReminders
-import com.example.timeapk.notifications.cancelReminder
 import com.example.timeapk.notifications.scheduleReminder
 import com.example.timeapk.notifications.syncMilestoneReminderForEvent
 import com.example.timeapk.notifications.enqueueMilestoneScheduleRetry
@@ -73,18 +74,6 @@ private val MIN_SUPPORTED_EVENT_DATE_MILLIS: Long = LocalDate.of(1900, 1, 1)
 
 private data class PreparedEventKey(val eventId: Int?)
 
-// 事件卡片默认颜色（与编辑页预设颜色保持一致）
-private val DEFAULT_EVENT_COLOR_HEX = listOf(
-    "#4A4933",
-    "#457080",
-    "#5F856B",
-    "#AF4E31",
-    "#AC8F62",
-    "#86351C",
-    "#5B8E79",
-    "#3A4550",
-    "#785B64"
-)
 private const val TAG = "EventEntryViewModel"
 private const val DRAFT_SNAPSHOT_KEY = "eventDraft"
 private const val DRAFT_INLINE_LIMIT_BYTES = 64 * 1024
@@ -96,14 +85,14 @@ internal fun isEventDateValid(dateMillis: Long): Boolean = dateMillis >= MIN_SUP
 internal fun sanitizeRepeatTypeForLunar(isLunar: Boolean, repeatType: String): String {
     if (!isLunar) return repeatType
     return when (repeatType) {
-        REPEAT_NONE, REPEAT_YEARLY -> repeatType
+        REPEAT_NONE, REPEAT_YEARLY, REPEAT_MONTHLY -> repeatType
         else -> REPEAT_NONE
     }
 }
 
 internal fun supportedRepeatTypes(isLunar: Boolean): List<String> {
     return if (isLunar) {
-        listOf(REPEAT_NONE, REPEAT_YEARLY)
+        listOf(REPEAT_NONE, REPEAT_YEARLY, REPEAT_MONTHLY)
     } else {
         listOf(
             REPEAT_NONE,
@@ -430,13 +419,8 @@ class EventEntryViewModel(
     }
 
     private suspend fun persistEvent(): SaveEventResult {
-        val rawDetails = _eventUiState.value.eventDetails
-        val details = if (rawDetails.id == 0 && rawDetails.colorHex.isNullOrBlank()) {
-            // 新建事件且未选择卡片颜色时，在默认颜色中随机选一个
-            rawDetails.copy(colorHex = DEFAULT_EVENT_COLOR_HEX.random())
-        } else {
-            rawDetails
-        }
+        val details = _eventUiState.value.eventDetails
+        val leads = details.selectedReminderLeadDays()
         if (!validateInput(details)) {
             return SaveEventResult.Failure(R.string.save_event_failed)
         }
@@ -446,7 +430,10 @@ class EventEntryViewModel(
 
         val persistedEvent = try {
             val customCategoryIds = app.categoryRepository.getAllSnapshot().mapTo(mutableSetOf()) { it.id }
-            var event = details.toEvent().sanitizedReminderConfig()
+            var event = details.toEvent().copy(
+                remindDaysBefore = leads.first(),
+                remindLeadDays = leads.joinToString(",")
+            ).sanitizedReminderConfig()
             // A category deleted while this draft was open falls back to "other".
             event = event.copy(category = resolveCategoryId(event.category, customCategoryIds))
             app.database.withTransaction {
@@ -480,10 +467,7 @@ class EventEntryViewModel(
         var updatedEvent = persistedEvent
 
         try {
-            cancelReminder(application, persistedEvent.id)
-            if (persistedEvent.remindEnabled) {
-                scheduleReminder(application, persistedEvent)
-            }
+            scheduleReminder(application, persistedEvent)
         } catch (t: Exception) {
             Log.w(TAG, "Failed to schedule app reminder for eventId=${persistedEvent.id}", t)
             hasGenericSideEffectFailure = true
@@ -663,7 +647,7 @@ private fun EventDetails.hasSameEditableContent(other: EventDetails): Boolean {
         note == other.note &&
         colorHex == other.colorHex &&
         repeatType == other.repeatType &&
-        remindDaysBefore == other.remindDaysBefore &&
+        selectedReminderLeadDays() == other.selectedReminderLeadDays() &&
         reminderTimeMinutesOfDay == other.reminderTimeMinutesOfDay &&
         remindEnabled == other.remindEnabled &&
         syncToScheduleEnabled == other.syncToScheduleEnabled &&
@@ -698,8 +682,16 @@ data class EventDetails(
     val lastScheduleSyncError: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val isLunar: Boolean = false,
-    val imagePath: String? = null
-) : Serializable
+    val imagePath: String? = null,
+    val remindLeadDays: String? = null
+) : Serializable {
+    private companion object {
+        const val serialVersionUID = -397130161066378192L
+    }
+}
+
+internal fun EventDetails.selectedReminderLeadDays(): List<Int> =
+    resolveReminderLeadDays(remindLeadDays, remindDaysBefore)
 
 fun EventDetails.toEvent(): Event = Event(
     id = id,
@@ -711,6 +703,7 @@ fun EventDetails.toEvent(): Event = Event(
     colorHex = colorHex,
     repeatType = sanitizeRepeatTypeForLunar(isLunar = isLunar, repeatType = repeatType),
     remindDaysBefore = remindDaysBefore,
+    remindLeadDays = remindLeadDays,
     reminderTimeMinutesOfDay = reminderTimeMinutesOfDay,
     remindEnabled = remindEnabled,
     syncToScheduleEnabled = syncToScheduleEnabled,
@@ -732,6 +725,7 @@ fun Event.toEventDetails(): EventDetails = EventDetails(
     colorHex = colorHex,
     repeatType = sanitizeRepeatTypeForLunar(isLunar = isLunar, repeatType = repeatType),
     remindDaysBefore = remindDaysBefore,
+    remindLeadDays = remindLeadDays,
     reminderTimeMinutesOfDay = reminderTimeMinutesOfDay,
     remindEnabled = remindEnabled,
     syncToScheduleEnabled = syncToScheduleEnabled,

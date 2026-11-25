@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [Event::class, Category::class], version = 12, exportSchema = true)
+@Database(entities = [Event::class, Category::class], version = 13, exportSchema = true)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun eventDao(): EventDao
     abstract fun categoryDao(): CategoryDao
@@ -224,12 +224,19 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_events_category ON events(category)")
             }
         }
+        private val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE events ADD COLUMN isArchived INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE events ADD COLUMN remindLeadDays TEXT")
+            }
+        }
         internal val MIGRATION_6_7_FOR_TEST: Migration = MIGRATION_6_7
         internal val MIGRATION_7_8_FOR_TEST: Migration = MIGRATION_7_8
         internal val MIGRATION_8_9_FOR_TEST: Migration = MIGRATION_8_9
         internal val MIGRATION_9_10_FOR_TEST: Migration = MIGRATION_9_10
         internal val MIGRATION_10_11_FOR_TEST: Migration = MIGRATION_10_11
         internal val MIGRATION_11_12_FOR_TEST: Migration = MIGRATION_11_12
+        internal val MIGRATION_12_13_FOR_TEST: Migration = MIGRATION_12_13
 
         @Volatile
         private var Instance: AppDatabase? = null
@@ -248,7 +255,8 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_8_9,
                         MIGRATION_9_10,
                         MIGRATION_10_11,
-                        MIGRATION_11_12
+                        MIGRATION_11_12,
+                        MIGRATION_12_13
                     )
                     .build()
                     .also { Instance = it }

@@ -217,17 +217,14 @@ class RescheduleAllWorker(
         var updatedEvent = event
 
         try {
-            cancelReminder(applicationContext, event.id)
-            if (event.remindEnabled) {
-                scheduleReminder(applicationContext, event)
-            }
+            scheduleReminder(applicationContext, event)
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (t: Throwable) {
             onFailure(t)
         }
 
-        updatedEvent = if (event.syncToScheduleEnabled) {
+        updatedEvent = if (event.syncToScheduleEnabled || event.isArchived && calendarCleanupRequired(event)) {
             val syncResult = ScheduleSyncManager.syncReminderSeries(
                 context = applicationContext,
                 event = event,
@@ -256,7 +253,7 @@ class RescheduleAllWorker(
         }
 
         try {
-            if (milestoneEnabled) {
+            if (milestoneEnabled && !event.isArchived) {
                 val milestoneResult = syncMilestoneReminderForEvent(
                     application = app,
                     event = updatedEvent,
@@ -317,6 +314,8 @@ class RescheduleAllWorker(
             event.isLunar.toString(),
             event.remindEnabled.toString(),
             event.remindDaysBefore.toString(),
+            event.remindLeadDays.orEmpty(),
+            event.isArchived.toString(),
             event.reminderTimeMinutesOfDay.toString(),
             event.syncToScheduleEnabled.toString(),
             event.colorHex.orEmpty()

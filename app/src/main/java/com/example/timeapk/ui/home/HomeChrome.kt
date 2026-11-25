@@ -200,20 +200,27 @@ internal fun HomeEventActionMenu(
     expanded: Boolean,
     pinned: Boolean,
     onDismiss: () -> Unit,
-    onTogglePin: () -> Unit,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onTogglePin: (() -> Unit)?,
+    onEdit: (() -> Unit)?,
+    onDelete: () -> Unit,
+    onArchive: (() -> Unit)? = null,
+    archived: Boolean = false
 ) {
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
-        DropdownMenuItem(
+        if (onTogglePin != null) DropdownMenuItem(
             text = { Text(stringResource(if (pinned) R.string.button_unpin else R.string.button_pin)) },
             leadingIcon = { SongLineIcon(SongLineIconKind.Pin, size = SongDesignTokens.IconSmall.dp) },
             onClick = onTogglePin
         )
-        DropdownMenuItem(
+        if (onEdit != null) DropdownMenuItem(
             text = { Text(stringResource(R.string.button_edit)) },
             leadingIcon = { SongLineIcon(SongLineIconKind.Edit, size = SongDesignTokens.IconSmall.dp) },
             onClick = onEdit
+        )
+        if (onArchive != null) DropdownMenuItem(
+            text = { Text(stringResource(if (archived) R.string.archive_restore else R.string.archive_event)) },
+            leadingIcon = { SongLineIcon(SongLineIconKind.Book, size = SongDesignTokens.IconSmall.dp) },
+            onClick = onArchive
         )
         DropdownMenuItem(
             text = { Text(stringResource(R.string.button_delete), color = MaterialTheme.colorScheme.error) },
@@ -261,7 +268,9 @@ internal fun HomeOverflowPanel(
     onBucketClick: (TimelineBucketType) -> Unit,
     onCategoryClick: (String?) -> Unit,
     onSortClick: (SortType) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    archivedCount: Int = 0,
+    onArchiveClick: (() -> Unit)? = null
 ) {
     val soundscape = rememberSongSoundscape()
     fun playActionThen(action: () -> Unit) {
@@ -272,6 +281,16 @@ internal fun HomeOverflowPanel(
     SongActionSlip(
         modifier = modifier,
         content = {
+            if (onArchiveClick != null) {
+                SongActionOptionGrid(
+                    items = listOf(SongActionOptionSpec(
+                        label = stringResource(R.string.archive_count, archivedCount),
+                        selected = false,
+                        onClick = { playActionThen(onArchiveClick) }
+                    ))
+                )
+                SongActionSlipDivider()
+            }
             HomeMenuSectionLabel(text = stringResource(R.string.home_timeline_action_menu))
             TimelineActionTileGrid(
                 items = listOf(

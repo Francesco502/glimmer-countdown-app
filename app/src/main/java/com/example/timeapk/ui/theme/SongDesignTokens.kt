@@ -53,7 +53,7 @@ object SongDesignTokens {
     /** 印章描边宽度：朱文印框与月历“今天”方印框。 */
     const val SealLineWidth = 0.75f
 
-    const val ListDateColumnWidth = 40
+    const val ListDateColumnWidth = 56
 
     /** 月历格中的分类短横标记。 */
     const val CalendarBarWidth = 7

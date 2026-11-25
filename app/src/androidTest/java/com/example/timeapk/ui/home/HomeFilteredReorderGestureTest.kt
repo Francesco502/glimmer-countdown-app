@@ -101,6 +101,17 @@ class HomeFilteredReorderGestureTest {
     }
 
     @Test
+    fun holdingAndReleasingACustomSortRowOpensItsMenu() {
+        selectCustomSortAndSearchDragEvents()
+        val before = runBlocking { app.userPrefs.customEventOrderFlow.first() }
+        beginLongPressDrag("E2EDrag-B")
+        composeRule.onRoot().performTouchInput { up() }
+        composeRule.mainClock.advanceTimeByFrame()
+        composeRule.onNodeWithText(composeRule.activity.getString(R.string.button_edit)).assertIsDisplayed()
+        assertEquals(before, runBlocking { app.userPrefs.customEventOrderFlow.first() })
+    }
+
+    @Test
     fun draggingWithinSearchSubsetPreservesHiddenGlobalSlot() {
         selectCustomSortAndSearchDragEvents()
 
@@ -222,7 +233,8 @@ class HomeFilteredReorderGestureTest {
             // Advance a short continuous run of frames between Android layout observations.
             // One frame per wall-clock poll starves the library's frame-clock acceleration
             // while synchronized semantics queries wait for Android drawing.
-            composeRule.waitUntil(timeoutMillis = 5_000) {
+            // Host layout and semantics reads can run slower than the Compose test clock.
+            composeRule.waitUntil(timeoutMillis = 15_000) {
                 val remainingClockMillis = 5_000 - (composeRule.mainClock.currentTime - scrollClockStart)
                 check(remainingClockMillis > 0) { "M6 still outside the viewport after five seconds of drag frames" }
                 composeRule.mainClock.advanceTimeBy(minOf(100L, remainingClockMillis))

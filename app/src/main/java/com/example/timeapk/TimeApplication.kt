@@ -10,6 +10,7 @@ import com.example.timeapk.data.UserPreferencesRepository
 import com.example.timeapk.notifications.ReminderNotificationDelivery
 import com.example.timeapk.notifications.RescheduleAllWorker
 import com.example.timeapk.update.UpdateChecker
+import com.example.timeapk.update.CheckUpdateResult
 import com.example.timeapk.update.UpdateCheckerFactory
 import com.example.timeapk.update.UpdateDownloadState
 import com.example.timeapk.update.UpdateInstallOutcome
@@ -25,6 +26,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 
 class TimeApplication : Application() {
     private var lastUiModeNight: Int = -1
@@ -38,6 +40,53 @@ class TimeApplication : Application() {
     val userPrefs by lazy { UserPreferencesRepository(this) }
     internal val backupImportInProgress = MutableStateFlow(false)
     val updateChecker: UpdateChecker by lazy { UpdateCheckerFactory.create() }
+    private val _availableUpdate = MutableStateFlow<CheckUpdateResult?>(null)
+    internal val availableUpdate = _availableUpdate.asStateFlow()
+    private val _requestedUpdate = MutableStateFlow<CheckUpdateResult?>(null)
+    internal val requestedUpdate = _requestedUpdate.asStateFlow()
+
+    internal fun checkForStartupUpdate() {
+        if (!BuildConfig.DIRECT_APK_UPDATES_ENABLED) return
+        appScope.launch(Dispatchers.IO) {
+            try {
+                if (!userPrefs.claimAutomaticUpdateCheck(System.currentTimeMillis())) return@launch
+                val result = updateChecker.checkUpdate()
+                if (!result.checkFailed) rememberAvailableUpdate(result)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                // Startup checks are opportunistic. Manual checks report failures in Settings.
+            }
+        }
+    }
+
+    internal fun rememberAvailableUpdate(result: CheckUpdateResult) {
+        if (BuildConfig.DIRECT_APK_UPDATES_ENABLED && !result.checkFailed) {
+            _availableUpdate.value = result.takeIf { it.hasUpdate && it.downloadUrl != null }
+        }
+    }
+
+    internal fun showUpdateDetails(result: CheckUpdateResult) {
+        if (BuildConfig.DIRECT_APK_UPDATES_ENABLED && result.hasUpdate) _requestedUpdate.value = result
+    }
+
+    internal fun dismissUpdateDetails() {
+        _requestedUpdate.value = null
+    }
+
+    internal fun postponeUpdate() {
+        launchAppTask {
+            userPrefs.postponeUpdate(System.currentTimeMillis())
+            dismissUpdateDetails()
+        }
+    }
+
+    internal fun skipUpdate(version: String) {
+        launchAppTask {
+            userPrefs.skipUpdate(version)
+            dismissUpdateDetails()
+        }
+    }
 
     private val _updateDownloadState = MutableStateFlow(UpdateDownloadState())
     val updateDownloadState: StateFlow<UpdateDownloadState> = _updateDownloadState.asStateFlow()
@@ -106,6 +155,7 @@ class TimeApplication : Application() {
         }
         // Throttled: a reschedule already completed in the last 15 minutes is not repeated.
         RescheduleAllWorker.enqueueColdStartIfStale(this)
+        appScope.launch { AppShortcutManager.observePinnedEvents(this@TimeApplication) }
         observeThemeModeChanges()
         // Finish owners from the previous process before any Activity can register a new undo.
         EventImageStore.releasePreviousUndoReferences(this)

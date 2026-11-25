@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -32,6 +33,8 @@ import com.example.timeapk.R
 import com.example.timeapk.ui.theme.SongDesignTokens
 import com.example.timeapk.ui.theme.SongFilterChip
 import com.example.timeapk.ui.utils.eventDateToLocalDate
+import com.example.timeapk.ui.utils.formatLunarDateString
+import com.example.timeapk.ui.utils.formatDateWithWeekday
 import com.nlf.calendar.Lunar
 import com.nlf.calendar.LunarMonth
 import com.nlf.calendar.LunarYear
@@ -380,6 +383,14 @@ fun SongDateWheelPickerDialog(
             }
         }
 
+        val dateContext = LocalContext.current
+        Text(
+            text = if (isLunarMode) formatDateWithWeekday(selectedDate, dateContext)
+            else formatLunarDateString(selectedDate, dateContext),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+        )
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)

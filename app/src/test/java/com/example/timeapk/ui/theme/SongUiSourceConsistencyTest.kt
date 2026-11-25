@@ -130,7 +130,8 @@ class SongUiSourceConsistencyTest {
         // 4.2: the date sits directly below the title so the keyboard never covers it.
         assertTrue(contentBlock.indexOf("value = eventDetails.title,") < contentBlock.indexOf("label = stringResource(R.string.field_date)"))
         assertTrue(contentBlock.indexOf("label = stringResource(R.string.field_date)") < contentBlock.indexOf("label = stringResource(R.string.field_category)"))
-        assertTrue(contentBlock.contains("value = dateString"))
+        assertTrue(contentBlock.contains("value = if (eventDetails.isLunar) lunarDate else solarDate"))
+        assertTrue(contentBlock.contains("secondaryValue = if (eventDetails.isLunar) solarDate else lunarDate"))
         assertFalse(contentBlock.contains("label = stringResource(R.string.field_repeat)"))
         assertTrue(formBlock.substringAfter(reminderSection).contains("label = stringResource(R.string.field_repeat)"))
     }

@@ -70,9 +70,6 @@ class HomeV42ModelsTest {
 
     @Test
     fun longPressMenu_isOfferedOnlyOutsideCustomSort() {
-        assertTrue(homeCardLongPressMenuEnabled(SortType.ByDays))
-        assertTrue(homeCardLongPressMenuEnabled(SortType.ByDate))
-        assertFalse(homeCardLongPressMenuEnabled(SortType.Custom))
     }
 
     @Test

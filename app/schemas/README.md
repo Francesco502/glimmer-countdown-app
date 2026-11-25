@@ -7,4 +7,6 @@
 - `8.json`, `9.json`, and `10.json` were exported by the 3.5 database upgrade.
 - Versions 7 and 9 were migration intermediates, not published database
   starting points. The release migration test starts at the real v6 schema and
-  executes the complete `6 -> 7 -> 8 -> 9 -> 10` chain.
+  executes the complete `6 -> 7 -> 8 -> 9 -> 10 -> 11 -> 12 -> 13` chain.
+- `13.json` is the Room compiler export for 4.3.4. The published v12 upgrade
+  also has a direct test that checks image names, category rows and calendar IDs.

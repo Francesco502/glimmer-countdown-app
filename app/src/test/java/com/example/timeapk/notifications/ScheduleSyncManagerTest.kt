@@ -512,7 +512,7 @@ class ScheduleSyncManagerTest {
     }
 
     @Test
-    fun buildReminderSyncPlan_createsDailyEntriesFromLeadDaysToOccurrence() {
+    fun buildReminderSyncPlan_preservesLegacyLeadAndSameDay() {
         val zoneId = ZoneId.of("UTC")
         val eventDate = LocalDate.of(2026, 4, 12)
         val nowMillis = LocalDate.of(2026, 4, 9)
@@ -536,7 +536,7 @@ class ScheduleSyncManagerTest {
             useRRuleSync = true
         )
 
-        assertEquals(listOf(3, 2, 1, 0), plan.map { it.daysLeft })
+        assertEquals(listOf(3, 0), plan.map { it.daysLeft })
         assertTrue(plan.none { it.useRRule })
         assertEquals(
             LocalDate.of(2026, 4, 9).atTime(9, 0).atZone(zoneId).toInstant().toEpochMilli(),

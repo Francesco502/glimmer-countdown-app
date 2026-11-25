@@ -2,6 +2,7 @@ package com.example.timeapk.data
 
 import java.nio.ByteBuffer
 import java.io.ByteArrayOutputStream
+import java.io.BufferedInputStream
 import java.io.IOException
 import java.io.InputStream
 import java.nio.charset.CodingErrorAction
@@ -11,7 +12,8 @@ import java.time.ZoneOffset
 
 enum class BackupSource {
     JSON,
-    LEGACY_REMEMBER_DAYS_MDB
+    LEGACY_REMEMBER_DAYS_MDB,
+    ZIP
 }
 
 enum class BackupParseFailure {
@@ -24,7 +26,7 @@ enum class BackupParseFailure {
 // ponytail: bound in-memory parsing on phones; use streaming if larger backups are required.
 const val MAX_BACKUP_IMPORT_BYTES = 8 * 1024 * 1024
 
-class BackupInputTooLargeException : IOException("Backup exceeds $MAX_BACKUP_IMPORT_BYTES bytes")
+class BackupInputTooLargeException(internal val archive: Boolean = false) : IOException("Backup exceeds its size limit")
 
 fun readBackupImportBytes(input: InputStream): ByteArray {
     val output = ByteArrayOutputStream()
@@ -47,9 +49,36 @@ data class BackupParseResult(
     val categoryDrafts: Map<String, ImportedCategoryDraft> = emptyMap()
 )
 
+internal fun parseBackupImport(input: InputStream): Pair<BackupParseResult, BackupArchivePayload?> {
+    val buffered = BufferedInputStream(input)
+    buffered.mark(4)
+    val zip = buffered.read() == 'P'.code && buffered.read() == 'K'.code &&
+        buffered.read() == 3 && buffered.read() == 4
+    buffered.reset()
+    if (!zip) return parseEventsFromBackupBytesDetailed(readBackupImportBytes(buffered)) to null
+    return try {
+        BackupArchiveCodec.read(buffered)
+    } catch (large: BackupInputTooLargeException) {
+        throw large
+    } catch (_: IllegalArgumentException) {
+        invalidZipBackup() to null
+    } catch (_: org.json.JSONException) {
+        invalidZipBackup() to null
+    } catch (_: java.util.zip.ZipException) {
+        invalidZipBackup() to null
+    } catch (_: java.io.EOFException) {
+        invalidZipBackup() to null
+    }
+}
+
+private fun invalidZipBackup() = BackupParseResult(
+    emptyList(), BackupSource.ZIP, 0, 0, 0, BackupParseFailure.UNSUPPORTED_FORMAT
+)
+
 data class ExistingDuplicateFilterResult(
     val importableEvents: List<Event>,
-    val existingDuplicateCount: Int
+    val existingDuplicateCount: Int,
+    val matchedEventIds: Map<Int, Int> = emptyMap()
 )
 
 fun parseEventsFromBackupBytes(bytes: ByteArray): ParseResult {
@@ -135,6 +164,26 @@ fun filterExistingDuplicateEvents(
     return ExistingDuplicateFilterResult(importableEvents, duplicateCount)
 }
 
+internal fun matchArchiveDuplicates(
+    events: List<Event>,
+    existingEvents: List<Event>,
+    sameImage: (source: Event, existing: Event) -> Boolean
+): ExistingDuplicateFilterResult {
+    val existingByKey = existingEvents.groupBy { it.createdAt to it.importDuplicateKey() }
+    val matched = linkedMapOf<Int, Int>()
+    val usedIds = mutableSetOf<Int>()
+    val importable = events.filter { source ->
+        val existing = existingByKey[source.createdAt to source.importDuplicateKey()]
+            ?.firstOrNull { it.id !in usedIds && sameImage(source, it) }
+        if (existing == null) true else {
+            usedIds += existing.id
+            matched[source.id] = existing.id
+            false
+        }
+    }
+    return ExistingDuplicateFilterResult(importable, matched.size, matched)
+}
+
 private data class LegacyEncodedString(
     val offset: Int,
     val value: String,
@@ -164,11 +213,12 @@ private data class ImportDuplicateKey(
     val note: String,
     val colorHex: String?,
     val repeatType: String,
-    val remindDaysBefore: Int,
+    val remindLeadDays: List<Int>,
     val reminderTimeMinutesOfDay: Int,
     val remindEnabled: Boolean,
     val syncToScheduleEnabled: Boolean,
-    val isLunar: Boolean
+    val isLunar: Boolean,
+    val isArchived: Boolean
 )
 
 private val legacyIsoRegex =
@@ -416,11 +466,12 @@ private fun Event.importDuplicateKey(): ImportDuplicateKey {
         note = note.trim(),
         colorHex = colorHex?.trim()?.uppercase(),
         repeatType = repeatType,
-        remindDaysBefore = remindDaysBefore,
+        remindLeadDays = resolvedRemindLeadDays(),
         reminderTimeMinutesOfDay = reminderTimeMinutesOfDay,
         remindEnabled = remindEnabled,
         syncToScheduleEnabled = syncToScheduleEnabled,
-        isLunar = isLunar
+        isLunar = isLunar,
+        isArchived = isArchived
     )
 }
 

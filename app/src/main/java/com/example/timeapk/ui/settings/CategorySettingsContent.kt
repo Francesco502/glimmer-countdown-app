@@ -72,6 +72,7 @@ internal fun rememberSettingsCategorySummaries(): Map<SettingsCategory, String> 
     val context = LocalContext.current
     val app = context.applicationContext as? TimeApplication ?: return emptyMap()
     val prefs = app.userPrefs
+    val update = visibleAutomaticUpdate(app)
     val themeMode by prefs.themeModeFlow.collectAsStateWithLifecycle(initialValue = 0)
     val fontPreset by prefs.fontPresetFlow.collectAsStateWithLifecycle(initialValue = 4)
     val dynamicColor by prefs.dynamicColorEnabledFlow.collectAsStateWithLifecycle(initialValue = false)
@@ -116,7 +117,11 @@ internal fun rememberSettingsCategorySummaries(): Map<SettingsCategory, String> 
             if (defaultRemind) R.string.settings_reminder_summary_on else R.string.settings_reminder_summary_off
         ),
         SettingsCategory.DATA to stringResource(R.string.settings_data_summary),
-        SettingsCategory.ABOUT to stringResource(R.string.settings_about_version, BuildConfig.VERSION_NAME ?: "")
+        SettingsCategory.ABOUT to if (update != null) {
+            stringResource(R.string.update_banner_title, update.versionName.orEmpty())
+        } else {
+            stringResource(R.string.settings_about_version, BuildConfig.VERSION_NAME ?: "")
+        }
     )
 }
 
