@@ -9,6 +9,8 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.test.espresso.Espresso.pressBack
 import androidx.test.espresso.Espresso.closeSoftKeyboard
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -78,14 +80,20 @@ class EventEditRecreationTest {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) closeSoftKeyboard()
         pressBack()
         composeRule.waitForIdle()
-        // System Back may first dismiss the restored IME. Keep asserting the
-        // unsaved editor before sending the page Back, as in EventEntryImeInputTest.
-        if (composeRule.onAllNodes(hasText(discardTitle)).fetchSemanticsNodes().isEmpty()) {
+        val discardDialog = composeRule.onAllNodes(hasText(discardTitle))
+        // Compose can be idle while the system is still dismissing the restored IME.
+        if (discardDialog.fetchSemanticsNodes().isEmpty()) {
             composeRule.onNode(hasSetTextAction() and hasText(UPDATED_TITLE)).assertExists()
-            pressBack()
+            val decorView = composeRule.activity.window.decorView
+            composeRule.waitUntil(timeoutMillis = 5_000) {
+                composeRule.runOnUiThread {
+                    ViewCompat.getRootWindowInsets(decorView)?.isVisible(WindowInsetsCompat.Type.ime()) == false
+                }
+            }
+            if (discardDialog.fetchSemanticsNodes().isEmpty()) pressBack()
         }
         composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule.onAllNodes(hasText(discardTitle)).fetchSemanticsNodes().isNotEmpty()
+            discardDialog.fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText(discardTitle).assertExists()
         composeRule.onNodeWithText(stayLabel).performClick()
