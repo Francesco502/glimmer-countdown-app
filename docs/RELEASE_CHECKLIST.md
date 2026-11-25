@@ -1,6 +1,6 @@
 # 发布检查清单（v4.3.4）
 
-**版本** `4.3.4`（`versionCode=34`）。**发布状态：候选 / 未发布**。
+**版本** `4.3.4`（`versionCode=34`）。**发布状态：已发布**。发布日期为 2026-11-25（香港时间）。
 
 所有通过结果必须来自本版新鲜执行，并绑定源码 revision、构建、设备和原始报告。未知、未执行和失败不能勾选，APK 文件和设备安装包须互相对应。旧测试、旧截图和旧真机豁免均不延续到本版。
 
@@ -26,7 +26,7 @@
 ## 三、正式签名
 
 - 正式证书 SHA-256 为 `3b7cb426a82664f891c69511cc2505b67128c8503664639f297291da4ea903ca`。
-- [ ] 审核后从不可变标签新鲜构建正式发布包，核对包名、版本、签名、对齐、元数据、大小与 SHA-256。
+- [x] 审核后从不可变标签新鲜构建正式发布包，核对包名、版本、签名、对齐、元数据、大小与 SHA-256。
 
 ## 四、正式 APK 升级与运行
 
@@ -40,9 +40,11 @@
 
 ## 六、发布动作
 
-- [ ] 最终源码与仓库 CI、正式 APK QA 绑定到同一版本。
-- [ ] Release 仅含 `glimmer-countdown-4-3-4.apk`。
-- [ ] 匿名回装并复核应用更新状态。
+- [x] 最终源码与仓库 CI、正式 APK QA 绑定到同一版本。[源码 CI](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/45570907797) · [正式包 QA](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/45577771582)
+- [x] Release 仅含 `glimmer-countdown-4-3-4.apk`。[GitHub Release](https://github.com/Francesco502/glimmer-countdown-app/releases/tag/v4.3.4)
+- [x] 匿名下载 APK 并核对大小、SHA-256、包身份、正式签名和 16 KiB 对齐。
+- [x] 公开包在 API 26、31、36 通过覆盖升级与草稿恢复。API 36 应用内检查显示「已是最新版本」。[公开包 QA](https://github.com/Francesco502/glimmer-countdown-app/actions/runs/45580346008)
+- [x] 本轮临时 QA 草稿已清理，发布锁已解除，远端标签指向最终提交。
 
 ## 历史记录（非发布门）
 
