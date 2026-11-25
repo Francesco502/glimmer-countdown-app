@@ -5,6 +5,7 @@ import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -101,11 +102,14 @@ class EventEditRecreationTest {
         assertEquals(SEED_TITLE, runBlocking { app.repository.getEvent(eventId)?.title })
         composeRule.onNodeWithContentDescription(saveDescription).performClick()
 
+        val saveActions = composeRule.onAllNodesWithContentDescription(saveDescription)
+        val savedTitle = composeRule.onNodeWithText(UPDATED_TITLE)
         composeRule.waitUntil(timeoutMillis = 5_000) {
-            runBlocking { app.repository.getEvent(eventId)?.title == UPDATED_TITLE }
+            runBlocking { app.repository.getEvent(eventId)?.title == UPDATED_TITLE } &&
+                saveActions.fetchSemanticsNodes().isEmpty() && savedTitle.isDisplayed()
         }
         composeRule.onNodeWithContentDescription(saveDescription).assertDoesNotExist()
-        composeRule.onNodeWithText(UPDATED_TITLE).assertExists()
+        savedTitle.assertExists()
         assertEquals(UPDATED_TITLE, runBlocking { app.repository.getEvent(eventId)?.title })
     }
 
